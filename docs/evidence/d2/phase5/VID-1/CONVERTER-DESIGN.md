@@ -2,6 +2,7 @@
 
 **Date:** 2026-10-12 · **Status:** DESIGN v2: the independent review's required changes are folded in. Database part written: `supabase/migrations/20261012_0002_vid1_converter_sources.sql` (+ rollback, PROBE; PGlite behaviour 67/67). · **Owner rulings:** A3.2 (no time limit, 500 MB, FREE only). A3.3 is superseded: the Owner created an Oracle Cloud account ("do all needful on behalf me") and said "okay go on".
 **Review:** independent design review, verdict **SOUND-WITH-CHANGES** (2026-10-12). Every required change (HIGH 1–4, MEDIUM 5–8, LOW 9) is addressed below and tagged **[R1]**…**[R9]**.
+**Amendment A1 (2026-10-13):** which streams are converted, HDR tone mapping, the FFmpeg sandbox as a root-owned template unit, and the poster follow-up — §10. Where §3 or §6 disagrees with §10, §10 applies.
 
 ## 1 · Why
 The web encoder converts in REAL TIME on the member's device and pauses whenever the tab is hidden. A 7:28 video takes about 7½ minutes with the tab in front (Owner, 2026-10-12: "since last one hour this is processing… can't test anything"). Phones run out of memory on long videos (A4.7). Formats a browser cannot decode (HEVC in Firefox, AVI, ProRes…) cannot be posted at all.
@@ -40,15 +41,16 @@ A free Oracle Always Free VM (Ampere A1, 4 OCPU / 24 GB, Mumbai) converts a 1080
    - Pages **re-HEADs the original** (the member's `video_source_uploaded` is not trusted for the ETag), then returns the job and a presigned **GET pinned to the recorded ETag** (signed `If-Match`) [R6]. A missing or changed original fails the job as `source_missing` (final). The GET's lifetime never exceeds the remaining lease [R2].
 5. **VM: convert, in an isolated FFmpeg sandbox (§6, [R1])**.
    - Download with a hard byte cap (= declared size).
-   - `ffprobe` under limits. Reject anything that is not exactly one video stream with at most one audio stream. Also reject: duration > 15 h (at ~2.9× real time a longer one could not finish inside a claim's 6 h ceiling; refused as `too_long`), resolution > 4096 on either side, fps outside 1–120, attached_pic, or data/subtitle streams.
+   - `ffprobe` under limits. Reject anything that is not exactly one video stream with at most one audio stream. Also reject: duration > 15 h (at ~2.9× real time a longer one could not finish inside a claim's 6 h ceiling; refused as `too_long`), resolution > 4096 on either side, fps outside 1–120, attached_pic, or data/subtitle streams. ***Amended A1 (§10.1):*** *extra video/audio/data/subtitle streams and cover pictures are now allowed and ignored; the video and audio streams are chosen and mapped by index.*
    - `planLadder()` (shared code) picks the renditions and bitrates.
    - FFmpeg settings:
      - `-protocol_whitelist file`, with an explicit demuxer allow-list (mov/mp4, matroska/webm, avi, mpegts, 3gp) and **no hls, concat or subfile**;
-     - `-map 0:v:0 -map 0:a:0?`, `-map_metadata -1`;
+     - `-map 0:v:0 -map 0:a:0?`, `-map_metadata -1`; ***A1 (§10.1):*** *`-map 0:<index>` of the chosen streams instead, plus `-sn -dn`;*
      - libx264 baseline, keyframes every 2 s (`-force_key_frames expr:gte(t,n_forced*2)`);
      - fragmented MP4 (`-movflags +frag_keyframe+empty_moov+default_base_moof`, 4 s fragments), `-maxrate/-bufsize` = rendition bitrate × 1.2 / × 2;
      - AAC 96 kb/s as a separate rendition.
-   - Poster = the member's cover if they uploaded one, else the frame at 1 s.
+     - ***Amended A1 (§10.2):*** *an HDR source (PQ, HLG or BT.2020) is tone-mapped to SDR BT.709 8-bit.*
+   - Poster = the member's cover if they uploaded one, else the frame at 1 s. ***A1 (§10.4):*** *for now always the frame; the member's cover in server mode is a recorded follow-up.*
    - Then `packageFromFragmented()` — the browser's own packager (`src/lib/video/hlsPackager.ts`, split out on branch `d2/VID-converter-core-20261012`) — does the naming (`240p.m3u8 / 240p.mp4 / 240p_<n>.m4s …`), the playlists (shared `mediaPlaylist()/masterPlaylist()`, never FFmpeg's own text, so they match the strict grammar of #411), the manifest and the sha256 hashes.
    - The VM runs `judgeUploadContent` itself before uploading, to fail fast.
    - It calls `rpc video_source_heartbeat(source_id, claim_token)` every 2 min while working; the lease is extended only while the token and status still match [R2], and a claim lives at most **6 h**.
@@ -130,12 +132,14 @@ Independent review of #416 (CHANGES-REQUIRED, all fixed): every source counts fo
 - A source GET URL is not re-issued for a held claim: a VM that restarts mid-download fails the job as `internal` (one attempt) (finding 6, accepted).
 
 ## 6 · The VM [R1]
-- Ubuntu 24.04 aarch64, unattended security upgrades, **Ubuntu Pro (free for personal use) enabled**, so `universe` FFmpeg gets security patches. Without Pro, the fallback is a pinned static FFmpeg build with CVE tracking.
+- Ubuntu 24.04 aarch64, unattended security upgrades, ~~Ubuntu Pro (free for personal use) enabled, so `universe` FFmpeg gets security patches. Without Pro, the fallback is~~ a pinned static FFmpeg build with CVE tracking.
+  - ***Amended (§10.5, owner ruling R-VM-1, 2026-10-13):*** *no paid or chargeable process, so Ubuntu Pro is not used. What this section called the fallback is the design: a pinned, sha256-verified official static FFmpeg build, updated by Claude against published security advisories through a reviewed pull request.*
 - SSH only from the Owner's IP (OCI security list), key-only. No inbound port; the worker is outbound-only.
 - **Two identities.** The worker (Node 22) runs as `converter`, which owns the refresh token (file 0600). Every ffprobe/ffmpeg runs as a **separate transient systemd unit** (`systemd-run --uid=ffjob`, or DynamicUser) with:
   - `PrivateNetwork=yes`, `InaccessiblePaths=/var/lib/converter/secrets`, `ReadWritePaths=` = that job's directory only;
   - `NoNewPrivileges`, empty `CapabilityBoundingSet`, `PrivateDevices`, `PrivateTmp`, `ProtectSystem=strict`, `ProtectHome`, `ProtectKernelTunables/Modules/Logs`, `ProtectControlGroups`, `RestrictNamespaces`, `RestrictSUIDSGID`, `LockPersonality`, `SystemCallFilter=@system-service`, `MemoryMax`, `CPUQuota`, `TasksMax`;
   - `RuntimeMaxSec` = 3 × video length + 10 min.
+  - ***Amended A1 (§10.3):*** *not a transient `systemd-run` unit — the same properties in a root-owned template unit, `converter-ff@<job>.service`, which polkit lets `converter` only start or stop.*
 - Job directory: a **size-capped filesystem** (a loop-mounted 4 GB ext4), one sub-directory per job, wiped after each job.
 - One job at a time (also enforced in the database). The worker keeps its current claim token on disk (0600) so a restart can `fail` or finish the job instead of waiting out the lease.
 - Oracle may reclaim an IDLE Always Free instance (under about 20 % CPU/network/memory for 7 days), and Ampere capacity in Mumbai is often unavailable. That is acceptable **best-effort only**:
@@ -158,7 +162,101 @@ Independent review of #416 (CHANGES-REQUIRED, all fixed): every source counts fo
 ## 9 · Build order (staging only; production only on the Owner's "go production")
 1. D1 migration + rollback + PROBE, then the independent review, then apply to staging (apply-migration.yml).
 2. Pages Functions + tests, then review, then merge.
-3. VM: the hardened units, the worker (`packageFromFragmented`), Ubuntu Pro. The converter credentials go to the VM with **one Owner double-click** (Claude never sees the secret).
+3. VM: the hardened units, the worker (`packageFromFragmented`), ~~Ubuntu Pro~~ the pinned FFmpeg (§10.5). The converter credentials go to the VM with **one Owner double-click** (Claude never sees the secret).
 4. Client server mode + job-store states.
 5. Bucket separation proof (§7).
 6. End-to-end on staging: a 7:28 phone video, an HEVC .mov, an AVI. Each posted from Chrome, Edge and Firefox with the tab closed during conversion, and played back.
+
+## 10 · Amendment A1 (2026-10-13)
+**Decided by the session for the Owner: iPhone videos must work and keep their colours.** Implemented in PR #420 (the converter worker, `converter/`). Where §3 or §6 says otherwise, this section applies. The independent reviewer checks the code against it.
+
+### 10.1 Which streams are converted (replaces the stream refusals of §3 step 5)
+- **Video:** the first stream whose `codec_type` is video, that is **not** a cover picture (`disposition.attached_pic`) and whose codec FFmpeg knows. It is mapped **by its index** (`[0:<index>]` / `-map 0:<index>`), never `0:v:0`, so a cover picture listed first can never be the one converted. A file with no such stream, including a file that holds only a cover picture, is refused as `no_video`. Video streams whose codecs FFmpeg does not know are refused as `unsupported_format`.
+- **Audio:** the stream marked `default`, else the first audio stream, counting only streams whose codec FFmpeg knows. iPhone spatial audio (APAC) is listed by ffprobe as `unknown` and skipped. The chosen stream is mapped by index and streams are never mixed. A file whose audio FFmpeg cannot decode at all gets a version without sound, as the browser path does with sound it cannot decode.
+- **Everything else is allowed and ignored:** timed metadata (`mebx`), timecode (`tmcd`), subtitles, attachments, cover pictures and further audio tracks are never mapped. Mapping is explicit, `-sn -dn` is set as well, plus `-map_metadata -1` and `-map_chapters -1`.
+- **Still refused** *(as amended by the re-review of #420, N5 — OWNER GOAL "any format, like Instagram": everything a phone records is accepted; what is refused is beyond any camera, and it is refused as "too large", never as "export it as MP4", which would not help)*:
+  - width or height above 4096: `too_big`;
+  - under 1 fps: `unsupported_format` (not a usable video stream);
+  - above 240 fps for a source up to 1920×1080 in either orientation (iPhone slow motion records 240 fps), or above 120 fps above that — so **4K at 120 fps is accepted**: `too_big`. The output stays at most 30 fps (the `fps` filter runs first, so scaling and encoding work at ≤ 30 fps; only decoding sees the source rate). *(Review of #420, M2; re-review N5.)*
+  - more than 1,072,300,032 decoded pixels per second (width × height × fps) — just above DCI 4K120 (4096 × 2160 × 120 = 1,061,683,200), so UHD/DCI 4K120 and 1080p240 (497,664,000) pass: `too_big`. *(Review of #420, M2; re-review N5: was 4096 × 2160 × 60 and `unsupported_format`.)*
+  - The fps limits and the pixel-rate ceiling carry **1 % slack** (`FPS_SLACK`): a phone's variable-rate file reports an average rate a hair off its nominal one (a 120 fps clip can say 120.04), and a real 120 / 240 fps recording must never be "too big".
+  - The work a 4K120 source costs is bounded by the per-run time cap (3 × length + 10 min); one that reaches it is `too_long` (below). Decoding speed of 4K120 HEVC on the Ampere VM is **not yet measured**.
+  - longer than 15 h: `too_long`;
+  - a conversion that reaches its own time cap (3 × length + 10 min): `too_long`, final rather than retried, because it would reach the cap again. An ffprobe that times out is `damaged`. *(Review of #420, M2.)*
+  - no readable size or length, or a length that rounds to 0.00 s (the declared length has two decimals; the database requires it above 0): `damaged`. Only a length above the database's 24 h is `too_long`. *(Re-review N6f.)*
+  - a demuxer outside the allow-list, or more than 64 streams (a bound for hostile files): `unsupported_format`.
+- **A clip too short for its sound** *(re-review N6f)*: the database's bytes-per-second rule for `audio` (16,384 B/s, no slack) cannot be met by a clip so short that the audio rendition's fixed overhead (its ~700-byte init segment) alone exceeds it (≈ 0.04 s). When the database's arithmetic refuses the package for that reason ONLY, the video is kept and the sound dropped (`has_audio: false`, log `job.audio_dropped`), as the browser path does with sound it cannot use — never a failure.
+
+### 10.2 HDR is tone-mapped to SDR BT.709 (adds to §3 step 5's FFmpeg settings)
+- **When:** the source's transfer is PQ (`smpte2084`) or HLG (`arib-std-b67`), or its primaries are `bt2020`. The source is then tone-mapped to SDR BT.709 8-bit **once**, at the largest rendition's size, and the smaller renditions are scaled down from that (as revised after the review of #420; first written as per-rendition):
+  `zscale=tin=<src>:pin=<src>:min=<src>:rin=<src>:t=linear:npl=100:p=<src>,format=gbrpf32le,zscale=p=709,tonemap=tonemap=hable:desat=0:peak=<P>,zscale=t=709:m=709:r=limited,format=yuv420p,limiter=min=16:max=235:planes=1,limiter=min=16:max=240:planes=6`
+- **Peak and clamp** (review of #420):
+  - `<P>` is the content's peak in units of 100 nits. It comes from the file's HDR10 MaxCLL, else the mastering display's peak. Without either, it is PQ's own maximum (10,000 nits, so nothing a PQ file holds can clip) or HLG's nominal 1,000 nits (zscale maps HLG's full signal to about 10.07).
+  - Measured on a 10-bit PQ frame with 100 / 1,000 / 2,000 / 4,000-nit bands, the limited-range luma came out as follows. Before the change: 151 / 235 / 247 / 254, so everything from 1,000 nits up was clipped into super-white. After: 138 / 214 / 224 / 231, strictly increasing and all legal.
+  - The `limiter` clamps make sure nothing leaves the legal limited range (out-of-gamut colours, scaling overshoot). It runs again after each rendition's scale.
+  - A BT.2020 file with an SDR transfer gets the gamut conversion only (`tonemap=clip`: identity up to white).
+- **Source description stated explicitly:** the source's transfer, primaries, matrix and range are written into the chain.
+  - A value the file does not state takes the HDR default: BT.2020 primaries, the BT.2020 non-constant-luminance matrix, limited range.
+  - For a file with BT.2020 primaries but no PQ/HLG transfer, the transfer defaults to BT.2020's SDR curve.
+  - `p=` is repeated on the first zscale because zscale takes any output property not stated from the frame. With an untagged frame that fails with "no path between colorspaces" (measured).
+- **Tags and poster:** the outputs are tagged `bt709` (`-color_primaries bt709 -color_trc bt709 -colorspace bt709 -color_range tv`). The poster goes through the same chain.
+- **SDR sources are untouched:** no tone mapping, no tags added.
+- **What FFmpeg must have:** `zscale` (libzimg) and `tonemap`. The pinned static build (§10.5) has both; its installer refuses a build without them, and the converter workflow checks them again before its tests.
+  - The worker's start-up self-test also converts an HDR-tagged source, so a VM whose FFmpeg lacks them claims nothing.
+  - CI converts a synthetic 10-bit PQ / BT.2020 HEVC source and checks that every rendition is 8-bit BT.709 and that the package passes the judge with no problems.
+- **Dolby Vision (iPhone):** the HLG-compatible base layer is converted; the Dolby Vision metadata is ignored.
+
+### 10.3 The FFmpeg sandbox is a root-owned template unit (amends §6)
+- **Why the change:** §6 runs every ffprobe/ffmpeg as `systemd-run --uid=ffjob -p …`. But the worker runs as the unprivileged user `converter`. Starting a **transient** unit is polkit's `org.freedesktop.systemd1.manage-units` action, with no unit name or properties a rule could inspect. A grant would therefore let a stolen worker start any unit, with any properties, **as root**: the compromised-VM case of §2 would become root on the VM.
+- **What replaces it:** the same properties live in the root-owned `converter/deploy/converter-ff@.service`.
+  - The polkit rule `50-converter-ff.rules` lets `converter` only `start` or `stop` units named `converter-ff@<uuid>.service`.
+  - The worker hands over *what* runs in `<job>/.run/{tool,args,timeout}`.
+  - `ffjob-run` (root-owned, inside the sandbox) runs only the pinned `/opt/converter/ffmpeg/current/bin/ffmpeg` or `…/ffprobe` (§10.5; first written as `/usr/bin/…`).
+- **Time cap:** `RuntimeMaxSec` (3 × length + 10 min) has no effect on `Type=oneshot`, so it becomes `ffjob-run`'s `timeout` (at most 6 h, a claim's ceiling). `TimeoutStartSec` is the backstop.
+- **Extra hardening** beyond the §6 list: `MemoryDenyWriteExecute`, `IPAddressDeny=any`, `RestrictAddressFamilies=AF_UNIX`, `PrivateIPC`, `ProtectClock`, `ProtectHostname`, `ProtectProc=invisible`.
+- **The worker unit itself** (`converter.service`) is hardened too, including `NoNewPrivileges` and `RestrictSUIDSGID`. Its job directories get their set-group-ID bit by inheritance from the jobs root, never by request.
+- **Proof:** on systemd 255, the converter workflow's `sandbox-check.sh` shows:
+  - the polkit grant works, and no other unit or verb is allowed;
+  - the secrets and the worker's state are unreadable from inside a run;
+  - a run has no network and cannot write outside its own job directory;
+  - the time cap ends an endless run;
+  - the self-test passes under the real `converter.service`.
+- **Smaller note:** the secret on the VM is the converter account's email and password in a 0600 file. The worker keeps its Supabase session (and the rotating refresh token) in memory only; §6 spoke of a refresh-token file.
+
+### 10.4 Known follow-up: the poster in server mode
+§3 step 5 says the poster is "the member's cover if they uploaded one, else the frame at 1 s". The claim carries no cover, so for now the converter always uses the frame at min(1 s, duration/2). **Follow-up:** bring the member's chosen cover into server mode, for example as a cover object stored beside the original that the claim hands out.
+
+### 10.5 FFmpeg is a pinned static build, not Ubuntu's (owner ruling R-VM-1, amends §6)
+**Owner ruling R-VM-1 (2026-10-13): no paid or chargeable process. Ubuntu Pro is NOT used.** Ubuntu's own `ffmpeg` is in `universe`, whose security fixes come only through Ubuntu Pro — so Ubuntu's `ffmpeg` package is not used and not installed, and §6's fallback becomes the design: a pinned, checksum-verified official static FFmpeg build, updated by Claude against published security advisories.
+- **The build:** one official static GPL build from BtbN/FFmpeg-Builds, release line 9.0, pinned in `converter/deploy/ffmpeg.pin`:
+  - release `autobuild-2026-09-30-13-08`, version `n9.0.2-17-g2a571b6068` (FFmpeg tag n9.0.2 plus 17 commits of branch `release/9.0`, commit `2a571b606854520cf89804d8030c8b328e621689`; BtbN's build scripts at commit `6c9aec5fc9a72ec3abedd1fa84db141fa18cf52b`);
+  - `aarch64` (the VM): `https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-30-13-08/ffmpeg-n9.0.2-17-g2a571b6068-linuxarm64-gpl-9.0.tar.xz`, sha256 `91afcd7695d4bbbb9e0057aa10baaf9875ec4e1a97303f9059ec971336a2ab46`;
+  - `x86_64` (CI): `…/ffmpeg-n9.0.2-17-g2a571b6068-linux64-gpl-9.0.tar.xz`, sha256 `68ee646831adaae2495618346f3bba94ff207ff83bbd34d643e7004730d66269`.
+  - The sha256 values were checked three ways on 2026-10-13: BtbN's published `checksums.sha256` for the release, the digest GitHub reports for each asset, and hashing both downloaded files.
+  - The last autobuild of a month is pinned because BtbN keeps that one for **two years** (daily builds for 14 days; their README, "Release Retention Policy"), so the exact file stays downloadable; a pin must never be left to grow that old.
+- **What changed from FFmpeg 6.1 to 9.0 for the converter (found by CI on the first run with the pinned build, both architectures):** FFmpeg 9 writes the colour transfer and primaries it finds **on the frames**; the `-color_trc` / `-color_primaries` output options alone no longer tag a file (measured with the same command: 6.0 wrote `smpte2084` / `bt2020`, 9.0.2 wrote `unknown`). The self-test made its HDR source with those options only, so on 9.0.2 the source was not HDR and the self-test — which gates every start of the worker — failed. The source is now tagged on its frames (`setparams`, `selftest.ts` `HDR_TAG_FILTER`), which both versions honour. Members' videos were not affected: the converter's own outputs get their BT.709 tags from `zscale`, which sets them on the frames (the real-FFmpeg HDR test checks every rendition's tags, and passes on 9.0.2). Nothing else in the converter's test suite differed between the two versions.
+- **The pin is checked before it is used:** the release must be a dated `autobuild-…` tag (never the moving `latest`), and the URL must be exactly BtbN's release download of that tag and file over HTTPS, or the installer refuses.
+- **Install** (`ffmpeg-lib.sh`, used by `setup.sh` and `update-ffmpeg.sh`, as root): HTTPS-only download (or a supplied copy) → **refused unless the sha256 is the pinned one** → only `ffmpeg`, `ffprobe` and the build's `LICENSE.txt` extracted, installed `root:root` under `/opt/converter/ffmpeg/<version>-<arch>/`, with a `SOURCE` file (URL, sha256, source commits) → refused unless it has `zscale`, `tonemap`, `limiter`, `libx264`, `libx265` → `/opt/converter/ffmpeg/current` swapped atomically (`ln -sfn` + `mv -T`; the old one becomes `previous`). `ffjob-run` runs only `current`.
+- **Update** (`update-ffmpeg.sh`): the same install, then (with `converter.service` stopped) the worker's self-test through the real sandbox with the new build; on success the pin is recorded and only `current` + `previous` are kept; on failure `current` and `previous` are put back as they were, the failed build removed, and the script exits 1. The worker is restarted either way if it was running.
+- **The worker sets its own umask (0007).** Job directories must be group-writable for the FFmpeg runs (user `ffjob`, group `convjob`). The unit sets `UMask=0007`, but the update script runs the worker's self-test outside the unit, under root's mask (022): the directories came out 0750 and every FFmpeg run ended "killed" — found by CI the first time the update path ran, on both architectures. The worker now sets the mask itself at start (`job.ts` `setWorkerUmask`, called first in `main.ts`), so it behaves the same inside the unit, from `update-ffmpeg.sh`, and from a manual `node worker.mjs --selftest`.
+- **CI** installs the same pinned build the same way on `ubuntu-24.04` and `ubuntu-24.04-arm` (GitHub's arm64 runner, free for a public repository) and runs the full real-FFmpeg suite, `setup.sh`, `sandbox-check.sh --selftest`, the real update path, the refusals (a pin naming another URL; a file whose sha256 is not the pin's — and the same file accepted once its sha256 is right) and a rollback against it.
+- **Security tracking (R-VM-1: Claude, the working session — no Owner action):** at least monthly, and whenever an FFmpeg CVE is published, Claude reads FFmpeg's security page (https://ffmpeg.org/security.html) and the NVD list for FFmpeg against the pinned version; a fix in a newer point release or on the release branch → a PR that updates `ffmpeg.pin` → independent review → CI on both architectures → `update-ffmpeg.sh` on the VM. The sandbox (no network, no secrets, one job directory, syscall filter, memory and time caps) limits what an FFmpeg bug could reach; it does not replace the update. **Not automated:** nothing alarms by itself when the pin grows old; the monthly check is a procedure.
+- **Licence obligations of the build (checked 2026-10-13).** The build is **GPL version 3**: it is configured `--enable-gpl --enable-version3` (read from the x86_64 binary), holds libx264 and libx265, and ships the GPL v3 text as `LICENSE.txt`. It is not a `nonfree` build.
+  - Running a GPL program is unconditional; the GPL's duties (give the licence, offer the complete corresponding source) attach to handing a copy to someone else. The converter only runs FFmpeg on our own VM, as a separate program started by the worker (nothing is linked into our code), and members receive converted videos, which the licence does not cover. So nothing has to be published and our code's licence is unaffected.
+  - Kept anyway, so the copy is always accompanied by its licence and source: `LICENSE.txt` beside the binaries, and `SOURCE` naming the download URL, sha256, FFmpeg's source commit and BtbN's build-scripts commit (which name every bundled library and version). The installer refuses a build without `LICENSE.txt`; CI checks both files.
+  - Rules that keep it that way: the binaries are never committed, never uploaded as a CI artifact (only `worker.mjs` is) and never shipped in the app; handing them to a third party would bring the source-offer duty and needs a decision first; a `nonfree` build is never pinned (CI refuses one).
+  - BtbN's build scripts are MIT-licensed; only their published output is used. BtbN's README sets no further condition on using the builds. Patent licences for H.264/HEVC are a separate matter, the same whichever FFmpeg build encodes, and are not changed by this choice.
+- **Everything else** on the VM comes from Ubuntu's main archive, whose security fixes are free; `setup.sh` checks that `unattended-upgrades` is on and warns if not. The earlier marker file and worker warning about FFmpeg security updates (review of #420, M4) are removed with the dependency they watched.
+
+### 10.6 Notes from the re-review of #420 (APPROVE-WITH-NITS), as implemented
+- **N1:** `sandbox-check.sh` writes its InaccessiblePaths probe and changes the directory modes **as user `converter`** (the directories are converter's): root never creates, chmods or writes through a name in a converter-writable directory.
+- **N2:** `converter-ff@.service` has `OOMPolicy=kill`. A run that ends with 137 (SIGKILL) counts as the time cap only when it lasted at least the cap handed over; earlier it is `killed` (→ `internal`, retried), never `too_long`.
+- **N3:** `sandbox-check.sh --selftest` refuses while `converter.service` is running (a `start` would then be a no-op returning 0), and proves each check ran in THIS start: the worker's own result line (`"event":"worker.selftest"` / `"worker.netcheck"` with `"ok":true`) must be in the journal after a cursor taken just before the start. (First written against the unit's start time and exit status; CI showed those read zero once a finished oneshot is unloaded, so that check failed although everything had run and passed.)
+- **N4:** `CONVERTER_R2_BUCKET` is required. A presigned URL outside the lane's R2 host/bucket pin ends that job (`fail internal`, requeued) and the worker **stops claiming** with an `ALERT` log and exit status 4, which `converter.service` does not restart (`RestartPreventExitStatus=4`): a misconfiguration must not fail every member's job.
+- **N5 (Owner: "accept 4K120" — any format the phone records):** 4K at 120 fps is accepted; what remains refused for frame rate or pixel rate is beyond any camera and ends `too_big`, never `unsupported_format` (§10.1).
+- **N6:**
+  - a/b/c — the setup message names every value to fill in; the `pro status` reading and its marker are gone with Ubuntu Pro (§10.5); `setup.sh` checks that unattended upgrades are on and warns if not.
+  - d — the network check has a positive control (outside the unit, the same user can reach 169.254.169.254 where it exists; where it does not, the script says so instead of claiming proof).
+  - e — a member's cancel (a lost claim) neither counts toward nor resets the internal back-off streak.
+  - f — a clip too short for its sound keeps its video and loses the sound; a length that rounds to 0.00 s is `damaged` (§10.1). The database rule's lack of an allowance for init segments stays a D1 follow-up.
+  - g — a refresh answered 429 / 408 is transient (the refresh token is kept, no theft alarm).

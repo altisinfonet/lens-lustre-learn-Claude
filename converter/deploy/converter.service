@@ -1,0 +1,80 @@
+# 50mm Retina World · the video converter worker (CONVERTER-DESIGN.md v2 §6).
+# Installed by setup.sh at /etc/systemd/system/converter.service
+# (@NODE_BIN@ is replaced with the Node 22 binary's path).
+#
+# Its own unprivileged user `converter`; outbound HTTPS only; it may write
+# only its claim file and the job space. FFmpeg never runs in here: every
+# ffprobe/ffmpeg is a converter-ff@<job>.service (user ffjob, no network).
+
+[Unit]
+Description=50mm Retina World video converter worker
+After=network-online.target var-lib-converter-jobs.mount
+Wants=network-online.target
+Requires=var-lib-converter-jobs.mount
+# A start that keeps failing (the self-test, the credentials) is retried, not hammered.
+StartLimitIntervalSec=900
+StartLimitBurst=10
+
+[Service]
+Type=exec
+User=converter
+Group=converter
+SupplementaryGroups=convjob
+EnvironmentFile=/etc/converter/converter.env
+Environment=NODE_ENV=production
+Environment=CONVERTER_LAUNCHER=systemd
+ExecStart=@NODE_BIN@ /opt/converter/worker.mjs
+WorkingDirectory=/var/lib/converter
+Restart=always
+RestartSec=30
+# Exit 4 = stopped on purpose: a presigned URL outside this lane's R2 pin (a misconfiguration,
+# or Pages changed). Not restarted — every further job would fail too (re-review N4).
+# After fixing /etc/converter/converter.env: sudo systemctl start converter.service
+RestartPreventExitStatus=4
+# SIGTERM to the worker only: it ends its job with `finish fail internal`
+# (requeued at once), stops its FFmpeg run, and exits.
+KillMode=mixed
+TimeoutStopSec=90
+UMask=0007
+
+MemoryMax=6G
+TasksMax=64
+LimitCORE=0
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/converter/state /var/lib/converter/jobs
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectProc=invisible
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateIPC=yes
+KeyringMode=private
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+# HTTPS out (IPv4/6), D-Bus to systemd/polkit (unix), glibc's resolver (netlink)
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+# Never the link-local range: 169.254.169.254 is the cloud's instance-metadata
+# service (and, on OCI, its DNS resolver). DNS is unaffected — the worker asks
+# systemd-resolved at 127.0.0.53 (Ubuntu's default), and resolved, outside this
+# unit, asks upstream. Proven by `sandbox-check.sh --selftest` (worker.mjs --netcheck).
+IPAddressDeny=link-local
+# Not set on purpose: MemoryDenyWriteExecute (Node's JIT needs it off),
+# PrivateNetwork (the worker talks to Supabase, Pages and R2).
+
+[Install]
+WantedBy=multi-user.target
