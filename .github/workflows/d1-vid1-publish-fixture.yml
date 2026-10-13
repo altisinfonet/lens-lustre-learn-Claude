@@ -1,0 +1,90 @@
+name: D1 · VID-1 publish — production-shaped fixture
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING BUT A THROWAWAY postgres:17.6 SERVICE CONTAINER.
+# HOLDS NO SECRET: the container password below is a literal placeholder for a
+# database that exists for the length of this job.
+#
+# WHAT IT PROVES (20261013_0004). video_publish_post() is SECURITY INVOKER.
+# Until 20261013_0004 its replay branch read public.post_media as the member;
+# on production the member holds no privilege on post_media, so that replay
+# raised 42501 — a defect staging could not show, because staging kept
+# authenticated SELECT on post_media for this one function. A read-only PROBE
+# on a live lane cannot publish, so this job publishes on a production-shaped
+# database instead: scripts/db-vid1-publish-fixture.mjs runs the REAL files
+# (20261011_0003, 20261013_0004, its PROBE and ROLLBACK, 20261011_0002's
+# detect_duplicate_post body) over supabase/tests/vid1-publish-post-media/,
+# in two shapes —
+#   production: post_media closed to anon/authenticated (production's ACL)
+#   staging:    the same plus 20261013_0001's keep (authenticated SELECT)
+# — and requires:
+#   * BEFORE the fix, on the production shape, the member's replay fails with
+#     42501 (the defect, reproduced — a fixture that cannot show it is no proof);
+#   * FAIL-FIRST, as a step: the AFTER assertions are run against the UNFIXED
+#     body in a rolled-back transaction and MUST go red there (production
+#     shape: 42501 at A1; staging shape: A7, the keep) — the job fails if they
+#     pass, because then they could not have failed;
+#   * AFTER it, on BOTH shapes, publishing works with no post_media privilege,
+#     the helper answers only for the caller's own post (cross-member false,
+#     owner true, no session false, anon refused), post_media stays closed;
+#   * every refusal fires: no lane, wrong lane, re-run, PROBE before the apply
+#     and after the rollback, rollback twice; the rollback restores each
+#     shape's own pre-state; the file re-applies after it.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261011_0002_vid1_duplicate_post_media_only.sql'
+      - 'supabase/migrations/20261011_0003_vid1_publish_post_atomic.sql'
+      - 'supabase/migrations/PROBE_vid1_publish_post_atomic.sql'
+      - 'supabase/migrations/20261013_0004_vid1_publish_post_media_definer.sql'
+      - 'supabase/migrations/PROBE_20261013_0004_vid1_publish_post_media_definer.sql'
+      - 'supabase/rollback/20261013_0004_vid1_publish_post_media_definer_ROLLBACK.sql'
+      - 'supabase/tests/vid1-publish-post-media/**'
+      - 'scripts/db-vid1-publish-fixture.mjs'
+      - '.github/workflows/d1-vid1-publish-fixture.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  fixture:
+    name: video_publish_post publishes on a production-shaped database
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_PASSWORD: fixture-not-a-secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: fixture-not-a-secret
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # The runner shells to psql, as apply-migration.yml does.
+      - name: Install psql
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: The throwaway server
+        run: psql -X -d postgres -tAc 'select version()'
+
+      - name: Fixture — before, apply, after, PROBE, rollback, re-apply (both shapes)
+        run: node scripts/db-vid1-publish-fixture.mjs

@@ -61,7 +61,10 @@ describe("video_publish_post — post and video link in one transaction", () => 
   it("never links a video onto a photo post found by its key (review C2)", () => {
     const refuse = fn.indexOf("this publish key belongs to a photo post");
     expect(refuse).toBeGreaterThan(-1);
-    expect(fn.slice(0, refuse)).toMatch(/image_urls[\s\S]*image_url[\s\S]*public\.post_media/);
+    // post_media is asked through the SECURITY DEFINER helper since
+    // 20261013_0004 — the member holds no privilege on post_media
+    // (videoPublishPostMediaDefiner.test.ts).
+    expect(fn.slice(0, refuse)).toMatch(/image_urls[\s\S]*image_url[\s\S]*public\.video_publish_own_post_has_media\(_post\)/);
   });
 
   it("sets the duplicate-guard marker transaction-locally, only around its own post insert", () => {
