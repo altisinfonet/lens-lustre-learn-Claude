@@ -84,12 +84,12 @@ Owed by the main session, on staging (fpszggreishhuvdpkmdr), read-only:
   d. the same AFTER the apply, and the 5-argument call:
        … select * from public.get_broadcast_feed('{}'::uuid[], 10, 3, null::text[], 'measure-1');
 
-  e. the PROBE failing on today's staging. Shown instead on BOTH PGlite fixtures (section 5,
+  e. the PROBE failing on today's staging. Shown instead on BOTH PGlite fixtures (section 7,
      "BEFORE (fail-first): the PROBE FAILS on today's functions" — G1, the 5-argument function
      does not exist). On staging it is the PROBE dispatch itself, before the apply:
        gh workflow run apply-migration.yml --ref staging -f target=staging \
-         -f migration=PROBE_20261013_0005_l2_feed_session_seed.sql \
-         -f confirm=PROBE_20261013_0005_l2_feed_session_seed.sql
+         -f migration=supabase/migrations/PROBE_20261013_0005_l2_feed_session_seed.sql \
+         -f confirm=supabase/migrations/PROBE_20261013_0005_l2_feed_session_seed.sql
 
   f. events per minute per active member: nothing writes "seen" until PR B is live. The PROBE's
      G5 notice prints the figure (total, last hour, per minute, last 24 h, members) on every run.
