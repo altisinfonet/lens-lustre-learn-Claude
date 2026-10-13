@@ -1,0 +1,52 @@
+name: D1 · L2 feed freshness (PGlite proof)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING. HOLDS NO SECRET. READS THE REPOSITORY, WRITES NOTHING.
+#
+# Stage L2 (F-REV4-8), migration 20261013_0005: runs
+# docs/evidence/d1/L2-feed-freshness/pglite-l2-feed.mjs on Linux — the migration,
+# its PROBE and its rollback against PRODUCTION's own feed function bodies
+# (fixture-production-feed-functions.sql, md5-checked) on a staging-shaped and
+# a production-shaped fixture, in an in-memory Postgres 17 (PGlite). Fail-first
+# observations of the old functions, grants, lane guard, rollback and re-apply
+# are all asserted; any FAIL fails the job.
+#
+# PGlite is installed into the runner's temp directory, pinned, so this job
+# never touches package.json or package-lock.json.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261013_0005_l2_feed_session_seed.sql'
+      - 'supabase/migrations/PROBE_20261013_0005_l2_feed_session_seed.sql'
+      - 'supabase/rollback/20261013_0005_l2_feed_session_seed_ROLLBACK.sql'
+      - 'docs/evidence/d1/L2-feed-freshness/**'
+      - '.github/workflows/d1-l2-feed-freshness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pglite:
+    name: 20261013_0005 on PGlite — staging- and production-shaped fixtures
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install PGlite 0.3.16 outside the repository
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pgl"
+          npm install --prefix "$RUNNER_TEMP/pgl" --no-save --no-audit --no-fund @electric-sql/pglite@0.3.16
+      - name: Prove the migration, its PROBE and its rollback
+        run: |
+          set -euo pipefail
+          export PGLITE_MODULE="$RUNNER_TEMP/pgl/node_modules/@electric-sql/pglite/dist/index.js"
+          node docs/evidence/d1/L2-feed-freshness/pglite-l2-feed.mjs
