@@ -53,9 +53,24 @@ export type JobOutcome =
 const isClaimGone = (e: unknown) =>
   e instanceof ApiError && (e.code === "VID-CONV-002" || /VID-CONV-002/.test(e.message));
 
+/**
+ * The worker's file-creation mask. A job directory must be 0770 — user converter,
+ * group convjob: every FFmpeg run (user ffjob) writes its outputs and its exit
+ * file there — and nothing of the worker's may be readable by others.
+ * converter.service sets UMask=0007, but the worker is also started OUTSIDE the
+ * unit (update-ffmpeg.sh's self-test; `node worker.mjs --selftest` by hand), under
+ * the caller's mask: with root's 022 the directories came out 0750, ffjob could
+ * not write, and every run ended "killed" (found by CI on the update path). So the
+ * worker sets the mask itself, first thing (main.ts).
+ */
+export const WORKER_UMASK = 0o007;
+export function setWorkerUmask(): void {
+  process.umask(WORKER_UMASK);
+}
+
 export async function prepareJobDir(dir: string): Promise<void> {
   await fs.rm(dir, { recursive: true, force: true });
-  // 0770 under the unit's UMask=0007. The set-group-ID bit (so what ffjob
+  // 0770 under the worker's own umask 0007 (setWorkerUmask). The set-group-ID bit (so what ffjob
   // writes stays group convjob) is INHERITED from the jobs root (setup.sh:
   // 2750) — never requested here: the worker's RestrictSUIDSGID=yes refuses a
   // mkdir/chmod that asks for it (EPERM), and a plain chmod would clear it.

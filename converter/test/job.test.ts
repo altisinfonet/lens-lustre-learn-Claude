@@ -11,7 +11,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import type { ServerResponse } from "node:http";
 import { canonicalManifest, type VideoManifest } from "../../src/lib/video/shared/rules";
-import { runJob, type JobDeps } from "../src/job";
+import { prepareJobDir, runJob, setWorkerUmask, WORKER_UMASK, type JobDeps } from "../src/job";
 import type { RunSpec } from "../src/launcher";
 import { apiFor, FakeLauncher, fakeServer, iphoneProbeJson, noSleep, probeJson, send, sha256, SRC, tempDir, TOKEN, VIDEO, withAuth, OWNER, type FakeServer, type Recorded } from "./helpers";
 
@@ -120,6 +120,34 @@ async function claimAndRun(w: World) {
   expect(claim).not.toBeNull();
   return runJob(claim!, w.deps);
 }
+
+describe("converter · the worker's own umask", () => {
+  it.skipIf(process.platform === "win32")("job directories are 0770 whatever mask the worker was started under (update-ffmpeg.sh and a manual --selftest run it outside the unit)", async () => {
+    const root = await tempDir();
+    const before = process.umask(0o022); // root's usual mask: what update-ffmpeg.sh's `runuser` hands the worker
+    try {
+      const without = path.join(root, "without");
+      await prepareJobDir(without);
+      expect((await fs.stat(without)).mode & 0o777).toBe(0o750); // the fault: group convjob (ffjob) cannot write
+      setWorkerUmask();
+      expect(process.umask()).toBe(WORKER_UMASK);
+      const dir = path.join(root, "with");
+      await prepareJobDir(dir);
+      expect((await fs.stat(dir)).mode & 0o777).toBe(0o770);
+      await fs.mkdir(path.join(dir, ".run"), { mode: 0o770 });    // as SystemdLauncher.run does
+      expect((await fs.stat(path.join(dir, ".run"))).mode & 0o777).toBe(0o770);
+      await fs.writeFile(path.join(dir, "source"), "x");           // a download: no access for others
+      expect((await fs.stat(path.join(dir, "source"))).mode & 0o007).toBe(0);
+    } finally {
+      process.umask(before);
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("the mask is 0007: user and group everything, others nothing", () => {
+    expect(WORKER_UMASK).toBe(0o007);
+  });
+});
 
 // Each test runs whole jobs (encode stand-in, packager, fake HTTP servers): slow on a busy machine.
 describe("converter · one job, start to end", { timeout: 20_000 }, () => {

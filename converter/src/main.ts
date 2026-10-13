@@ -16,6 +16,7 @@ import { readCredentialsFile, Session } from "./auth";
 import { loadConfig, type Config } from "./config";
 import { storageUrlRule } from "./download";
 import { scrub } from "./failures";
+import { setWorkerUmask } from "./job";
 import { DirectLauncher, SystemdLauncher, type Launcher } from "./launcher";
 import { jsonLogger, type Log } from "./log";
 import { selfTest } from "./selftest";
@@ -72,6 +73,7 @@ async function netcheckControl(log: Log): Promise<number> {
 export const EXIT_STOPPED_NOT_CLAIMING = 4;
 
 async function main(argv: string[]): Promise<number> {
+  setWorkerUmask(); // 0007 whatever the caller's mask: job directories must be group-writable (job.ts)
   const log = jsonLogger();
   if (argv[0] === "--netcheck") return netcheck(argv[1] ?? "https://example.com", log);
   if (argv[0] === "--netcheck-control") return netcheckControl(log);
