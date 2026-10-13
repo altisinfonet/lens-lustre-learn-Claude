@@ -19,12 +19,12 @@ import { judgeUploadContent, smallFiles } from "../../src/lib/video/shared/judge
 import { findAll } from "../../src/lib/video/shared/mp4";
 import { INIT_MAX_BYTES, manifestProblems, RENDITION_CEILING_BPS, renditionBytes, SEGMENT_MAX_BYTES, totalBytes } from "../../src/lib/video/shared/rules";
 import { dbVersionProblems, DB_CEILING_BPS } from "../src/dbRules";
-import { convertSource } from "../src/convert";
+import { convertSource, probeSource } from "../src/convert";
 import { runJob } from "../src/job";
 import { DirectLauncher } from "../src/launcher";
 import { mediaPlaylistSegments, targetDuration } from "../src/playlistFacts";
 import { judgeProbe } from "../src/probe";
-import { selfTest } from "../src/selftest";
+import { HDR_TAG_FILTER, selfTest, synthHdrArgs } from "../src/selftest";
 import { apiFor, fakeServer, noSleep, probeJson, send, sha256, SRC, tempDir, TOKEN, VIDEO, withAuth, OWNER, type FakeServer } from "./helpers";
 
 function findBinary(envName: string, name: string): string | null {
@@ -331,7 +331,7 @@ describe.skipIf(!FFMPEG)("converter · real FFmpeg", () => {
     for (let i = 0; i < c.length; i += 2) c.writeUInt16LE(512, i);
     await fs.writeFile(path.join(dir, "frame.yuv"), Buffer.concat([y, c, c]));
     await generate(dir, [
-      "-f", "rawvideo", "-pix_fmt", "yuv420p10le", "-s", `${W}x${H}`, "-r", "25", "-i", "frame.yuv", "-vf", "loop=loop=49:size=1",
+      "-f", "rawvideo", "-pix_fmt", "yuv420p10le", "-s", `${W}x${H}`, "-r", "25", "-i", "frame.yuv", "-vf", `loop=loop=49:size=1,${HDR_TAG_FILTER}`,
       "-c:v", "libx265", "-preset", "ultrafast", "-x265-params", "log-level=error", "-pix_fmt", "yuv420p10le",
       "-color_primaries", "bt2020", "-color_trc", "smpte2084", "-colorspace", "bt2020nc", "-color_range", "tv", "-tag:v", "hvc1", "-f", "mp4", "source",
     ]);
@@ -346,6 +346,15 @@ describe.skipIf(!FFMPEG)("converter · real FFmpeg", () => {
     for (let i = 1; i < luma.length; i++) expect(luma[i], `luma ${luma.join("/")}`).toBeGreaterThan(luma[i - 1]);
     for (const v of luma) { expect(v).toBeGreaterThanOrEqual(16); expect(v).toBeLessThanOrEqual(235); }
   }, 240_000);
+
+  it.skipIf(!FFPROBE)("R-VM-1 (FFmpeg 9): the self-test's HDR source carries its tags on the frames — this ffprobe reads PQ / BT.2020; the output options alone are not relied on", async () => {
+    const { dir } = await jobDir();
+    const r = await launcher().run({ tool: "ffmpeg", args: synthHdrArgs(1), jobDir: dir, timeoutS: 120 });
+    expect(r.exitCode, r.stderr).toBe(0);
+    const facts = await probeSource({ launcher: launcher(), jobDir: dir });
+    expect(facts).toMatchObject({ hdr: true, colour: { transfer: "smpte2084", primaries: "bt2020", matrix: "bt2020nc", range: "tv" } });
+    expect(synthHdrArgs()).toContain(HDR_TAG_FILTER);
+  }, 120_000);
 
   it.skipIf(!FFPROBE || !TONE_MAP)("the self-test passes (what the worker runs at every start), its HDR case tone-mapped", async () => {
     const root = await tempDir("conv-self-");

@@ -69,3 +69,35 @@ Release `autobuild-2026-09-30-13-08` (published 2026-09-30T13:09:24Z). FFmpeg co
 behind 0). BtbN tag commit `6c9aec5fc9a72ec3abedd1fa84db141fa18cf52b`. The x86_64 binary's
 configuration holds `--enable-gpl --enable-version3 --enable-libzimg --enable-libx264
 --enable-libx265` and no `--enable-nonfree`; its `LICENSE.txt` is the GPL version 3.
+
+## 5 · Found by CI on the pinned build: FFmpeg 9 takes colour tags from the frames
+
+The first run with the pinned build (run 38393331861, head `7c63687c`) failed the same two
+real-FFmpeg tests on **both** architectures (145 passed, 2 failed):
+"the self-test passes … its HDR case tone-mapped" (`ok: false`) and "HDR highlights …"
+(`plan.toneMap` was null). Every other test passed on FFmpeg 9.0.2.
+
+Cause, measured with the same command on both versions (ffprobe 9.0.2 reading the result:
+`color_range, color_space, color_transfer, color_primaries`):
+
+| FFmpeg | source made with the `-color_*` output options only | with `setparams` on the frames |
+|---|---|---|
+| 6.0 | `tv,bt2020nc,smpte2084,bt2020` | `tv,bt2020nc,smpte2084,bt2020` |
+| 9.0.2 | `tv,bt2020nc,unknown,unknown` | `tv,bt2020nc,smpte2084,bt2020` |
+
+So on 9.0.2 the self-test's "HDR" source was not HDR, and the self-test — which gates every start
+of the worker — refused. Fix: the tags are put on the frames (`selftest.ts` `HDR_TAG_FILTER`); the
+highlights test's source likewise. Members' videos were never affected: the converter's outputs
+get their BT.709 tags from `zscale` on the frames (the HDR test asserts each rendition's tags; it
+passed on 9.0.2 throughout).
+
+Reproduced locally with the Windows build of the **same release and source commit**
+(`ffmpeg-n9.0.2-17-g2a571b6068-win64-gpl-9.0.zip`, sha256 `a0e45723…7a58d278`, as in BtbN's
+`checksums.sha256`):
+
+| FFmpeg 9.0.2 | Result |
+|---|---|
+| committed code (`7c63687c`) | 2 failed, 12 passed — the same two as CI |
+| new control "the self-test's HDR source carries its tags on the frames", with the frame tags taken out again | **fails**: `transfer ""`, `primaries ""`, `hdr false` (and the self-test fails) |
+| fixed | whole converter suite: 14 files, **145 passed**, 3 skipped (POSIX-only), 0 failed |
+| fixed, on FFmpeg 6.0 | real-FFmpeg file: 15 passed |

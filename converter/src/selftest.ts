@@ -45,11 +45,21 @@ export function synthArgs(seconds = 6): string[] {
   ];
 }
 
+/**
+ * The HDR tags (PQ, BT.2020) as a filter: they must be ON THE FRAMES. FFmpeg 9
+ * (the pinned build) takes the transfer and primaries it writes from the frames,
+ * no longer from the `-color_trc` / `-color_primaries` output options alone —
+ * measured: 6.0 tagged the file from the options, 9.0.2 wrote "unknown", and the
+ * self-test then refused to start the worker. `setparams` works in both.
+ */
+export const HDR_TAG_FILTER = "setparams=color_primaries=bt2020:color_trc=smpte2084:colorspace=bt2020nc:range=tv";
+
 /** A small source TAGGED as HDR (PQ, BT.2020): enough to drive the tone-mapping path end to end, cheaply. */
 export function synthHdrArgs(seconds = 2): string[] {
   return [
     "-hide_banner", "-nostdin", "-nostats", "-loglevel", "error", "-y",
     "-f", "lavfi", "-i", `testsrc2=size=640x360:rate=25:duration=${seconds}`,
+    "-vf", HDR_TAG_FILTER,
     "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
     "-color_primaries", "bt2020", "-color_trc", "smpte2084", "-colorspace", "bt2020nc", "-color_range", "tv",
     "-f", "mp4", "source",
