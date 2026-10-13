@@ -113,7 +113,7 @@ BEGIN
   -- G6 · staging push stays on staging.
   IF to_regclass('public.push_config') IS NOT NULL THEN
     FOR r IN
-      SELECT coalesce(substring(pc.function_url FROM '^[a-zA-Z]+://([^/?#]+)'), '(unparseable)') AS host
+      SELECT coalesce(substring(pc.function_url FROM '^[a-zA-Z]+://(?:[^/?#@]*@)?([^/?#]+)'), '(unparseable)') AS host
         FROM public.push_config pc
        WHERE pc.function_url IS NOT NULL
          AND left(pc.function_url, length('https://fpszggreishhuvdpkmdr.supabase.co/'))

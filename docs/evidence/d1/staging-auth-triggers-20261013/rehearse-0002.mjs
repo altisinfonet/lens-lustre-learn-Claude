@@ -122,6 +122,18 @@ await setPush("https://fpszggreishhuvdpkmdr.supabase.co.attacker.example/functio
 await run("PRE-005 is a prefix match with the trailing slash (look-alike host refused)", MIG,
   { lane: "staging", role: "migrator", expect: "fail:PRE-005 .*host fpszggreishhuvdpkmdr\\.supabase\\.co\\.attacker\\.example" });
 
+console.log("\n── a URL carrying userinfo: still refused, and the credential is not printed (re-review N-1)");
+await setPush("https://user:secretpw@evil.example/x");
+const e5u = await run("migration refuses a push_config URL that carries user:password@ (PRE-005)", MIG,
+  { lane: "staging", role: "migrator", expect: "fail:PRE-005 public\\.push_config\\.function_url points at host " });
+await check("  …the message names the host evil.example", !!e5u && /evil\.example/.test(e5u.message));
+await check("  …and carries neither 'secretpw' nor any '@'", !!e5u && !/secretpw|@/.test(e5u.message));
+await check("  …and nothing was created", (await userTriggers()) === 0);
+const e6u = await run("PROBE flags the same URL (G6)", PROBE,
+  { lane: "staging", expect: "fail:G6 public\\.push_config\\.function_url points at host " });
+await check("  …the message names the host evil.example", !!e6u && /evil\.example/.test(e6u.message));
+await check("  …and carries neither 'secretpw' nor any '@'", !!e6u && !/secretpw|@/.test(e6u.message));
+
 console.log("\n── body guard (PRE-002 / G5)");
 await setPush(null);
 await db.exec(`CREATE OR REPLACE FUNCTION public.sync_oauth_on_login() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $f$ BEGIN RETURN NEW; END $f$;`);

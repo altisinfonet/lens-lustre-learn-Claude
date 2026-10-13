@@ -31,10 +31,11 @@
 -- no supautils, so the permitted path is proven from the catalog setting only;
 -- the refused path was exercised.
 --
--- LOCK. DROP TRIGGER takes ACCESS EXCLUSIVE on auth.users for the instant of
--- the drop: sign-ins, logins and token reads that touch auth.users wait behind
--- it. lock_timeout 5s bounds the wait; on timeout nothing is dropped —
--- re-dispatch.
+-- LOCK. DROP TRIGGER takes ACCESS EXCLUSIVE on auth.users and holds it from the
+-- first DROP until COMMIT — expected to be milliseconds, since only the second
+-- DROP and the RB-POST check run in between. Sign-ins, logins and token reads
+-- that touch auth.users wait behind it. lock_timeout 5s bounds the wait; on
+-- timeout nothing is dropped — re-dispatch.
 -- ═══════════════════════════════════════════════════════════════════════════
 
 BEGIN;

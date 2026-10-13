@@ -68,8 +68,10 @@
 --     Staging has no auth_emails queue at all (so no p9_email_wake on one).
 --   * PUSH — push_config.function_url named PRODUCTION's send-push
 --     (jtdtehuqtinjxropkkcn): pre-existing cross-lane wiring, repointed by a
---     separate unit. PRE-005 refuses this file until that repoint has landed,
---     so a staging sign-up can never reach production through this path.
+--     separate unit. PRE-005 refuses the APPLY of this file while push_config
+--     names any project other than staging's. That is all it controls: this
+--     file does not prevent push_config being repointed afterwards, the
+--     triggers stay on if it is, and only a run of PROBE G6 would catch it.
 --   sync_oauth_on_login: returns at once unless last_sign_in_at changed; on a
 --   login it only fills a NULL full_name (or re-asserts the admin brand name).
 --   For the 50 existing staging users it updates no row (0 NULL names; the
@@ -207,7 +209,7 @@ BEGIN
   -- it must be NULL or staging's own project. Only the host is ever printed.
   IF to_regclass('public.push_config') IS NOT NULL THEN
     FOR r IN
-      SELECT coalesce(substring(pc.function_url FROM '^[a-zA-Z]+://([^/?#]+)'), '(unparseable)') AS host
+      SELECT coalesce(substring(pc.function_url FROM '^[a-zA-Z]+://(?:[^/?#@]*@)?([^/?#]+)'), '(unparseable)') AS host
         FROM public.push_config pc
        WHERE pc.function_url IS NOT NULL
          AND left(pc.function_url, length('https://fpszggreishhuvdpkmdr.supabase.co/'))
