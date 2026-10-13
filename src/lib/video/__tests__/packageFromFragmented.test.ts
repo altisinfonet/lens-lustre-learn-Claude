@@ -3,7 +3,7 @@
  * packager (CONVERTER-DESIGN.md v2 §3 step 5): one fragmented MP4 per
  * rendition in, the same file set / playlists / manifest out.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, onTestFinished } from "vitest";
 import { fakeChunks, fakeAudio, fakeFragmentedAudio, fakeFragmentedVideo, JPEG } from "./fixtures";
 import { packageFromFragmented, packageHls } from "../hlsPackager";
 import { judgeUploadContent, smallFiles } from "../shared/judge";
@@ -42,6 +42,10 @@ describe("VID-1 · packageFromFragmented (server converter → the browser's pac
   });
 
   it("is byte-for-byte the package packageHls makes from the same encoded chunks (one packaging path, two encoders)", async () => {
+    // mp4-muxer writes the wall clock (whole seconds) into each init segment: freeze it, or two
+    // muxes that straddle a second boundary differ in that field alone (seen once in CI).
+    const clock = vi.spyOn(Date, "now").mockReturnValue(Date.UTC(2026, 9, 13, 12, 0, 0));
+    onTestFinished(() => clock.mockRestore());
     const seconds = 9;
     const viaChunks = await packageHls({
       video: [{
