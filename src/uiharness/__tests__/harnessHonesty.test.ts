@@ -21,7 +21,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { EMPTY_BY_DESIGN_REASONS, FIXTURE_TABLE_NAMES, fixtureRoutes } from "@/uiharness/fixtureRoutes";
-import { REAL_SCREEN_PREFIX, SIGNED_OUT_SCENES, providesOwnShell } from "@/uiharness/sceneConfig";
+import { CONSENT_PENDING_SCENES, REAL_SCREEN_PREFIX, SIGNED_OUT_SCENES, providesOwnShell } from "@/uiharness/sceneConfig";
 import { posts, profiles, postComments, profilesPublicData } from "@/uiharness/fixtures";
 
 const root = process.cwd();
@@ -150,6 +150,13 @@ describe("the screen scenes mount the REAL pages", () => {
   it("the signed-out list only names scenes that exist", () => {
     const keys = [...REAL.matchAll(/"(screen-[a-z-]+)":/g)].map((m) => m[1]);
     for (const name of SIGNED_OUT_SCENES) expect(keys).toContain(name);
+  });
+
+  it("the cookie-banner-up list only names scenes that exist, and main.tsx honours it", () => {
+    const keys = [...REAL.matchAll(/"(screen-[a-z-]+)":/g)].map((m) => m[1]);
+    expect(CONSENT_PENDING_SCENES.length).toBeGreaterThan(0);
+    for (const name of CONSENT_PENDING_SCENES) expect(keys).toContain(name);
+    expect(MAIN).toMatch(/consented: !isConsentPendingScene\(name\)/);
   });
 
   it("a missing-data banner is drawn INTO the picture, not only the console", () => {

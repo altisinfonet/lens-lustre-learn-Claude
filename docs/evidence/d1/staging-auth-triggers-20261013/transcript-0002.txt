@@ -1,0 +1,133 @@
+PostgreSQL 17.5 on aarch64-unknown-linux-gnu, compiled by emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 3.1.74 (1092ec30a3fb1d46b1782ff1b4db5094d3d06ae5), 32-bit
+PASS  fixture bodies are production's (md5 ca4a770bff3c438515f6edf9b977efbb handle_new_user, md5 6c157691677358931ff05084c7fefee4 sync_oauth_on_login)
+
+── refusals before anything is applied
+PASS  migration refuses: p32.lane unset
+      -> ERROR: APPLY REFUSED — this file is for STAGING only and p32.lane reads . Dispatch apply-migration.yml with target=staging (it sets p32.lane = 'staging').
+PASS  migration refuses: p32.lane = production
+      -> ERROR: APPLY REFUSED — this file is for STAGING only and p32.lane reads production. Dispatch apply-migration.yml with target=staging (it sets p32.lane = 'staging').
+PASS  PROBE refuses: p32.lane = production
+      -> ERROR: PROBE REFUSED 20261013_0002 — staging-only probe and p32.lane reads production. Dispatch apply-migration.yml with target=staging.
+PASS  rollback refuses: p32.lane unset
+      -> ERROR: ROLLBACK REFUSED — this file is for STAGING only and p32.lane reads . Dispatch apply-migration.yml with target=staging (it sets p32.lane = 'staging').
+PASS  migration refuses: role without TRIGGER on auth.users (PRE-001)
+      -> ERROR: AUTHTRG-0002-PRE-001: migrator lacks the TRIGGER privilege on auth.users (owner supabase_auth_admin) — CREATE TRIGGER would be refused
+PASS    …and nothing was created
+
+── ordering guard: staging push must not point at production (PRE-005 / G6)
+PASS  migration refuses while push_config names production's send-push (PRE-005)
+      -> ERROR: AUTHTRG-0002-PRE: staging is not in the state this file was written for — nothing applied:
+           PRE-005 public.push_config.function_url points at host jtdtehuqtinjxropkkcn.supabase.co — repoint staging push to https://fpszggreishhuvdpkmdr.supabase.co/ (or NULL) first
+PASS    …the message names the host only, never the path
+PASS    …and nothing was created
+PASS  PROBE before apply fails G1 AND G6 (negative control)
+      -> ERROR: PROBE FAIL 20261013_0002:
+           G1 missing: on_auth_user_created
+           G1 missing: on_auth_user_login_sync
+           G6 public.push_config.function_url points at host jtdtehuqtinjxropkkcn.supabase.co, expected NULL or fpszggreishhuvdpkmdr.supabase.co
+PASS  PRE-005 is a prefix match with the trailing slash (look-alike host refused)
+      -> ERROR: AUTHTRG-0002-PRE: staging is not in the state this file was written for — nothing applied:
+           PRE-005 public.push_config.function_url points at host fpszggreishhuvdpkmdr.supabase.co.attacker.example — repoint staging push to https://fpszggreishhuvdpkmdr.supabase.co/ (or NULL) first
+
+── a URL carrying userinfo: still refused, and the credential is not printed (re-review N-1)
+PASS  migration refuses a push_config URL that carries user:password@ (PRE-005)
+      -> ERROR: AUTHTRG-0002-PRE: staging is not in the state this file was written for — nothing applied:
+           PRE-005 public.push_config.function_url points at host evil.example — repoint staging push to https://fpszggreishhuvdpkmdr.supabase.co/ (or NULL) first
+PASS    …the message names the host evil.example
+PASS    …and carries neither 'secretpw' nor any '@'
+PASS    …and nothing was created
+PASS  PROBE flags the same URL (G6)
+      -> ERROR: PROBE FAIL 20261013_0002:
+           G1 missing: on_auth_user_created
+           G1 missing: on_auth_user_login_sync
+           G6 public.push_config.function_url points at host evil.example, expected NULL or fpszggreishhuvdpkmdr.supabase.co
+PASS    …the message names the host evil.example
+PASS    …and carries neither 'secretpw' nor any '@'
+
+── body guard (PRE-002 / G5)
+PASS  migration refuses: sync_oauth_on_login body differs from production (PRE-002)
+      -> ERROR: AUTHTRG-0002-PRE: staging is not in the state this file was written for — nothing applied:
+           PRE-002 public.sync_oauth_on_login() is not production's (md5 35d5221ed07e749184313fb784c99cc6, definer true, config {search_path=public}, returns trigger, plpgsql, owner postgres)
+
+── apply as a NON-OWNER holding TRIGGER (Supabase's shape), push_config NULL
+PASS  migration applies (lane=staging, role=migrator, push_config NULL)
+      -> ok; AUTHTRG-0002: on_auth_user_created created | AUTHTRG-0002: on_auth_user_login_sync created | AUTHTRG-0002: auth.users carries exactly production's two user triggers (on_auth_user_created, on_auth_user_login_sync), both enabled
+      on_auth_user_created [O] CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION handle_new_user()
+      on_auth_user_login_sync [O] CREATE TRIGGER on_auth_user_login_sync AFTER UPDATE ON auth.users FOR EACH ROW EXECUTE FUNCTION sync_oauth_on_login()
+PASS  existing member untouched by applying (no profile created for the pre-existing user)
+PASS  PROBE passes after apply (push_config NULL)
+      -> ok; PROBE PASS 20261013_0002: auth.users carries exactly production's two user triggers, definitions identical (pg_get_triggerdef), enabled, calling production's handle_new_user / sync_oauth_on_login bodies; staging push stays on staging
+PASS  PROBE passes with push_config on staging's own project
+      -> ok; PROBE PASS 20261013_0002: auth.users carries exactly production's two user triggers, definitions identical (pg_get_triggerdef), enabled, calling production's handle_new_user / sync_oauth_on_login bodies; staging push stays on staging
+PASS  migration re-run is a no-op (idempotent)
+      -> ok; AUTHTRG-0002: on_auth_user_created already present with production's definition; left as is | AUTHTRG-0002: on_auth_user_login_sync already present with production's definition; left as is | AUTHTRG-0002: auth.users carries exactly production's two user triggers (on_auth_user_created, on_auth_user_login_sync), both enabled
+PASS  PROBE fails G6 if push_config is pointed back at production after apply
+      -> ERROR: PROBE FAIL 20261013_0002:
+           G6 public.push_config.function_url points at host jtdtehuqtinjxropkkcn.supabase.co, expected NULL or fpszggreishhuvdpkmdr.supabase.co
+
+── behaviour: what a sign-up and a login now do
+PASS  sign-up creates profile ({"full_name":"New Member","avatar_url":"/avatars/fallback/m2.svg"}) and role ["user"]
+PASS  an UPDATE that is not a login (last_sign_in_at unchanged) changes nothing
+PASS  a login fills a NULL full_name from metadata
+PASS  a login by a pre-existing user with no profile row does not fail
+PASS  an admin login leaves the brand name as it is (no-op update)
+
+── tamper detection
+PASS  PROBE catches a disabled trigger (G3)
+      -> ERROR: PROBE FAIL 20261013_0002:
+           G3 on_auth_user_created tgenabled = D, expected O
+PASS  migration refuses over a disabled trigger (PRE-003)
+      -> ERROR: AUTHTRG-0002-PRE: staging is not in the state this file was written for — nothing applied:
+           PRE-003 on_auth_user_created already exists and differs from production: CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION handle_new_user() (enabled D)
+PASS  PROBE catches a changed definition (G2)
+      -> ERROR: PROBE FAIL 20261013_0002:
+           G2 on_auth_user_login_sync reads CREATE TRIGGER on_auth_user_login_sync AFTER UPDATE OF email ON auth.users FOR EACH ROW EXECUTE FUNCTION sync_oauth_on_login()
+              expected CREATE TRIGGER on_auth_user_login_sync AFTER UPDATE ON auth.users FOR EACH ROW EXECUTE FUNCTION sync_oauth_on_login()
+PASS  migration refuses over a changed definition (PRE-003)
+      -> ERROR: AUTHTRG-0002-PRE: staging is not in the state this file was written for — nothing applied:
+           PRE-003 on_auth_user_login_sync already exists and differs from production: CREATE TRIGGER on_auth_user_login_sync AFTER UPDATE OF email ON auth.users FOR EACH ROW EXECUTE FUNCTION sync_oauth_on_login() (enabled O)
+PASS  rollback refuses to drop a same-named trigger with another definition (RB-PRE-001)
+      -> ERROR: AUTHTRG-0002-RB-PRE: refusing to drop a trigger 20261013_0002 did not create — nothing dropped:
+           RB-PRE-001 on_auth_user_login_sync is not the trigger 20261013_0002 creates: CREATE TRIGGER on_auth_user_login_sync AFTER UPDATE OF email ON auth.users FOR EACH ROW EXECUTE FUNCTION sync_oauth_on_login()
+PASS    …and nothing was dropped
+PASS  PROBE catches an extra user trigger (G1)
+      -> ERROR: PROBE FAIL 20261013_0002:
+           G1 unexpected user trigger on auth.users: CREATE TRIGGER zz_extra AFTER DELETE ON auth.users FOR EACH ROW EXECUTE FUNCTION handle_new_user()
+PASS  migration refuses with an extra user trigger (PRE-004)
+      -> ERROR: AUTHTRG-0002-PRE: staging is not in the state this file was written for — nothing applied:
+           PRE-004 unexpected user trigger on auth.users: CREATE TRIGGER zz_extra AFTER DELETE ON auth.users FOR EACH ROW EXECUTE FUNCTION handle_new_user()
+PASS  PROBE catches a same-named function in another schema (G2/G4)
+      -> ERROR: PROBE FAIL 20261013_0002:
+           G2 on_auth_user_created reads CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION evil.handle_new_user()
+              expected CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION handle_new_user()
+           G4 on_auth_user_created calls evil.handle_new_user(), expected public.handle_new_user()
+PASS  PROBE catches a changed function body (G5)
+      -> ERROR: PROBE FAIL 20261013_0002:
+           G5 public.handle_new_user() differs from production (md5 35d5221ed07e749184313fb784c99cc6, definer true, config {search_path=public}, returns trigger, plpgsql, owner postgres)
+PASS  PROBE passes again once restored
+      -> ok; PROBE PASS 20261013_0002: auth.users carries exactly production's two user triggers, definitions identical (pg_get_triggerdef), enabled, calling production's handle_new_user / sync_oauth_on_login bodies; staging push stays on staging
+
+── rollback
+PASS  rollback as the NON-OWNER without supautils: DROP TRIGGER refused (Supabase needs supautils.drop_trigger_grants)
+      -> ERROR: must be owner of relation users
+PASS    …and both triggers are still there (whole transaction rolled back)
+PASS  rollback (owner-equivalent, as supautils permits postgres): drops a DISABLED copy of 0002's trigger too, reports the other trigger (RB-PRE-002 NOTICE)
+      -> ok; AUTHTRG-0002 ROLLBACK RB-PRE-002: other user trigger on auth.users, left untouched: CREATE TRIGGER zz_other AFTER DELETE ON auth.users FOR EACH ROW EXECUTE FUNCTION handle_new_user() | AUTHTRG-0002 ROLLBACK: on_auth_user_created and on_auth_user_login_sync are gone from auth.users
+PASS    …only the other trigger is left (zz_other)
+PASS  PROBE FAILS again after rollback
+      -> ERROR: PROBE FAIL 20261013_0002:
+           G1 missing: on_auth_user_created
+           G1 missing: on_auth_user_login_sync
+PASS  rollback re-run is a no-op
+      -> ok; AUTHTRG-0002 ROLLBACK: on_auth_user_created and on_auth_user_login_sync are gone from auth.users
+PASS  rows written while the triggers were on are kept (profile of the sign-up)
+PASS  migration re-applies cleanly after rollback
+      -> ok; AUTHTRG-0002: on_auth_user_created created | AUTHTRG-0002: on_auth_user_login_sync created | AUTHTRG-0002: auth.users carries exactly production's two user triggers (on_auth_user_created, on_auth_user_login_sync), both enabled
+PASS  PROBE PASSES after re-apply
+      -> ok; PROBE PASS 20261013_0002: auth.users carries exactly production's two user triggers, definitions identical (pg_get_triggerdef), enabled, calling production's handle_new_user / sync_oauth_on_login bodies; staging push stays on staging
+
+files rehearsed (sha256 of LF text):
+  migration 77725825835c288dfa69b2cb3a2c021ac6c99645e2ebe391283b63602c8d1b3e
+  probe     dd831a92cc35c141bbb47d11c84b345fcb6e5ebca0fc777128ab4a83f0157433
+  rollback  18b05d51be98aa5a4e4f89674cf5c8cb8597a40bfc4723863a94e06fb67d8c08
+ALL SCENARIOS AS REQUIRED

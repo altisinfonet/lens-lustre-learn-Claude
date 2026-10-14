@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import type { FeedPost } from "@/hooks/feed/useFeedQuery";
 
 /**
@@ -34,8 +34,11 @@ export function useNewPostsBanner() {
     return bufferedIdsRef.current.has(postId);
   }, []);
 
+  const bufferedIds = useMemo(() => bufferedPosts.map((p) => p.id), [bufferedPosts]);
   return {
     bufferedCount: bufferedPosts.length,
+    /** Stage L2: the ids, so the "new posts" pill can merge them with the polled count without double-counting. */
+    bufferedIds,
     bufferPost,
     flushBuffer,
     isBuffered,

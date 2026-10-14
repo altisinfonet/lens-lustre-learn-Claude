@@ -25,6 +25,8 @@ import AppShell from "./AppShell";
 import { posts, HARNESS_USER_ID, dashboardInit } from "./fixtures";
 import { mapSidebarVotingEntriesToVotingPhotos } from "@/lib/competitionVotingPhotos";
 import { unmatched } from "./fakeBackend";
+import { ServerJobsTray } from "@/components/video/ServerVideoJobs";
+import { serverJob } from "./serverVideoFixtures";
 
 /**
  * Pages are lazy in App.tsx and are imported the same way here, so a scene
@@ -33,6 +35,8 @@ import { unmatched } from "./fakeBackend";
  * it, it must be unmistakable rather than looking like a designed empty state.
  */
 const Login = lazy(() => import("@/pages/Login"));
+/** The home page (/home for a signed-in member) — where "Ask anything" lives. */
+const Index = lazy(() => import("@/pages/Index"));
 const Feed = lazy(() => import("@/pages/Feed"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const PostDetail = lazy(() => import("@/pages/PostDetail"));
@@ -375,4 +379,49 @@ export const REAL_SCREENS: Record<string, () => JSX.Element> = {
    * journey. It is not a claim that the click works.
    */
   "screen-voting-lightbox": () => screen(<VotingLightboxScene />, "/feed", "/feed"),
+
+  /*
+   * ── THE BOTTOM DOCK ON THE HOME PAGE (review of #423, 2026-10-13) ─────────
+   * Owner: no overlapping UI. On a phone the server-video card sat over the
+   * home page's "Ask anything" button. This is the REAL home page a signed-in
+   * member reaches from the bottom bar's Home button — its real Layout, its
+   * real "Ask anything" — with the card at the bottom of the app, as
+   * VideoUploadBridge draws it. The button must sit ABOVE the card, never
+   * under it (src/lib/ui/bottomDock.ts).
+   */
+  "screen-home-server-card": () => homeWithServerCard(),
+  /**
+   * The same, with the cookie banner still up — a member's first visit. Three
+   * layers at the bottom of one phone screen: the banner, the card above it,
+   * the button above both. None may sit on another.
+   */
+  "screen-home-server-card-consent": () => homeWithServerCard(),
+  /**
+   * The tightest a phone screen gets: the cookie banner up AND the folded line
+   * tapped open. The list takes only the room that is left (it scrolls inside
+   * its cap), so "Ask anything" above it is still wholly on the screen.
+   */
+  "screen-home-server-card-consent-open": () => homeWithServerCard(true),
+  /** ONE video, no banner: the full card over the home page, "Ask anything" above it. */
+  "screen-home-server-card-single": () => homeWithServerCard(false, 1),
 };
+
+/**
+ * The card's two commonest states together: an upload under way, and one being
+ * prepared. On a phone that is ONE slim line (Owner, 2026-10-13); `open` draws
+ * it as it is after a tap, since the harness cannot tap.
+ */
+function homeWithServerCard(open = false, count = 2) {
+  const jobs = [serverJob("up", { step: "source" }), serverJob("prep", { step: "converting" }), serverJob("ready", { step: "review", videoId: "v" })];
+  return (
+    <>
+      {screen(<Index />, "/home", "/home")}
+      <ServerJobsTray
+        jobs={open ? jobs : jobs.slice(0, count)}
+        progress={{ up: 42 }}
+        defaultOpen={open}
+        onPreview={() => {}} onCancel={() => {}} onDismiss={() => {}}
+      />
+    </>
+  );
+}

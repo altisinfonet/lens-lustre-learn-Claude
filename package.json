@@ -24,7 +24,8 @@
     "verify:isolation": "node scripts/verify-bundle-isolation.mjs",
     "verify:html-tokens": "node scripts/verify-html-tokens.mjs",
     "test:isolation-guard": "node scripts/test-isolation-guard.mjs",
-    "test:seo-assets": "node scripts/test-seo-assets.mjs"
+    "test:seo-assets": "node scripts/test-seo-assets.mjs",
+    "converter:build": "node converter/build.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

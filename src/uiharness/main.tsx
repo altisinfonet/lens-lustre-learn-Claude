@@ -39,7 +39,7 @@ import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { installFakeBackend } from "./fakeBackend";
 import { fixtureRoutes } from "./fixtureRoutes";
-import { isSignedOutScene, providesOwnShell } from "./sceneConfig";
+import { isConsentPendingScene, isSignedOutScene, providesOwnShell } from "./sceneConfig";
 import "../index.css";
 
 if (!import.meta.env.DEV) {
@@ -64,7 +64,7 @@ const name = params.get("scene") ?? "";
  * Hence the dynamic import below. The three static imports above are safe
  * precisely because none of them touches app code.
  */
-installFakeBackend({ routes: fixtureRoutes, signedIn: !isSignedOutScene(name) });
+installFakeBackend({ routes: fixtureRoutes, signedIn: !isSignedOutScene(name), consented: !isConsentPendingScene(name) });
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────

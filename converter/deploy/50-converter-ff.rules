@@ -1,0 +1,21 @@
+// 50mm Retina World · the converter worker (user `converter`) may START or
+// STOP the sandboxed FFmpeg run of a job — units named exactly
+// converter-ff@<uuid>.service — and nothing else. Installed root-owned 0644 at
+// /etc/polkit-1/rules.d/50-converter-ff.rules.
+//
+// Why a template unit and not `systemd-run --uid=ffjob -p …`: starting a
+// TRANSIENT unit is manage-units with no unit name or properties a rule could
+// check, so allowing it would let a stolen worker start a unit as root with
+// any properties. Here the properties live in the root-owned
+// converter-ff@.service and this grant is one name pattern, two verbs.
+polkit.addRule(function (action, subject) {
+  if (action.id !== "org.freedesktop.systemd1.manage-units") return polkit.Result.NOT_HANDLED;
+  if (subject.user !== "converter") return polkit.Result.NOT_HANDLED;
+  var unit = action.lookup("unit") || "";
+  var verb = action.lookup("verb") || "";
+  if (/^converter-ff@[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.service$/.test(unit) &&
+      (verb === "start" || verb === "stop")) {
+    return polkit.Result.YES;
+  }
+  return polkit.Result.NOT_HANDLED;
+});

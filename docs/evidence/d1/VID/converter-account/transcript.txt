@@ -1,0 +1,126 @@
+
+════ lane shape: staging ════
+── 1 · BEFORE 0007 (the lane as 20261012_0002 leaves it) ──
+  ok   PROBE → RED · PROBE FAIL VID-ACC: ⏎   A1 converter accounts 0 (must be exactly 1) — 20261013_0007 is not applied
+  ok   0007 with no Auth user → REFUSED · VID-ACC-PRE-010: 0 Supabase Auth user(s) with the e-mail video-converter@50mmretina.com — the Owner creates exactly one first (Authentication → Users → Add user, Auto Confirm on). SQL never creates it.
+── 2 · the Owner adds the Auth user (NOT SQL; fixture INSERT stands for the dashboard) ──
+  ok   0007 while the user is unconfirmed → REFUSED · VID-ACC-PRE-011: the Auth user cannot sign in with a password (confirmed f, has a password t, auth-banned f, deleted f) — fix it in Authentication → Users
+  ok   [new] the account claims a job → refused: VID-CONV-001: converter only
+  ok   [new] the account gives itself a role → allowed (1 row(s))
+  ok   [new] the account writes a post → allowed (1 row(s))
+  ok   PROBE → RED · PROBE FAIL VID-ACC: ⏎   A1 converter accounts 0 (must be exactly 1) — 20261013_0007 is not applied
+  ok   0007 without the lane asserted → REFUSED · APPLY REFUSED — p32.lane is not asserted as staging or production (read: ). Set it in THIS session before running: SET p32.lane = 'staging';
+  ok   0007 when that e-mail holds a staff role → REFUSED · VID-ACC-PRE-016: the account holds a role other than 'user' — this is a real member or an admin, not the converter
+  ok   nothing changed by the refusals → true
+── 3 · APPLY 0007 ──
+  ok   0007 → OK · trigger "tg_user_roles_no_converter" for relation "public.user_roles" does not exist, skipping | VID-ACC: provisioned — listed as the converter, profile banned + hidden, 1 role row(s) removed
+  ok   PROBE → GREEN · PROBE PASS VID-ACC: converter accounts 1 (video-converter@50mmretina.com) — can sign in with a password, banned + hidden, no role and none can be given, owns nothing. Last seen by the queue: never (the worker has not claimed yet).
+── 4 · AFTER: who can use the converter RPCs ──
+  ok   a normal member claims → refused: VID-CONV-001: converter only
+  ok   an admin claims → refused: VID-CONV-001: converter only
+  ok   anon claims → refused: permission denied for function video_source_claim
+  ok   a normal member heartbeats / fails / finishes a job → refused: VID-CONV-001: converter only · refused: VID-CONV-001: converter only · refused: VID-CONV-001: converter only
+  ok   [new] the converter account claims → claimed a job
+── 5 · AFTER: what the converter account cannot do ──
+  ok   [new] write a post → refused: new row violates row-level security policy "Banned users cannot create posts" for table "posts"
+  ok   write a comment → refused: new row violates row-level security policy "Banned users cannot comment on posts" for table "post_comments"
+  ok   [new] give itself a role → refused: VID-ACC-001: the video converter account holds no role
+  ok   an admin gives it a role → refused: VID-ACC-001: the video converter account holds no role
+  ok   an admin moves a role row onto it → refused: VID-ACC-001: the video converter account holds no role
+  ok   lift its own ban → refused: Not permitted to change ban status
+  ok   make itself visible again → refused: Not permitted to change suspension status
+  ok   upload a video of its own (member path) → refused: VID-SRC-002: the converter account cannot upload videos
+  ok   read a member's conversion rows → allowed (0 row(s))
+  ok   read another member's profile → allowed (0 row(s))
+  ok   read the converter list / the audit trail → refused: permission denied for table video_converter_accounts · refused: permission denied for table video_source_events
+  ok   change a member's profile / roles → allowed (0 row(s)) · allowed (0 row(s))
+  ok   the provisioned state did not move → true
+  ok   PROBE → GREEN · cache_locale_time() executed; locale: "C" | PROBE PASS VID-ACC: converter accounts 1 (video-converter@50mmretina.com) — can sign in with a password, banned + hidden, no role and none can be given, owns nothing. Last seen by the queue: 2026-10-13 15:43Z.
+── 6 · PROBE mutants (each must be RED; each is undone) ──
+  ok   mutant: profile un-banned → RED · PROBE FAIL VID-ACC: ⏎   A4 the converter account's profile is not banned + hidden (is_banned, is_suspended, no end date)
+  ok   mutant: profile visible → RED · PROBE FAIL VID-ACC: ⏎   A4 the converter account's profile is not banned + hidden (is_banned, is_suspended, no end date)
+  ok   mutant: a role row → RED · PROBE FAIL VID-ACC: ⏎   A3 the converter account holds 1 role row(s)
+  ok   mutant: role trigger disabled → RED · PROBE FAIL VID-ACC: ⏎   A5 trigger tg_user_roles_no_converter (BEFORE INSERT OR UPDATE, per row) is missing or disabled on user_roles
+  ok   mutant: profile guard disabled → RED · PROBE FAIL VID-ACC: ⏎   A5 no enabled guard_profile_moderation_columns trigger on profiles — the account could lift its own ban
+  ok   mutant: role trigger function executable by authenticated → RED · PROBE FAIL VID-ACC: ⏎   A5 tg_user_roles_no_converter() is not DEFINER with search_path '', or an API role may execute it
+  ok   mutant: a second converter account → RED · PROBE FAIL VID-ACC: ⏎   A1 converter accounts 2 (must be exactly 1) — 20261013_0007 is not applied
+  ok   mutant: e-mail unconfirmed → RED · PROBE FAIL VID-ACC: ⏎   A2 the account cannot sign in with a password (confirmed false, has a password true, auth-banned false, deleted false)
+  ok   mutant: ban policy on posts dropped → RED · PROBE FAIL VID-ACC: ⏎   A6 the restrictive "Banned users cannot …" INSERT policies on posts / post_comments are missing
+  ok   PROBE after the mutants → GREEN · PROBE PASS VID-ACC: converter accounts 1 (video-converter@50mmretina.com) — can sign in with a password, banned + hidden, no role and none can be given, owns nothing. Last seen by the queue: 2026-10-13 15:43Z.
+── 7 · idempotent, rollback exact ──
+  ok   0007 again → OK · VID-ACC: already provisioned — nothing changed
+  ok   0007 a third time; state identical → OK · true
+  ok   rollback while the converter holds a live claim → REFUSED · VID-ACC-RB-004: a conversion holds a live claim — stop the worker and wait for it to end first
+  ok   rollback without the lane asserted → REFUSED · APPLY REFUSED — p32.lane is not asserted as staging or production (read: ). Set it in THIS session before running: SET p32.lane = 'staging';
+  ok   rollback → OK · VID-ACC rollback: the account is unlisted, un-banned and visible again (VID-1 converter account · 20261013_0007 · before: user_role=yes ) — delete the Auth user unless 0007 is re-applied now
+  ok   state equals the state before 0007 (profile, roles, list, trigger, function) → true
+  ok   PROBE → RED · PROBE FAIL VID-ACC: ⏎   A1 converter accounts 0 (must be exactly 1) — 20261013_0007 is not applied
+  ok   the account claims → refused: VID-CONV-001: converter only
+  ok   rollback again → REFUSED · VID-ACC-RB-002: 20261013_0007 is not applied — nothing to roll back
+  ok   0007 once more → OK · trigger "tg_user_roles_no_converter" for relation "public.user_roles" does not exist, skipping | VID-ACC: provisioned — listed as the converter, profile banned + hidden, 1 role row(s) removed
+  ok   PROBE → GREEN · PROBE PASS VID-ACC: converter accounts 1 (video-converter@50mmretina.com) — can sign in with a password, banned + hidden, no role and none can be given, owns nothing. Last seen by the queue: never (the worker has not claimed yet).
+  ok   with the Auth user deleted (dashboard), the lane is as before step 2 → true
+
+════ lane shape: production ════
+── 1 · BEFORE 0007 (the lane as 20261012_0002 leaves it) ──
+  ok   PROBE → RED · PROBE FAIL VID-ACC: ⏎   A1 converter accounts 0 (must be exactly 1) — 20261013_0007 is not applied
+  ok   0007 with no Auth user → REFUSED · VID-ACC-PRE-010: 0 Supabase Auth user(s) with the e-mail video-converter@50mmretina.com — the Owner creates exactly one first (Authentication → Users → Add user, Auto Confirm on). SQL never creates it.
+── 2 · the Owner adds the Auth user (NOT SQL; fixture INSERT stands for the dashboard) ──
+  ok   0007 while the user is unconfirmed → REFUSED · VID-ACC-PRE-011: the Auth user cannot sign in with a password (confirmed f, has a password t, auth-banned f, deleted f) — fix it in Authentication → Users
+  ok   [new] the account claims a job → refused: VID-CONV-001: converter only
+  ok   [new] the account gives itself a role → allowed (1 row(s))
+  ok   [new] the account writes a post → allowed (1 row(s))
+  ok   PROBE → RED · PROBE FAIL VID-ACC: ⏎   A1 converter accounts 0 (must be exactly 1) — 20261013_0007 is not applied
+  ok   0007 without the lane asserted → REFUSED · APPLY REFUSED — p32.lane is not asserted as staging or production (read: ). Set it in THIS session before running: SET p32.lane = 'staging';
+  ok   0007 when that e-mail holds a staff role → REFUSED · VID-ACC-PRE-016: the account holds a role other than 'user' — this is a real member or an admin, not the converter
+  ok   nothing changed by the refusals → true
+── 3 · APPLY 0007 ──
+  ok   0007 → OK · trigger "tg_user_roles_no_converter" for relation "public.user_roles" does not exist, skipping | VID-ACC: provisioned — listed as the converter, profile banned + hidden, 1 role row(s) removed
+  ok   PROBE → GREEN · PROBE PASS VID-ACC: converter accounts 1 (video-converter@50mmretina.com) — can sign in with a password, banned + hidden, no role and none can be given, owns nothing. Last seen by the queue: never (the worker has not claimed yet).
+── 4 · AFTER: who can use the converter RPCs ──
+  ok   a normal member claims → refused: VID-CONV-001: converter only
+  ok   an admin claims → refused: VID-CONV-001: converter only
+  ok   anon claims → refused: permission denied for function video_source_claim
+  ok   a normal member heartbeats / fails / finishes a job → refused: VID-CONV-001: converter only · refused: VID-CONV-001: converter only · refused: VID-CONV-001: converter only
+  ok   [new] the converter account claims → claimed a job
+── 5 · AFTER: what the converter account cannot do ──
+  ok   [new] write a post → refused: new row violates row-level security policy "Banned users cannot create posts" for table "posts"
+  ok   write a comment → refused: new row violates row-level security policy "Banned users cannot comment on posts" for table "post_comments"
+  ok   [new] give itself a role → refused: VID-ACC-001: the video converter account holds no role
+  ok   an admin gives it a role → refused: VID-ACC-001: the video converter account holds no role
+  ok   an admin moves a role row onto it → refused: VID-ACC-001: the video converter account holds no role
+  ok   lift its own ban → refused: Not permitted to change ban status
+  ok   make itself visible again → refused: Not permitted to change suspension status
+  ok   upload a video of its own (member path) → refused: VID-SRC-002: the converter account cannot upload videos
+  ok   read a member's conversion rows → allowed (0 row(s))
+  ok   read another member's profile → allowed (0 row(s))
+  ok   read the converter list / the audit trail → refused: permission denied for table video_converter_accounts · refused: permission denied for table video_source_events
+  ok   change a member's profile / roles → allowed (0 row(s)) · allowed (0 row(s))
+  ok   the provisioned state did not move → true
+  ok   PROBE → GREEN · cache_locale_time() executed; locale: "C" | PROBE PASS VID-ACC: converter accounts 1 (video-converter@50mmretina.com) — can sign in with a password, banned + hidden, no role and none can be given, owns nothing. Last seen by the queue: 2026-10-13 15:43Z.
+── 6 · PROBE mutants (each must be RED; each is undone) ──
+  ok   mutant: profile un-banned → RED · PROBE FAIL VID-ACC: ⏎   A4 the converter account's profile is not banned + hidden (is_banned, is_suspended, no end date)
+  ok   mutant: profile visible → RED · PROBE FAIL VID-ACC: ⏎   A4 the converter account's profile is not banned + hidden (is_banned, is_suspended, no end date)
+  ok   mutant: a role row → RED · PROBE FAIL VID-ACC: ⏎   A3 the converter account holds 1 role row(s)
+  ok   mutant: role trigger disabled → RED · PROBE FAIL VID-ACC: ⏎   A5 trigger tg_user_roles_no_converter (BEFORE INSERT OR UPDATE, per row) is missing or disabled on user_roles
+  ok   mutant: profile guard disabled → RED · PROBE FAIL VID-ACC: ⏎   A5 no enabled guard_profile_moderation_columns trigger on profiles — the account could lift its own ban
+  ok   mutant: role trigger function executable by authenticated → RED · PROBE FAIL VID-ACC: ⏎   A5 tg_user_roles_no_converter() is not DEFINER with search_path '', or an API role may execute it
+  ok   mutant: a second converter account → RED · PROBE FAIL VID-ACC: ⏎   A1 converter accounts 2 (must be exactly 1) — 20261013_0007 is not applied
+  ok   mutant: e-mail unconfirmed → RED · PROBE FAIL VID-ACC: ⏎   A2 the account cannot sign in with a password (confirmed false, has a password true, auth-banned false, deleted false)
+  ok   mutant: ban policy on posts dropped → RED · PROBE FAIL VID-ACC: ⏎   A6 the restrictive "Banned users cannot …" INSERT policies on posts / post_comments are missing
+  ok   PROBE after the mutants → GREEN · PROBE PASS VID-ACC: converter accounts 1 (video-converter@50mmretina.com) — can sign in with a password, banned + hidden, no role and none can be given, owns nothing. Last seen by the queue: 2026-10-13 15:43Z.
+── 7 · idempotent, rollback exact ──
+  ok   0007 again → OK · VID-ACC: already provisioned — nothing changed
+  ok   0007 a third time; state identical → OK · true
+  ok   rollback while the converter holds a live claim → REFUSED · VID-ACC-RB-004: a conversion holds a live claim — stop the worker and wait for it to end first
+  ok   rollback without the lane asserted → REFUSED · APPLY REFUSED — p32.lane is not asserted as staging or production (read: ). Set it in THIS session before running: SET p32.lane = 'staging';
+  ok   rollback → OK · VID-ACC rollback: the account is unlisted, un-banned and visible again (VID-1 converter account · 20261013_0007 · before: user_role=yes ) — delete the Auth user unless 0007 is re-applied now
+  ok   state equals the state before 0007 (profile, roles, list, trigger, function) → true
+  ok   PROBE → RED · PROBE FAIL VID-ACC: ⏎   A1 converter accounts 0 (must be exactly 1) — 20261013_0007 is not applied
+  ok   the account claims → refused: VID-CONV-001: converter only
+  ok   rollback again → REFUSED · VID-ACC-RB-002: 20261013_0007 is not applied — nothing to roll back
+  ok   0007 once more → OK · trigger "tg_user_roles_no_converter" for relation "public.user_roles" does not exist, skipping | VID-ACC: provisioned — listed as the converter, profile banned + hidden, 1 role row(s) removed
+  ok   PROBE → GREEN · PROBE PASS VID-ACC: converter accounts 1 (video-converter@50mmretina.com) — can sign in with a password, banned + hidden, no role and none can be given, owns nothing. Last seen by the queue: never (the worker has not claimed yet).
+  ok   with the Auth user deleted (dashboard), the lane is as before step 2 → true
+
+ALL AS EXPECTED — [new] lines are the behaviour 0007 adds: each is shown failing before it and passing after it.

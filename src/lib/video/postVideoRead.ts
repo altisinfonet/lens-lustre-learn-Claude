@@ -44,19 +44,40 @@ export interface PostVideoRow { post_id: string; video_id: string; videos: Video
 export const POST_VIDEO_SELECT =
   "post_id, video_id, videos(id, state, current_version, video_versions(version_no, width, height, declared_duration_s, has_audio))";
 
+/** One video row → what a card needs, or null when it may not show (not ready, or no usable current version). */
+export function feedVideoOf(v: VideoRow | null | undefined): FeedVideo | null {
+  if (!v || v.state !== "ready") return null;
+  const ver = (v.video_versions ?? []).find((x) => x.version_no === v.current_version);
+  const duration = ver ? Number(ver.declared_duration_s) : NaN;
+  if (!ver || !Number.isFinite(duration) || duration <= 0) return null;
+  return { id: v.id, width: ver.width ?? null, height: ver.height ?? null, durationS: duration, hasAudio: ver.has_audio === true };
+}
+
 /** Pure: rows → map. Exported for tests. */
 export function toPostVideoMap(rows: readonly PostVideoRow[]): PostVideoMap {
   const map: PostVideoMap = new Map();
   for (const r of rows) {
     if (!r?.post_id) continue;
-    const v = r.videos;
-    if (!v || v.state !== "ready") { map.set(r.post_id, "hidden"); continue; }
-    const ver = (v.video_versions ?? []).find((x) => x.version_no === v.current_version);
-    const duration = ver ? Number(ver.declared_duration_s) : NaN;
-    if (!ver || !Number.isFinite(duration) || duration <= 0) { map.set(r.post_id, "hidden"); continue; }
-    map.set(r.post_id, { id: v.id, width: ver.width ?? null, height: ver.height ?? null, durationS: duration, hasAudio: ver.has_audio === true });
+    map.set(r.post_id, feedVideoOf(r.videos) ?? "hidden");
   }
   return map;
+}
+
+/**
+ * Server conversion (CONVERTER-DESIGN.md v2 §3.9): the member's OWN ready
+ * video, not yet on any post, for the preview they watch before tapping Post.
+ * The same columns as the feed's, through RLS (`videos_read` returns the
+ * owner's own rows). Null when it is not (or no longer) ready.
+ */
+export async function fetchOwnVideo(videoId: string): Promise<FeedVideo | null> {
+  const from = (supabase.from as unknown as (t: string) => {
+    select(s: string): { eq(c: string, v: string): { maybeSingle(): PromiseLike<{ data: VideoRow | null; error: { message: string } | null }> } };
+  }).bind(supabase);
+  const { data, error } = await from("videos")
+    .select("id, state, current_version, video_versions(version_no, width, height, declared_duration_s, has_audio)")
+    .eq("id", videoId).maybeSingle();
+  if (error) throw new Error(error.message);
+  return feedVideoOf(data);
 }
 
 /** An ad creative's video row (ad_videos, VID-5), the same embedded shape. */

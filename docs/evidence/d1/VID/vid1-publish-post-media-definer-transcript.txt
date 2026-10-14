@@ -1,0 +1,151 @@
+# VID-1 20261013_0004 — production-shaped fixture, local run
+# command : node scripts/db-vid1-publish-fixture.mjs --pglite <dir>   (PGlite 0.3.16, in-process PostgreSQL 17 — a throwaway database; nothing else was connected to)
+# tree    : branch d1/vid1-publish-post-media-definer-20261013 on staging b93444b5, the files as committed in this PR
+# date    : 2026-10-13T12:33Z
+# ✓ = an assertion that passed; ✗ = the error an EXPECTED refusal was refused with.
+# CI runs the same script against a postgres:17.6 service container (d1-vid1-publish-fixture.yml).
+
+
+══ PRODUCTION SHAPE (pglite) ══
+PASS  cluster roles
+PASS  production-shaped schema
+PASS  detect_duplicate_post() — 20261011_0002 body, verbatim
+PASS  trg_detect_duplicate_post
+PASS  20261011_0003 (verbatim)
+PASS  seed
+PASS  BEFORE: the 20261011_0003 body as a member
+        ✓ B1 replay of an unlinked post (the older two-step publish): 42501: permission denied for table post_media
+        ✓ B2 replay of a photo post whose image_urls already say so: 42501: permission denied for table post_media
+        ✓ B3 replay of a photo post known only by post_media: 42501: permission denied for table post_media
+        ✓ B4 a first publish never reaches the statement: ok
+        ✓ B5 a member reading post_media directly: 42501: permission denied for table post_media
+PASS  FAIL-FIRST: the AFTER assertions are red on the unfixed body  → refused with permission denied for table post_media
+        ✗ ERROR:  permission denied for table post_media
+PASS  20261013_0004 refuses with no lane  → refused with APPLY REFUSED
+        ✗ ERROR:  APPLY REFUSED — p32.lane is not asserted as staging or production (read: ). Dispatch apply-migration.yml (it sets p32.lane from target).
+PASS  20261013_0004 refuses on the wrong lane (staging)  → refused with VID-PM-PRE-003
+        ✗ ERROR:  VID-PM-PRE-003: post_media ACL on lane staging is not the known state — refusing (read postgres|DELETE|postgres|false,postgres|INSERT|postgres|false,postgres|MAINTAIN|postgres|false,postgres|REFERENCES|postgres|false,postgres|SELECT
+PASS  PROBE fails before the apply  → refused with PROBE FAIL VID-PM
+        ✗ ERROR:  PROBE FAIL VID-PM 20261013_0004 (lane production):
+PASS  20261013_0004 (verbatim)
+PASS  AFTER: publishing as a member with no post_media privilege
+        ✓ A1 replay of an unlinked post links the video and returns that post: 00000000-0000-4000-8000-0000000001a0
+        ✓ A1b the link is there: 00000000-0000-4000-8000-0000000000a1
+        ✓ A2 the same replay again returns the same post (idempotent): 00000000-0000-4000-8000-0000000001a0
+        ✓ A3 the same key with another video is refused: 23505: VID-PUB-003: this publish key already belongs to another video
+        ✓ A4 a photo post known only by post_media is refused — through the helper: 23505: VID-PUB-003: this publish key belongs to a photo post
+        ✓ A5 a photo post with image_urls is refused: 23505: VID-PUB-003: this publish key belongs to a photo post
+        ✓ A6 a first publish writes the post (author A) and its link (vA2): 00000000-0000-4000-8000-00000000000a 00000000-0000-4000-8000-0000000000a2
+        ✓ A7 a member reading post_media directly is refused: 42501: permission denied for table post_media
+        ✓ A7b a member writing post_media directly is refused: 42501: permission denied for table post_media
+        ✓ A8 own post with post_media → true: true
+        ✓ A8b own post without post_media → false: false
+        ✓ A8c CROSS-MEMBER: B's post with post_media, asked by A → false: false
+        ✓ A8d NULL → false: false
+        ✓ A8e a post id that does not exist → false: false
+        ✓ A9 B's own post → true: true
+        ✓ A9b CROSS-MEMBER: A's post with post_media, asked by B → false: false
+        ✓ A10 B using A's publish key gets B's own new post (keys are per member): ok
+        ✓ A11 B cannot publish A's video (link guard; nothing is left behind): 23514: VID-LINK-002: the video must belong to the post's author
+        ✓ A12 no session: publishing is refused: 42501: VID-PUB-001: sign in first
+        ✓ A12b no session: the helper answers false: false
+        ✓ A12c request.jwt.claims (PostgREST form) identifies A: true
+        ✓ A13 anon cannot execute the helper: 42501: permission denied for function video_publish_own_post_has_media
+        ✓ A13b anon cannot execute video_publish_post: 42501: permission denied for function video_publish_post
+        ✓ A13c anon cannot read post_media: 42501: permission denied for table post_media
+PASS  PROBE_20261013_0004 passes
+        PROBE PASS VID-PM 20261013_0004 (lane production): post_media closed to anon/authenticated (= production); helper DEFINER + own-post WHERE (cross-member false, owner true, no session false, anon refused); video_publish_post INVOKER without 
+PASS  PROBE_vid1_publish_post_atomic (20261011_0003's own) still passes
+        PROBE PASS VID-PUB: one-step publish (invoker, authenticated only); duplicate guard re-checks the video; all rules in place
+PASS  20261013_0004 refuses a re-run  → refused with VID-PM-PRE-001
+        ✗ ERROR:  VID-PM-PRE-001: public.video_publish_own_post_has_media(uuid) already exists — this file has run; read it
+PASS  ROLLBACK (verbatim)
+PASS  AFTER ROLLBACK: each shape is back in its pre-state
+        ✓ R1 replay of a photo post known only by post_media: 42501: permission denied for table post_media
+        ✓ R2 a member reading post_media directly: 42501: permission denied for table post_media
+        ✓ R3 the helper is gone: 42883: function public.video_publish_own_post_has_media(unknown) does not exist
+PASS  PROBE fails after the rollback  → refused with PROBE FAIL VID-PM
+        ✗ ERROR:  PROBE FAIL VID-PM 20261013_0004 (lane production):
+PASS  ROLLBACK refuses a second run  → refused with VID-PM-RB-PRE-001
+        ✗ ERROR:  VID-PM-RB-PRE-001: video_publish_post() / video_publish_own_post_has_media() are not 20261013_0004's bodies (not applied, already rolled back, or changed since) — refusing
+PASS  20261013_0004 re-applies after the rollback
+PASS  PROBE_20261013_0004 passes again
+        PROBE PASS VID-PM 20261013_0004 (lane production): post_media closed to anon/authenticated (= production); helper DEFINER + own-post WHERE (cross-member false, owner true, no session false, anon refused); video_publish_post INVOKER without 
+
+══ STAGING SHAPE (pglite) ══
+PASS  cluster roles
+PASS  production-shaped schema
+PASS  staging keep: authenticated SELECT on post_media
+PASS  detect_duplicate_post() — 20261011_0002 body, verbatim
+PASS  trg_detect_duplicate_post
+PASS  20261011_0003 (verbatim)
+PASS  seed
+PASS  BEFORE: the 20261011_0003 body as a member
+        ✓ B1 replay of an unlinked post (the older two-step publish): ok
+        ✓ B2 replay of a photo post whose image_urls already say so: 23505: VID-PUB-003: this publish key belongs to a photo post
+        ✓ B3 replay of a photo post known only by post_media: 23505: VID-PUB-003: this publish key belongs to a photo post
+        ✓ B4 a first publish never reaches the statement: ok
+        ✓ B5 a member reading post_media directly: ok
+PASS  FAIL-FIRST: the AFTER assertions are red on the unfixed body  → refused with FIXTURE FAIL A7 
+        ✓ A1 replay of an unlinked post links the video and returns that post: 00000000-0000-4000-8000-0000000001a0
+        ✓ A1b the link is there: 00000000-0000-4000-8000-0000000000a1
+        ✓ A2 the same replay again returns the same post (idempotent): 00000000-0000-4000-8000-0000000001a0
+        ✓ A3 the same key with another video is refused: 23505: VID-PUB-003: this publish key already belongs to another video
+        ✓ A4 a photo post known only by post_media is refused — through the helper: 23505: VID-PUB-003: this publish key belongs to a photo post
+        ✓ A5 a photo post with image_urls is refused: 23505: VID-PUB-003: this publish key belongs to a photo post
+        ✓ A6 a first publish writes the post (author A) and its link (vA2): 00000000-0000-4000-8000-00000000000a 00000000-0000-4000-8000-0000000000a2
+        ✗ ERROR:  FIXTURE FAIL A7 a member reading post_media directly is refused: got [ok] want [42501: permission denied for table post_media]
+PASS  20261013_0004 refuses with no lane  → refused with APPLY REFUSED
+        ✗ ERROR:  APPLY REFUSED — p32.lane is not asserted as staging or production (read: ). Dispatch apply-migration.yml (it sets p32.lane from target).
+PASS  20261013_0004 refuses on the wrong lane (production)  → refused with VID-PM-PRE-003
+        ✗ ERROR:  VID-PM-PRE-003: post_media ACL on lane production is not the known state — refusing (read authenticated|SELECT|postgres|false,postgres|DELETE|postgres|false,postgres|INSERT|postgres|false,postgres|MAINTAIN|postgres|false,postgres|RE
+PASS  PROBE fails before the apply  → refused with PROBE FAIL VID-PM
+        ✗ ERROR:  PROBE FAIL VID-PM 20261013_0004 (lane staging):
+PASS  20261013_0004 (verbatim)
+PASS  AFTER: publishing as a member with no post_media privilege
+        ✓ A1 replay of an unlinked post links the video and returns that post: 00000000-0000-4000-8000-0000000001a0
+        ✓ A1b the link is there: 00000000-0000-4000-8000-0000000000a1
+        ✓ A2 the same replay again returns the same post (idempotent): 00000000-0000-4000-8000-0000000001a0
+        ✓ A3 the same key with another video is refused: 23505: VID-PUB-003: this publish key already belongs to another video
+        ✓ A4 a photo post known only by post_media is refused — through the helper: 23505: VID-PUB-003: this publish key belongs to a photo post
+        ✓ A5 a photo post with image_urls is refused: 23505: VID-PUB-003: this publish key belongs to a photo post
+        ✓ A6 a first publish writes the post (author A) and its link (vA2): 00000000-0000-4000-8000-00000000000a 00000000-0000-4000-8000-0000000000a2
+        ✓ A7 a member reading post_media directly is refused: 42501: permission denied for table post_media
+        ✓ A7b a member writing post_media directly is refused: 42501: permission denied for table post_media
+        ✓ A8 own post with post_media → true: true
+        ✓ A8b own post without post_media → false: false
+        ✓ A8c CROSS-MEMBER: B's post with post_media, asked by A → false: false
+        ✓ A8d NULL → false: false
+        ✓ A8e a post id that does not exist → false: false
+        ✓ A9 B's own post → true: true
+        ✓ A9b CROSS-MEMBER: A's post with post_media, asked by B → false: false
+        ✓ A10 B using A's publish key gets B's own new post (keys are per member): ok
+        ✓ A11 B cannot publish A's video (link guard; nothing is left behind): 23514: VID-LINK-002: the video must belong to the post's author
+        ✓ A12 no session: publishing is refused: 42501: VID-PUB-001: sign in first
+        ✓ A12b no session: the helper answers false: false
+        ✓ A12c request.jwt.claims (PostgREST form) identifies A: true
+        ✓ A13 anon cannot execute the helper: 42501: permission denied for function video_publish_own_post_has_media
+        ✓ A13b anon cannot execute video_publish_post: 42501: permission denied for function video_publish_post
+        ✓ A13c anon cannot read post_media: 42501: permission denied for table post_media
+PASS  PROBE_20261013_0004 passes
+        PROBE PASS VID-PM 20261013_0004 (lane staging): post_media closed to anon/authenticated (= production); helper DEFINER + own-post WHERE (cross-member false, owner true, no session false, anon refused); video_publish_post INVOKER without a d
+PASS  PROBE_vid1_publish_post_atomic (20261011_0003's own) still passes
+        PROBE PASS VID-PUB: one-step publish (invoker, authenticated only); duplicate guard re-checks the video; all rules in place
+PASS  20261013_0004 refuses a re-run  → refused with VID-PM-PRE-001
+        ✗ ERROR:  VID-PM-PRE-001: public.video_publish_own_post_has_media(uuid) already exists — this file has run; read it
+PASS  ROLLBACK (verbatim)
+PASS  AFTER ROLLBACK: each shape is back in its pre-state
+        ✓ R1 replay of a photo post known only by post_media: 23505: VID-PUB-003: this publish key belongs to a photo post
+        ✓ R2 a member reading post_media directly: ok
+        ✓ R3 the helper is gone: 42883: function public.video_publish_own_post_has_media(unknown) does not exist
+PASS  PROBE fails after the rollback  → refused with PROBE FAIL VID-PM
+        ✗ ERROR:  PROBE FAIL VID-PM 20261013_0004 (lane staging):
+PASS  ROLLBACK refuses a second run  → refused with VID-PM-RB-PRE-001
+        ✗ ERROR:  VID-PM-RB-PRE-001: video_publish_post() / video_publish_own_post_has_media() are not 20261013_0004's bodies (not applied, already rolled back, or changed since) — refusing
+PASS  20261013_0004 re-applies after the rollback
+PASS  PROBE_20261013_0004 passes again
+        PROBE PASS VID-PM 20261013_0004 (lane staging): post_media closed to anon/authenticated (= production); helper DEFINER + own-post WHERE (cross-member false, owner true, no session false, anon refused); video_publish_post INVOKER without a d
+
+FIXTURE GREEN: 45 step(s) passed, 0 failed
+
+# exit code: 0

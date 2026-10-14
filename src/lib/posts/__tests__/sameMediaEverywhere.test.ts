@@ -48,6 +48,8 @@ const VIDEO_SURFACES: Record<string, RegExp> = {
   "src/pages/AdDetail.tsx": /<FeedVideoCard video=\{media\.video\}/,
   "src/components/comments/CommentsOverlay.tsx": /<FeedVideoCard video=\{media\.video\} fillParent \/>/,
   "src/components/profile/ProfilePostGrid.tsx": /<VideoPoster video=\{video\}/,
+  // Server conversion (CONVERTER-DESIGN.md v2 §3.9): what the post / ad WILL show, watched before Post.
+  "src/components/video/ServerVideoReview.tsx": /<FeedVideoCard video=\{media\.video\} fillParent \/>/,
 };
 
 describe.each(Object.entries(VIDEO_SURFACES))("%s", (file, draws) => {

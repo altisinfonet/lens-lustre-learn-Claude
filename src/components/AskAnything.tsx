@@ -82,8 +82,11 @@ const AskAnything = () => {
             onClick={() => setOpen(true)}
             /* min-h/min-w-11 = 44px. On a phone the label is hidden (`hidden sm:inline`)
                so px-5 py-3 around a 20px icon came out 35x35 — a floating button
-               with nothing beside it to catch a near miss. Measured by the sweep. */
-            className="fixed bottom-20 lg:bottom-6 right-4 lg:right-6 z-[40] flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full bg-primary px-4 sm:px-5 text-primary-foreground shadow-lg hover:opacity-90 transition-opacity"
+               with nothing beside it to catch a near miss. Measured by the sweep.
+               `dock-fab` (src/lib/ui/bottomDock.ts): the same bottom-20 / lg:bottom-6
+               as before, lifted above the server-video card or a banner while one
+               shows, so nothing ever sits on top of it. */
+            className="fixed dock-fab right-4 lg:right-6 z-[40] flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full bg-primary px-4 sm:px-5 text-primary-foreground shadow-lg hover:opacity-90 transition-opacity"
             style={{ fontFamily: "var(--font-heading)" }}
             aria-label="Ask anything about photography"
           >
