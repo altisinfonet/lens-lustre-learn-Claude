@@ -1,0 +1,19 @@
+STAGE L2 · PR A · THE TAIL STEP WITHOUT ITS VISIBILITY PREDICATE — FAIL-FIRST (2026-10-13, PGlite 0.3.16)
+
+The first draft of the 5-argument function read the author of the last two ids in
+_exclude_ids with a bare lookup:
+    (SELECT p.user_id FROM public.posts p WHERE p.id = _exclude_ids[array_upper(_exclude_ids, 1)])
+SECURITY DEFINER bypasses RLS, so that lookup read the author of ANY post the caller named —
+and the 2-in-a-row rule then moved the caller's page when the author matched. The cross-member
+test below was written against that draft and fails on it, on both fixtures. The PROBE's md5
+pin (G1) fails as well, because the body is not the reviewed one. With the predicate (the
+file as committed) all of them pass: pglite-l2-feed-output.txt.
+
+node docs/evidence/d1/L2-feed-freshness/pglite-l2-feed.mjs   (migration temporarily carrying the bare lookup)
+FAIL S · PROBE passes after apply  — PROBE FAIL 20261013_0005:
+FAIL S · cross-member: an id the caller cannot see in _exclude_ids changes nothing (the page order cannot confirm who wrote it)
+FAIL S · re-apply after rollback, PROBE passes again  — PROBE FAIL 20261013_0005:
+FAIL P · PROBE passes after apply  — PROBE FAIL 20261013_0005:
+FAIL P · cross-member: an id the caller cannot see in _exclude_ids changes nothing (the page order cannot confirm who wrote it)
+FAIL P · re-apply after rollback, PROBE passes again  — PROBE FAIL 20261013_0005:
+85 pass, 6 fail

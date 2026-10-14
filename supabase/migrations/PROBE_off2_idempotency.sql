@@ -30,7 +30,8 @@ BEGIN
       ('follows',            'natural',     NULL,          NULL,                                  NULL,  ARRAY['follower_id', 'following_id']),
       ('friendships',        'natural',     NULL,          NULL,                                  NULL,  ARRAY['requester_id', 'addressee_id']),
       ('post_reports',       'natural',     NULL,          NULL,                                  NULL,  ARRAY['post_id', 'reporter_id']),
-      ('user_notifications', 'update-only', NULL,          NULL,                                  NULL,  NULL)
+      ('user_notifications', 'update-only', NULL,          NULL,                                  NULL,  NULL),
+      ('feed_events',        'natural',     NULL,          NULL,                                  NULL,  ARRAY['id'])
     ) AS c(tbl, kind, owner, uniq, partial, cols)
   LOOP
     rel := to_regclass('public.' || r.tbl);
