@@ -648,3 +648,37 @@ describe("retention (20261013_0006): a video the server no longer has is FINAL",
     expect(s.db.publishes).toEqual([]);
   });
 });
+
+describe("delta review of #423 · B1 and F3", () => {
+  it("B1: sign-out while Post is reading the video's state — the job is not written back and nothing is published", async () => {
+    const s = server();
+    await start(s);
+    s.converterFinishes();
+    s.db.videoState = "ready";
+    const j = await only();
+    await runServerJob(j.id, s.deps); // → review
+    s.deps.videoState = async () => { await clearVideoUploads(); return "ready"; }; // the wipe lands during the read
+    await approveServerJob(j.id, s.deps);
+    expect([...store.jobs.values()]).toEqual([]);
+    expect(s.db.publishes).toEqual([]);
+  });
+
+  it("F3: Dismiss after a publish whose answer was lost never deletes the video — it may be live on a post", async () => {
+    const s = server();
+    await start(s);
+    s.converterFinishes();
+    s.db.videoState = "ready";
+    const j = await only();
+    await runServerJob(j.id, s.deps); // → review
+    // The post IS made, but its id never comes back; the retries run out.
+    const rpc = s.deps.rpc;
+    s.deps.rpc = async (fn, args) => { const r = await rpc(fn, args); return fn === "video_publish_post" ? { data: null, error: null } : r; };
+    await approveServerJob(j.id, s.deps);
+    for (let i = 0; i < 12 && (await only()).step !== "failed"; i++) { s.tick(3_600_000); await runVideoJobs(OWNER, s.deps); }
+    expect(await only()).toMatchObject({ step: "failed", errorCode: "VID-RETRIES", videoId: VID });
+    expect(s.db.publishes.length).toBeGreaterThan(0);
+    expect(await dismissServerJob(j.id, s.deps)).toBe("kept");
+    expect(s.db.deleted).toEqual([]);
+    expect(await jobsFor(OWNER)).toEqual([]);
+  });
+});

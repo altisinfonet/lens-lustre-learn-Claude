@@ -433,6 +433,8 @@ export default function ServerVideoJobs({ userId }: { userId: string }) {
     const ok = await dismissServerJob(j.id, realJobDeps);
     setPendingId(null);
     if (!ok) toast({ title: t("video.srv.dismissFailed", "Couldn't remove it just now"), description: t("video.srv.cancelFailedHint", "Check your connection and try again."), variant: "destructive" });
+    // Put away, but the video was left alone: it may already be on a post, and a posted video is never deleted from here.
+    if (ok === "kept") toast({ title: t("video.srv.dismissKept", "Removed from this list"), description: t("video.srv.dismissKeptHint", "The video itself was not deleted, because it may already be posted. Check your profile.") });
   }
 
   return (

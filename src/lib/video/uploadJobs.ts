@@ -209,8 +209,10 @@ export async function createJob(input: {
     post: { ...input.post, idempotencyKey: newKey() }, attempts: 0, nextAt: 0,
     ...(input.ad ? { ad: input.ad } : {}),
   };
+  const epoch = wipeEpoch;
   for (const [name, bytes] of input.files) await s.putFile(job.id, name, new Blob([bytes]));
   await s.putJob(job);
+  if (epoch !== wipeEpoch) { await s.deleteFiles(job.id).catch(() => {}); await s.deleteJob(job.id).catch(() => {}); return job; }
   emit({ type: "changed", job });
   return job;
 }
@@ -628,7 +630,9 @@ export async function runServerJob(id: string, d: JobDeps, onlyIfDue = false): P
   if (busy.has(id) || dropped.has(id)) return;
   busy.add(id);
   try {
+    const epoch = wipeEpoch;
     const j = await jobById(id);
+    if (epoch !== wipeEpoch) return; // signed out during the read: this job is gone
     if (!j || j.mode !== "server" || AT_REST.has(j.step)) return;
     if (onlyIfDue && j.nextAt > d.now()) return;
     await advanceJob(j, d);
@@ -653,6 +657,9 @@ export async function startServerJob(job: VideoJob, d: JobDeps): Promise<VideoJo
 
 /** The member watched the ready video and tapped Post: publish it the device path's way. */
 export async function approveServerJob(id: string, d: JobDeps): Promise<void> {
+  // Captured BEFORE the first await (delta review B1): read at save time, after the
+  // reads below, a sign-out in between let the job be written back after the wipe.
+  const epoch = wipeEpoch;
   const j = await jobById(id);
   if (!j || j.mode !== "server" || j.step !== "review") return;
   // A ready video that waited too long is gone (removed after 30 days unposted): say so, do not try to post it.
@@ -660,11 +667,12 @@ export async function approveServerJob(id: string, d: JobDeps): Promise<void> {
   const st = await d.videoState(j.videoId!).catch(() => "unknown");
   if (st === null) {
     const gone: VideoJob = { ...j, step: "failed", lastError: VIDEO_REMOVED_TEXT, errorCode: "VID-GONE" };
-    await save(gone, wipeEpoch);
-    emit({ type: "failed", job: gone });
+    await save(gone, epoch);
+    if (epoch === wipeEpoch) emit({ type: "failed", job: gone });
     return;
   }
-  await save({ ...j, step: "ready", attempts: 0, nextAt: 0 }, wipeEpoch);
+  await save({ ...j, step: "ready", attempts: 0, nextAt: 0 }, epoch);
+  if (epoch !== wipeEpoch) return; // signed out meanwhile: nothing is published for a member who has left
   await runServerJob(id, d);
 }
 
@@ -726,8 +734,8 @@ async function deleteMadeVideo(videoId: string, d: JobDeps): Promise<boolean> {
  *     open videos (VID-SRC-003) for the next 24–48 hours.
  * False when the server could not be told.
  */
-async function stopOnServer(j: VideoJob, d: JobDeps): Promise<boolean> {
-  if (j.videoId) return deleteMadeVideo(j.videoId, d);
+async function stopOnServer(j: VideoJob, d: JobDeps): Promise<boolean | "kept"> {
+  if (j.videoId) return knownUnposted(j) ? deleteMadeVideo(j.videoId, d) : "kept";
   const sourceId = j.source?.id;
   if (!sourceId || SOURCE_OVER.has(j.errorCode ?? "")) return true;
   const status = await cancelSource(sourceId, d);
@@ -740,7 +748,23 @@ async function stopOnServer(j: VideoJob, d: JobDeps): Promise<boolean> {
   return true;
 }
 
-async function takeOffServer(id: string, d: JobDeps): Promise<boolean> {
+/**
+ * May this job's made video be deleted? Only when it is KNOWN not to be on a
+ * post (delta review F3). A publish whose answer was lost — the post made, its
+ * id never arrived, the retries used up — leaves a failed job whose video is
+ * LIVE on the member's wall; deleting it would take a posted video down. So:
+ * still waiting for Post (checking / review / music-blocked), or refused with
+ * one of our own VID codes (the publish is one transaction: refused = no
+ * post). Retries used up, or a database error without a code (e.g. the unique
+ * key "this video is already on a post") = cannot tell = never deleted.
+ */
+function knownUnposted(j: VideoJob): boolean {
+  if (j.step === "checking" || j.step === "review" || j.step === "music_blocked") return true;
+  if (j.step !== "failed" || j.errorCode === "VID-RETRIES") return false;
+  return /^VID-/.test(j.errorCode ?? "") || !!codeOf(j.lastError ?? "");
+}
+
+async function takeOffServer(id: string, d: JobDeps): Promise<boolean | "kept"> {
   const epoch = wipeEpoch;
   const j = await jobById(id);
   if (!j || j.mode !== "server") return true;
@@ -749,14 +773,14 @@ async function takeOffServer(id: string, d: JobDeps): Promise<boolean> {
   dropped.add(id);
   uploads.get(id)?.abort();
   clearProgress(id);
-  const heard = await stopOnServer(j, d).catch(() => false);
+  const heard = await stopOnServer(j, d).catch(() => false as const);
   if (epoch !== wipeEpoch) return true; // signed out while the server was being told: the wipe took the job
   if (!heard) {
     dropped.delete(id); // kept: the runner carries it on, and the member can try again
     return false;
   }
   await removeServerJob(j, epoch);
-  return true;
+  return heard;
 }
 
 /**
@@ -766,7 +790,7 @@ async function takeOffServer(id: string, d: JobDeps): Promise<boolean> {
  * unseen.
  */
 export async function cancelServerJob(id: string, d: JobDeps): Promise<boolean> {
-  return takeOffServer(id, d);
+  return (await takeOffServer(id, d)) !== false;
 }
 
 /**
@@ -776,9 +800,11 @@ export async function cancelServerJob(id: string, d: JobDeps): Promise<boolean> 
  * kept the member's slot and a made video stayed for ever). A refusal that
  * never reached the server (no source yet) is simply put away. Returns false
  * when the server could not be told; the card then stays and says so, rather
- * than vanish while the slot stays taken.
+ * than vanish while the slot stays taken. Returns "kept" when the card was
+ * put away but its video was deliberately NOT deleted, because it may already
+ * be on a post (knownUnposted) — the caller says so.
  */
-export async function dismissServerJob(id: string, d: JobDeps): Promise<boolean> {
+export async function dismissServerJob(id: string, d: JobDeps): Promise<boolean | "kept"> {
   return takeOffServer(id, d);
 }
 

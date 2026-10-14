@@ -170,3 +170,9 @@
      → expected { …(12) } to match object { step: 'failed', …(2) }
    × retention (20261013_0006): a video the server no longer has is FINAL > Post on a ready video that has since been removed: said plainly, nothing is published
      → expected undefined to match object { step: 'failed', …(2) }
+
+# Delta review (comment 6159019411) — B1 and F3, the two new tests on f8f6bea3's code:
+   × delta review of #423 · B1 and F3 > B1: sign-out while Post is reading the video's state — the job is not written back and nothing is published
+     → expected [ { …(5) } ] to deeply equal []
+   × delta review of #423 · B1 and F3 > F3: Dismiss after a publish whose answer was lost never deletes the video — it may be live on a post
+     → expected true to be 'kept' // Object.is equality
