@@ -45,3 +45,17 @@ what the sentence says around it: a byte budget that is a build failure. **Ask:*
 ## Findings
 - **F-D2-10** (from P15): the entry chunk is 1.65 MB raw / ~480 KB Brotli — 76 % of the initial payload. This
   ceiling stops it growing; making it smaller is a separate unit (route-level splitting of what the entry pulls in).
+
+## Re-baseline 2026-10-14 (entry + initial only)
+
+Why: staging 1da90848's entry sat 22 B under its ceiling after the VID work; the F-REV4-8 client fix (PR #430)
+adds 2,025 B to the entry (seen-tracking outbox + 2 error codes), so every further change was blocked. Owner chose
+to re-baseline by this file's own rule (measured + ~3 %, rounded up to a KiB) rather than move code out first.
+
+| check | measured (PR #430 head 0c05e761, staging-lane build, run 38543230522 job 115782853390) | old ceiling | new ceiling |
+|---|---|---|---|
+| entry `index-*.js` | 1,702,867 B (OVER by 2,003) | 1,700,864 B | 1,754,112 B (1,713 KiB) |
+| initial | 2,239,770 B | 2,250,752 B | 2,307,072 B (2,253 KiB) |
+
+All other ceilings unchanged. Initial is raised too because it contains the entry: raising the entry alone would
+leave ~11 KB of real room. Follow-up (open, before live): shrink the entry — `src/lib/errorCodes.ts` is ~33 KB of it.
