@@ -43,8 +43,8 @@
  * the value the tapped card drew (src/lib/posts/subjectMedia.ts): a video plays
  * in the same FeedVideoCard the feed uses, a photograph is the photograph.
  */
-import { lazy, Suspense, type ReactNode } from "react";
-import { useCommentsOverlay } from "@/contexts/CommentsOverlayContext";
+import { lazy, Suspense, useRef, type ReactNode } from "react";
+import { useCommentsOverlay, type CommentsSubject } from "@/contexts/CommentsOverlayContext";
 import { useIsMobile } from "@/hooks/core/use-mobile";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
@@ -77,8 +77,20 @@ const SubjectMediaPanel = ({ media }: { media: SubjectMedia }) => (
 );
 
 const CommentsOverlay = () => {
-  const { subject, isOpen, closeComments, notifyCommentCountChange, notifyAdCommentsChanged } = useCommentsOverlay();
+  const { subject: current, isOpen, closeComments, notifyCommentCountChange, notifyAdCommentsChanged } = useCommentsOverlay();
   const isMobile = useIsMobile();
+
+  /**
+   * The provider clears `subject` the moment the thread closes (L1, so nothing
+   * can re-open a closed thread from it). The sheet/modal still has an exit
+   * animation to play, and unmounting a Radix/Vaul layer midway through closing
+   * is exactly how this app gets an orphaned layer (unfreezeStuckOverlay.ts,
+   * useAndroidBackButton.ts). So the LAST subject is kept here, for drawing
+   * only, while `open={false}` animates it away.
+   */
+  const lastDrawn = useRef<CommentsSubject | null>(null);
+  if (current) lastDrawn.current = current;
+  const subject = current ?? lastDrawn.current;
 
   // Nothing has ever been opened yet — render nothing rather than mount a
   // Dialog/Drawer with no content to show while a post loads. There is no

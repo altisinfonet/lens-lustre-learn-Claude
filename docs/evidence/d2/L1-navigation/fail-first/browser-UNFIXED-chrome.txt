@@ -1,0 +1,19 @@
+FAIL  [chrome] feed → comments → close (x) → Back → the page below  — closing added a history entry (4 → 5)
+FAIL  [chrome] feed → comments → close (escape) → Back → the page below  — closing added a history entry (4 → 5)
+FAIL  [chrome] feed → comments → close (backdrop) → Back → the page below  — closing added a history entry (4 → 5)
+PASS  [chrome] (control) feed → comments → Back (browser) closes it → Back → the page below
+FAIL  [chrome] phone width (sheet): feed → comments → Escape → Back → the page below  — closing the sheet added a history entry
+FAIL  [chrome] phone width (sheet): feed → comments → swipe down → Back → the page below  — swiping the sheet away added a history entry (4 → 5)
+PASS  [chrome] (control) phone width (sheet): feed → comments → Back closes it → Back → the page below
+PASS  [chrome] (control) /post/<id> (opened in-app, as the bell does) → comments → Back ×2 → feed
+FAIL  [chrome] /post/<id> (opened in-app) → comments → Escape → Back → feed — the reported loop, on the website  — closing added a history entry
+FAIL  [chrome] /post/<id> → comments → X → page's own ← Back → feed  — expected to be at /feed, still at /post/aaaaaaa1-0000-4000-8000-000000000001?comments=aaaaaaa1-0000-4000-8000-000000000001
+FAIL  [chrome] external link straight to /post/<id> (no in-app history) → page's ← Back → feed, no extra step  — expected to be at /feed, still at blank
+FAIL  [chrome] cold link that already carries ?comments=<id> → opens → Escape → no step left  — locator.waitFor: Timeout 15000ms exceeded.
+PASS  [chrome] (control) feed scroll position: comments opened and closed → the feed has not moved  {"scrollBefore":1026,"scrollAfter":1026}
+PASS  [chrome] feed scroll position (1280px): feed → a post → Back → the feed is where it was left  {"scrollBefore":1026,"scrollOnThePostPage":0,"scrollAfterReturn":1026}
+PASS  [chrome] feed scroll position (390px): feed → a post → Back → the feed is where it was left  {"scrollBefore":978,"scrollOnThePostPage":0,"scrollAfterReturn":978}
+PASS  [chrome] (control) feed scroll position: a FRESH visit to the feed starts at the top (nothing is restored on a push)  {"scrollOnFreshVisit":0}
+FAIL  [chrome] native (Android stub): cold start → notification tap → post → comments → Back ×2 → feed → Back leaves the app  — expected to be at /feed, still at /post/aaaaaaa1-0000-4000-8000-000000000001?comments=aaaaaaa1-0000-4000-8000-000000000001
+FAIL  [chrome] native (Android stub): cold start → notification for a post that is gone → the feed, with a short notice  — expected to be at /feed, still at /post/00000000-0000-4000-8000-00000000dead
+FAIL  chrome 155.0.8059.40: 7/18 journeys

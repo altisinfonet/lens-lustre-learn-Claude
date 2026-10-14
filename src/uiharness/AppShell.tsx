@@ -27,7 +27,8 @@
  */
 
 import { type ReactNode } from "react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, MemoryRouter, Route, Routes } from "react-router-dom";
+import { AndroidBackButton } from "@/hooks/core/useAndroidBackButton";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from "react-helmet-async";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -93,6 +94,32 @@ export interface AppShellProps {
    * ─────────────────────────────────────────────────────────────────────────
    */
   routes?: Array<{ path: string; element: ReactNode }>;
+  /**
+   * L1 (navigation contract): `"browser"` mounts the app's own `BrowserRouter`
+   * (no future flags — exactly App.tsx) plus `AndroidBackButton` (its depth
+   * count is what PostDetail's Back fallback reads), so a journey runs on the
+   * page's REAL history stack and the browser's own Back/Forward. Only the nav
+   * harness (navharness.html) uses it; `route` is ignored there — the page's
+   * own URL is the route. Default `"memory"`: every existing scene unchanged.
+   */
+  history?: "memory" | "browser";
+}
+
+/** The router the shell mounts — see `AppShellProps.history`. */
+function ShellRouter({ history, route, children }: { history: "memory" | "browser"; route: string; children: ReactNode }) {
+  if (history === "browser") {
+    return (
+      <BrowserRouter>
+        <AndroidBackButton />
+        {children}
+      </BrowserRouter>
+    );
+  }
+  return (
+    <MemoryRouter initialEntries={[route]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      {children}
+    </MemoryRouter>
+  );
 }
 
 /**
@@ -101,7 +128,7 @@ export interface AppShellProps {
  * Routes rather than simply wrapping the child in `<Layout>`.
  */
 export default function AppShell({
-  children, route = "/", path = "*", withLayout = true, routes,
+  children, route = "/", path = "*", withLayout = true, routes, history = "memory",
 }: AppShellProps) {
   /** One scene = one page (every scene before 2026-08-16), or several. */
   const entries = routes ?? [{ path, element: children }];
@@ -121,10 +148,7 @@ export default function AppShell({
                 is always there is one nobody reads — which is how a real one
                 gets past. Measured: without these, all five real screens
                 reported two router warnings at all three widths. */}
-            <MemoryRouter
-              initialEntries={[route]}
-              future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
-            >
+            <ShellRouter history={history} route={route}>
               <AuthProvider>
                 <ThemeProvider>
                   <CookieConsentProvider>
@@ -142,7 +166,7 @@ export default function AppShell({
                   </CookieConsentProvider>
                 </ThemeProvider>
               </AuthProvider>
-            </MemoryRouter>
+            </ShellRouter>
           </TooltipProvider>
         </I18nProvider>
       </QueryClientProvider>

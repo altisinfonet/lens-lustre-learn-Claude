@@ -1,0 +1,36 @@
+
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90mD:/50mm Retina World/work/D10[39m
+
+ [32m✓[39m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx[2m > [22mreturning to the feed[2m > [22mBack puts the feed exactly where it was left — once the feed is tall enough to be there[33m 384[2mms[22m[39m
+ [32m✓[39m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx[2m > [22mreturning to the feed[2m > [22mthe page being left cannot overwrite the position: a scroll that arrives after the router moved on is not saved[32m 132[2mms[22m[39m
+ [32m✓[39m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx[2m > [22mreturning to the feed[2m > [22mForward restores as well (it is the same kind of return)[32m 235[2mms[22m[39m
+ [32m✓[39m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx[2m > [22mwhat a restore must never do[2m > [22ma FRESH visit (a push) is never moved, though a position is remembered for an older visit[32m 171[2mms[22m[39m
+ [32m✓[39m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx[2m > [22mwhat a restore must never do[2m > [22mthe member's own touch ends the restore: a page still growing no longer drags them back[32m 92[2mms[22m[39m
+ [32m✓[39m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx[2m > [22mwhat a restore must never do[2m > [22mit gives up at its deadline: late growth after that moves nothing, and the observer is released[33m 3259[2mms[22m[39m
+ [32m✓[39m src/pages/__tests__/postDetailBackAndGonePost.test.tsx[2m > [22ma notification about a post that is gone[2m > [22mtapped at cold start: lands on the feed with a short notice, and Back then leaves the app[33m 378[2mms[22m[39m
+ [32m✓[39m src/pages/__tests__/postDetailBackAndGonePost.test.tsx[2m > [22ma notification about a post that is gone[2m > [22mtapped with in-app history beneath: the dead post's entry BECOMES the feed, so Back returns to where the member was[33m 381[2mms[22m[39m
+ [32m✓[39m src/pages/__tests__/postDetailBackAndGonePost.test.tsx[2m > [22mthe post page's own Back, when the post was reached WITHOUT a notification[2m > [22man outside link (nothing of ours beneath): 'Go back' goes to the feed and adds no step; opened in-app it steps back[33m 326[2mms[22m[39m
+ [32m✓[39m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mopened in-app, closed by every method[2m > [22mthe X button: close adds no history step, and Back then lands on the page below[33m 1413[2mms[22m[39m
+ [32m✓[39m src/hooks/core/__tests__/androidBackNavigation.test.tsx[2m > [22mcomments on the feed, then Back, Back[2m > [22mfirst Back closes the sheet, second Back leaves the app — never a loop[33m 1117[2mms[22m[39m
+ [32m✓[39m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mopened in-app, closed by every method[2m > [22mEscape: close adds no history step, and Back then lands on the page below[32m 297[2mms[22m[39m
+ [32m✓[39m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mopened in-app, closed by every method[2m > [22ma backdrop tap: close adds no history step, and Back then lands on the page below[33m 328[2mms[22m[39m
+ [32m✓[39m src/hooks/core/__tests__/androidBackNavigation.test.tsx[2m > [22mcomments on the feed, then Back, Back[2m > [22mopened and closed three times in a row: still one Back to leave[33m 932[2mms[22m[39m
+ [32m✓[39m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mopened in-app, closed by every method[2m > [22mEscape on the mobile sheet (what Android Back dispatches): close adds no history step, and Back then lands on the page below[32m 243[2mms[22m[39m
+ [32m✓[39m src/hooks/core/__tests__/androidBackNavigation.test.tsx[2m > [22ma notification tapped at cold start (no in-app history)[2m > [22mputs the feed beneath the post: Back lands on the feed, the next Back leaves[33m 337[2mms[22m[39m
+ [32m✓[39m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mopened in-app, closed by the browser's own Back[2m > [22m1280px: Back closes the thread and adds nothing; the next Back lands on the page below[33m 305[2mms[22m[39m
+ [32m✓[39m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mopened in-app, closed by the browser's own Back[2m > [22m375px: Back closes the thread and adds nothing; the next Back lands on the page below[32m 268[2mms[22m[39m
+ [32m✓[39m src/hooks/core/__tests__/androidBackNavigation.test.tsx[2m > [22ma notification tapped at cold start (no in-app history)[2m > [22mpost → comments → Back ×2 → feed (the reported loop)[33m 515[2mms[22m[39m
+ [32m✓[39m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mthe watcher never re-opens a closed thread[2m > [22mclosing twice in one tick (two close paths racing) steps back ONCE, not twice[32m 180[2mms[22m[39m
+ [32m✓[39m src/hooks/core/__tests__/androidBackNavigation.test.tsx[2m > [22ma notification tapped at cold start (no in-app history)[2m > [22mwith in-app history already there, a tap opens the post on top of it and tells the page the feed was NOT put beneath[32m 268[2mms[22m[39m
+ [32m✓[39m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mthe watcher never re-opens a closed thread[2m > [22mthe closed thread stays closed while its card keeps re-rendering[32m 191[2mms[22m[39m
+ [32m✓[39m src/hooks/core/__tests__/androidBackNavigation.test.tsx[2m > [22mthe depth counter stays honest[2m > [22ma POP that returns to the SAME router entry (a raw history entry popped, e.g. the crop dialog's) is not a screen[32m 245[2mms[22m[39m
+ [32m✓[39m src/hooks/core/__tests__/androidBackNavigation.test.tsx[2m > [22mthe depth counter stays honest[2m > [22mexposes the depth so other screens can ask 'is there in-app history?'[32m 97[2mms[22m[39m
+ [32m✓[39m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mthe watcher never re-opens a closed thread[2m > [22mbrowser Forward — a real navigation into our own entry — may open it again, and closing then still steps back[33m 426[2mms[22m[39m
+ [32m✓[39m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22ma deep link / cold start that already carries ?comments=[2m > [22mopens the thread, and closing it leaves no step behind[32m 181[2mms[22m[39m
+ [32m✓[39m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22ma deep link / cold start that already carries ?comments=[2m > [22mopening another thread on top of an UNCLAIMED link (its post is not on screen) does not land back on the stale link[33m 469[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m27 passed[39m[22m[90m (27)[39m
+[2m   Start at [22m 18:26:45
+[2m   Duration [22m 108.17s[2m (transform 7.00s, setup 26.59s, collect 116.71s, tests 13.19s, environment 149.05s, prepare 6.06s)[22m
+

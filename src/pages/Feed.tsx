@@ -22,6 +22,7 @@ import { slotForPostIndex, shouldShowFeedAd } from "@/lib/ads/feedAdPlacement";
 import { useT } from "@/i18n/I18nContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { useActivityLog } from "@/hooks/core/useActivityLog";
+import { useScrollRestoreOnReturn } from "@/hooks/core/useScrollRestoreOnReturn";
 import { useFeedQuery, flattenFeedPages, getNetworkIds, type FeedPost } from "@/hooks/feed/useFeedQuery";
 import { useFeedCacheUpdaters } from "@/hooks/feed/useFeedCacheUpdaters";
 import PostCard from "@/components/post/PostCard";
@@ -85,6 +86,11 @@ const Feed = () => {
 
   const reactMutation = useReactToPost();
   const unreactMutation = useUnreactToPost();
+
+  // L1: coming Back to the feed (from a post, a profile, anywhere) puts the
+  // member where they were — see useScrollRestoreOnReturn.ts for why the
+  // browser alone cannot.
+  useScrollRestoreOnReturn();
 
   const [showBackToTop, setShowBackToTop] = useState(false);
 

@@ -20,7 +20,7 @@ import { postMedia } from "@/lib/posts/subjectMedia";
 import Caption from "@/components/post/Caption";
 import HashtagSuggestions from "@/components/post/HashtagSuggestions";
 import { useCaptionHashtags } from "@/hooks/feed/useCaptionHashtags";
-import { useCommentsOverlay } from "@/contexts/CommentsOverlayContext";
+import { useCommentsOverlay, usePostCommentsDeepLink } from "@/contexts/CommentsOverlayContext";
 import { timeAgo, privacyIcon } from "@/lib/postUtils";
 import { formatNumber } from "@/lib/postAnalytics";
 import { displayEngagement, formatEngagementCount } from "@/lib/displayEngagement";
@@ -76,6 +76,9 @@ const PostCard = ({
   const authorOnline = useOnline(post.user_id);
   const queryClient = useQueryClient();
   const { openPostComments } = useCommentsOverlay();
+  // L1: a link that already carries ?comments=<this post> (shared link, cold
+  // start, reload) opens this card's thread — no second fetch path.
+  usePostCommentsDeepLink(post, onCommentCountChange);
   const [reportingOpen, setReportingOpen] = useState(false);
   // App Store 1.2: block the author from the post's own menu.
   const [blockOpen, setBlockOpen] = useState(false);

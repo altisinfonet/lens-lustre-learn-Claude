@@ -57,7 +57,7 @@ import { Copy } from "lucide-react";
 import { toast } from "@/hooks/core/use-toast";
 import { useAuth } from "@/hooks/core/useAuth";
 import { publicUrl } from "@/lib/publicUrl";
-import { useCommentsOverlay } from "@/contexts/CommentsOverlayContext";
+import { useAdCommentsDeepLink, useCommentsOverlay } from "@/contexts/CommentsOverlayContext";
 import type { ReactionType } from "@/components/ReactionPicker";
 import PostActionRow from "@/components/post/PostActionRow";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
@@ -101,6 +101,10 @@ const AdEngagementBar = ({ creativeId, media = NO_MEDIA, commentsAlwaysOpen = fa
     const map = await fetchAdEngagement([creativeId]);
     setEng(map.get(creativeId) ?? emptyEngagement(creativeId));
   }, [creativeId]);
+
+  // L1: a link that already carries ?comments=ad:<this creative> opens this
+  // card's thread (the /ad/<id> page draws it inline, so it never claims).
+  useAdCommentsDeepLink(creativeId, media, reload, !commentsAlwaysOpen);
 
   useEffect(() => {
     let alive = true;
