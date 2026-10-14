@@ -23,8 +23,9 @@
 import type { FakeRoute } from "./fakeBackend";
 import {
   HARNESS_USER_ID,
-  adCreatives, categories, certificates, dashboardInit, follows, posts,
-  postComments, postReactions, profiles, profilesPublicData, siteSettings, userRoles,
+  adCreatives, categories, certificates, dashboardInit, dbAuditLogs, faqEntries, featuredArtists, follows, heroBanners,
+  photoOfTheDay, portfolioImages, posts, postComments, postReactions, profiles, profilesPublicData, siteSettings,
+  topContributors, userRoles,
 } from "./fixtures";
 
 /** Tables answered with rows. */
@@ -40,6 +41,14 @@ const TABLES: Record<string, unknown[]> = {
   follows,
   post_reactions: postReactions,
   ad_creatives: adCreatives,
+  /** Admin → Video Conversion's History (2026-10-12): the setting's one migration INSERT. */
+  db_audit_logs: dbAuditLogs,
+  /** The home page's own sources (2026-10-13, screen-home-server-card) — see fixtures.ts. */
+  hero_banners: heroBanners,
+  portfolio_images: portfolioImages,
+  photo_of_the_day: photoOfTheDay,
+  featured_artists: featuredArtists,
+  faq_entries: faqEntries,
   /**
    * The profile header's follower/following counts, added 2026-08-16 with the
    * Instagram-style header. Deliberately FOUR-DIGIT and uneven: a fixture of
@@ -182,6 +191,9 @@ const RPCS: Record<string, (body: Record<string, unknown>, params: URLSearchPara
    * columns or the harness would silently photograph the OLD code path.
    */
   get_broadcast_feed: () => posts,
+
+  /** The home page's Top Contributors card (2026-10-13): three ranked members of the fixture set. */
+  get_top_contributors_v3: () => topContributors,
 
   /**
    * F-89 — A VANITY URL THAT RESOLVES TO NOTHING.

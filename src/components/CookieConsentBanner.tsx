@@ -1,16 +1,29 @@
+import { useEffect, useRef, useState } from "react";
 import { useCookieConsent } from "@/hooks/core/useCookieConsent";
 import { Shield, Cookie, ChevronRight } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useDockLayer } from "@/lib/ui/bottomDock";
 import CookiePreferencesModal from "./CookiePreferencesModal";
 
 const CookieConsentBanner = () => {
   const { showBanner, acceptAll, rejectNonEssential, setShowPreferences, showPreferences } = useCookieConsent();
+  // The first layer of the bottom dock (src/lib/ui/bottomDock.ts): its place is
+  // unchanged; what floats above it (the update prompt, the server-video card,
+  // the round buttons) rises clear of it while it shows.
+  const dock = useRef<HTMLDivElement>(null);
+  // It keeps its place in the dock until its exit animation has ENDED: taken
+  // out the moment it starts to leave, the layers above dropped through it
+  // while it was still sliding away (review #423).
+  const [docked, setDocked] = useState(false);
+  useEffect(() => { if (showBanner) setDocked(true); }, [showBanner]);
+  useDockLayer("consent", dock, showBanner || docked);
 
   return (
     <>
-      <AnimatePresence>
+      <AnimatePresence onExitComplete={() => setDocked(false)}>
         {showBanner && (
           <motion.div
+            ref={dock}
             initial={{ y: 100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 100, opacity: 0 }}

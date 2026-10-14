@@ -555,8 +555,10 @@ const Feed = () => {
                FLOATING button over the feed — nothing around it to aim at if
                the thumb misses, unlike a control sitting in a row. The disc
                grows from 32 to 44, which is the same size as every other
-               round control in the app. */
-            className="fixed bottom-20 left-4 lg:bottom-6 lg:left-auto lg:right-6 z-[35] grid h-11 w-11 place-items-center bg-primary text-primary-foreground rounded-full shadow-lg hover:bg-primary/90 transition-colors"
+               round control in the app. `dock-fab` (src/lib/ui/bottomDock.ts):
+               the same bottom-20 / lg:bottom-6, lifted above the server-video
+               card or a banner while one shows. */
+            className="fixed dock-fab left-4 lg:left-auto lg:right-6 z-[35] grid h-11 w-11 place-items-center bg-primary text-primary-foreground rounded-full shadow-lg hover:bg-primary/90 transition-colors"
             aria-label="Back to top"
           >
             <ArrowUp className="h-5 w-5" />

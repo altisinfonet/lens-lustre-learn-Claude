@@ -12,9 +12,15 @@
  * job puts it on this creative (ad_videos) instead of making a post. The ad's
  * picture stays: it is what shows until the video is ready, and if it is ever
  * removed. No time limit; 500 MB (Owner A3.2).
+ *
+ * Server conversion (Admin → Video Conversion = "On our server"): the
+ * original is uploaded instead of encoded here, exactly as a video post's
+ * (VideoPostComposer.tsx, src/lib/video/startOnServer.ts); when the
+ * converter is done, the admin previews it at the bottom of the app and puts
+ * it on the ad. "Remove sound" is device-only.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Film, Trash2 } from "lucide-react";
+import { Film, Loader2, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import CategoryChips, { canPublishCategories } from "@/components/post/CategoryChips";
@@ -22,12 +28,17 @@ import { useFeatureAllowed } from "@/hooks/core/useFeatureAllowed";
 import { useAuth } from "@/hooks/core/useAuth";
 import { toast } from "@/hooks/core/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { readVideoFacts, videoLimitProblems, memoryProblem, formatDuration, type VideoFacts } from "@/lib/video/limits";
+import { readVideoFacts, videoLimitProblems, memoryProblem, serverLimitProblems, formatDuration, type VideoFacts } from "@/lib/video/limits";
 import { createJob, runVideoJobs } from "@/lib/video/uploadJobs";
 import { realJobDeps } from "@/lib/video/jobDeps";
+import { useConversionMode } from "@/lib/video/conversionMode";
+import { startOnServer } from "@/lib/video/startOnServer";
 import { invalidateAdCreatives } from "@/lib/ads/adCreatives";
 
-type Phase = { kind: "pick" } | { kind: "reading" } | { kind: "ready"; facts: VideoFacts } | { kind: "encoding"; progress: number } | { kind: "error"; message: string };
+type Phase = { kind: "pick" } | { kind: "reading" } | { kind: "ready"; facts: VideoFacts } | { kind: "encoding"; progress: number }
+  | { kind: "error"; message: string; unplayable?: boolean }
+  /** Server conversion: video_source_begin in flight (facts null = a video this browser can't play). */
+  | { kind: "starting"; facts: VideoFacts | null };
 
 export interface AdVideoButtonProps {
   creativeId: string;
@@ -45,21 +56,28 @@ export default function AdVideoButton({ creativeId, videoState, onChanged }: AdV
   const [phase, setPhase] = useState<Phase>({ kind: "pick" });
   const [categories, setCategories] = useState<string[]>([]);
   const [mute, setMute] = useState(false);
+  /** VID-SRC-001 came back: this dialog prepares the video on the device after all. */
+  const [deviceAfterAll, setDeviceAfterAll] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const server = useConversionMode(open && allowed) === "server" && !deviceAfterAll;
 
   useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
   useEffect(() => {
-    if (!open) { setFile(null); setUrl(null); setPhase({ kind: "pick" }); setCategories([]); setMute(false); }
+    if (!open) { setFile(null); setUrl(null); setPhase({ kind: "pick" }); setCategories([]); setMute(false); setDeviceAfterAll(false); }
   }, [open]);
 
-  const facts = phase.kind === "ready" ? phase.facts : null;
+  const facts = phase.kind === "ready" || phase.kind === "starting" ? phase.facts : null;
+  /** Server mode: a video this browser can't read is still the converter's to try. */
+  const unplayable = server && ((phase.kind === "error" && phase.unplayable === true) || (phase.kind === "starting" && !phase.facts));
   const problems = useMemo(() => {
+    if (server) return file && (facts || unplayable) ? serverLimitProblems(file.size, "ad") : [];
     if (!facts) return [];
     const p = videoLimitProblems(facts, "ad");
     const mem = memoryProblem(facts, mute);
     return mem ? [...p, mem] : p;
-  }, [facts, mute]);
-  const canUpload = phase.kind === "ready" && problems.length === 0 && canPublishCategories(categories) && !!user;
+  }, [facts, mute, server, file, unplayable]);
+  const canUpload = (phase.kind === "ready" || (unplayable && phase.kind === "error")) && problems.length === 0 && canPublishCategories(categories) && !!user;
+  const busy = phase.kind === "encoding" || phase.kind === "starting";
 
   if (!allowed) return null;
 
@@ -72,11 +90,30 @@ export default function AdVideoButton({ creativeId, videoState, onChanged }: AdV
     try {
       setPhase({ kind: "ready", facts: await readVideoFacts(f) });
     } catch (e) {
-      setPhase({ kind: "error", message: (e as Error).message.replace(/^VID-[A-Z]+-\d+: /, "") });
+      setPhase({ kind: "error", message: (e as Error).message.replace(/^VID-[A-Z]+-\d+: /, ""), unplayable: true });
+    }
+  }
+
+  /** Server conversion: begin while this dialog is open, then the upload runs on its own (bottom of the app). */
+  async function uploadOnServer() {
+    if (!canUpload || !file || !user) return;
+    const before = phase;
+    setPhase({ kind: "starting", facts: phase.kind === "ready" ? phase.facts : null });
+    try {
+      const r = await startOnServer({
+        userId: user.id, purpose: "ad", file, name: file.name,
+        post: { content: "", categories, privacy: "public" }, ad: { creativeId },
+      }, realJobDeps);
+      if (r.kind === "started") { setOpen(false); return; }
+      if (r.kind === "switched_off") { setDeviceAfterAll(true); setPhase(before); return; }
+      setPhase({ kind: "error", message: r.message });
+    } catch (e) {
+      setPhase({ kind: "error", message: (e as Error).message });
     }
   }
 
   async function upload() {
+    if (server) { await uploadOnServer(); return; }
     if (!canUpload || !file || !user) return;
     setPhase({ kind: "encoding", progress: 0 });
     try {
@@ -126,11 +163,16 @@ export default function AdVideoButton({ creativeId, videoState, onChanged }: AdV
         </button>
       )}
 
-      <Dialog open={open} onOpenChange={(o) => { if (phase.kind !== "encoding") setOpen(o); }}>
-        <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-lg" data-testid="ad-video-dialog">
+      <Dialog open={open} onOpenChange={(o) => { if (!busy) setOpen(o); }}>
+        <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-lg" data-testid="ad-video-dialog" data-conversion={server ? "server" : "device"}>
           <div className="flex min-w-0 flex-col gap-3">
             <DialogTitle>Video for this ad</DialogTitle>
             <DialogDescription>Up to 500 MB, any length. The ad keeps its picture until the video is ready.</DialogDescription>
+            {deviceAfterAll && (
+              <p role="status" data-testid="ad-video-server-off" className="rounded-md bg-amber-500/10 px-2.5 py-2 text-xs text-amber-700 dark:text-amber-400">
+                Server conversion was just switched off, so this video will be prepared on this device. Check it below, then tap Upload video.
+              </p>
+            )}
             <input ref={inputRef} type="file" accept="video/*" className="hidden" aria-label="Choose a video for this ad"
               onChange={(e) => void pick(e.target.files?.[0])} />
             {!url && (
@@ -138,24 +180,48 @@ export default function AdVideoButton({ creativeId, videoState, onChanged }: AdV
                 Choose a video
               </Button>
             )}
-            {url && (
+            {url && !unplayable && (
               <video src={url} muted playsInline controls aria-label="Preview of the ad video"
                 className="max-h-[50dvh] w-full rounded-lg bg-black object-contain" />
             )}
+            {/* Server mode, a format this browser can't play: the file itself, not an empty frame. */}
+            {url && unplayable && file && (
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3" data-testid="ad-video-no-preview">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-black text-white/70">
+                  <Film className="h-6 w-6" aria-hidden="true" />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{file.name}</p>
+                  <p className="text-xs text-muted-foreground">{Math.max(1, Math.round(file.size / 1_048_576))} MB · this browser can&apos;t show a preview</p>
+                </div>
+              </div>
+            )}
             {phase.kind === "reading" && <p className="text-sm text-muted-foreground">Reading the video…</p>}
             {facts && <p className="text-sm text-muted-foreground">{formatDuration(facts.durationSeconds)} · {Math.max(1, Math.round(facts.bytes / 1_048_576))} MB</p>}
+            {server && (facts || unplayable) && problems.length === 0 && (
+              <p className="text-xs text-muted-foreground" data-testid="ad-video-server-note">
+                Prepared on our server: once the upload reaches 100% you can close this page.
+              </p>
+            )}
             {problems.length > 0 && (
               <ul className="space-y-1 text-sm text-destructive" role="alert">{problems.map((p) => <li key={p}>{p}</li>)}</ul>
             )}
-            {phase.kind === "error" && <p className="text-sm text-destructive" role="alert">{phase.message}</p>}
-            {url && phase.kind !== "encoding" && (
+            {phase.kind === "error" && !unplayable && <p className="text-sm text-destructive" role="alert">{phase.message}</p>}
+            {url && !busy && (
               <>
                 <CategoryChips value={categories} onChange={setCategories} />
-                <label className="flex min-h-11 items-center gap-2 text-sm">
-                  <input type="checkbox" checked={mute} onChange={(e) => setMute(e.target.checked)} className="h-4 w-4" />
-                  Remove sound
-                </label>
+                {!server && (
+                  <label className="flex min-h-11 items-center gap-2 text-sm">
+                    <input type="checkbox" checked={mute} onChange={(e) => setMute(e.target.checked)} className="h-4 w-4" />
+                    Remove sound
+                  </label>
+                )}
               </>
+            )}
+            {phase.kind === "starting" && (
+              <p className="flex items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Starting the upload…
+              </p>
             )}
             {phase.kind === "encoding" && (
               <div className="space-y-1" aria-live="polite">
@@ -167,14 +233,14 @@ export default function AdVideoButton({ creativeId, videoState, onChanged }: AdV
               </div>
             )}
             <div className="flex gap-2">
-              {url && phase.kind !== "encoding" && (
+              {url && !busy && (
                 <Button type="button" variant="ghost" className="min-h-11" onClick={() => inputRef.current?.click()}>Change video</Button>
               )}
               <Button type="button" className="min-h-11 flex-1" disabled={!canUpload} onClick={() => void upload()}>
                 Upload video
               </Button>
             </div>
-            {url && !canPublishCategories(categories) && phase.kind !== "encoding" && (
+            {url && !canPublishCategories(categories) && !busy && (
               <p className="text-xs text-muted-foreground">Choose 1 to 5 categories.</p>
             )}
           </div>
