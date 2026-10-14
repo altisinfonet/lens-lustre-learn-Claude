@@ -1,0 +1,180 @@
+PostgreSQL 17.5 on aarch64-unknown-linux-gnu, compiled by emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 3.1.74 (1092ec30a3fb1d46b1782ff1b4db5094d3d06ae5), 32-bit
+PASS  fixture handle_new_user() is production's body (md5 ca4a770bff3c438515f6edf9b977efbb)
+
+── S1 · the sign-up trigger is missing (staging as it was before 20261013_0002)
+PASS  trigger missing → FAIL (S1), even with nobody signed up since the cut-off
+      | NOTICE: S1 auth.users: 0 non-internal trigger(s); on_auth_user_created exists = false, enabled = false (tgenabled n/a)
+      | NOTICE: S2 auth.users rows = 2, public.profiles rows = 1, auth.users rows with no profiles row = 1 (all-time; context only — rows from before the trigger existed are expected here)
+      | NOTICE: cache_locale_time() executed; locale: "C"   <- PGlite's own notice, not raised by the probe
+      | NOTICE: S3 cut-off 2026-10-13T12:05:39Z (staging apply of 20261013_0002, run 38394785921): n_new = 0 sign-up(s) at/after it, n_new_missing = 0 of them with no profiles row; auth.users rows with no created_at (cannot be placed, not counted) = 0
+      | NOTICE: S4 public.push_config: 1 row(s); project ref parsed from function_url: fpszggreishhuvdpkmdr; exactly staging's send-push = true; names the production ref = false
+      -> ERROR: PROBE FAIL staging_signup_profile:
+           S1 on_auth_user_created is missing from auth.users — a sign-up creates no profiles row
+
+── FAIL-FIRST · the defect: someone signs up after the cut-off and gets no profiles row
+PASS    fixture: with no trigger, the sign-up has no profiles row
+PASS  a user created after the cut-off WITHOUT a profile, trigger still missing → FAIL (S1 and S3)
+      | NOTICE: S1 auth.users: 0 non-internal trigger(s); on_auth_user_created exists = false, enabled = false (tgenabled n/a)
+      | NOTICE: S2 auth.users rows = 3, public.profiles rows = 1, auth.users rows with no profiles row = 2 (all-time; context only — rows from before the trigger existed are expected here)
+      | NOTICE: S3 cut-off 2026-10-13T12:05:39Z (staging apply of 20261013_0002, run 38394785921): n_new = 1 sign-up(s) at/after it, n_new_missing = 1 of them with no profiles row; auth.users rows with no created_at (cannot be placed, not counted) = 0
+      | NOTICE: S4 public.push_config: 1 row(s); project ref parsed from function_url: fpszggreishhuvdpkmdr; exactly staging's send-push = true; names the production ref = false
+      -> ERROR: PROBE FAIL staging_signup_profile:
+           S1 on_auth_user_created is missing from auth.users — a sign-up creates no profiles row
+           S3 1 of 1 sign-up(s) since the cut-off have no profiles row (created between 2026-10-13T13:00:00Z and 2026-10-13T13:00:00Z)
+PASS  the same user WITHOUT a profile, trigger now in place → still FAIL, on S3 alone
+      | NOTICE: S1 auth.users: 1 non-internal trigger(s); on_auth_user_created exists = true, enabled = true (tgenabled O)
+      | NOTICE: S2 auth.users rows = 3, public.profiles rows = 1, auth.users rows with no profiles row = 2 (all-time; context only — rows from before the trigger existed are expected here)
+      | NOTICE: S3 cut-off 2026-10-13T12:05:39Z (staging apply of 20261013_0002, run 38394785921): n_new = 1 sign-up(s) at/after it, n_new_missing = 1 of them with no profiles row; auth.users rows with no created_at (cannot be placed, not counted) = 0
+      | NOTICE: S4 public.push_config: 1 row(s); project ref parsed from function_url: fpszggreishhuvdpkmdr; exactly staging's send-push = true; names the production ref = false
+      -> ERROR: PROBE FAIL staging_signup_profile:
+           S3 1 of 1 sign-up(s) since the cut-off have no profiles row (created between 2026-10-13T13:00:00Z and 2026-10-13T13:00:00Z)
+
+── the same user WITH a profiles row → PASS
+PASS  the same user WITH a profile → PASS
+      | NOTICE: S1 auth.users: 1 non-internal trigger(s); on_auth_user_created exists = true, enabled = true (tgenabled O)
+      | NOTICE: S2 auth.users rows = 3, public.profiles rows = 2, auth.users rows with no profiles row = 1 (all-time; context only — rows from before the trigger existed are expected here)
+      | NOTICE: S3 cut-off 2026-10-13T12:05:39Z (staging apply of 20261013_0002, run 38394785921): n_new = 1 sign-up(s) at/after it, n_new_missing = 0 of them with no profiles row; auth.users rows with no created_at (cannot be placed, not counted) = 0
+      | NOTICE: S4 public.push_config: 1 row(s); project ref parsed from function_url: fpszggreishhuvdpkmdr; exactly staging's send-push = true; names the production ref = false
+      | NOTICE: PROBE PASS: 1 sign-up(s) since the cut-off, each has a profiles row; newest sign-up at 2026-10-13T13:00:00Z
+      -> no error
+
+── a sign-up through the trigger (production's handle_new_user) → PASS with nothing done by hand
+PASS    fixture: the trigger gave the new sign-up its profiles row
+PASS  two sign-ups since the cut-off, both with a profile → PASS, newest timestamp reported
+      | NOTICE: S1 auth.users: 1 non-internal trigger(s); on_auth_user_created exists = true, enabled = true (tgenabled O)
+      | NOTICE: S2 auth.users rows = 4, public.profiles rows = 3, auth.users rows with no profiles row = 1 (all-time; context only — rows from before the trigger existed are expected here)
+      | NOTICE: S3 cut-off 2026-10-13T12:05:39Z (staging apply of 20261013_0002, run 38394785921): n_new = 2 sign-up(s) at/after it, n_new_missing = 0 of them with no profiles row; auth.users rows with no created_at (cannot be placed, not counted) = 0
+      | NOTICE: S4 public.push_config: 1 row(s); project ref parsed from function_url: fpszggreishhuvdpkmdr; exactly staging's send-push = true; names the production ref = false
+      | NOTICE: PROBE PASS: 2 sign-up(s) since the cut-off, each has a profiles row; newest sign-up at 2026-10-13T14:30:00Z
+      -> no error
+
+── the cut-off is inclusive; earlier and undated rows are not counted
+PASS  a profile-less row 1 s BEFORE the cut-off and one with no created_at do not fail it; the row AT the cut-off is counted → PASS with 3
+      | NOTICE: S1 auth.users: 1 non-internal trigger(s); on_auth_user_created exists = true, enabled = true (tgenabled O)
+      | NOTICE: S2 auth.users rows = 7, public.profiles rows = 4, auth.users rows with no profiles row = 3 (all-time; context only — rows from before the trigger existed are expected here)
+      | NOTICE: S3 cut-off 2026-10-13T12:05:39Z (staging apply of 20261013_0002, run 38394785921): n_new = 3 sign-up(s) at/after it, n_new_missing = 0 of them with no profiles row; auth.users rows with no created_at (cannot be placed, not counted) = 1
+      | NOTICE: S4 public.push_config: 1 row(s); project ref parsed from function_url: fpszggreishhuvdpkmdr; exactly staging's send-push = true; names the production ref = false
+      | NOTICE: PROBE PASS: 3 sign-up(s) since the cut-off, each has a profiles row; newest sign-up at 2026-10-13T14:30:00Z
+      -> no error
+PASS    S2 shows the all-time picture (7 users, 4 profiles, 3 without) and S3 the undated row (= 1)
+PASS  the row created exactly AT the cut-off loses its profile → FAIL (1 of 3), so 'at' is inside
+      | NOTICE: S1 auth.users: 1 non-internal trigger(s); on_auth_user_created exists = true, enabled = true (tgenabled O)
+      | NOTICE: S2 auth.users rows = 7, public.profiles rows = 3, auth.users rows with no profiles row = 4 (all-time; context only — rows from before the trigger existed are expected here)
+      | NOTICE: S3 cut-off 2026-10-13T12:05:39Z (staging apply of 20261013_0002, run 38394785921): n_new = 3 sign-up(s) at/after it, n_new_missing = 1 of them with no profiles row; auth.users rows with no created_at (cannot be placed, not counted) = 1
+      | NOTICE: S4 public.push_config: 1 row(s); project ref parsed from function_url: fpszggreishhuvdpkmdr; exactly staging's send-push = true; names the production ref = false
+      -> ERROR: PROBE FAIL staging_signup_profile:
+           S3 1 of 3 sign-up(s) since the cut-off have no profiles row (created between 2026-10-13T12:05:39Z and 2026-10-13T12:05:39Z)
+
+── S1 · the trigger exists but is disabled
+PASS  trigger disabled → FAIL (S1), although every sign-up so far has a profile
+      | NOTICE: S1 auth.users: 1 non-internal trigger(s); on_auth_user_created exists = true, enabled = false (tgenabled D)
+      | NOTICE: S2 auth.users rows = 6, public.profiles rows = 4, auth.users rows with no profiles row = 2 (all-time; context only — rows from before the trigger existed are expected here)
+      | NOTICE: S3 cut-off 2026-10-13T12:05:39Z (staging apply of 20261013_0002, run 38394785921): n_new = 3 sign-up(s) at/after it, n_new_missing = 0 of them with no profiles row; auth.users rows with no created_at (cannot be placed, not counted) = 0
+      | NOTICE: S4 public.push_config: 1 row(s); project ref parsed from function_url: fpszggreishhuvdpkmdr; exactly staging's send-push = true; names the production ref = false
+      -> ERROR: PROBE FAIL staging_signup_profile:
+           S1 on_auth_user_created is not enabled for ordinary sessions (tgenabled D)
+
+── lane guard — in the state where everything else passes
+PASS  lane unset → refused
+      -> ERROR: PROBE REFUSED staging_signup_profile — staging-only probe and p32.lane reads (unset). Dispatch apply-migration.yml with target=staging.
+PASS  lane production → refused
+      -> ERROR: PROBE REFUSED staging_signup_profile — staging-only probe and p32.lane reads production. Dispatch apply-migration.yml with target=staging.
+PASS    …and a refused run read nothing (no S-line was printed)
+PASS  lane staging → the same state passes
+      | NOTICE: S1 auth.users: 1 non-internal trigger(s); on_auth_user_created exists = true, enabled = true (tgenabled O)
+      | NOTICE: S2 auth.users rows = 6, public.profiles rows = 4, auth.users rows with no profiles row = 2 (all-time; context only — rows from before the trigger existed are expected here)
+      | NOTICE: S3 cut-off 2026-10-13T12:05:39Z (staging apply of 20261013_0002, run 38394785921): n_new = 3 sign-up(s) at/after it, n_new_missing = 0 of them with no profiles row; auth.users rows with no created_at (cannot be placed, not counted) = 0
+      | NOTICE: S4 public.push_config: 1 row(s); project ref parsed from function_url: fpszggreishhuvdpkmdr; exactly staging's send-push = true; names the production ref = false
+      | NOTICE: PROBE PASS: 3 sign-up(s) since the cut-off, each has a profiles row; newest sign-up at 2026-10-13T14:30:00Z
+      -> no error
+
+── S4 · push_config
+PASS  push_config naming production → FAIL (S4)
+      | NOTICE: S1 auth.users: 1 non-internal trigger(s); on_auth_user_created exists = true, enabled = true (tgenabled O)
+      | NOTICE: S2 auth.users rows = 6, public.profiles rows = 4, auth.users rows with no profiles row = 2 (all-time; context only — rows from before the trigger existed are expected here)
+      | NOTICE: S3 cut-off 2026-10-13T12:05:39Z (staging apply of 20261013_0002, run 38394785921): n_new = 3 sign-up(s) at/after it, n_new_missing = 0 of them with no profiles row; auth.users rows with no created_at (cannot be placed, not counted) = 0
+      | NOTICE: S4 public.push_config: 1 row(s); project ref parsed from function_url: jtdtehuqtinjxropkkcn; exactly staging's send-push = false; names the production ref = true
+      -> ERROR: PROBE FAIL staging_signup_profile:
+           S4 push_config.function_url names the production project jtdtehuqtinjxropkkcn — a staging notification would be pushed through production
+           S4 push_config.function_url is not exactly https://fpszggreishhuvdpkmdr.supabase.co/functions/v1/send-push (rows 1; parsed jtdtehuqtinjxropkkcn)
+PASS  a look-alike host that starts with staging's ref → FAIL (not exactly)
+      | NOTICE: S1 auth.users: 1 non-internal trigger(s); on_auth_user_created exists = true, enabled = true (tgenabled O)
+      | NOTICE: S2 auth.users rows = 6, public.profiles rows = 4, auth.users rows with no profiles row = 2 (all-time; context only — rows from before the trigger existed are expected here)
+      | NOTICE: S3 cut-off 2026-10-13T12:05:39Z (staging apply of 20261013_0002, run 38394785921): n_new = 3 sign-up(s) at/after it, n_new_missing = 0 of them with no profiles row; auth.users rows with no created_at (cannot be placed, not counted) = 0
+      | NOTICE: S4 public.push_config: 1 row(s); project ref parsed from function_url: (no project ref; host fpszggreishhuvdpkmdr.supabase.co.attacker.example); exactly staging's send-push = false; names the production ref = false
+      -> ERROR: PROBE FAIL staging_signup_profile:
+           S4 push_config.function_url is not exactly https://fpszggreishhuvdpkmdr.supabase.co/functions/v1/send-push (rows 1; parsed (no project ref; host fpszggreishhuvdpkmdr.supabase.co.attacker.example))
+PASS  staging's host with another path (trailing slash) → FAIL (not exactly)
+      | NOTICE: S1 auth.users: 1 non-internal trigger(s); on_auth_user_created exists = true, enabled = true (tgenabled O)
+      | NOTICE: S2 auth.users rows = 6, public.profiles rows = 4, auth.users rows with no profiles row = 2 (all-time; context only — rows from before the trigger existed are expected here)
+      | NOTICE: S3 cut-off 2026-10-13T12:05:39Z (staging apply of 20261013_0002, run 38394785921): n_new = 3 sign-up(s) at/after it, n_new_missing = 0 of them with no profiles row; auth.users rows with no created_at (cannot be placed, not counted) = 0
+      | NOTICE: S4 public.push_config: 1 row(s); project ref parsed from function_url: fpszggreishhuvdpkmdr; exactly staging's send-push = false; names the production ref = false
+      -> ERROR: PROBE FAIL staging_signup_profile:
+           S4 push_config.function_url is not exactly https://fpszggreishhuvdpkmdr.supabase.co/functions/v1/send-push (rows 1; parsed fpszggreishhuvdpkmdr)
+PASS  a URL carrying user:password@ → FAIL, and only the host is printed
+      | NOTICE: S1 auth.users: 1 non-internal trigger(s); on_auth_user_created exists = true, enabled = true (tgenabled O)
+      | NOTICE: S2 auth.users rows = 6, public.profiles rows = 4, auth.users rows with no profiles row = 2 (all-time; context only — rows from before the trigger existed are expected here)
+      | NOTICE: S3 cut-off 2026-10-13T12:05:39Z (staging apply of 20261013_0002, run 38394785921): n_new = 3 sign-up(s) at/after it, n_new_missing = 0 of them with no profiles row; auth.users rows with no created_at (cannot be placed, not counted) = 0
+      | NOTICE: S4 public.push_config: 1 row(s); project ref parsed from function_url: (no project ref; host evil.example); exactly staging's send-push = false; names the production ref = false
+      -> ERROR: PROBE FAIL staging_signup_profile:
+           S4 push_config.function_url is not exactly https://fpszggreishhuvdpkmdr.supabase.co/functions/v1/send-push (rows 1; parsed (no project ref; host evil.example))
+PASS    …nothing that run printed carries the userinfo or an '@'
+PASS  push_config with no row → FAIL (nothing names staging)
+      | NOTICE: S1 auth.users: 1 non-internal trigger(s); on_auth_user_created exists = true, enabled = true (tgenabled O)
+      | NOTICE: S2 auth.users rows = 6, public.profiles rows = 4, auth.users rows with no profiles row = 2 (all-time; context only — rows from before the trigger existed are expected here)
+      | NOTICE: S3 cut-off 2026-10-13T12:05:39Z (staging apply of 20261013_0002, run 38394785921): n_new = 3 sign-up(s) at/after it, n_new_missing = 0 of them with no profiles row; auth.users rows with no created_at (cannot be placed, not counted) = 0
+      | NOTICE: S4 public.push_config: 0 row(s); project ref parsed from function_url: (no row); exactly staging's send-push = false; names the production ref = false
+      -> ERROR: PROBE FAIL staging_signup_profile:
+           S4 push_config.function_url is not exactly https://fpszggreishhuvdpkmdr.supabase.co/functions/v1/send-push (rows 0; parsed nothing)
+PASS  push_config back on staging's own send-push → PASS
+      | NOTICE: S1 auth.users: 1 non-internal trigger(s); on_auth_user_created exists = true, enabled = true (tgenabled O)
+      | NOTICE: S2 auth.users rows = 6, public.profiles rows = 4, auth.users rows with no profiles row = 2 (all-time; context only — rows from before the trigger existed are expected here)
+      | NOTICE: S3 cut-off 2026-10-13T12:05:39Z (staging apply of 20261013_0002, run 38394785921): n_new = 3 sign-up(s) at/after it, n_new_missing = 0 of them with no profiles row; auth.users rows with no created_at (cannot be placed, not counted) = 0
+      | NOTICE: S4 public.push_config: 1 row(s); project ref parsed from function_url: fpszggreishhuvdpkmdr; exactly staging's send-push = true; names the production ref = false
+      | NOTICE: PROBE PASS: 3 sign-up(s) since the cut-off, each has a profiles row; newest sign-up at 2026-10-13T14:30:00Z
+      -> no error
+
+── S0 · the probe refuses to count what it cannot fully see
+PASS  run as a role that row security applies to → FAIL (S0), before anything is counted
+      -> ERROR: PROBE FAIL staging_signup_profile (nothing was counted, nothing is concluded):
+           S0 row security is active on auth.users for the connecting role — its rows would be filtered, so no count below would be the table's
+           S0 row security is active on public.profiles for the connecting role — its rows would be filtered, so no count below would be the table's
+           S0 row security is active on public.push_config for the connecting role — its rows would be filtered, so no count below would be the table's
+PASS    …that role would have counted 0 auth.users rows of 6 — a false 'no sign-up' — and the probe printed no count
+PASS  a relation the probe reads is missing → FAIL (S0)
+      | NOTICE: relation "public.push_config" does not exist   <- PGlite's own notice, not raised by the probe
+      -> ERROR: PROBE FAIL staging_signup_profile (nothing was counted, nothing is concluded):
+           S0 public.push_config does not exist
+
+── INCONCLUSIVE · nobody has signed up since the cut-off
+PASS  no user after the cut-off → INCONCLUSIVE notice, no error, and no PASS line
+      | NOTICE: S1 auth.users: 1 non-internal trigger(s); on_auth_user_created exists = true, enabled = true (tgenabled O)
+      | NOTICE: S2 auth.users rows = 3, public.profiles rows = 1, auth.users rows with no profiles row = 2 (all-time; context only — rows from before the trigger existed are expected here)
+      | NOTICE: S3 cut-off 2026-10-13T12:05:39Z (staging apply of 20261013_0002, run 38394785921): n_new = 0 sign-up(s) at/after it, n_new_missing = 0 of them with no profiles row; auth.users rows with no created_at (cannot be placed, not counted) = 0
+      | NOTICE: S4 public.push_config: 1 row(s); project ref parsed from function_url: fpszggreishhuvdpkmdr; exactly staging's send-push = true; names the production ref = false
+      | NOTICE: PROBE INCONCLUSIVE: no sign-up since the cut-off — nothing proven yet (this is NOT a pass: sign up once on staging.50mmretina.com, then dispatch this file again)
+      -> no error
+PASS    …the S3 line reads n_new = 0 and the last line says it is NOT a pass
+
+── privacy · what the probe printed, over every run above
+PASS    the runs printed something to inspect (86 lines; S1–S4 and verdict lines present)
+PASS    checker self-test: the same test does see a fixture email and a fixture id when they are there
+PASS    no fixture email, user id or name appears (21 strings checked)
+PASS    no '@', and nothing shaped like a uuid, appears at all
+PASS    push_config's other column value never appears
+
+── read-only · the file itself, then the transaction
+PASS    scanner self-test: write words inside a comment, a string and an E'' string are not code
+PASS    scanner self-test: a write planted in the probe IS seen (update, set)
+PASS    the probe's comments and strings do carry such words (e.g. header: INSERT), so stripping them is what the next line rests on
+PASS    the probe contains no write keyword outside comments/strings (found: none)
+PASS    its only statements are BEGIN READ ONLY; one DO block; ROLLBACK;
+PASS    of push_config it names function_url only (pc.: function_url; derived c.: function_url, host); internal_secret is not in the code
+PASS  the planted write, run as SUPERUSER inside the probe's own transaction → refused by BEGIN READ ONLY
+      -> ERROR: cannot execute UPDATE in a read-only transaction
+PASS    across all 21 probe runs, the fixture rows and the catalog were identical before and after each run (0 changed)
+
+file rehearsed (sha256 of LF text):
+  supabase/migrations/PROBE_staging_signup_profile_readonly.sql e275b1a765ef537958b673a608c3b5b5e4f41a5534794f46af65d0a02ef46fc5
+41 check(s) as required, 0 not as required; 21 of them are runs of the probe file
+ALL SCENARIOS AS REQUIRED
