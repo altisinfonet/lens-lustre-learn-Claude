@@ -30,7 +30,7 @@
 import { createRoot } from "react-dom/client";
 import { Suspense, lazy, useEffect } from "react";
 import { Link, Route, Routes, useNavigate } from "react-router-dom";
-import { installFakeBackend } from "../fakeBackend";
+import { installFakeBackend, type FakeRoute } from "../fakeBackend";
 import { fixtureRoutes } from "../fixtureRoutes";
 import { posts } from "../fixtures";
 import PushNotificationsGate from "@/components/PushNotificationsGate";
@@ -39,7 +39,40 @@ import "../../index.css";
 
 if (!import.meta.env.DEV) throw new Error("navigation harness is development-only");
 
-installFakeBackend({ routes: fixtureRoutes, signedIn: true });
+/**
+ * L1 · B1 — THE FAKE FEED DEALS BY SEED, AS THE REAL ONE DOES.
+ *
+ * The shared fixture answers `get_broadcast_feed` with the same fixed list
+ * whatever it is asked, so a feed that was RE-DEALT behind the member's back
+ * looked identical to one that was kept — and "Back restores the scroll
+ * offset" passed while the member landed on posts they had never seen (PR #434
+ * review, B1). Here, as in production, each new `_session_seed` is a new deal:
+ * the n-th distinct seed this page has been asked for rotates the posts by n,
+ * so a new seed never puts first the post the previous seed put first. The same seed always
+ * gives the same order (load more, a refetch of a held page). Like the real
+ * function it never deals a post the session has already been handed
+ * (`_exclude_ids`), so the short fixture feed ENDS instead of loading the same
+ * three posts forever (a feed that never stops loading is a page whose "what
+ * is on screen" can never be read).
+ *
+ * Only this harness: the screenshot gate's scenes keep the fixed order (a seed
+ * is random per refresh, and a screenshot must be the same every run).
+ */
+const seedOrder = new Map<string, number>();
+const dealBySeed: FakeRoute = ({ method, path, body }) => {
+  if (method !== "POST" || path !== "/rest/v1/rpc/get_broadcast_feed") return undefined;
+  const seed = String((body as { _session_seed?: unknown } | null)?._session_seed ?? "hour");
+  if (!seedOrder.has(seed)) seedOrder.set(seed, seedOrder.size);
+  const n = seedOrder.get(seed)! % posts.length;
+  const w = window as unknown as { __navDeals: number; __navFeedCalls?: number };
+  w.__navDeals = seedOrder.size;
+  w.__navFeedCalls = (w.__navFeedCalls ?? 0) + 1;
+  const req = (body ?? {}) as { _exclude_ids?: string[] | null; _limit?: number };
+  const exclude = new Set(req._exclude_ids ?? []);
+  const dealt = [...posts.slice(n), ...posts.slice(0, n)].filter((p) => !exclude.has(p.id));
+  return { body: dealt.slice(0, Number(req._limit ?? dealt.length)) };
+};
+installFakeBackend({ routes: [dealBySeed, ...fixtureRoutes], signedIn: true });
 
 const start = new URLSearchParams(window.location.search).get("start") || "/below";
 window.history.replaceState(null, "", start);

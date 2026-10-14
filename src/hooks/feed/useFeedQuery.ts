@@ -1,8 +1,9 @@
 import { useInfiniteQuery, useQueryClient, onlineManager, type InfiniteData } from "@tanstack/react-query";
-import { useRef, useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPostAttachments, attachmentsFor } from "@/lib/posts/postAttachments";
 import { persistFeedPage, getCachedFeed } from "@/lib/feedCache";
+import { feedSessionFor, startFeedSessionOver } from "@/lib/feedSessions";
 import { fetchProfileMap } from "@/lib/profileMapCache";
 import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
 import { queryKeys } from "@/lib/queryKeys";
@@ -513,6 +514,23 @@ function reorderNoBackToBack<T extends { user_id: string }>(
 /** Stage L2: see `refetchOnWindowFocus` in useFeedQuery. */
 export const refetchOnlyAfterFailure = (query: { state: { status: string } }): boolean => query.state.status === "error";
 
+/**
+ * L1 · B1: see `refetchOnMount` in useFeedQuery. True only when the router
+ * arrived by a traversal (POP — Back/Forward) AND every page in the cache
+ * belongs to the deal this running app committed (`liveSeed`). Pages restored
+ * from the device (OFF-1) or left by a previous member carry another seed, and
+ * a cold start is also a POP — so neither is ever mistaken for a return.
+ */
+export function isReturnToTheDealOnScreen(
+  navigationType: string | undefined,
+  state: { status: string; data?: unknown },
+  liveSeed: string | null,
+): boolean {
+  if (navigationType !== "POP" || state.status !== "success" || !liveSeed) return false;
+  const pages = (state.data as { pages?: Array<{ sessionSeed?: string }> } | undefined)?.pages;
+  return !!pages && pages.length > 0 && pages.every((p) => p.sessionSeed === liveSeed);
+}
+
 export interface FeedPage {
   posts: FeedPost[];
   nextCursor: number | null;
@@ -531,27 +549,54 @@ export interface FeedPage {
  *                    supply this is Phase D. It is threaded through now so the
  *                    cache key is correct from the first day rather than
  *                    retro-fitted onto a live cache.
+ * @param navigationType  How the router arrived on the feed (react-router's
+ *                    `useNavigationType()`, passed by Feed.tsx). "POP" — Back or
+ *                    Forward — returns to the deal on screen; anything else, or
+ *                    nothing, is a fresh visit and deals a new hand (B1, below).
  */
-export function useFeedQuery(userId: string | undefined, categories?: string[] | null) {
+export function useFeedQuery(userId: string | undefined, categories?: string[] | null, navigationType?: string) {
   // Normalised once: sorted, empty treated as null, so the key and the RPC
   // argument can never disagree about what "no filter" means.
   const cats = categories && categories.length ? [...categories].sort() : null;
-  const networkIdsRef = useRef<string[]>([]);
+  /**
+   * L1 · B1 — the session lives in feedSessions.ts, not in this component's
+   * refs: Back from a post REMOUNTS the feed (sibling routes), and a session
+   * that died with the screen made the first "load more" after Back a new deal
+   * with an empty exclude list. Same objects, same `.current` shape as the refs
+   * they replace, so every line below reads exactly as it did.
+   */
+  const session = feedSessionFor(userId, cats ? cats.join(",") : "");
+  /**
+   * Decided ONCE, when this screen mounts: is it a return (Back/Forward) to the
+   * deal still in the cache? Anything else is a fresh visit, and a fresh visit
+   * starts its session from nothing — exactly what the per-mount refs did
+   * before B1. That matters for the member who has scrolled more than five
+   * pages: `maxPages` has dropped page 0, so the refetch on mount re-reads the
+   * pages still held, and with the old session kept it would re-read them with
+   * the OLD seed and exclude lists — a fresh visit that deals nothing new.
+   */
+  const qc = useQueryClient();
+  const [returning] = useState(() => {
+    const back = isReturnToTheDealOnScreen(navigationType, qc.getQueryState(queryKeys.feed(cats)) ?? { status: "pending" }, session.seed.current);
+    if (!back) startFeedSessionOver(session);
+    return back;
+  });
+  const networkIdsRef = session.networkIds;
   // Snapshot of delivered post ids BEFORE each page, keyed by page index.
   // Makes React Query page refetches deterministic (a refetch of page N
   // re-uses exactly the exclude list page N was originally fetched with).
-  const excludeByPageRef = useRef<Map<number, string[]>>(new Map());
+  const excludeByPageRef = session.excludeByPage;
   // Last author of the previous page — lets the no-back-to-back rule
   // hold across page boundaries.
-  const lastAuthorByPageRef = useRef<Map<number, string | null>>(new Map());
+  const lastAuthorByPageRef = session.lastAuthorByPage;
   // Stage L2: this refresh's seed. Made when page 0 is fetched (pull-to-refresh,
-  // the "new posts" pill, returning to the feed) and kept for every later page.
-  const sessionSeedRef = useRef<string | null>(null);
+  // the "new posts" pill, a fresh visit to the feed) and kept for every later page.
+  const sessionSeedRef = session.seed;
   // Stage L2: this session's watermark (fetchWatermark), handed to EVERY page —
   // `maxPages` drops page 0 once a member has scrolled six pages down, and the
   // "new posts" pill must not stop working for exactly the member who has been
   // reading longest.
-  const sessionWatermarkRef = useRef<string | null | undefined>(undefined);
+  const sessionWatermarkRef = session.watermark;
 
   // Build placeholderData from localStorage cache for instant render
   const placeholderData = useMemo(() => {
@@ -600,9 +645,25 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
      * the price of the requirement; the 5-minute cache was buying staleness,
      * not speed, because `placeholderData` above already gives an instant
      * first paint from localStorage.
+     *
+     * ⚠ L1 · B1 (PR #434 review) — EXCEPT ON BACK. "always" also re-dealt the
+     * feed when the member came BACK to it from a post: /feed and /post/:id are
+     * sibling routes, so Back remounts the feed, the remount refetched page 0
+     * with a new seed, the new deal replaced every page, and the scroll restore
+     * put the member at the right height over posts they had never seen. A Back
+     * is not a refresh (R-LIVE-5: newest first on a refresh only). So a mount
+     * that arrives by POP over THIS session's deal asks for nothing and shows
+     * exactly the pages it left; every other mount — a fresh visit (PUSH /
+     * REPLACE: Home, the Feed tab, a link), a cold start, pages restored from
+     * the device, a failed query, a different member — still deals new, as
+     * above. Pull-to-refresh, the pill and the refresh after posting go through
+     * useFeedRefresh and are untouched. Behaviour pinned by feedFreshness.test.ts
+     * ("a fresh visit deals a new hand; Back keeps the hand on screen") and the
+     * nav-harness scroll journeys (same post at the top after Back).
      */
     staleTime: 0,
-    refetchOnMount: "always",
+    refetchOnMount: (query) =>
+      returning && isReturnToTheDealOnScreen(navigationType, query.state, sessionSeedRef.current) ? false : "always",
 
     /**
      * Stage L2 · NO RE-DEAL BEHIND THE MEMBER'S BACK.
@@ -621,8 +682,8 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
      * So focus and reconnect refetch ONLY when the last attempt failed — the
      * signal came back, try again (the same recovery as before). A feed that is
      * on screen stays as it is; the "N new posts" pill (useNewPostsCount, which
-     * does check on resume) is how the member learns there is more. Returning
-     * to /feed from another page still deals a new hand (`refetchOnMount`).
+     * does check on resume) is how the member learns there is more. A fresh
+     * visit to /feed still deals a new hand; Back does not (`refetchOnMount`).
      */
     refetchOnWindowFocus: refetchOnlyAfterFailure,
     refetchOnReconnect: refetchOnlyAfterFailure,

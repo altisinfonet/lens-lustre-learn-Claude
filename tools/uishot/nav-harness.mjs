@@ -238,6 +238,41 @@ async function waitScroll(page, expected, label, timeout = 5000) {
   throw new Error(`${label}: the feed was at ${expected}px and came back at ${last}px`);
 }
 
+/**
+ * B1 · WHAT IS ON SCREEN, NOT ONLY HOW FAR DOWN. The feed's cards in page
+ * order, and the one at the top of the viewport (the first whose bottom edge is
+ * still below the top of the screen). The same scroll offset over a RE-DEALT
+ * feed is a different post at the same height — exactly what an offset-only
+ * check could not see.
+ */
+const feedOnScreen = (page) => page.evaluate(() => {
+  const cards = [...document.querySelectorAll("[data-post-id]")];
+  const top = cards.find((el) => el.getBoundingClientRect().bottom > 1);
+  return { order: cards.map((el) => el.getAttribute("data-post-id")), top: top ? top.getAttribute("data-post-id") : null };
+});
+/** How many different deals (session seeds) the fake feed has been asked for so far. */
+const deals = (page) => page.evaluate(() => window.__navDeals ?? 0);
+/**
+ * The feed has stopped loading pages: no request to the fake feed for a whole
+ * second. Scrolling mounts the load-more row, and a page still in flight when
+ * the journey leaves would either land after "what was on screen" was read or
+ * (React Query de-duplicates a mount's fetch into one already running) swallow
+ * the fresh visit's new deal. Both are the journey's timing, not the app's.
+ */
+async function feedQuiet(page, quietMs = 1000, timeout = 20000) {
+  const calls = () => page.evaluate(() => window.__navFeedCalls ?? 0);
+  const t0 = Date.now();
+  let last = await calls();
+  let since = Date.now();
+  while (Date.now() - t0 < timeout) {
+    await page.waitForTimeout(100);
+    const now = await calls();
+    if (now !== last) { last = now; since = Date.now(); }
+    else if (Date.now() - since >= quietMs) return;
+  }
+  throw new Error("the feed never stopped loading pages");
+}
+
 const nativeReady = (page) => page.waitForFunction(
   () => !!(window.__navNative && window.__navNative.back && window.__navNative.tapped), null, { timeout: 120000 });
 const pressBack = async (page) => { await page.evaluate(() => window.__navNative.pressBack()); await settle(page, 500); };
@@ -408,10 +443,14 @@ control("feed scroll position: comments opened and closed → the feed has not m
 });
 
 for (const viewport of [DESKTOP, PHONE]) {
-  journey(`feed scroll position (${viewport.width}px): feed → a post → Back → the feed is where it was left`, viewport, async (page) => {
+  journey(`feed scroll position (${viewport.width}px): feed → a post → Back → the feed is where it was left, the same post at the top`, viewport, async (page) => {
     await openFeedFromBelow(page);
     const postId = await page.evaluate(() => window.__nav.postId);
     const { y } = await scrollFeedDown(page);
+    await feedQuiet(page);
+    if (Math.abs((await scrollY(page)) - y) > SCROLL_TOLERANCE) throw new Error("the feed moved while it finished loading");
+    const left = await feedOnScreen(page);
+    const dealsBefore = await deals(page);
     await page.evaluate((id) => window.__nav.navigate(`/post/${id}`), postId); // in-app push, no click, no scroll
     await waitWhere(page, `/post/${postId}`);
     await page.getByRole("button", { name: "Back", exact: true }).waitFor({ timeout: 60000 });
@@ -419,13 +458,24 @@ for (const viewport of [DESKTOP, PHONE]) {
     await page.goBack();
     await waitWhere(page, "/feed");
     const after = await waitScroll(page, y, "after returning from the post");
-    return { scrollBefore: y, scrollOnThePostPage: onPost, scrollAfterReturn: after };
+    // B1: the SAME post at the top, the same cards in the same order — and it
+    // must still be so once anything a return might have started has landed.
+    await settle(page, 1500);
+    const back = await feedOnScreen(page);
+    if (back.top !== left.top) throw new Error(`the post at the top was ${left.top} and came back as ${back.top} — the feed was re-dealt behind the member`);
+    if (back.order.join(",") !== left.order.join(",")) throw new Error(`the feed's order changed on Back: [${left.order}] → [${back.order}]`);
+    const dealsAfter = await deals(page);
+    if (dealsAfter !== dealsBefore) throw new Error(`Back asked the feed for a new deal (${dealsBefore} → ${dealsAfter} seeds)`);
+    if (Math.abs((await scrollY(page)) - y) > SCROLL_TOLERANCE) throw new Error(`the feed moved after the return settled (${y}px → ${await scrollY(page)}px)`);
+    return { scrollBefore: y, scrollOnThePostPage: onPost, scrollAfterReturn: after, topPostBefore: left.top, topPostAfter: back.top };
   });
 }
 
-control("feed scroll position: a FRESH visit to the feed starts at the top (nothing is restored on a push)", DESKTOP, async (page) => {
+control("feed scroll position: a FRESH visit to the feed starts at the top and is a NEW deal (nothing is restored on a push)", DESKTOP, async (page) => {
   await openFeedFromBelow(page);
   await scrollFeedDown(page);
+  await feedQuiet(page);
+  const dealsBefore = await deals(page);
   await page.goBack();
   await waitWhere(page, "/below");
   await page.getByTestId("to-feed").click();
@@ -434,7 +484,11 @@ control("feed scroll position: a FRESH visit to the feed starts at the top (noth
   await settle(page, 800);
   const y = await scrollY(page);
   if (y > 100) throw new Error(`a fresh visit to the feed opened ${y}px down`);
-  return { scrollOnFreshVisit: y };
+  // R-LIVE-5 / 2026-08-05: a fresh visit is a new deal (B1 keeps the deal only on Back).
+  let dealsAfter = await deals(page);
+  for (let i = 0; i < 80 && dealsAfter <= dealsBefore; i++) { await page.waitForTimeout(100); dealsAfter = await deals(page); }
+  if (dealsAfter <= dealsBefore) throw new Error(`a fresh visit to the feed did not ask for a new deal (${dealsBefore} → ${dealsAfter} seeds)`);
+  return { scrollOnFreshVisit: y, dealsBefore, dealsAfter };
 });
 
 journey("native (Android stub): cold start → notification tap → post → comments → Back ×2 → feed → Back leaves the app", PHONE, async (page) => {

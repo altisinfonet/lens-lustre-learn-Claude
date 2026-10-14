@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-13T12:49:36.063Z",
+  "at": "2026-10-14T18:31:17.773Z",
   "browser": "webkit",
   "version": "26.5",
   "journeys": [
@@ -91,36 +91,48 @@
       "name": "feed scroll position: comments opened and closed → the feed has not moved",
       "viewport": "1280x900",
       "control": true,
-      "pass": false,
-      "error": "the page never stopped changing height (last 2264px)",
-      "at": "/feed"
+      "pass": true,
+      "reading": {
+        "scrollBefore": 1026,
+        "scrollAfter": 1026
+      }
     },
     {
-      "name": "feed scroll position (1280px): feed → a post → Back → the feed is where it was left",
+      "name": "feed scroll position (1280px): feed → a post → Back → the feed is where it was left, the same post at the top",
       "viewport": "1280x900",
       "control": false,
-      "pass": false,
-      "error": "the page never stopped changing height (last 2281px)",
-      "at": "/feed"
+      "pass": true,
+      "reading": {
+        "scrollBefore": 1026,
+        "scrollOnThePostPage": 0,
+        "scrollAfterReturn": 1026,
+        "topPostBefore": "aaaaaaa1-0000-4000-8000-000000000002",
+        "topPostAfter": "aaaaaaa1-0000-4000-8000-000000000002"
+      }
     },
     {
-      "name": "feed scroll position (390px): feed → a post → Back → the feed is where it was left",
+      "name": "feed scroll position (390px): feed → a post → Back → the feed is where it was left, the same post at the top",
       "viewport": "390x844",
       "control": false,
       "pass": true,
       "reading": {
-        "scrollBefore": 1313,
+        "scrollBefore": 978,
         "scrollOnThePostPage": 0,
-        "scrollAfterReturn": 1313
+        "scrollAfterReturn": 978,
+        "topPostBefore": "aaaaaaa1-0000-4000-8000-000000000001",
+        "topPostAfter": "aaaaaaa1-0000-4000-8000-000000000001"
       }
     },
     {
-      "name": "feed scroll position: a FRESH visit to the feed starts at the top (nothing is restored on a push)",
+      "name": "feed scroll position: a FRESH visit to the feed starts at the top and is a NEW deal (nothing is restored on a push)",
       "viewport": "1280x900",
       "control": true,
-      "pass": false,
-      "error": "the page never stopped changing height (last 2264px)",
-      "at": "/feed"
+      "pass": true,
+      "reading": {
+        "scrollOnFreshVisit": 0,
+        "dealsBefore": 1,
+        "dealsAfter": 3
+      }
     },
     {
       "name": "native (Android stub): cold start → notification tap → post → comments → Back ×2 → feed → Back leaves the app",
@@ -135,5 +147,5 @@
       "pass": true
     }
   ],
-  "verdict": "FAIL"
+  "verdict": "PASS"
 }

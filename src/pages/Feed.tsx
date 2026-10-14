@@ -7,7 +7,7 @@ import { useFeedEventTracker } from "@/hooks/feed/useFeedEventTracker";
 import { useNewPostsCount } from "@/hooks/feed/useNewPostsCount";
 import FeedSeenObserver from "@/components/feed/FeedSeenObserver";
 import NewPostsPill from "@/components/feed/NewPostsPill";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useNavigationType } from "react-router-dom";
 import { Rss, ArrowUp, WifiOff } from "lucide-react";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import PullToRefresh from "@/components/PullToRefresh";
@@ -49,6 +49,8 @@ const Feed = () => {
   const { isBanned } = useIsBanned();
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
+  // L1 · B1: Back (POP) returns to the deal on screen; a fresh visit deals new (useFeedQuery).
+  const navigationType = useNavigationType();
   const { log } = useActivityLog();
   const t = useT();
   const { insertPost, replacePost, patchPost, removePost } = useFeedCacheUpdaters();
@@ -82,7 +84,7 @@ const Feed = () => {
     // possible — see the error branch below.
     isError,
     isFetching,
-  } = useFeedQuery(user?.id, feedCategories);
+  } = useFeedQuery(user?.id, feedCategories, navigationType);
   const refreshFeed = useFeedRefresh(feedCategories);
 
   /**

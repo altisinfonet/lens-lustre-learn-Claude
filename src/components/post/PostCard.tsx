@@ -296,7 +296,7 @@ const PostCard = ({
   // that renders them — not as a bottom border on the card, which also drew a
   // line under the very last post in the feed.
   return (
-    <div className="bleed-phone mb-4 overflow-hidden">
+    <div className="bleed-phone mb-4 overflow-hidden" data-post-id={post.id}>
       {/* ── Header ── */}
       {/* Header. `pb-2` is load-bearing: it is the ONLY thing standing between
           the header and the media on a post with no caption. Until 2026-08-01
