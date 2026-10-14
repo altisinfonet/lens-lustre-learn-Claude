@@ -10,7 +10,8 @@
  * when it has one, otherwise its photographs — never both (R-105: the 9:16
  * card replaces the photo frame). Every screen that draws a post's or an ad's
  * media takes it from here — the feed card, the wall, the post page, the
- * hashtag page, the ad card, the ad page, the comments box and the wall grid —
+ * hashtag page, the ad card, the ad page, the comments box, the wall grid and
+ * the preview of a server-made video before it is posted (ServerVideoReview) —
  * and src/lib/posts/__tests__/sameMediaEverywhere.test.ts fails when one does
  * not. The comments box gets the very value its card drew, never a second
  * lookup.

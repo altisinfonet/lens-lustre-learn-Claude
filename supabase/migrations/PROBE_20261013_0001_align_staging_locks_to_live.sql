@@ -5,7 +5,10 @@
 -- post-20261013_0001 state; on production they would not mean anything.
 -- READ-ONLY (BEGIN READ ONLY … ROLLBACK). Raises, and so fails the dispatch, on
 -- any hit. Run on staging after 20261013_0001; a pass means, for every object 20261013_0001
--- touched, staging = production except the six deliberate keeps listed below.
+-- touched, staging = production except the deliberate keeps listed below.
+-- UPDATED by 20261013_0004 (VID-1): that file revokes authenticated SELECT on
+-- post_media (the sixth keep), so this PROBE now expects FIVE keeps and must be
+-- run only after 20261013_0004 is applied. G5 names both post-states.
 --
 --   G1 · 138 tables: each of SELECT/INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/
 --        TRIGGER/MAINTAIN for anon and authenticated, read with
@@ -28,7 +31,7 @@
 --     profiles_public_data   anon           SELECT
 --     lessons                anon           SELECT
 --     lessons                authenticated  SELECT
---     post_media             authenticated  SELECT
+--   (post_media authenticated SELECT — removed by 20261013_0004)
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN READ ONLY;
 DO $probe$
@@ -235,7 +238,7 @@ BEGIN
       ('post_hashtags', 'anon', ARRAY['SELECT', 'TRUNCATE', 'REFERENCES', 'TRIGGER', 'MAINTAIN']::text[], ARRAY[]::text[]),
       ('post_hashtags', 'authenticated', ARRAY['SELECT', 'TRUNCATE', 'REFERENCES', 'TRIGGER', 'MAINTAIN']::text[], ARRAY[]::text[]),
       ('post_media', 'anon', ARRAY[]::text[], ARRAY[]::text[]),
-      ('post_media', 'authenticated', ARRAY['SELECT']::text[], ARRAY['SELECT']::text[]),
+      ('post_media', 'authenticated', ARRAY[]::text[], ARRAY[]::text[]),
       ('post_reactions', 'anon', ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'MAINTAIN']::text[], ARRAY[]::text[]),
       ('post_reactions', 'authenticated', ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'MAINTAIN']::text[], ARRAY[]::text[]),
       ('post_reports', 'anon', ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'MAINTAIN']::text[], ARRAY[]::text[]),
@@ -728,13 +731,13 @@ BEGIN
        WHERE p.pronamespace = 'public'::regnamespace
     )
   SELECT count(*)::int, md5(string_agg(x, E'\n' ORDER BY x COLLATE "C")) FROM _lines INTO _n, _fp;
-  RAISE NOTICE 'G5 ACL-set fingerprint: % lines, md5 % (20261013_0001 post-state: 3733, 9d0aa7be29390cec83399062bb593d61) — %',
-    _n, _fp, CASE WHEN _n = 3733 AND _fp = '9d0aa7be29390cec83399062bb593d61' THEN 'identical' ELSE 'DIFFERENT: something beyond the asserted privileges changed; read it' END;
+  RAISE NOTICE 'G5 ACL-set fingerprint: % lines, md5 % (20261013_0004 post-state: 3732, 782148147c2883ecb00d91ec21c72661; 20261013_0001 alone: 3733, 9d0aa7be29390cec83399062bb593d61) — %',
+    _n, _fp, CASE WHEN _n = 3732 AND _fp = '782148147c2883ecb00d91ec21c72661' THEN 'identical to the 20261013_0004 post-state' WHEN _n = 3733 AND _fp = '9d0aa7be29390cec83399062bb593d61' THEN 'the 20261013_0001 post-state: 20261013_0004 is not applied yet' ELSE 'DIFFERENT: something beyond the asserted privileges changed; read it' END;
 
   IF _bad <> '' THEN
     RAISE EXCEPTION 'PROBE FAIL 20261013_0001:%', _bad;
   END IF;
-  RAISE NOTICE 'PROBE PASS 20261013_0001: % tables x 2 roles x 8 privileges, % functions x 4 grantees, % views and 3 function bodies equal production (6 deliberate SELECT keeps)',
+  RAISE NOTICE 'PROBE PASS 20261013_0001: % tables x 2 roles x 8 privileges, % functions x 4 grantees, % views and 3 function bodies equal production (5 deliberate SELECT keeps)',
     _tables / 2, _functions, _views;
 END
 $probe$;

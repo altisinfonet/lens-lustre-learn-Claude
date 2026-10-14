@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import StartJudgingPrompt from "@/components/judge/StartJudgingPrompt";
 import LongPressButton from "@/components/judge/LongPressButton";
 import PhaseWatermark from "@/components/competition/PhaseWatermark";
@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import type { CriteriaScores, PhotoEvaluation } from "@/hooks/judging/types";
 import { getJudgePhotoTitle, SOW_ROUND4_CRITERIA_KEYS, SOW_ROUND4_CRITERIA_LABELS, DEFAULT_CRITERIA } from "@/hooks/judging/types";
 import { toast } from "@/hooks/core/use-toast";
+import { useDockLayer } from "@/lib/ui/bottomDock";
 
 const f = { fontFamily: "var(--font-heading)" };
 
@@ -319,6 +320,13 @@ export default function MobileJudgeView({
 
   const displayIdx = activePhotoIdx >= 0 ? activePhotoIdx : 0;
   const displayTotal = activePhotoList.length;
+
+  // The Prev / Next bar is a layer of the bottom dock (src/lib/ui/bottomDock.ts):
+  // it publishes its top edge, so the server-video card and the round buttons
+  // sit above it instead of under it (review #423 finding 12 — the bar covered
+  // the bottom of the card for a judge with a video being prepared).
+  const actionBar = useRef<HTMLDivElement>(null);
+  useDockLayer("bar", actionBar, !!(selectedCompId && selectedPhotoKey && selectedEntry && selectedPhoto));
 
   return (
     <div className="md:hidden flex flex-col min-h-screen bg-background">
@@ -811,7 +819,7 @@ export default function MobileJudgeView({
 
       {/* ── Sticky Bottom Action Bar ── */}
       {selectedCompId && selectedPhotoKey && selectedEntry && selectedPhoto && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-2xl border-t border-border safe-area-bottom">
+        <div ref={actionBar} className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-2xl border-t border-border safe-area-bottom">
           <div className="flex items-center justify-between px-4 py-3">
             <button onClick={() => mobileGuard.guardAction(goPrev)} disabled={activePhotoIdx <= 0} aria-label="Previous photo" className="px-4 py-2.5 min-h-[44px] rounded-lg bg-muted text-sm font-medium disabled:opacity-30 flex items-center gap-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none" style={f}>
               <ChevronLeft className="h-4 w-4" /> Prev

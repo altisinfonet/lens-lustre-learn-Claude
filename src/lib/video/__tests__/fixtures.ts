@@ -3,7 +3,8 @@
  * same mp4-muxer path as production) around fake sample bytes. The server
  * checks never decode samples, so fake samples exercise every rule.
  */
-import { packageHls, type RawChunk } from "../hlsPackager";
+import { Muxer, StreamTarget } from "mp4-muxer";
+import { KEYFRAME_SECONDS, packageHls, SEGMENT_SECONDS, type RawChunk } from "../hlsPackager";
 
 export function fakeChunks(seconds: number, fps: number, keyEverySec: number, bytesPerFrame: number): RawChunk[] {
   const out: RawChunk[] = [];
@@ -47,5 +48,48 @@ export async function fakePackage(opts: { seconds?: number; audio?: boolean; ren
     durationSeconds: seconds,
     sourceWidth: 1280,
     sourceHeight: 720,
+  });
+}
+
+/**
+ * A WHOLE fragmented MP4 (ftyp, moov, moof+mdat …, mfra), as an outside
+ * encoder writes it — the input of packageFromFragmented (the server
+ * converter's FFmpeg output has this shape). Same mp4-muxer settings as
+ * hlsPackager's muxVideo/muxAudio, so the same chunks give the same bytes.
+ */
+function wholeFile(mux: (target: StreamTarget) => void): Uint8Array {
+  const parts: { data: Uint8Array; position: number }[] = [];
+  mux(new StreamTarget({ onData: (data, position) => parts.push({ data: data.slice(), position }) }));
+  const size = parts.reduce((m, p) => Math.max(m, p.position + p.data.length), 0);
+  const out = new Uint8Array(size);
+  for (const p of parts) out.set(p.data, p.position);
+  return out;
+}
+
+export function fakeFragmentedVideo(o: { seconds: number; width: number; height: number; fps?: number; keyEverySec?: number; bytesPerFrame?: number; minFragmentSeconds?: number }): Uint8Array {
+  return wholeFile((target) => {
+    const muxer = new Muxer({
+      target, video: { codec: "avc", width: o.width, height: o.height }, fastStart: "fragmented",
+      minFragmentDuration: o.minFragmentSeconds ?? KEYFRAME_SECONDS + 0.15, firstTimestampBehavior: "offset", // = muxVideo
+    });
+    fakeChunks(o.seconds, o.fps ?? 30, o.keyEverySec ?? 2, o.bytesPerFrame ?? 800).forEach((c, i) => {
+      muxer.addVideoChunkRaw(c.data, c.key ? "key" : "delta", c.timestamp, c.duration,
+        i === 0 ? { decoderConfig: { codec: "avc1.42C01E", codedWidth: o.width, codedHeight: o.height, description: AVC_DESC } } : undefined);
+    });
+    muxer.finalize();
+  });
+}
+
+export function fakeFragmentedAudio(o: { seconds: number; minFragmentSeconds?: number }): Uint8Array {
+  return wholeFile((target) => {
+    const muxer = new Muxer({
+      target, audio: { codec: "aac", sampleRate: 48000, numberOfChannels: 2 }, fastStart: "fragmented",
+      minFragmentDuration: o.minFragmentSeconds ?? SEGMENT_SECONDS - 0.1, firstTimestampBehavior: "offset", // = muxAudio
+    });
+    fakeAudio(o.seconds).forEach((c, i) => {
+      muxer.addAudioChunkRaw(c.data, "key", c.timestamp, c.duration,
+        i === 0 ? { decoderConfig: { codec: "mp4a.40.2", sampleRate: 48000, numberOfChannels: 2, description: AAC_DESC } } : undefined);
+    });
+    muxer.finalize();
   });
 }

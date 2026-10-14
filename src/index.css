@@ -422,6 +422,63 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* ── THE BOTTOM DOCK (src/lib/ui/bottomDock.ts) ───────────────────────────────
+ * Everything that floats over the bottom of the screen, in ONE order, so no two
+ * ever overlap: bottom bar → cookie banner → app-update prompt → server-video
+ * card → round buttons (Ask anything, Back to top). A layer that is showing
+ * publishes its top edge on <html> (--dock-consent / --dock-update /
+ * --dock-videos); each layer above sits at max(its usual offset, that edge +
+ * 0.5rem). Unset = 0px, so with nothing docked every element keeps the exact
+ * offset it always had (bottom-20 = 5rem). The card rests 4.25rem above the safe
+ * area: at 3.75rem its bottom edge (60px) met the bottom bar's raised Home disc
+ * (box top 57px, ring to 62px, more at the peak of its breathing) — review #423.
+ * A page with its own bar across the bottom (the judge screen) publishes
+ * --dock-bar, and the card and the round buttons clear that too.
+ * On a computer the card and the cookie banner share the bottom-left corner and
+ * the round buttons keep the bottom-right one (bottom-6 = 1.5rem); the update
+ * prompt is full width at every size, so the card clears it there as well.
+ * --dock-videos-bottom is the card's own offset, named so that its list can be
+ * capped to the room that is really left: --dock-videos-room = the screen,
+ * less that offset, less 7rem (the "Show less" line, a round button above it
+ * and a margin) — never more than 40% of the screen, never less than one row.
+ * The list scrolls inside it (ServerVideoJobs.tsx), so the stack cannot grow
+ * off a short screen (review #423 finding 11). */
+.dock-update {
+  bottom: max(5rem, calc(var(--dock-consent, 0px) + 0.5rem));
+}
+.dock-videos {
+  --dock-videos-bottom: max(
+    calc(4.25rem + env(safe-area-inset-bottom, 0px)),
+    calc(var(--dock-consent, 0px) + 0.5rem),
+    calc(var(--dock-update, 0px) + 0.5rem),
+    calc(var(--dock-bar, 0px) + 0.5rem)
+  );
+  --dock-videos-room: max(4.5rem, min(40dvh, calc(100dvh - var(--dock-videos-bottom) - 7rem)));
+  bottom: var(--dock-videos-bottom);
+}
+.dock-fab {
+  bottom: max(
+    5rem,
+    calc(var(--dock-consent, 0px) + 0.5rem),
+    calc(var(--dock-update, 0px) + 0.5rem),
+    calc(var(--dock-videos, 0px) + 0.5rem),
+    calc(var(--dock-bar, 0px) + 0.5rem)
+  );
+}
+@media (min-width: 1024px) {
+  .dock-videos {
+    --dock-videos-bottom: max(
+      1.5rem,
+      calc(var(--dock-consent, 0px) + 0.5rem),
+      calc(var(--dock-update, 0px) + 0.5rem),
+      calc(var(--dock-bar, 0px) + 0.5rem)
+    );
+  }
+  .dock-fab {
+    bottom: 1.5rem;
+  }
+}
+
 /* PWA standalone mode — hide browser-specific elements */
 @media (display-mode: standalone) {
   .pwa-hide {

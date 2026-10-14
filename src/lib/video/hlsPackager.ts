@@ -149,11 +149,48 @@ export async function packageHls(input: {
   sourceWidth: number;
   sourceHeight: number;
 }): Promise<HlsPackage> {
+  return buildPackage({
+    video: input.video.map((r) => ({ name: r.name, width: r.width, height: r.height, codecString: r.codecString, muxed: muxVideo(r) })),
+    audio: input.audio ? { codecString: input.audio.codecString, muxed: muxAudio(input.audio) } : null,
+    poster: input.poster, durationSeconds: input.durationSeconds, sourceWidth: input.sourceWidth, sourceHeight: input.sourceHeight,
+  });
+}
+
+/**
+ * The SAME package from fragmented MP4 files someone else encoded — the
+ * server-side converter (FFmpeg on the Oracle VM, CONVERTER-DESIGN.md) writes
+ * one fragmented MP4 per rendition and this splits, names, lists and hashes
+ * them with exactly the code the browser uses. One packaging path, two
+ * encoders: whatever the server uploads has the shape the judge expects.
+ */
+export async function packageFromFragmented(input: {
+  video: Array<{ name: "240p" | "480p" | "720p"; width: number; height: number; codecString: string; file: Uint8Array }>;
+  audio: { codecString: string; file: Uint8Array } | null;
+  poster: Uint8Array;
+  durationSeconds: number;
+  sourceWidth: number;
+  sourceHeight: number;
+}): Promise<HlsPackage> {
+  return buildPackage({
+    video: input.video.map((r) => ({ name: r.name, width: r.width, height: r.height, codecString: r.codecString, muxed: toSegments(r.file) })),
+    audio: input.audio ? { codecString: input.audio.codecString, muxed: toSegments(input.audio.file) } : null,
+    poster: input.poster, durationSeconds: input.durationSeconds, sourceWidth: input.sourceWidth, sourceHeight: input.sourceHeight,
+  });
+}
+
+async function buildPackage(input: {
+  video: Array<{ name: "240p" | "480p" | "720p"; width: number; height: number; codecString: string; muxed: Muxed }>;
+  audio: { codecString: string; muxed: Muxed } | null;
+  poster: Uint8Array;
+  durationSeconds: number;
+  sourceWidth: number;
+  sourceHeight: number;
+}): Promise<HlsPackage> {
   if (!input.video.some((v) => v.name === "240p")) throw new Error("VID-PKG-001: the 240p rendition is always made");
   const files = new Map<string, Uint8Array>();
   const variants: VariantRef[] = [];
   for (const r of input.video) {
-    const m = muxVideo(r);
+    const m = r.muxed;
     files.set(`${r.name}.mp4`, m.init);
     m.segments.forEach((s, i) => files.set(`${r.name}_${i}.m4s`, s.bytes));
     files.set(`${r.name}.m3u8`, enc.encode(mediaPlaylist(`${r.name}.mp4`, m.segments.map((s, i) => ({ name: `${r.name}_${i}.m4s`, seconds: s.seconds })))));
@@ -162,7 +199,7 @@ export async function packageHls(input: {
     variants.push({ name: r.name, width: r.width, height: r.height, bandwidth: Math.max(peak, (bytes * 8) / input.durationSeconds), videoCodec: r.codecString });
   }
   if (input.audio) {
-    const m = muxAudio(input.audio);
+    const m = input.audio.muxed;
     files.set("audio.mp4", m.init);
     m.segments.forEach((s, i) => files.set(`audio_${i}.m4s`, s.bytes));
     files.set("audio.m3u8", enc.encode(mediaPlaylist("audio.mp4", m.segments.map((s, i) => ({ name: `audio_${i}.m4s`, seconds: s.seconds })))));

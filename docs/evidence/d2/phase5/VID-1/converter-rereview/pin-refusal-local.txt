@@ -1,0 +1,20 @@
+== 1. the real pin reads
+   url=https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-30-13-08/ffmpeg-n9.0.2-17-g2a571b6068-linux64-gpl-9.0.tar.xz
+   sha256=68ee646831adaae2495618346f3bba94ff207ff83bbd34d643e7004730d66269
+   source=2a571b606854520cf89804d8030c8b328e621689 build=6c9aec5fc9a72ec3abedd1fa84db141fa18cf52b
+== 2. the pinned file, one byte appended -> must be REFUSED
+<tmp>/ffmpeg-n9.0.2-17-g2a571b6068-linux64-gpl-9.0.tar.xz: FAILED
+sha256sum: WARNING: 1 computed checksum did NOT match
+REFUSED: ffmpeg-n9.0.2-17-g2a571b6068-linux64-gpl-9.0.tar.xz does not have the pinned sha256
+   refused, rc=1 ; installed: 0 entries
+== 3. a pin whose URL names another host -> must be refused before any download
+pin: FFMPEG_URL_x86_64 must be exactly https://github.com/BtbN/FFmpeg-Builds/releases/download/<FFMPEG_RELEASE>/<FFMPEG_ASSET_x86_64>
+   refused, rc=1
+== 4. a pin on the moving 'latest' tag -> refused
+pin: FFMPEG_RELEASE must be a dated autobuild-YYYY-MM-DD-HH-MM tag
+   refused, rc=1
+== 5. a pin without the source commit -> refused
+pin: FFMPEG_SOURCE_COMMIT must be FFmpeg's full 40-hex commit
+   refused, rc=1
+== 6. control: the untouched pinned file passes the sha256 check (sha256sum -c)
+<download dir>/x64.tar.xz: OK

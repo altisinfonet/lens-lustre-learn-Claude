@@ -38,6 +38,17 @@ export function videoLimitProblems(f: VideoFacts, purpose: VideoPurpose): string
   return out;
 }
 
+/**
+ * Server conversion (CONVERTER-DESIGN.md v2 §3): this device prepares
+ * nothing, so its memory and the video's length are not its concern, and a
+ * format this browser cannot play is the converter's to judge. What is left
+ * is the original's own weight — the same 500 MB, said the same way.
+ */
+export function serverLimitProblems(bytes: number, purpose: VideoPurpose): string[] {
+  if (!(bytes > 0)) return ["This file is empty. Try another file."];
+  return bytes > VIDEO_LIMITS[purpose].maxBytes ? [`This video is ${Math.round(bytes / 1_048_576)} MB. Videos can be up to 500 MB.`] : [];
+}
+
 /** Decoded stereo sound at 48 kHz, 32-bit float — what decodeAudioData holds for the whole track. */
 const PCM_BYTES_PER_SECOND = 48_000 * 2 * 4;
 
