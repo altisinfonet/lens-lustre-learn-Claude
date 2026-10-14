@@ -230,6 +230,57 @@ describe("a refresh is a new session", () => {
     expect(last.seed).toBe(seed);          // not the seed of the refresh that never arrived
     expect(last.exclude).toEqual(onScreen); // not an empty list that would repeat what is on screen
   });
+
+  it("a refresh that FAILS with several pages loaded puts every page back — a weak signal must not cost the member their posts", async () => {
+    const { result } = mount();
+    await loaded(result, 1);
+    await next(result);
+    await loaded(result, 2);
+    await next(result);
+    await loaded(result, 3);
+    const seed = feedCalls[0].seed;
+    const onScreen = idsOf(result);
+    expect(onScreen).toHaveLength(30);
+
+    rpc = () => ({ status: 500, body: { code: "XX000", message: "boom" } });
+    fallback = () => ({ status: 500, body: { code: "XX000", message: "boom" } });
+    vi.useFakeTimers();
+    let dealt: boolean | undefined;
+    await act(async () => {
+      const p = result.current.refresh().then((v) => { dealt = v; });
+      await vi.advanceTimersByTimeAsync(20_000);
+      await p;
+    });
+    vi.useRealTimers();
+    expect(dealt).toBe(false);
+    expect(idsOf(result)).toEqual(onScreen);                       // all three pages, in order
+    expect(result.current.q.data?.pageParams).toEqual([0, 1, 2]);
+
+    rpc = (body) => ({ status: 200, body: deal(body) });
+    await next(result);
+    await waitFor(() => expect(pagesOf(result)).toHaveLength(4));
+    const last = feedCalls[feedCalls.length - 1];
+    expect(last.seed).toBe(seed);
+    expect(last.exclude).toEqual(onScreen);
+    expect(new Set(idsOf(result)).size).toBe(40);
+  });
+
+  it("with no network a refresh does not start: it says so at once and leaves every page alone", async () => {
+    const { result } = mount();
+    await loaded(result, 1);
+    await next(result);
+    await loaded(result, 2);
+    const onScreen = idsOf(result);
+    const before = feedCalls.length;
+
+    onlineManager.setOnline(false);
+    let dealt: boolean | undefined;
+    await act(async () => { dealt = await result.current.refresh(); });
+
+    expect(dealt).toBe(false);
+    expect(feedCalls.length).toBe(before);
+    expect(idsOf(result)).toEqual(onScreen);
+  });
 });
 
 describe("the database does not have the 5-argument function yet (bundle before migration)", () => {

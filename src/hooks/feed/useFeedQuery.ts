@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient, onlineManager, type InfiniteData } from "@tanstack/react-query";
 import { useRef, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPostAttachments, attachmentsFor } from "@/lib/posts/postAttachments";
@@ -797,17 +797,28 @@ export function getNetworkIds(pages: FeedPage[] | undefined): string[] {
  *     enrichments to show the ten posts at the top.
  * One page, one new seed; the rest load as the member scrolls, as always.
  *
- * Resolves true when the new deal arrived, false when the refresh failed (the
- * posts on screen stay, and Feed.tsx says "Couldn't refresh").
+ * Resolves true when the new deal arrived, false when it did not — and then
+ * NOTHING the member had on screen is lost:
+ *   · with no network it does not start at all (a paused request would hold
+ *     the pull-to-refresh spinner until the signal came back);
+ *   · if the request fails after its retries, every page that was loaded is put
+ *     back exactly as it was. Restarting from the first page means the other
+ *     pages are let go first, and on the weak signal this app is used on, a
+ *     refresh that failed must not cost the member the posts they had.
+ * Feed.tsx shows "Couldn't refresh — tap to retry" on false.
  */
 export function useFeedRefresh(categories?: string[] | null): () => Promise<boolean> {
   const qc = useQueryClient();
   const catsKey = categories && categories.length ? [...categories].sort().join(",") : "";
   return useCallback(async () => {
     const queryKey = queryKeys.feed(catsKey ? catsKey.split(",") : null);
+    if (!onlineManager.isOnline()) return false;
+    const onScreen = qc.getQueryData<InfiniteData<FeedPage, number>>(queryKey);
     qc.setQueryData<InfiniteData<FeedPage, number>>(queryKey, (d) =>
       d && d.pages.length > 0 ? { pages: d.pages.slice(0, 1), pageParams: [0] } : d);
     await qc.refetchQueries({ queryKey, exact: true, type: "active" });
-    return qc.getQueryState(queryKey)?.status === "success";
+    const dealt = qc.getQueryState(queryKey)?.status === "success";
+    if (!dealt && onScreen && onScreen.pages.length > 1) qc.setQueryData(queryKey, onScreen);
+    return dealt;
   }, [qc, catsKey]);
 }

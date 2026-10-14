@@ -95,14 +95,26 @@ const Feed = () => {
    *   3. only when it has ARRIVED, start a new seen-session, so the posts of
    *      the new deal can be recorded (again). Not before: on a slow link the
    *      old cards are still on screen while the request is out, and resetting
-   *      first would record every one of them a second time. A refresh that
-   *      failed changes nothing.
+   *      first would record every one of them a second time.
+   * A refresh that did not arrive changes nothing: the posts stay, the "new
+   * posts" count stays, and the screen says so (`refreshFailed`, below).
+   *
+   * It is called `refetch` because it IS this screen's refetch: it replaces the
+   * React Query `refetch` that pull-to-refresh, the retry button and the
+   * own-post refresh used to call (that one only re-read the pages still held
+   * — never page 0 once `maxPages` had dropped it — and sent nothing that was
+   * seen). The pull-to-refresh wrapper keeps its exact pre-L2 form, which
+   * instagramChrome.test.ts and feedFreshness.test.ts pin.
    */
-  const handleRefresh = useCallback(async () => {
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const refetch = useCallback(async () => {
     await tracker.flushNow();
-    flushBuffer();
     const dealt = await refreshFeed();
-    if (dealt) tracker.newSession();
+    setRefreshFailed(!dealt);
+    if (dealt) {
+      flushBuffer();
+      tracker.newSession();
+    }
   }, [tracker, flushBuffer, refreshFeed]);
 
   // Blocked members' posts leave the feed the instant the block exists (App
@@ -208,11 +220,11 @@ const Feed = () => {
       if (!withMedia) return; // a video this viewer may not play: no empty post
       insertPost(withMedia);
       window.scrollTo({ top: 0, behavior: "smooth" });
-      window.setTimeout(() => { void handleRefresh(); }, 5000);
+      window.setTimeout(() => { void refetch(); }, 5000);
     } else {
       bufferPost(fp);
     }
-  }, [relevantUserIds, bufferPost, insertPost, handleRefresh, user?.id, attachLive]);
+  }, [relevantUserIds, bufferPost, insertPost, refetch, user?.id, attachLive]);
 
   /**
    * A realtime `posts` UPDATE is now the ONLY writer of the three counters.
@@ -275,8 +287,8 @@ const Feed = () => {
    */
   const handleShowNewPosts = useCallback(async () => {
     window.scrollTo({ top: 0 });
-    await handleRefresh();
-  }, [handleRefresh]);
+    await refetch();
+  }, [refetch]);
 
   const handleReact = useCallback((postId: string, reactionType: ReactionType) => {
     if (!user || reactMutation.isPending) return;
@@ -346,7 +358,7 @@ const Feed = () => {
   }
 
   return (
-    <PullToRefresh onRefresh={handleRefresh}>
+    <PullToRefresh onRefresh={async () => { await refetch(); }}>
     <div className="py-3 md:py-14">
       <div className="min-w-0">
         {/* Stage D — the category strip.
@@ -401,7 +413,7 @@ const Feed = () => {
           text-lg/2xl, and a RefreshCw button.
 
           Nothing is lost by removing the button. This whole screen is already
-          wrapped in <PullToRefresh onRefresh={handleRefresh}> a few lines above, so
+          wrapped in <PullToRefresh onRefresh={async () => { await refetch(); }}> a few lines above, so
           pulling down still refreshes — which is exactly how Instagram does it
           and is why the button was redundant. The realtime handler asks for a
           refresh the same way, after the member's own post.
@@ -458,7 +470,7 @@ const Feed = () => {
             </p>
             <button
               type="button"
-              onClick={() => void handleRefresh()}
+              onClick={() => void refetch()}
               disabled={isFetching}
               className="inline-block mt-4 text-[10px] tracking-[0.15em] uppercase text-primary hover:underline disabled:opacity-50"
               style={headingFont}
@@ -483,13 +495,14 @@ const Feed = () => {
                 it were live; showing the error page instead would throw away
                 content we already have. So: keep the posts, and say plainly
                 that they are the saved ones. */}
-            {/* Stage L2 — HONEST: a refresh that failed, or a page served by the
-                DB-3004 chronological fallback, is not the feed. The posts stay
-                (availability), and the screen says they are stale. */}
-            {(isError || servedStale) && (
+            {/* Stage L2 — HONEST: a refresh that failed (or could not start: no
+                network), or a page served by the DB-3004 chronological
+                fallback, is not the feed. The posts stay (availability), and
+                the screen says they are stale. */}
+            {(isError || servedStale || refreshFailed) && (
               <button
                 type="button"
-                onClick={() => void handleRefresh()}
+                onClick={() => void refetch()}
                 disabled={isFetching}
                 data-testid="feed-refresh-failed"
                 className="w-full mb-3 py-2 px-4 rounded-lg bg-muted/60 border border-border text-muted-foreground text-xs flex items-center justify-center gap-2 hover:bg-muted disabled:opacity-50"

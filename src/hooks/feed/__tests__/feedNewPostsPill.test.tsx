@@ -193,8 +193,8 @@ describe("where the feed puts it", () => {
     expect(feed).not.toMatch(/new posts? available/);
   });
 
-  it("the posts arrive only when the member asks: the pill and pull-to-refresh both go through handleRefresh", () => {
-    expect(feed).toMatch(/const handleShowNewPosts = useCallback\(async \(\) => \{\s+window\.scrollTo\(\{ top: 0 \}\);\s+await handleRefresh\(\);/);
+  it("the posts arrive only when the member asks: the pill and pull-to-refresh both go through the feed's one refresh, refetch", () => {
+    expect(feed).toMatch(/const handleShowNewPosts = useCallback\(async \(\) => \{\s+window\.scrollTo\(\{ top: 0 \}\);\s+await refetch\(\);/);
     expect(feed).toMatch(/onClick=\{\(\) => void handleShowNewPosts\(\)\}/);
     // nothing splices arriving posts into the list any more
     expect(feed).not.toMatch(/flushBuffer\(\)\.forEach|attachLive\(posts\)\)\.forEach/);

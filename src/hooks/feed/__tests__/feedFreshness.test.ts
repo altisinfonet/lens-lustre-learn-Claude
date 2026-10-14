@@ -79,19 +79,23 @@ describe("the client asks again every time it mounts", () => {
 
   it("pull-to-refresh still explicitly refetches — after sending what was seen (Stage L2)", () => {
     // This path always worked; the fix is for every OTHER way in. Stage L2
-    // routes it through handleRefresh: flush the seen-events first, so the new
-    // deal already knows what not to lead with; then ask for the deal
-    // (useFeedRefresh restarts the feed from its first page — a plain refetch
-    // never reached page 0 once `maxPages` had dropped it); and only when it
-    // has arrived start a new seen-session.
+    // keeps the wiring (and this file's pre-L2 assertion, unchanged) — what
+    // changed is what Feed.tsx's `refetch` does: it is now the feed's one
+    // refresh. Flush the seen-events first, so the new deal already knows what
+    // not to lead with; then ask for the deal (useFeedRefresh restarts the feed
+    // from its first page — React Query's own refetch never reached page 0 once
+    // `maxPages` had dropped it); and only when it has arrived start a new
+    // seen-session.
     const feed = read("src/pages/Feed.tsx");
-    expect(feed).toMatch(/<PullToRefresh onRefresh=\{handleRefresh\}>/);
-    const start = feed.indexOf("const handleRefresh = useCallback(");
+    expect(read("src/pages/Feed.tsx")).toMatch(/onRefresh=\{async \(\) => \{ await refetch\(\); \}\}/);
+    const start = feed.indexOf("const refetch = useCallback(");
     const end = feed.indexOf("}, [tracker, flushBuffer, refreshFeed]);");
     expect(start).toBeGreaterThan(-1);
     expect(end).toBeGreaterThan(start);
     const body = feed.slice(start, end);
-    expect(body).toMatch(/await tracker\.flushNow\(\);[\s\S]*const dealt = await refreshFeed\(\);\s+if \(dealt\) tracker\.newSession\(\);/);
+    expect(body).toMatch(/await tracker\.flushNow\(\);\s+const dealt = await refreshFeed\(\);\s+setRefreshFailed\(!dealt\);\s+if \(dealt\) \{\s+flushBuffer\(\);\s+tracker\.newSession\(\);/);
+    // and a refresh that did not arrive is said on screen, beside the two older reasons
+    expect(feed).toMatch(/\{\(isError \|\| servedStale \|\| refreshFailed\) && \(/);
     expect(feed).toMatch(/const refreshFeed = useFeedRefresh\(feedCategories\);/);
   });
 
