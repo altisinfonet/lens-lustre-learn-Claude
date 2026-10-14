@@ -1,7 +1,7 @@
 {
-  "$comment": "P13 ceilings, raw bytes. Set 2026-10-04 from origin/staging 64a0d66 (staging-lane build) = measured + ~3 %, rounded up to a KiB. Lower freely; RAISE only in a reviewed PR that states why. Measured values: docs/evidence/d2/P13/bundle-budget.md.",
-  "entryBytes": 1700864,
-  "initialBytes": 2250752,
+  "$comment": "P13 ceilings, raw bytes. Set 2026-10-04 from origin/staging 64a0d66 (staging-lane build) = measured + ~3 %, rounded up to a KiB. Lower freely; RAISE only in a reviewed PR that states why. Measured values: docs/evidence/d2/P13/bundle-budget.md. Re-baselined 2026-10-14 (entry + initial only, same rule) from PR #430 head 0c05e761 staging-lane build, run 38543230522.",
+  "entryBytes": 1754112,
+  "initialBytes": 2307072,
   "defaultChunkBytes": 163840,
   "namedChunks": {
     "AdminAnalytics.js": 425984,
