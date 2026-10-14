@@ -1,0 +1,81 @@
+name: D2 · L1 navigation harness
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING REAL. HOLDS NO SECRET. Real browsers against the Vite dev
+# server and the harness fake backend (synthetic VITE_* values, as ui-gate).
+#
+# REV4 plan §6 Stage L1 (F-REV4-7: "Back loops on a post's comments, never
+# comes to the main feed"). The REAL Feed and PostDetail, on the page's REAL
+# history stack, with the browser's own Back:
+#   · feed → comments → close (X, Escape, backdrop, swipe) → Back → the page
+#     below; closing adds no history entry;
+#   · post → comments → close → Back → feed (the reported loop, on the website);
+#   · cold link carrying ?comments= → opens → close leaves no step behind;
+#   · feed scroll position kept through a post round trip;
+#   · Android stub: notification tap at cold start → post → comments →
+#     Back ×2 → feed → Back leaves; a post that is gone → feed + short notice.
+# Three engines, because the scroll journey is the one that differs by engine
+# (it failed only in WebKit before L1).
+#
+# WHAT THIS DOES NOT PROVE: the feel of the Android Back gesture and of the
+# sheet's swipe under a thumb. That needs a phone (Stage L4).
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# The matrix value reaches the shell through `env:` only.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  navigation:
+    name: Back returns to the feed (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    env:
+      NAV_BROWSER: ${{ matrix.browser }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Clean install
+        run: npm ci --no-audit --no-fund
+      - name: Cache the Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ matrix.browser }}-${{ hashFiles('package-lock.json') }}
+      - name: Install the browser for Playwright (with its system libraries)
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            if npx playwright install --with-deps "$NAV_BROWSER"; then exit 0; fi
+            sleep $((attempt * 15))
+          done
+          exit 1
+      - name: The navigation harness
+        env:
+          VITE_SUPABASE_URL: https://testprojectref0000x.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: test-publishable-key-not-real
+          VITE_SUPABASE_PROJECT_ID: testprojectref0000x
+        run: node tools/uishot/nav-harness.mjs --browser "$NAV_BROWSER" --json "/tmp/l1-nav-$NAV_BROWSER.json"
+      - name: Upload the reading
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: l1-nav-harness-${{ matrix.browser }}
+          path: /tmp/l1-nav-${{ matrix.browser }}.json
+          if-no-files-found: warn
+          retention-days: 30

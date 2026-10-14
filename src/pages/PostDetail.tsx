@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useBlockedUsers } from "@/hooks/core/useBlockedUsers";
 import { publicUrl } from "@/lib/publicUrl";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
+import { inAppHistoryDepth } from "@/hooks/core/useAndroidBackButton";
+import { goBackOrFeed, isNotificationEntry } from "@/lib/navigationContract";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPostAttachments, attachmentsFor } from "@/lib/posts/postAttachments";
 import type { FeedVideo } from "@/lib/video/postVideoRead";
@@ -67,6 +69,30 @@ const PostDetail = () => {
   const { blockedIds } = useBlockedUsers();
   const reactMutation = useReactToPost();
   const unreactMutation = useUnreactToPost();
+
+  /**
+   * L1: this page's own "← Back" / "Go back". `navigate(-1)` with nothing of
+   * ours beneath (an external link, a cold start) leaves the site or lands on
+   * whatever the WebView had lying there — so with no in-app history it goes to
+   * the feed instead, replacing this entry (no extra step for Back to undo).
+   */
+  const goBack = () => goBackOrFeed(navigate, inAppHistoryDepth());
+
+  /**
+   * L1: a notification about a post that has since been deleted (or hidden)
+   * lands on the feed with a short notice — not on a dead end. When the tap
+   * put the feed beneath this page (cold start), one step back IS the feed;
+   * otherwise this entry is replaced by the feed.
+   */
+  const location = useLocation();
+  const fromNotification = isNotificationEntry(location.state) ? location.state : null;
+  useEffect(() => {
+    if (!notFound || !fromNotification) return;
+    toast({ title: "That post is no longer available." });
+    if (fromNotification.feedBeneath) navigate(-1);
+    else navigate("/feed", { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notFound]);
 
   useEffect(() => {
     if (!postId) return;
@@ -224,7 +250,7 @@ const PostDetail = () => {
     return (
       <main className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
         <p className="text-sm text-muted-foreground" style={bodyFont}>Post not found or has been removed.</p>
-        <button onClick={() => navigate(-1)} className="text-xs text-primary hover:underline" style={headingFont}>Go back</button>
+        <button onClick={goBack} className="text-xs text-primary hover:underline" style={headingFont}>Go back</button>
       </main>
     );
   }
@@ -235,7 +261,7 @@ const PostDetail = () => {
     return (
       <main className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 px-6 text-center">
         <p className="text-sm text-muted-foreground" style={bodyFont}>You have blocked the member who posted this. You can unblock them in Settings → Blocked members.</p>
-        <button onClick={() => navigate(-1)} className="text-xs text-primary hover:underline" style={headingFont}>Go back</button>
+        <button onClick={goBack} className="text-xs text-primary hover:underline" style={headingFont}>Go back</button>
       </main>
     );
   }
@@ -272,7 +298,7 @@ const PostDetail = () => {
             for most often. `-mt-3` takes the extra height back off the top so
             the gap above the card is unchanged, and `self-start`/`w-fit` keeps
             the target the width of the word rather than the whole column. */}
-        <button onClick={() => navigate(-1)} className="flex w-fit min-h-11 -mt-3 items-center gap-2 text-xs text-muted-foreground hover:text-primary mb-4 transition-colors" style={headingFont}>
+        <button onClick={goBack} className="flex w-fit min-h-11 -mt-3 items-center gap-2 text-xs text-muted-foreground hover:text-primary mb-4 transition-colors" style={headingFont}>
           <ArrowLeft className="h-3.5 w-3.5" /> Back
         </button>
 

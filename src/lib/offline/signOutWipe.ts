@@ -12,7 +12,8 @@
  *      put the departed member's data back after the wipe;
  *   2. the image service worker's caches (gallery-images-*);
  *   3. the OFF-1 device store (IndexedDB `retina-offline`);
- *   4. the feed's first-page cache (localStorage `feed_cache_v1`);
+ *   4. the feed's first-page cache (localStorage `feed_cache_v1`), and the
+ *      feed's in-memory session (lib/feedSessions: seed + exclude lists);
  *   6. VID-1 video upload jobs + their encoded files (IndexedDB
  *      `retina-video-uploads`): an unposted video is the member's alone;
  *   5. the OFF-2 outbox (IndexedDB `retina-outbox`): unsent actions belong to
@@ -26,6 +27,7 @@ import { purgeImageCache } from "@/lib/imageCachePurge";
 import { clearDeviceStore } from "./deviceStore";
 import { setPersistenceUser } from "./queryPersistence";
 import { clearFeedCache } from "@/lib/feedCache";
+import { clearFeedSessions } from "@/lib/feedSessions";
 import { clearOutbox } from "./outbox";
 import { clearVideoUploads } from "@/lib/video/uploadJobs";
 
@@ -41,6 +43,9 @@ export async function wipeMemberDataOnSignOut(): Promise<WipeResult> {
   setPersistenceUser(null);
   let feedCache = false;
   try { clearFeedCache(); feedCache = true; } catch { /* never block sign-out */ }
+  // L1 · B1: the feed's session (seed, exclude lists) outlives the feed screen
+  // so Back can keep the deal on screen — it must not outlive the member.
+  clearFeedSessions();
   const [imageCaches, deviceStore, outbox, videoUploads] = await Promise.all([
     purgeImageCache().catch(() => null),
     clearDeviceStore().catch(() => false),

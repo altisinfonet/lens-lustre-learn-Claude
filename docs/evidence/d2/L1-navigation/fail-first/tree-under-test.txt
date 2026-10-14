@@ -1,0 +1,10 @@
+a04742ac Align staging privileges and three functions with production (20261013_0001) (#424)
+--- git status (tests + harness only; no product file differs from a04742ac):
+ M src/uiharness/AppShell.tsx
+?? navharness.html
+?? src/contexts/__tests__/
+?? src/hooks/core/__tests__/androidBackNavigation.test.tsx
+?? src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx
+?? src/pages/__tests__/postDetailBackAndGonePost.test.tsx
+?? src/uiharness/nav/
+?? tools/uishot/nav-harness.mjs

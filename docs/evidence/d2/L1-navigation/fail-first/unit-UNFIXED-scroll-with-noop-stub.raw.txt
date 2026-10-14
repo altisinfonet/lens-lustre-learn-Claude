@@ -1,0 +1,138 @@
+
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90mD:/50mm Retina World/work/D10-unfixed[39m
+
+ [31m×[39m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx[2m > [22mreturning to the feed[2m > [22mBack puts the feed exactly where it was left — once the feed is tall enough to be there[33m 466[2mms[22m[39m
+[31m   → as far as the page allows, never past it: expected +0 to be 1000 // Object.is equality[39m
+ [31m×[39m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx[2m > [22mreturning to the feed[2m > [22mthe page being left cannot overwrite the position: a scroll that arrives after the router moved on is not saved[32m 222[2mms[22m[39m
+[31m   → the 1500 the member chose — not the 0 the clamp reported: expected +0 to be 1500 // Object.is equality[39m
+ [31m×[39m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx[2m > [22mreturning to the feed[2m > [22mForward restores as well (it is the same kind of return)[32m 205[2mms[22m[39m
+[31m   → expected +0 to be 900 // Object.is equality[39m
+ [31m×[39m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx[2m > [22mwhat a restore must never do[2m > [22ma FRESH visit (a push) is never moved, though a position is remembered for an older visit[32m 169[2mms[22m[39m
+[31m   → expected +0 to be 2400 // Object.is equality[39m
+ [31m×[39m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx[2m > [22mwhat a restore must never do[2m > [22mthe member's own touch ends the restore: a page still growing no longer drags them back[32m 109[2mms[22m[39m
+[31m   → expected +0 to be 1000 // Object.is equality[39m
+ [31m×[39m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx[2m > [22mwhat a restore must never do[2m > [22mit gives up at its deadline: late growth after that moves nothing, and the observer is released[32m 72[2mms[22m[39m
+[31m   → expected +0 to be 1000 // Object.is equality[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 6 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx[2m > [22mreturning to the feed[2m > [22mBack puts the feed exactly where it was left — once the feed is tall enough to be there
+[31m[1mAssertionError[22m: as far as the page allows, never past it: expected +0 to be 1000 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1000[39m
+[31m+ 0[39m
+
+[36m [2m❯[22m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx:[2m116:59[22m[39m
+    [90m114| [39m
+    [90m115| [39m    act(() => { setDocHeight(1800); }); // the first cards arrive — st…
+    [90m116| [39m    [34mexpect[39m(y[33m,[39m [32m"as far as the page allows, never past it"[39m)[33m.[39m[34mtoBe[39m([34m1000[39m)[33m;[39m
+    [90m   | [39m                                                          [31m^[39m
+    [90m117| [39m    [34mact[39m(() [33m=>[39m { [34msetDocHeight[39m([34m6000[39m)[33m;[39m })[33m;[39m [90m// the rest of the feed[39m
+    [90m118| [39m    [34mexpect[39m(y[33m,[39m [32m"exactly where the member was"[39m)[33m.[39m[34mtoBe[39m([34m2400[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx[2m > [22mreturning to the feed[2m > [22mthe page being left cannot overwrite the position: a scroll that arrives after the router moved on is not saved
+[31m[1mAssertionError[22m: the 1500 the member chose — not the 0 the clamp reported: expected +0 to be 1500 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1500[39m
+[31m+ 0[39m
+
+[36m [2m❯[22m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx:[2m143:75[22m[39m
+    [90m141| [39m    [35mawait[39m [34mwaitFor[39m(() [33m=>[39m [34mexpect[39m([34mwhere[39m())[33m.[39m[34mtoBe[39m([32m"/feed"[39m))[33m;[39m
+    [90m142| [39m    [34mact[39m(() [33m=>[39m { [34msetDocHeight[39m([34m6000[39m)[33m;[39m })[33m;[39m
+    [90m143| [39m    expect(y, "the 1500 the member chose — not the 0 the clamp reporte…
+    [90m   | [39m                                                                          [31m^[39m
+    [90m144| [39m  })[33m;[39m
+    [90m145| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx[2m > [22mreturning to the feed[2m > [22mForward restores as well (it is the same kind of return)
+[31m[1mAssertionError[22m: expected +0 to be 900 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 900[39m
+[31m+ 0[39m
+
+[36m [2m❯[22m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx:[2m151:15[22m[39m
+    [90m149| [39m    [35mawait[39m [34mwaitFor[39m(() [33m=>[39m [34mexpect[39m([34mwhere[39m())[33m.[39m[34mtoBe[39m([32m"/feed"[39m))[33m;[39m
+    [90m150| [39m    [34mact[39m(() [33m=>[39m { [34msetDocHeight[39m([34m6000[39m)[33m;[39m })[33m;[39m
+    [90m151| [39m    [34mexpect[39m(y)[33m.[39m[34mtoBe[39m([34m900[39m)[33m;[39m
+    [90m   | [39m              [31m^[39m
+    [90m152| [39m    [34mact[39m(() [33m=>[39m { [34mscrollWindowTo[39m([34m3100[39m)[33m;[39m })[33m;[39m [90m// the member reads further[39m
+    [90m153| [39m    [35mawait[39m [34mback[39m()[33m;[39m [90m// below the feed[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx[2m > [22mwhat a restore must never do[2m > [22ma FRESH visit (a push) is never moved, though a position is remembered for an older visit
+[31m[1mAssertionError[22m: expected +0 to be 2400 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 2400[39m
+[31m+ 0[39m
+
+[36m [2m❯[22m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx:[2m181:15[22m[39m
+    [90m179| [39m    [35mawait[39m [34mwaitFor[39m(() [33m=>[39m [34mexpect[39m([34mwhere[39m())[33m.[39m[34mtoBe[39m([32m"/feed"[39m))[33m;[39m
+    [90m180| [39m    [34mact[39m(() [33m=>[39m { [34msetDocHeight[39m([34m6000[39m)[33m;[39m })[33m;[39m
+    [90m181| [39m    [34mexpect[39m(y)[33m.[39m[34mtoBe[39m([34m2400[39m)[33m;[39m
+    [90m   | [39m              [31m^[39m
+    [90m182| [39m  })[33m;[39m
+    [90m183| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx[2m > [22mwhat a restore must never do[2m > [22mthe member's own touch ends the restore: a page still growing no longer drags them back
+[31m[1mAssertionError[22m: expected +0 to be 1000 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1000[39m
+[31m+ 0[39m
+
+[36m [2m❯[22m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx:[2m189:15[22m[39m
+    [90m187| [39m    [35mawait[39m [34mwaitFor[39m(() [33m=>[39m [34mexpect[39m([34mwhere[39m())[33m.[39m[34mtoBe[39m([32m"/feed"[39m))[33m;[39m
+    [90m188| [39m    [34mact[39m(() [33m=>[39m { [34msetDocHeight[39m([34m1800[39m)[33m;[39m })[33m;[39m
+    [90m189| [39m    [34mexpect[39m(y)[33m.[39m[34mtoBe[39m([34m1000[39m)[33m;[39m
+    [90m   | [39m              [31m^[39m
+    [90m190| [39m
+    [90m191| [39m    fireEvent[33m.[39m[34mtouchStart[39m(window)[33m;[39m [90m// a thumb on the screen[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx[2m > [22mwhat a restore must never do[2m > [22mit gives up at its deadline: late growth after that moves nothing, and the observer is released
+[31m[1mAssertionError[22m: expected +0 to be 1000 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1000[39m
+[31m+ 0[39m
+
+[36m [2m❯[22m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx:[2m202:15[22m[39m
+    [90m200| [39m    [35mawait[39m [34mwaitFor[39m(() [33m=>[39m [34mexpect[39m([34mwhere[39m())[33m.[39m[34mtoBe[39m([32m"/feed"[39m))[33m;[39m
+    [90m201| [39m    [34mact[39m(() [33m=>[39m { [34msetDocHeight[39m([34m1800[39m)[33m;[39m })[33m;[39m
+    [90m202| [39m    [34mexpect[39m(y)[33m.[39m[34mtoBe[39m([34m1000[39m)[33m;[39m
+    [90m   | [39m              [31m^[39m
+    [90m203| [39m    expect(resizeListeners.length, "watching while the restore is live…
+    [90m204| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m6 failed[39m[22m[90m (6)[39m
+[2m   Start at [22m 18:31:10
+[2m   Duration [22m 9.11s[2m (transform 212ms, setup 362ms, collect 1.72s, tests 1.25s, environment 2.83s, prepare 310ms)[22m
+
