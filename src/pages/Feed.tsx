@@ -376,17 +376,21 @@ const Feed = () => {
           <CategoryStrip value={activeCategory} onChange={setActiveCategory} />
           {/* Stage L2 — floats just below the strip (absolute; the sticky strip
               is its containing block), so it never moves the list. It still
-              animates in and out, as the banner it replaces did. */}
+              animates in and out, as the banner it replaces did. It starts at
+              opacity 0 only because it is SUMMONED (rendered only while there
+              are new posts) — the animation props sit right under that
+              condition, where contentNeverStartsInvisible.test.tsx looks for
+              it, the same shape the banner had. */}
           <AnimatePresence>
             {newPostCount > 0 && (
               <NewPostsPill
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
                 key="new-posts-pill"
                 count={newPostCount}
                 onClick={() => void handleShowNewPosts()}
                 label={(n) => (n === 1 ? t("feed.newPosts.one", "1 new post") : t("feed.newPosts.many", "{n} new posts").replace("{n}", String(n)))}
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
               />
             )}
           </AnimatePresence>

@@ -39,3 +39,22 @@ Tests 25 failed | 3900 passed | 20 skipped (3945). None of the 24 failing files 
 all are Windows-only: CRLF working copies vs recorded sha256 / generated docs (errorCatalog passes once
 docs/error-codes.md is LF), path joins of absolute Windows paths, shell pipelines passed to grep, 5 s
 timeouts. CI (Linux) runs the full suite and is the arbiter. npx tsc -b tsconfig.json: exit 0.
+
+SECOND EXISTING GUARD (found on CI, not in the brief): src/lib/__tests__/contentNeverStartsInvisible.test.tsx,
+UNCHANGED. It failed on the pushed head 7a22e1ee (run 38403895539) and on b156d7ae (run 38540800648):
+   × no page body starts invisible, on any route > no variant object and no JSX prop starts page-body content at opacity 0
+     → src/pages/Feed.tsx:387  jsx prop: expected [ 'src/pages/Feed.tsx:387  jsx prop' ] to deeply equal []
+Cause: the pill IS summoned ({newPostCount > 0 && (…)}), but its initial={{ opacity: 0 … }} sat six lines
+below that condition; the guard looks three lines up. Fix: the animation props moved directly under the
+condition (prop order only, nothing rendered differently) — the shape the banner it replaces had.
+After: npx vitest run src/lib/__tests__/contentNeverStartsInvisible.test.tsx -> that test passes; the
+file's only other local failure ("the seven local fadeUp definitions are gone") is a shell pipeline
+cmd.exe cannot run, and passes on CI.
+
+NOT FIXED HERE — P13 bundle budget (Staging lane build, run 38540800677): entry 1,702,867 B, ceiling
+1,700,864 B, over by 2,003 B. origin/staging 1da90848 measures 1,700,842 B (run 38523548911): 22 B of
+headroom left. Local sourcemap attribution, staging vs this branch, entry chunk only: +798 errorCodes.ts
+(DB-3007, DB-3008), +485 OutboxBridge.tsx (DB-3008 log), +461 outbox.ts (feed_events kind), +266
+outboxSender.ts (feed_events upsert) = +2,025 B (+9 main.tsx, +6 a radix module); nothing else of this
+PR reaches the entry (Feed.tsx and the feed hooks are a lazy chunk). The script's header: raising a
+ceiling is its own reviewed PR to scripts/web-bundle-budget.json.
