@@ -129,6 +129,13 @@ describe("Admin → Video Conversion", () => {
     expect(items[2]).toMatch(/system chose On the member's device$/);
   });
 
+  it("review #423: Save is a 44px target, like every other control", async () => {
+    render(<AdminVideoConversion />);
+    await screen.findByTestId("conversion-status");
+    expect(saveBtn().className).toMatch(/min-h-11/);
+    expect(saveBtn().className).not.toMatch(/(^|\s)h-9(\s|$)/); // the 36px height it had
+  });
+
   it("only a full admin reaches the page", () => {
     expect(canAccessTab(resolveAdminSubRoles(["admin"]), "video_conversion")).toBe(true);
     for (const role of ["moderator", "finance", "content_editor", "judge"]) {

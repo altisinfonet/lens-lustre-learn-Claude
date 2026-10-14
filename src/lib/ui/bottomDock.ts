@@ -13,6 +13,10 @@
  *   bottom bar · cookie banner · app-update prompt · server-video card · round buttons
  *                (--dock-consent)  (--dock-update)     (--dock-videos)    (Ask anything, Back to top)
  *
+ * A page that has its OWN bar across the bottom (the judge screen's Prev /
+ * Next actions) publishes it as --dock-bar, and the card and the round buttons
+ * clear it the same way (review #423 finding 12).
+ *
  * A layer that is SHOWING publishes, on <html>, how far its top edge sits
  * above the bottom of the screen. The CSS in index.css (.dock-update,
  * .dock-videos, .dock-fab) places each layer at max(its own usual offset,
@@ -25,9 +29,9 @@
  * layout height — never getBoundingClientRect(): the banners slide in with a
  * transform, and a mid-animation rectangle would publish the wrong edge.
  */
-import { useLayoutEffect, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useState, type RefObject } from "react";
 
-export type DockLayer = "consent" | "update" | "videos";
+export type DockLayer = "consent" | "update" | "videos" | "bar";
 
 /** The custom property a layer publishes. */
 export const dockProperty = (layer: DockLayer) => `--dock-${layer}`;
@@ -44,8 +48,13 @@ export function dockEdge(el: HTMLElement): number {
  * breakpoint), and when a layer BELOW it moves — that edge is part of this
  * layer's own `bottom`, so a change on <html> re-measures it. Removed when
  * the layer goes, so the layers above drop back to their usual places.
+ *
+ * `version`: anything that changes when the caller KNOWS its size changed (the
+ * number of cards, open or folded). The observers already see that; where
+ * there is no ResizeObserver (an old WebView) this is what re-publishes
+ * (review #423 finding 10). Both runs happen before the next paint.
  */
-export function useDockLayer(layer: DockLayer, ref: RefObject<HTMLElement | null>, showing: boolean): void {
+export function useDockLayer(layer: DockLayer, ref: RefObject<HTMLElement | null>, showing: boolean, version: string | number = 0): void {
   useLayoutEffect(() => {
     const root = document.documentElement;
     const prop = dockProperty(layer);
@@ -71,5 +80,27 @@ export function useDockLayer(layer: DockLayer, ref: RefObject<HTMLElement | null
       window.removeEventListener("resize", publish);
       root.style.removeProperty(prop);
     };
-  }, [layer, ref, showing]);
+  }, [layer, ref, showing, version]);
+}
+
+/**
+ * True while any of `layers` is showing — for a layer that takes less room
+ * when one below it is up (the server-video card folds to one line while the
+ * cookie banner or the update prompt is on a phone's screen). Follows <html>'s
+ * style, where the layers publish; state changes only when the answer does.
+ */
+export function useDockShowing(layers: readonly DockLayer[]): boolean {
+  const key = layers.join(",");
+  const read = () => key.split(",").some((l) => document.documentElement.style.getPropertyValue(`--dock-${l}`) !== "");
+  const [showing, setShowing] = useState(read);
+  useEffect(() => {
+    const sync = () => setShowing(read());
+    sync();
+    if (typeof MutationObserver !== "function") return;
+    const seen = new MutationObserver(sync);
+    seen.observe(document.documentElement, { attributes: true, attributeFilter: ["style"] });
+    return () => seen.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `read` is rebuilt from `key` alone
+  }, [key]);
+  return showing;
 }

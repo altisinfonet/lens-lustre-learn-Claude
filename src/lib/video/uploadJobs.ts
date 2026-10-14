@@ -231,11 +231,25 @@ function codeOf(message: string): string | undefined {
   return /\b(VID-[A-Z]+-\d{3})\b/.exec(message)?.[1];
 }
 
-async function save(j: VideoJob) {
+/**
+ * SIGN-OUT (OFF-5 G6, review #423 finding 1). clearVideoUploads bumps this
+ * FIRST. Every run captures it when it starts and writes nothing once it has
+ * changed: a step that was in flight during the wipe (an aborted PUT landing
+ * in the catch below, a slow answer) must never put the job — the member's
+ * caption, categories and audience — back on a shared device.
+ */
+let wipeEpoch = 0;
+
+async function save(j: VideoJob, epoch: number) {
+  if (epoch !== wipeEpoch) return; // signed out while this step was in flight: nothing goes back on the device
   if (isDropped(j)) return; // cancelled while a step was in flight: never bring it back
   await getStore().putJob(j);
+  if (epoch !== wipeEpoch) { await getStore().deleteJob(j.id).catch(() => {}); return; } // the wipe ran during the write
   emit({ type: "changed", job: j });
 }
+
+/** The one way a run saves, so the run always holds what was last saved. */
+type Commit = (next: VideoJob) => Promise<void>;
 
 /**
  * Carry one job as far as it can go now. Returns when it is published, waits
@@ -243,11 +257,16 @@ async function save(j: VideoJob) {
  */
 export async function advanceJob(job: VideoJob, d: JobDeps, opts: { beginOnly?: boolean } = {}): Promise<VideoJob> {
   const s = getStore();
+  const epoch = wipeEpoch;
   let j: VideoJob = { ...job };
+  // Every save goes through here, so `j` is always what was last saved — also
+  // when a helper throws after its own save (review #423: the catch below used
+  // to save the job WITHOUT the source id its own begin had just stored).
+  const commit: Commit = async (next) => { j = next; await save(next, epoch); };
   try {
     if (!d.online()) return j;
     if (j.mode === "server") {
-      j = await advanceSource(j, d, opts.beginOnly === true);
+      j = await advanceSource(j, d, opts.beginOnly === true, commit);
       if (opts.beginOnly || j.step === "source" || j.step === "converting") return j;
     }
     if (j.step === "encoded") {
@@ -264,7 +283,7 @@ export async function advanceJob(job: VideoJob, d: JobDeps, opts: { beginOnly?: 
       }
       const r = data as { video_id: string; version_no: number };
       j = { ...j, step: "begun", videoId: r.video_id, versionNo: r.version_no, attempts: 0 };
-      await save(j);
+      await commit(j);
     }
     if (j.step === "begun") {
       for (let round = 0; round < 3; round++) {
@@ -277,7 +296,7 @@ export async function advanceJob(job: VideoJob, d: JobDeps, opts: { beginOnly?: 
         const done = new Set([...(urls.body.done as string[] ?? []), ...j.uploaded]);
         const byName = new Map(list.map((u) => [u.name, u]));
         for (const name of uploadOrder(list.map((u) => u.name))) {
-          if (!d.online()) { j = { ...j, uploaded: [...done] }; await save(j); return j; }
+          if (!d.online()) { j = { ...j, uploaded: [...done] }; await commit(j); return j; }
           const u = byName.get(name)!;
           const blob = await s.getFile(j.id, name);
           if (!blob) throw new Refused(`the encoded file ${name} is gone from this device`, "VID-LOCAL-001");
@@ -288,7 +307,7 @@ export async function advanceJob(job: VideoJob, d: JobDeps, opts: { beginOnly?: 
           }
           done.add(name);
           j = { ...j, uploaded: [...done] };
-          await save(j);
+          await commit(j);
         }
         let c = await d.api("/api/video/complete", { video_id: j.videoId, version_no: j.versionNo });
         // A long video is finished in rounds (Cloudflare's per-request limit): 202 = "more
@@ -298,7 +317,7 @@ export async function advanceJob(job: VideoJob, d: JobDeps, opts: { beginOnly?: 
           // A round that moved nothing would repeat for ever (and cost storage calls): stop, retry later.
           if (j.serverProgress && copied <= j.serverProgress.copied) throw new Error("complete made no progress this round");
           j = { ...j, serverProgress: { copied, total: Number(c.body.total) || 0 } };
-          await save(j);
+          await commit(j);
           if (!d.online()) return j;
           c = await d.api("/api/video/complete", { video_id: j.videoId, version_no: j.versionNo });
         }
@@ -306,13 +325,13 @@ export async function advanceJob(job: VideoJob, d: JobDeps, opts: { beginOnly?: 
         if (c.status === 200) {
           const st = String(c.body.state ?? "checking");
           j = { ...j, step: st === "ready" ? "ready" : "checking", attempts: 0 };
-          await save(j);
+          await commit(j);
           break;
         }
         if (c.status === 409 && (Array.isArray(c.body.missing) || Array.isArray(c.body.mismatched))) {
           const redo = new Set([...(c.body.missing as string[] ?? []), ...(c.body.mismatched as string[] ?? [])]);
           j = { ...j, uploaded: j.uploaded.filter((n) => !redo.has(n)) };
-          await save(j);
+          await commit(j);
           continue; // next round: fresh URLs for just those
         }
         if (c.status >= 500 || c.status === 408 || c.status === 429) throw new Error(`complete ${c.status}`);
@@ -322,11 +341,13 @@ export async function advanceJob(job: VideoJob, d: JobDeps, opts: { beginOnly?: 
     }
     if (j.step === "checking") {
       const st = await d.videoState(j.videoId!);
+      // No row at all: removed (30 days unposted) or deleted. Final — it used to be polled every 15 s for ever.
+      if (st === null) throw new Refused(VIDEO_REMOVED_TEXT, "VID-GONE");
       // A server-made video waits for the member to watch it and tap Post (design §3.9).
-      if (st === "ready") { j = { ...j, step: j.mode === "server" ? "review" : "ready" }; await save(j); }
-      else if (st === "music_blocked") { j = { ...j, step: "music_blocked" }; await save(j); return j; }
+      if (st === "ready") { j = { ...j, step: j.mode === "server" ? "review" : "ready" }; await commit(j); }
+      else if (st === "music_blocked") { j = { ...j, step: "music_blocked" }; await commit(j); return j; }
       else if (st === "failed" || st === "deleted" || st === "taken_down") throw new Refused(`the video is ${st}`, "VID-STATE");
-      else { j = { ...j, nextAt: d.now() + 15_000 }; await save(j); return j; } // still checking: look again soon
+      else { j = { ...j, nextAt: d.now() + 15_000 }; await commit(j); return j; } // still checking: look again soon
     }
     if (j.step === "review") return j;
     if (j.step === "ready" && j.purpose === "ad") {
@@ -341,7 +362,7 @@ export async function advanceJob(job: VideoJob, d: JobDeps, opts: { beginOnly?: 
       j = { ...j, step: "published" };
       await s.deleteFiles(j.id);
       await s.deleteJob(j.id);
-      emit({ type: "published", job: j });
+      if (epoch === wipeEpoch) emit({ type: "published", job: j });
       return j;
     }
     if (j.step === "ready") {
@@ -359,27 +380,32 @@ export async function advanceJob(job: VideoJob, d: JobDeps, opts: { beginOnly?: 
       j = { ...j, postId: data, step: "published" };
       await s.deleteFiles(j.id);
       await s.deleteJob(j.id);
-      emit({ type: "published", job: j });
+      if (epoch === wipeEpoch) emit({ type: "published", job: j });
       return j;
     }
     return j;
   } catch (e) {
-    if (j.mode === "server") clearProgress(j.id);
+    if (j.mode === "server" && epoch === wipeEpoch) clearProgress(j.id);
+    const told = () => epoch === wipeEpoch && !isDropped(j);
     if (e instanceof Refused) {
       j = { ...j, step: "failed", lastError: e.message, ...(j.mode === "server" ? { errorCode: e.code || "VID-REFUSED" } : {}) };
-      await save(j);
-      if (!isDropped(j)) emit({ type: "failed", job: j });
+      // The composer's own first step (startServerJob): the refusal is said on
+      // the screen the member is looking at and the job is not kept — so it is
+      // never saved or announced as a failed card for the corner to flash.
+      if (opts.beginOnly) return j;
+      await save(j, epoch);
+      if (told()) emit({ type: "failed", job: j });
       return j;
     }
     const attempts = j.attempts + 1;
     if (attempts >= MAX_ATTEMPTS) {
       j = { ...j, step: "failed", attempts, lastError: (e as Error)?.message ?? String(e), ...(j.mode === "server" ? { errorCode: "VID-RETRIES" } : {}) };
-      await save(j);
-      if (!isDropped(j)) emit({ type: "failed", job: j });
+      await save(j, epoch);
+      if (told()) emit({ type: "failed", job: j });
       return j;
     }
     j = { ...j, attempts, nextAt: d.now() + backoffMs(attempts), lastError: (e as Error)?.message ?? String(e) };
-    await save(j);
+    await save(j, epoch);
     return j;
   }
 }
@@ -390,6 +416,14 @@ export async function advanceJob(job: VideoJob, d: JobDeps, opts: { beginOnly?: 
 export const SOURCE_POLL_MS = 30_000;
 /** The original's name in the job's file store. */
 export const SOURCE_FILE = "source";
+
+/**
+ * The server no longer has this video: its row (video_sources) or the video
+ * itself (videos) is gone. Retention (20261013_0006): a finished video is kept
+ * until it is posted or deleted, and one left unposted is removed after 30
+ * days. FINAL — never polled again, never offered for Post.
+ */
+export const VIDEO_REMOVED_TEXT = "This video was removed because it was not posted within 30 days. Please post it again.";
 
 /** Steps that wait for the member (or are over): nothing for the runner to do. */
 const AT_REST: ReadonlySet<JobStep> = new Set<JobStep>(["failed", "music_blocked", "published", "review"]);
@@ -453,6 +487,7 @@ export async function createServerJob(input: {
   ad?: { creativeId: string };
 }, now = Date.now()): Promise<VideoJob> {
   const s = getStore();
+  const epoch = wipeEpoch;
   const job: VideoJob = {
     id: newKey(), userId: input.userId, purpose: input.purpose, createdAt: now, step: "source", mode: "server",
     source: { bytes: input.file.size, name: input.name }, uploaded: [],
@@ -464,7 +499,12 @@ export async function createServerJob(input: {
   // Copied in the background: the upload starts at once from the picked file,
   // and a reload or a lost link resumes from the copy. Best effort — a full
   // device store leaves this session's file, which an unbroken upload needs.
-  persisting.set(job.id, s.putFile(job.id, SOURCE_FILE, input.file).catch(() => {}));
+  // A copy that finishes AFTER a sign-out wipe is taken off again: hundreds of
+  // MB of one member's video must not outlive their session (review #423).
+  persisting.set(job.id, s.putFile(job.id, SOURCE_FILE, input.file)
+    .then(() => (epoch === wipeEpoch ? undefined : s.deleteFiles(job.id)))
+    .catch(() => {}));
+  if (epoch !== wipeEpoch) { originals.delete(job.id); await s.deleteJob(job.id).catch(() => {}); return job; }
   emit({ type: "changed", job });
   return job;
 }
@@ -474,7 +514,7 @@ export async function createServerJob(input: {
  * the row until the converter is done. Throws Refused / Error to advanceJob's
  * own catch, so a server job fails, backs off and retries by the same rules.
  */
-async function advanceSource(job: VideoJob, d: JobDeps, beginOnly: boolean): Promise<VideoJob> {
+async function advanceSource(job: VideoJob, d: JobDeps, beginOnly: boolean, commit: Commit): Promise<VideoJob> {
   let j = job;
   if (!j.source) throw new Refused("this video has no original to upload", "VID-LOCAL-002");
   if (j.step === "source" && !j.source.id) {
@@ -489,19 +529,19 @@ async function advanceSource(job: VideoJob, d: JobDeps, beginOnly: boolean): Pro
     j = { ...j, source: { ...j.source, id: r.source_id }, attempts: 0 };
     // A replay of a job that already went further (lost answer, crash): the poll reads where it is.
     if (r.status !== "awaiting_upload") j = { ...j, step: "converting" };
-    await save(j);
+    await commit(j);
   }
   if (beginOnly) return j;
   // Just uploaded (or still waiting to): nothing to ask yet — the converter
   // cannot be done this instant. The first look is SOURCE_POLL_MS later.
-  if (j.step === "source") return uploadSource(j, d);
+  if (j.step === "source") return uploadSource(j, d, commit);
   if (j.step === "converting") {
     if (!d.sourceRow) throw new Error("this app cannot read its server videos");
     const row = await d.sourceRow(j.source!.id!);
-    if (!row) throw new Refused("We can't find this video on our server any more. Please post it again.", "VID-SRC-004");
+    if (!row) throw new Refused(VIDEO_REMOVED_TEXT, "VID-SRC-GONE");
     if (row.status === "done" && row.video_id) {
       j = { ...j, step: "checking", videoId: row.video_id, attempts: 0 };
-      await save(j);
+      await commit(j);
     } else if (row.status === "failed") {
       // The database's own fixed, member-safe text (video_source_reason_text) — said as it is.
       throw new Refused(row.error || "Converting this video failed. Please try again.", "VID-SRC-FAILED");
@@ -509,17 +549,17 @@ async function advanceSource(job: VideoJob, d: JobDeps, beginOnly: boolean): Pro
       throw new Refused("This video was cancelled.", "VID-SRC-CANCELLED");
     } else if (row.status === "awaiting_upload") {
       j = { ...j, step: "source" }; // the original never arrived whole: send it again
-      await save(j);
+      await commit(j);
     } else {
       j = { ...j, nextAt: d.now() + SOURCE_POLL_MS, attempts: 0 }; // queued or converting: look again later
-      await save(j);
+      await commit(j);
     }
   }
   return j;
 }
 
 /** One presigned PUT for the whole original (design §3.2), then source-complete (§3.3). */
-async function uploadSource(job: VideoJob, d: JobDeps): Promise<VideoJob> {
+async function uploadSource(job: VideoJob, d: JobDeps, commit: Commit): Promise<VideoJob> {
   let j = job;
   const sourceId = j.source!.id!;
   for (let round = 0; round < 3; round++) {
@@ -527,7 +567,7 @@ async function uploadSource(job: VideoJob, d: JobDeps): Promise<VideoJob> {
     // Already past its upload (an answer lost after complete): the poll reads where it is.
     if (u.status === 409 && u.body.error === "VID-SRC-008") {
       j = { ...j, step: "converting" };
-      await save(j);
+      await commit(j);
       return j;
     }
     if (u.status >= 400) {
@@ -568,7 +608,7 @@ async function uploadSource(job: VideoJob, d: JobDeps): Promise<VideoJob> {
       // hears VID-SRC-008 and polls — never a 500 MB original orphaned on the device.
       await dropOriginal(j.id);
       j = { ...j, step: "converting", nextAt: d.now() + SOURCE_POLL_MS, attempts: 0 };
-      await save(j);
+      await commit(j);
       return j;
     }
     // Not there yet, or the wrong size (the server deleted it): send it again.
@@ -615,69 +655,150 @@ export async function startServerJob(job: VideoJob, d: JobDeps): Promise<VideoJo
 export async function approveServerJob(id: string, d: JobDeps): Promise<void> {
   const j = await jobById(id);
   if (!j || j.mode !== "server" || j.step !== "review") return;
-  await save({ ...j, step: "ready", attempts: 0, nextAt: 0 });
+  // A ready video that waited too long is gone (removed after 30 days unposted): say so, do not try to post it.
+  // A read that fails (offline) is not an answer — the publish step's own retry rules take it from there.
+  const st = await d.videoState(j.videoId!).catch(() => "unknown");
+  if (st === null) {
+    const gone: VideoJob = { ...j, step: "failed", lastError: VIDEO_REMOVED_TEXT, errorCode: "VID-GONE" };
+    await save(gone, wipeEpoch);
+    emit({ type: "failed", job: gone });
+    return;
+  }
+  await save({ ...j, step: "ready", attempts: 0, nextAt: 0 }, wipeEpoch);
   await runServerJob(id, d);
 }
 
-async function removeServerJob(j: VideoJob): Promise<void> {
+async function removeServerJob(j: VideoJob, epoch = wipeEpoch): Promise<void> {
+  if (epoch !== wipeEpoch) return; // signed out meanwhile: the wipe already took it, and no screen is left to tell
   dropped.add(j.id);
   uploads.get(j.id)?.abort();
   clearProgress(j.id);
   await dropOriginal(j.id);
   await getStore().deleteJob(j.id);
-  emit({ type: "removed", job: j });
+  if (epoch === wipeEpoch) emit({ type: "removed", job: j });
 }
 
+/** The row is already over on the server (or gone): there is nothing left there to stop. */
+const SOURCE_OVER: ReadonlySet<string> = new Set(["VID-SRC-FAILED", "VID-SRC-CANCELLED", "VID-SRC-GONE", "VID-SRC-004"]);
+
 /**
- * Cancel (or discard) a server job. While the original is going up or being
- * converted: POST /api/video/source-cancel — the database stops it and drops
- * any half-made video, and Pages deletes the original. A video already made
- * but not posted is deleted (nobody will post it). Returns false when the
- * server could not be told; the job is then kept, so nothing is left behind.
+ * Stop a source on the server. Pages first (POST /api/video/source-cancel: the
+ * database stops it AND the original is deleted from the bucket at once). When
+ * Pages cannot answer — a 5xx, uploads switched off (503 VID-ENV-002), a
+ * dropped link — the member's own RPC video_source_cancel (20261012_0002,
+ * granted to authenticated, checks the owner) stops it just the same; the
+ * bucket's 2-day rule on upload/ then removes the original (source-cancel.ts).
+ * Returns the row's status ("cancelled" | "done" | "failed"), "gone" when
+ * there is no such row any more, or null when NEITHER could be reached.
  */
-export async function cancelServerJob(id: string, d: JobDeps): Promise<boolean> {
-  const j = await jobById(id);
-  if (!j || j.mode !== "server") return true;
+async function cancelSource(sourceId: string, d: JobDeps): Promise<string | null> {
   try {
-    const sourceId = j.source?.id;
-    if (sourceId && (j.step === "source" || j.step === "converting")) {
-      const r = await d.api("/api/video/source-cancel", { source_id: sourceId });
-      if (r.status >= 400 && r.status !== 404) return false;
-      // It finished a moment ago: the video exists, and the member asked for it gone.
-      if (r.body.status === "done") {
-        const row = await d.sourceRow?.(sourceId).catch(() => null);
-        if (row?.video_id) await d.rpc("video_delete", { _video_id: row.video_id });
-      }
-    } else if (j.videoId && (j.step === "checking" || j.step === "review")) {
-      await d.rpc("video_delete", { _video_id: j.videoId });
-    }
+    const r = await d.api("/api/video/source-cancel", { source_id: sourceId });
+    if (r.status === 200) return String(r.body.status ?? "cancelled");
+    if (r.status === 404) return "gone";
+  } catch { /* the link dropped: the RPC is asked next */ }
+  try {
+    const { data, error } = await d.rpc("video_source_cancel", { _source_id: sourceId });
+    if (!error) return String(data ?? "cancelled");
+    if (codeOf(error.message) === "VID-SRC-004") return "gone";
+  } catch { /* not heard */ }
+  return null;
+}
+
+/** Delete a made, unposted video. False only when the server could not be reached (a refusal means there is nothing of theirs to delete). */
+async function deleteMadeVideo(videoId: string, d: JobDeps): Promise<boolean> {
+  try {
+    const { error } = await d.rpc("video_delete", { _video_id: videoId });
+    return !error || (!isNetworkError(error) && !!codeOf(error.message));
   } catch {
     return false;
   }
-  await removeServerJob(j);
+}
+
+/**
+ * Everything the server still holds for this job, stopped or deleted:
+ *   • a video already made but not posted (checking, review, or failed at
+ *     Post) is deleted — nobody else ever would (video_housekeeping purges only
+ *     abandoned uploads and deleted/failed videos);
+ *   • a source still open (awaiting upload, queued, converting — also behind a
+ *     job that FAILED on this device: file gone, retries used up, a refusal
+ *     from Pages) is cancelled, so it stops counting toward the member's two
+ *     open videos (VID-SRC-003) for the next 24–48 hours.
+ * False when the server could not be told.
+ */
+async function stopOnServer(j: VideoJob, d: JobDeps): Promise<boolean> {
+  if (j.videoId) return deleteMadeVideo(j.videoId, d);
+  const sourceId = j.source?.id;
+  if (!sourceId || SOURCE_OVER.has(j.errorCode ?? "")) return true;
+  const status = await cancelSource(sourceId, d);
+  if (status === null) return false;
+  // It finished a moment ago: the video exists, and the member asked for it gone.
+  if (status === "done") {
+    const row = await d.sourceRow?.(sourceId).catch(() => null);
+    if (row?.video_id) await deleteMadeVideo(row.video_id, d);
+  }
   return true;
 }
 
-/** A failed (or music-blocked) server job, read and put away. Nothing on the server changes. */
-export async function dismissServerJob(id: string): Promise<void> {
+async function takeOffServer(id: string, d: JobDeps): Promise<boolean> {
+  const epoch = wipeEpoch;
   const j = await jobById(id);
-  if (j && j.mode === "server") await removeServerJob(j);
+  if (!j || j.mode !== "server") return true;
+  // The upload stops FIRST (review #423 finding 3): a PUT still in flight could
+  // otherwise write the original again after Pages had deleted it.
+  dropped.add(id);
+  uploads.get(id)?.abort();
+  clearProgress(id);
+  const heard = await stopOnServer(j, d).catch(() => false);
+  if (epoch !== wipeEpoch) return true; // signed out while the server was being told: the wipe took the job
+  if (!heard) {
+    dropped.delete(id); // kept: the runner carries it on, and the member can try again
+    return false;
+  }
+  await removeServerJob(j, epoch);
+  return true;
 }
 
-let running = false;
+/**
+ * Cancel (or discard) a server job: the upload is stopped, then the server is
+ * told (stopOnServer). Returns false when the server could not be told — by
+ * Pages or by the database; the job is then kept, so nothing is left behind
+ * unseen.
+ */
+export async function cancelServerJob(id: string, d: JobDeps): Promise<boolean> {
+  return takeOffServer(id, d);
+}
+
+/**
+ * A failed (or music-blocked) server job, read and put away — and, exactly as
+ * Cancel does, whatever the server still holds for it is stopped or deleted
+ * (review #423 finding 2: Dismiss used to tell the server nothing, so the row
+ * kept the member's slot and a made video stayed for ever). A refusal that
+ * never reached the server (no source yet) is simply put away. Returns false
+ * when the server could not be told; the card then stays and says so, rather
+ * than vanish while the slot stays taken.
+ */
+export async function dismissServerJob(id: string, d: JobDeps): Promise<boolean> {
+  return takeOffServer(id, d);
+}
+
+/** The sign-out epoch of the loop that is running, or null. A loop from before a wipe never blocks the next member's. */
+let running: number | null = null;
 /** Advance every due job of this member, oldest first. Single-flight. */
 export async function runVideoJobs(userId: string, d: JobDeps): Promise<void> {
-  if (running) return;
-  running = true;
+  const epoch = wipeEpoch;
+  if (running === epoch) return;
+  running = epoch;
   try {
     for (const j of await jobsFor(userId)) {
+      if (epoch !== wipeEpoch) return; // signed out meanwhile: these jobs are gone — do not carry them on
       if (j.step === "failed" || j.step === "music_blocked" || j.step === "published" || j.step === "review") continue;
       if (j.nextAt > d.now()) continue;
       if (j.mode === "server") { await runServerJob(j.id, d, true); continue; }
       await advanceJob(j, d);
     }
   } finally {
-    running = false;
+    if (running === epoch) running = null;
   }
 }
 
@@ -688,15 +809,24 @@ export async function discardJob(id: string): Promise<void> {
   await s.deleteJob(id);
 }
 
-/** Sign-out (OFF-5 G6): every member's jobs and files. Never throws. */
+/**
+ * Sign-out (OFF-5 G6): every member's jobs and files. Never throws.
+ * The epoch goes up BEFORE anything is stopped: the aborted PUT lands in its
+ * run's catch at once, and that run must already know it may save nothing.
+ */
 export async function clearVideoUploads(): Promise<boolean> {
+  wipeEpoch++;
   for (const c of uploads.values()) c.abort();
+  uploads.clear();
   originals.clear();
+  persisting.clear();
   progress.clear();
+  busy.clear();
+  dropped.clear();
   try { await getStore().clear(); return true; } catch { return false; }
 }
 
 export function __resetVideoJobs() {
-  running = false; listeners.clear();
+  running = null; listeners.clear();
   originals.clear(); persisting.clear(); uploads.clear(); progress.clear(); busy.clear(); dropped.clear();
 }

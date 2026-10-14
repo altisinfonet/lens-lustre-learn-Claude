@@ -21,9 +21,9 @@ import { dockEdge, useDockLayer, type DockLayer } from "../bottomDock";
 const root = () => document.documentElement;
 const prop = (layer: DockLayer) => root().style.getPropertyValue(`--dock-${layer}`);
 
-function Layer({ layer, showing, bottom, height }: { layer: DockLayer; showing: boolean; bottom: string; height: number }) {
+function Layer({ layer, showing, bottom, height, version }: { layer: DockLayer; showing: boolean; bottom: string; height: number; version?: number }) {
   const ref = useRef<HTMLDivElement>(null);
-  useDockLayer(layer, ref, showing);
+  useDockLayer(layer, ref, showing, version);
   return showing ? (
     <div
       ref={(el) => {
@@ -92,7 +92,7 @@ describe("every floating layer takes its place from the dock", () => {
   it("one order in CSS: banner → update prompt → card → round buttons; nothing published = the old offsets", () => {
     expect(css).toMatch(/\.dock-update\s*\{\s*bottom:\s*max\(5rem,\s*calc\(var\(--dock-consent, 0px\) \+ 0\.5rem\)\);/);
     const videos = /\.dock-videos\s*\{([^}]*)\}/.exec(css)![1];
-    expect(videos).toMatch(/calc\(3\.75rem \+ env\(safe-area-inset-bottom, 0px\)\)/);
+    expect(videos).toMatch(/calc\(4\.25rem \+ env\(safe-area-inset-bottom, 0px\)\)/); // was 3.75rem — review #423 finding 6, below
     expect(videos).toMatch(/var\(--dock-consent, 0px\)/);
     expect(videos).toMatch(/var\(--dock-update, 0px\)/);
     const fab = /\.dock-fab\s*\{([^}]*)\}/.exec(css)![1];
@@ -110,12 +110,81 @@ describe("every floating layer takes its place from the dock", () => {
   });
 
   it("the layers publish: cookie banner (consent), update prompt (update), server-video card (videos)", () => {
-    expect(read("src/components/CookieConsentBanner.tsx")).toMatch(/useDockLayer\("consent", dock, showBanner\)/);
+    // `|| docked`: a banner keeps its place until its exit animation has ended (the nit, below).
+    expect(read("src/components/CookieConsentBanner.tsx")).toMatch(/useDockLayer\("consent", dock, showBanner \|\| docked\)/);
     const update = read("src/components/AppUpdatePrompt.tsx");
-    expect(update).toMatch(/useDockLayer\("update", dock, visible\)/);
+    expect(update).toMatch(/useDockLayer\("update", dock, visible \|\| docked\)/);
     expect(update).toMatch(/className="fixed inset-x-3 dock-update /);
     const card = read("src/components/video/ServerVideoJobs.tsx");
-    expect(card).toMatch(/useDockLayer\("videos", dock, jobs\.length > 0\)/);
+    expect(card).toMatch(/useDockLayer\("videos", dock, jobs\.length > 0, `\$\{jobs\.length\}:/); // + what changes its height (finding 10)
     expect(card).toMatch(/className="dock-videos pointer-events-none fixed/);
+  });
+});
+
+/*
+ * ── Independent review of #423 (head a736ab19), findings 5, 6, 10, 12 and the
+ *    exit-animation nit. Each written to fail on the reviewed code first.
+ */
+describe("review #423 · the dock", () => {
+  const read = (p: string) => readFileSync(p, "utf8");
+  const css = read("src/index.css");
+  const lgVideos = () => /@media \(min-width: 1024px\)\s*\{[\s\S]*?\.dock-videos\s*\{([^}]*)\}/.exec(css)![1];
+
+  it("(5) ≥1024px: the card clears the update prompt too (it is full width at every size)", () => {
+    expect(lgVideos()).toMatch(/var\(--dock-update, 0px\)/);
+  });
+
+  it("(6) phone: the card sits 4.25rem above the safe area — clear of the bottom bar's raised Home disc, its ring and its breathing", () => {
+    const videos = /\.dock-videos\s*\{([^}]*)\}/.exec(css)![1];
+    expect(videos).toMatch(/calc\(4\.25rem \+ env\(safe-area-inset-bottom, 0px\)\)/);
+    expect(videos).not.toMatch(/3\.75rem/);
+  });
+
+  it("(12) a page's own bottom bar (the judge screen's actions) is a dock layer: card and round buttons clear it", () => {
+    const videos = /\.dock-videos\s*\{([^}]*)\}/.exec(css)![1];
+    const fab = /\.dock-fab\s*\{([^}]*)\}/.exec(css)![1];
+    expect(videos).toMatch(/var\(--dock-bar, 0px\)/);
+    expect(fab).toMatch(/var\(--dock-bar, 0px\)/);
+    expect(lgVideos()).toMatch(/var\(--dock-bar, 0px\)/);
+    expect(read("src/components/judge/MobileJudgeView.tsx")).toMatch(/useDockLayer\("bar", /);
+  });
+
+  it("(10) without ResizeObserver, a change the caller names (a job added or removed) still re-publishes", () => {
+    const g = globalThis as { ResizeObserver?: unknown };
+    const saved = g.ResizeObserver;
+    g.ResizeObserver = undefined;
+    try {
+      const { rerender } = render(<Layer layer="videos" showing bottom="68px" height={90} version={1} />);
+      expect(prop("videos")).toBe("158px");
+      rerender(<Layer layer="videos" showing bottom="68px" height={190} version={2} />);
+      expect(prop("videos")).toBe("258px");
+    } finally {
+      g.ResizeObserver = saved;
+    }
+  });
+
+  it("(11) the card's list is capped to the room really left on the screen (never the whole of a short one)", () => {
+    const videos = /\.dock-videos\s*\{([^}]*)\}/.exec(css)![1];
+    expect(videos).toMatch(/--dock-videos-room:\s*max\(4\.5rem, min\(40dvh, calc\(100dvh - var\(--dock-videos-bottom\) - 7rem\)\)\);/);
+    expect(videos).toMatch(/bottom:\s*var\(--dock-videos-bottom\);/);
+    expect(read("src/components/video/ServerVideoJobs.tsx")).toMatch(/max-h-\[var\(--dock-videos-room,40dvh\)\]/);
+  });
+
+  it("(nit) on a computer the card and the cookie banner start at the same left edge (both left-4)", () => {
+    expect(read("src/components/video/ServerVideoJobs.tsx")).toMatch(/className="dock-videos [^"]*lg:left-4 /);
+    expect(read("src/components/CookieConsentBanner.tsx")).toMatch(/lg:left-4 /);
+  });
+
+  it("(nit) the UI gate ignores framer-motion's scroll notice on the home scenes only — elsewhere it is a finding", () => {
+    const gate = read("tools/uishot/capture.mjs");
+    const always = /const IGNORED = \[([\s\S]*?)\];/.exec(gate)![1];
+    expect(always).not.toMatch(/non-static position/);
+    expect(gate).toMatch(/const IGNORED_ON = \[\s*\{\s*scenes: \/\^screen-home-\/,\s*text: \/\^Please ensure that the container has a non-static position/);
+    expect(gate).toMatch(/IGNORED_ON\.some\(\(f\) => f\.scenes\.test\(scene\) && f\.text\.test\(t\)\)/);
+  });
+
+  it("(nit) a banner leaving keeps its place until its exit animation ends — nothing drops through it", () => {
+    expect(read("src/components/CookieConsentBanner.tsx")).toMatch(/onExitComplete=\{\(\) => setDocked\(false\)\}/);
+    expect(read("src/components/AppUpdatePrompt.tsx")).toMatch(/onExitComplete=\{\(\) => setDocked\(false\)\}/);
   });
 });

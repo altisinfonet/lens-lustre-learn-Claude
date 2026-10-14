@@ -272,6 +272,22 @@ describe("VID-1 · the device upload job", () => {
     expect(s.db.posts.size).toBe(0);
   });
 
+  it("review #423 (1): sign-out during a run — the PUT in flight never writes the job back, and the run does not carry the member's other jobs on", async () => {
+    const s = server(pkg);
+    const store = memoryJobStore();
+    __setJobStore(store);
+    await newJob();
+    await newJob();
+    let wiped: Promise<boolean> | undefined;
+    // Sign-out lands while the first file is going up; the link drops with it.
+    s.deps.put = async () => { wiped ??= clearVideoUploads(); await wiped; throw new TypeError("Failed to fetch"); };
+    await runVideoJobs(OWNER, s.deps);
+    expect(await wiped).toBe(true);
+    expect(s.db.beginCalls).toBe(1); // the second job was never begun for a member who has left
+    expect([...store.jobs.values()]).toEqual([]);
+    expect([...store.files.keys()]).toEqual([]);
+  });
+
   it("only the member's own jobs run; sign-out wipes every job and file", async () => {
     const s = server(pkg);
     await createJob({ userId: "99999999-9999-4999-8999-999999999999", purpose: "post", manifest: pkg.manifest, manifestSha256: pkg.manifestSha256, files: pkg.files, post: { content: "", categories: ["x"], privacy: "public" } });

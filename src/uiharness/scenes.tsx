@@ -72,7 +72,7 @@ function VideoComposerUnplayableHarness() {
  * The corner card over a page, so its place above the bottom bar (phone) and
  * at the bottom left (desktop) is what gets photographed, not a card alone.
  */
-function ServerJobsHarness({ jobs, progress }: { jobs: VideoJob[]; progress: Record<string, number | undefined> }) {
+function ServerJobsHarness({ jobs, progress, defaultOpen }: { jobs: VideoJob[]; progress: Record<string, number | undefined>; defaultOpen?: boolean }) {
   return (
     <div className="min-h-screen bg-background p-4 text-foreground">
       <div className="mx-auto max-w-xl space-y-3">
@@ -83,7 +83,7 @@ function ServerJobsHarness({ jobs, progress }: { jobs: VideoJob[]; progress: Rec
           </div>
         ))}
       </div>
-      <ServerJobsTray jobs={jobs} progress={progress} onPreview={() => {}} onCancel={() => {}} onDismiss={() => {}} />
+      <ServerJobsTray jobs={jobs} progress={progress} defaultOpen={defaultOpen} onPreview={() => {}} onCancel={() => {}} onDismiss={() => {}} />
     </div>
   );
 }
@@ -957,14 +957,49 @@ export const SCENES: Record<string, () => JSX.Element> = {
   "video-composer-server": () => <VideoComposerHarness src={portraitVideoUrl} name="portrait.webm" conversion="server" />,
   /** A format this browser cannot play: server mode still lets it go to the converter. */
   "video-composer-server-unplayable": () => <VideoComposerUnplayableHarness />,
-  /** Uploading (42 %) and being prepared — the two cards a member sees right after Post. */
+  /**
+   * ONE video and nothing else on the screen: the full card, on a phone too
+   * (Owner's compact rule, 2026-10-13 — the panel folds to one line only when
+   * there is more than one job, or a banner is up).
+   */
+  "video-server-job-single": () => (
+    <ServerJobsHarness jobs={[serverJob("up", { step: "source" })]} progress={{ up: 42 }} />
+  ),
+  /**
+   * The folded line tapped open on a phone (the harness cannot tap, so it is
+   * drawn open): five jobs — the most a member can have on the screen is their
+   * two open ones plus cards waiting to be read — so the list is taller than
+   * its cap and scrolls inside it, with "Show less" under it.
+   */
+  "video-server-jobs-open": () => (
+    <ServerJobsHarness
+      defaultOpen
+      jobs={[
+        serverJob("up", { step: "source" }),
+        serverJob("prep", { step: "converting" }),
+        serverJob("ready", { step: "review", videoId: "v" }),
+        serverJob("fail", { step: "failed", errorCode: "VID-SRC-FAILED", lastError: "This file's format can't be converted. Try exporting it as MP4 and upload again." }),
+        serverJob("gone", { step: "failed", errorCode: "VID-SRC-GONE" }),
+      ]}
+      progress={{ up: 42 }}
+    />
+  ),
+  /**
+   * Uploading (42 %) and being prepared — the two jobs a member has right after
+   * Post. On a phone: ONE slim line ("2 videos · uploading 42%"); on a computer
+   * the two cards.
+   */
   "video-server-jobs-progress": () => (
     <ServerJobsHarness
       jobs={[serverJob("up", { step: "source" }), serverJob("prep", { step: "converting", purpose: "ad", ad: { creativeId: "c" } })]}
       progress={{ up: 42 }}
     />
   ),
-  /** Ready to watch and post, and a failure in the database's own words (video_source_reason_text). */
+  /**
+   * Ready to watch and post, and a failure in the database's own words
+   * (video_source_reason_text). On a phone the line names the most urgent of
+   * the two: "2 videos · 1 needs attention".
+   */
   "video-server-jobs-ready-failed": () => (
     <ServerJobsHarness
       jobs={[

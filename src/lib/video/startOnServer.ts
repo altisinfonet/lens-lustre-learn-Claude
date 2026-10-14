@@ -32,8 +32,11 @@ export async function startOnServer(input: Parameters<typeof createServerJob>[0]
   const job = await createServerJob(input);
   const begun = await startServerJob(job, deps);
   if (begun.step === "failed") {
-    // Said on this screen; the job is not kept for the corner card to say again.
-    await dismissServerJob(begun.id);
+    // Said on this screen; the job is not kept for the corner card to say again
+    // (startServerJob neither saved nor announced the refusal, so no failed card
+    // flashes behind the composer). Begin refused = no source row was made:
+    // there is nothing on the server for this to stop.
+    await dismissServerJob(begun.id, deps);
     if (begun.errorCode === "VID-SRC-001") {
       invalidateSiteSetting(VIDEO_CONVERSION_KEY); // the next read asks again
       return { kind: "switched_off" };

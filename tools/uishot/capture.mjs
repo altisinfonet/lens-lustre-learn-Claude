@@ -76,12 +76,20 @@ const VIEWPORTS = [
  *    build can print it — and it fires for any `useScroll({ target })` that
  *    tracks the window, because the window's scroll container, <html>, is
  *    `position: static` on every page. The home page's scroll-coloured
- *    backdrop is exactly that. Matched by its exact words, nothing wider.
+ *    backdrop is exactly that. Matched by its exact words, nothing wider —
+ *    and ONLY on the scenes that mount the home page (IGNORED_ON, narrowed on
+ *    review of #423): the same words from any other screen are still reported.
  */
 const IGNORED = [
   /X-Frame-Options may only be set via an HTTP header/,
   /ERR_CONNECTION_RESET|ERR_TUNNEL_CONNECTION_FAILED/,
-  /^Please ensure that the container has a non-static position, like 'relative', 'fixed', or 'absolute' to ensure scroll offset is calculated correctly\.$/,
+];
+/** Filtered on the named scenes only. Everywhere else the message is a finding. */
+const IGNORED_ON = [
+  {
+    scenes: /^screen-home-/,
+    text: /^Please ensure that the container has a non-static position, like 'relative', 'fixed', or 'absolute' to ensure scroll offset is calculated correctly\.$/,
+  },
 ];
 
 /**
@@ -156,6 +164,7 @@ for (const scene of scenes) {
       if (m.type() !== "error" && m.type() !== "warning") return;
       const t = m.text();
       if (IGNORED.some((re) => re.test(t))) return;
+      if (IGNORED_ON.some((f) => f.scenes.test(scene) && f.text.test(t))) return;
       errors.push(`${m.type()}: ${t.slice(0, 220)}`);
     });
     page.on("pageerror", (e) => errors.push(`pageerror: ${e.message.slice(0, 220)}`));

@@ -1,0 +1,172 @@
+# Fail-first run of the FINAL test files against the REVIEWED code
+# code: a736ab19 (a separate worktree of the pushed head, src/** unmodified); tests: the six test files as committed with the fixes
+#   (the five of failfirst-a736ab19.txt plus src/lib/video/__tests__/uploadJobs.test.ts, with the tests added while fixing)
+# command: npx vitest run <the 6 files>   — 2026-10-13, Windows 11, node v24.20.0, vitest 3.2.4
+# result: 43 failed | 58 passed (101)
+#   = the 26 of the first run + 15 tests added with the fixes + 2 earlier dock pins whose values the fixes changed
+#     (3.75rem → 4.25rem; useDockLayer's arguments).
+#   One added test passes here by design and is labelled 'guard' in its name: it pins behaviour the reviewed code
+#   already had and the new Cancel path must keep (a Cancel that was not heard leaves the job running).
+# (testing-library DOM dumps are cut; the first line of every failure is kept)
+
+ ❯ src/lib/video/__tests__/jobDepsServer.test.ts (7 tests | 1 failed) 581ms
+   ✓ xhrPut — the original's upload > PUTs the file with exactly the signed headers, reports progress, answers the status 162ms
+   ✓ xhrPut — the original's upload > a dropped link rejects as a network error (the job retries it like any other) 42ms
+   ✓ xhrPut — the original's upload > Cancel aborts the request 78ms
+   × xhrPut — the original's upload > review #423: a link that goes silent (no progress for the stall window) is given up as a dropped link 248ms
+     → expected false to be true // Object.is equality
+   ✓ xhrPut — the original's upload > realJobDeps.upload is this adapter 2ms
+   ✓ realJobDeps.sourceRow — the member's own row > reads video_sources by id, only status / video_id / error 13ms
+   ✓ realJobDeps.sourceRow — the member's own row > no row (RLS hid it, or it was purged) → null 3ms
+ ❯ src/lib/ui/__tests__/bottomDock.test.tsx (16 tests | 10 failed) 2410ms
+   ✓ useDockLayer > publishes the layer's top edge: its own bottom plus its height, in whole px  1159ms
+   ✓ useDockLayer > hidden → nothing published, so the layers above sit exactly where they always did 135ms
+   ✓ useDockLayer > re-measures when a layer BELOW it moves (its own bottom depends on that edge) 230ms
+   ✓ useDockLayer > layers settle: an unchanged edge is never written again (no observer loop) 135ms
+   ✓ useDockLayer > dockEdge reads the resting position, not a mid-animation rectangle 40ms
+   × every floating layer takes its place from the dock > one order in CSS: banner → update prompt → card → round buttons; nothing published = the old offsets 124ms
+     → expected '\r\n  bottom: max(\r\n    calc(3.75re…' to match /calc\(4\.25rem \+ env\(safe-area-inse…/
+   ✓ every floating layer takes its place from the dock > the round buttons: Ask anything and Back to top sit above the dock, no fixed bottom-20 left 37ms
+   × every floating layer takes its place from the dock > the layers publish: cookie banner (consent), update prompt (update), server-video card (videos) 20ms
+     → expected 'import { useRef } from "react";\r\nim…' to match /useDockLayer\("consent", dock, showBa…/
+   × review #423 · the dock > (5) ≥1024px: the card clears the update prompt too (it is full width at every size) 35ms
+     → expected '\r\n    bottom: max(1.5rem, calc(var(…' to match /var\(--dock-update, 0px\)/
+   × review #423 · the dock > (6) phone: the card sits 4.25rem above the safe area — clear of the bottom bar's raised Home disc, its ring and its breathing 13ms
+     → expected '\r\n  bottom: max(\r\n    calc(3.75re…' to match /calc\(4\.25rem \+ env\(safe-area-inse…/
+   × review #423 · the dock > (12) a page's own bottom bar (the judge screen's actions) is a dock layer: card and round buttons clear it 16ms
+     → expected '\r\n  bottom: max(\r\n    calc(3.75re…' to match /var\(--dock-bar, 0px\)/
+   × review #423 · the dock > (10) without ResizeObserver, a change the caller names (a job added or removed) still re-publishes 141ms
+     → expected '158px' to be '258px' // Object.is equality
+   × review #423 · the dock > (11) the card's list is capped to the room really left on the screen (never the whole of a short one) 17ms
+     → expected '\r\n  bottom: max(\r\n    calc(3.75re…' to match /--dock-videos-room:\s*max\(4\.5rem, m…/
+   × review #423 · the dock > (nit) on a computer the card and the cookie banner start at the same left edge (both left-4) 111ms
+     → expected '/**\r\n * VID-1 · SERVER CONVERSION, …' to match /className="dock-videos [^"]*lg:left-4 /
+   × review #423 · the dock > (nit) the UI gate ignores framer-motion's scroll notice on the home scenes only — elsewhere it is a finding 37ms
+     → expected '\r\n  /X-Frame-Options may only be se…' not to match /non-static position/
+   × review #423 · the dock > (nit) a banner leaving keeps its place until its exit animation ends — nothing drops through it 78ms
+     → expected 'import { useRef } from "react";\r\nim…' to match /onExitComplete=\{\(\) => setDocked\(f…/
+ ❯ src/lib/video/__tests__/serverJobs.test.ts (30 tests | 14 failed) 5478ms
+   ✓ server conversion · the member's job > begin → the original goes up with progress, exactly the signed headers → complete → queued  658ms
+   ✓ server conversion · the member's job > the runner goes by the job's FRESH nextAt: a poll another run just made is not made again 150ms
+   ✓ server conversion · the member's job > polls its own row (no sooner than SOURCE_POLL_MS) until done, waits for READY, then waits for the member 155ms
+   ✓ server conversion · the member's job > the member taps Post → video_publish_post with the caption, categories and audience they chose; the job is done 100ms
+   ✓ server conversion · the member's job > an AD video goes on its creative (linkAdVideo) after the admin's look, never into a post 176ms
+   ✓ server conversion · the member's job > a failed conversion says the database's own text, word for word, and stops 145ms
+   ✓ server conversion · the member's job > Cancel while it is being prepared → POST /api/video/source-cancel; the original is deleted and the job is gone 116ms
+   ✓ server conversion · the member's job > Cancel DURING the upload stops the PUT, and the stopped run never brings the job back 157ms
+   ✓ server conversion · the member's job > a Cancel the server could not hear keeps the job (nothing is left behind unseen) 117ms
+   ✓ server conversion · the member's job > Discard of a READY video the member decided not to post deletes it (nobody else would post it) 129ms
+   ✓ server conversion · the member's job > VID-SRC-001 (server mode switched off meanwhile): nothing is kept, the setting is read again, the caller offers the device 22ms
+   ✓ server conversion · the member's job > any other refusal is said in plain words (no code), and nothing is kept 1ms
+   ✓ server conversion · the member's job > an expired URL (403) gets a fresh one; the same headers again 208ms
+   ✓ server conversion · the member's job > an answer lost after complete: begin replays the same source and the job goes straight to the poll (no second upload) 16ms
+   ✓ server conversion · the member's job > a reload mid-upload resumes from the device's own copy of the original 177ms
+   × review #423 · sign-out, Dismiss, Cancel > (1) sign-out wipe: a run still in flight never writes the job — or its private caption — back 387ms
+     → expected [ { …(12) } ] to deeply equal []
+   × review #423 · sign-out, Dismiss, Cancel > (1) sign-out wipe during the background copy leaves no original behind on the device 1031ms
+     → expected [ Array(1) ] to deeply equal []
+   × review #423 · sign-out, Dismiss, Cancel > (2) Dismiss of a failed job whose source is still open cancels it on the server (Pages) 120ms
+     → expected 'awaiting_upload' to be 'cancelled' // Object.is equality
+   × review #423 · sign-out, Dismiss, Cancel > (2) …and falls back to the video_source_cancel RPC when Pages cannot answer 114ms
+     → expected 'awaiting_upload' to be 'cancelled' // Object.is equality
+   × review #423 · sign-out, Dismiss, Cancel > (2) Dismiss of a job that failed at Post deletes its made video (nothing else ever would) 139ms
+     → expected [] to deeply equal [ Array(1) ]
+   × review #423 · sign-out, Dismiss, Cancel > (3) Cancel stops the upload BEFORE it calls the server 200ms
+     → expected 2 to be less than 1
+   × review #423 · sign-out, Dismiss, Cancel > (3) Cancel falls back to the video_source_cancel RPC when the Pages Function errors 171ms
+     → expected false to be true // Object.is equality
+   × review #423 · nits > a finished job whose server row is gone says so plainly (finished rows are kept two days) 186ms
+     → expected { …(13) } to match object { step: 'failed', …(1) }
+   × review #423 · nits > a failed run keeps what it already saved (the source id from its own begin) 40ms
+     → expected { …(12) } to match object { step: 'source', …(2) }
+   × review #423 · nits > a refusal at begin is said by the composer only — never saved or announced as a failed card 18ms
+     → expected true to be false // Object.is equality
+   × review #423 · Dismiss and Cancel, the honest way > (2) a Dismiss the server could not hear keeps the card — a place in the queue is never held unseen 130ms
+     → expected undefined to be false // Object.is equality
+   × review #423 · Dismiss and Cancel, the honest way > (2) Dismiss of a job whose row is already over (the conversion itself failed) asks the server nothing 125ms
+     → expected undefined to be true // Object.is equality
+   × review #423 · Dismiss and Cancel, the honest way > (2) Dismiss when the row is already gone on the server (404 from Pages) just puts the card away 101ms
+     → expected undefined to be true // Object.is equality
+   ✓ review #423 · Dismiss and Cancel, the honest way > (3) guard: a Cancel that was not heard leaves the job running — it is not dropped for good 170ms
+   × review #423 · Dismiss and Cancel, the honest way > (1) after a sign-out wipe the same job id is not left marked busy or dropped 196ms
+     → expected [ { type: 'removed', job: { …(11) } } ] to deeply equal []
+ ❯ src/components/admin/video/__tests__/AdminVideoConversion.test.tsx (7 tests | 1 failed) 7636ms
+   ✓ Admin → Video Conversion > shows what is saved — read by its key — and what each choice means  4279ms
+   ✓ Admin → Video Conversion > choosing the server warns when to use it; Save upserts video_conversion = "server" with who did it  1254ms
+   ✓ Admin → Video Conversion > back to the device is the same write with "device"  910ms
+   ✓ Admin → Video Conversion > a refused write (not an admin: RLS) is said, and nothing changes  654ms
+   ✓ Admin → Video Conversion > the history comes from the audit trail, newest first, without saves that changed nothing 277ms
+   × Admin → Video Conversion > review #423: Save is a 44px target, like every other control 237ms
+     → expected 'inline-flex h-9 w-full items-center j…' to match /min-h-11/
+   ✓ Admin → Video Conversion > only a full admin reaches the page 9ms
+ ❯ src/lib/video/__tests__/uploadJobs.test.ts (13 tests | 1 failed) 16938ms
+   ✓ VID-1 · the device upload job > encoded → uploaded → checking → ready → ONE post linked to the video  3235ms
+   ✓ VID-1 · the device upload job > the link drops mid-upload: the job keeps what was sent and resumes with only the missing files  3436ms
+   ✓ VID-1 · the device upload job > offline: nothing is sent and nothing is lost  524ms
+   ✓ VID-1 · the device upload job > the video key is made once: a replayed begin returns the same video, never a second  1526ms
+   ✓ VID-1 · the device upload job > the post key is made once: a publish retried after a lost answer is still ONE post, with its video  1102ms
+   ✓ VID-1 · the device upload job > a refused publish leaves NO post behind (one transaction) and is said out loud  1133ms
+   ✓ VID-1 · the device upload job > a refusal from the server is final and said out loud (never retried for ever) 175ms
+   ✓ VID-1 · the device upload job > a music match parks the job for the remedy screen; nothing is posted  916ms
+   × VID-1 · the device upload job > review #423 (1): sign-out during a run — the PUT in flight never writes the job back, and the run does not carry the member's other jobs on 1289ms
+     → expected 2 to be 1 // Object.is equality
+   ✓ VID-1 · the device upload job > only the member's own jobs run; sign-out wipes every job and file 193ms
+   ✓ VID-1 · a long video: complete answers in rounds > 202 + progress → the job asks again at once and reaches checking; progress only grows  1142ms
+   ✓ VID-5 · an AD video goes on its creative, never into a post > the ready step links the video to the ad creative (no post is made) and the job is done  767ms
+   ✓ VID-5 · an AD video goes on its creative, never into a post > an ad job without its creative is refused out loud, nothing linked  1482ms
+ ❯ src/components/video/__tests__/ServerVideoJobs.test.tsx (28 tests | 16 failed) 9658ms
+   ✓ the card, in words > uploading: the percentage, and when the page may be closed  916ms
+   ✓ the card, in words > not going up this moment (offline, waiting for its turn, after a reload): waiting, not 0 % 80ms
+   ✓ the card, in words > being prepared: on our server, and we'll show it here — the member may leave 80ms
+   ✓ the card, in words > ready: Preview (the member watches it before it is posted) 286ms
+   ✓ the card, in words > an ad video says so 2ms
+   ✓ the card, in words > a failed conversion: the database's own text, word for word; Dismiss puts it away 224ms
+   ✓ the card, in words > other failures: plain words, never a code 8ms
+   ✓ the card, in words > made, then refused at Post (or at the ad): 'couldn't be posted / added', as the device path says it 20ms
+   ✓ the card, in words > no server job → nothing at all 4ms
+   × the card, live > shows only server jobs, follows the upload's progress, and opens the preview 1200ms
+     → Unable to find role="button" and name `/2 videos/`
+   ✓ the card, live > Cancel asks first; "Keep it" changes nothing; "Cancel video" cancels through the job store  1427ms
+   × compact on a phone (Owner: one slim line when there is more than one job, or the cookie banner is up) > more than one job → ONE slim line naming the most urgent state; tap opens the list, 'Show less' folds it 833ms
+     → Unable to find an accessible element with the role "button" and name `/2 videos · 1 ready to post/`
+   × compact on a phone (Owner: one slim line when there is more than one job, or the cookie banner is up) > one job while the cookie banner is up → the slim line too 731ms
+     → Unable to find an accessible element with the role "button" and name `/Uploading your video · 42%/`
+   ✓ compact on a phone (Owner: one slim line when there is more than one job, or the cookie banner is up) > one job, no banner → the full card, as before 92ms
+   ✓ compact on a phone (Owner: one slim line when there is more than one job, or the cookie banner is up) > on a computer the full list shows, whatever the count 64ms
+   × compact on a phone (Owner: one slim line when there is more than one job, or the cookie banner is up) > the open list scrolls inside a capped height — the stack never outgrows a short screen 126ms
+     → Unable to find an element by: [data-testid="server-job-list"]
+   × compact on a phone (Owner: one slim line when there is more than one job, or the cookie banner is up) > the slim line's words: count, then the most urgent state 10ms
+     → trayLine is not a function
+   × accessibility (review #423, findings 7–9) > the percentage is not announced on every step (aria-hidden); the progress bar carries it 195ms
+     → expected 'Uploading your video… 42% You can clo…' not to contain '42'
+   × accessibility (review #423, findings 7–9) > each close button is described by ITS OWN row's title 243ms
+     → expected undefined to be 'Your video is being prepared on our s…' // Object.is equality
+   × accessibility (review #423, findings 7–9) > the card is drawn at the END of the document (a portal), so its buttons come after the page's in Tab order 186ms
+     → expected <div><button …(1)></button>
+   × member-facing words for every refusal (review #423 nits) > no raw state or Pages text: VID-STATE, VID-SRC-004 / -GONE and VID-AUTH each get a plain sentence 21ms
+     → expected 'the video is taken_down' to be 'This video was taken down, so it can\…' // Object.is equality
+   × review #423 · added with the fixes > the slim line is ONE full-width button, 44px tall, that says what it opens 89ms
+     → Unable to find an element by: [data-testid="server-jobs-line"]
+   × review #423 · added with the fixes > folded, a change of state is said once — the count and the state, never the percentage 143ms
+     → expected [ …(2) ] to deeply equal [ '2 videos · uploading' ]
+   × review #423 · added with the fixes > the harness can draw the opened list (defaultOpen): the rows, and 'Show less' under them 938ms
+     → Unable to find an accessible element with the role "button" and name "Show less"
+   × review #423 · added with the fixes > Dismiss takes the job off the server through the job store; if the server can't be told, the card stays and says so 1124ms
+     → expected "spy" to be called with arguments: [ 'f', { fake: true } ]
+   × review #423 · added with the fixes > another member on the same device never sees the last member's job — not for one frame 526ms
+     → expected <section …(3)>…(1)</section> to be null
+   × review #423 · added with the fixes > a request our own app got wrong is never shown raw 11ms
+     → expected 'source_id must be a lowercase uuid' to be 'Something went wrong sending this vid…' // Object.is equality
+   × review #423 · added with the fixes > Preview, too, is described by its own row's title 55ms
+     → expected undefined to be 'Your video is ready' // Object.is equality
+
+ Test Files  6 failed (6)
+      Tests  43 failed | 58 passed (101)
+
+# Added last — retention (20261013_0006). Same worktree of a736ab19, final serverJobs.test.ts:
+   × review #423 · nits > a finished job whose server row is gone says so plainly (removed after 30 days unposted) and is final
+     → expected { …(13) } to match object { step: 'failed', …(1) }
+   × retention (20261013_0006): a video the server no longer has is FINAL > checking: no video row → failed with the plain sentence, and never asked again
+     → expected { …(12) } to match object { step: 'failed', …(2) }
+   × retention (20261013_0006): a video the server no longer has is FINAL > Post on a ready video that has since been removed: said plainly, nothing is published
+     → expected undefined to match object { step: 'failed', …(2) }

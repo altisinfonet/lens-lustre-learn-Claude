@@ -25,7 +25,11 @@ const AppUpdatePrompt = () => {
   // the cookie banner if that is up; the server-video card and the round
   // buttons rise above it while it shows.
   const dock = useRef<HTMLDivElement>(null);
-  useDockLayer("update", dock, visible);
+  // It keeps its place in the dock until its exit animation has ENDED, so the
+  // layers above never drop through it while it slides away (review #423).
+  const [docked, setDocked] = useState(false);
+  useEffect(() => { if (visible) setDocked(true); }, [visible]);
+  useDockLayer("update", dock, visible || docked);
 
   useEffect(() => {
     if (!appUpdateSupported()) return;
@@ -67,7 +71,7 @@ const AppUpdatePrompt = () => {
   };
 
   return (
-    <AnimatePresence>
+    <AnimatePresence onExitComplete={() => setDocked(false)}>
       {visible && (
         <motion.div
           ref={dock}

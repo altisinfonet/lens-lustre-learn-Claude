@@ -75,6 +75,26 @@ describe("xhrPut — the original's upload", () => {
     await expect(p).rejects.toMatchObject({ name: "AbortError" });
   });
 
+  it("review #423: a link that goes silent (no progress for the stall window) is given up as a dropped link", async () => {
+    vi.useFakeTimers();
+    try {
+      const p = xhrPut("https://h/u", {}, new Blob([new Uint8Array(10)]), () => {}, new AbortController().signal, 1000);
+      const caught = p.catch((e: Error) => e);
+      const x = FakeXhr.last;
+      await vi.advanceTimersByTimeAsync(900);
+      x.upload.onprogress!({ loaded: 5, total: 10, lengthComputable: true }); // still moving: the window starts again
+      await vi.advanceTimersByTimeAsync(900);
+      expect(x.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(200); // 1000ms with nothing
+      expect(x.aborted).toBe(true);
+      const e = await caught;
+      expect(e).toBeInstanceOf(TypeError);
+      expect((e as Error).message).toMatch(/Failed to fetch/); // the job's own retry rules take it from here
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("realJobDeps.upload is this adapter", () => {
     expect(realJobDeps.upload).toBeTypeOf("function");
   });

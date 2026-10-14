@@ -22,6 +22,7 @@ vi.mock("@/lib/siteSettingsCache", () => ({
 import {
   __resetVideoJobs, __setJobStore, approveServerJob, cancelServerJob, createServerJob, jobsFor, memoryJobStore,
   runServerJob, runVideoJobs, startServerJob, subscribeVideoJobs, uploadProgress, SOURCE_POLL_MS,
+  clearVideoUploads, dismissServerJob,
   type JobDeps, type JobEvent,
 } from "../uploadJobs";
 import { startOnServer } from "../startOnServer";
@@ -61,6 +62,10 @@ function server() {
     deleted: [] as string[],
     uploads: [] as Array<{ url: string; headers: Record<string, string>; size: number }>,
     rowReads: 0,
+    /** Everything that reached a server, and the upload being stopped, in order. */
+    log: [] as string[],
+    pagesCancelDown: false,
+    rpcCancelDown: false,
   };
   const env: VideoEnv = {
     SUPABASE_PROJECT_REF: "testref", SUPABASE_ANON_KEY: "anon", MEDIA: bucket,
@@ -101,12 +106,22 @@ function server() {
         db.publishes.push(args);
         return { data: "post-1", error: null };
       }
-      if (fn === "video_delete") { db.deleted.push(String(args._video_id)); return { data: "deleted", error: null }; }
+      if (fn === "video_delete") { db.log.push("rpc:video_delete"); db.deleted.push(String(args._video_id)); return { data: "deleted", error: null }; }
+      if (fn === "video_source_cancel") {
+        db.log.push("rpc:video_source_cancel");
+        if (db.rpcCancelDown) return { data: null, error: { message: "Failed to fetch" } };
+        if (!db.source) return { data: null, error: { message: "VID-SRC-004: no such video of yours", code: "42501" } };
+        if (["done", "failed", "cancelled"].includes(db.source.status)) return { data: db.source.status, error: null };
+        db.source.status = "cancelled";
+        return { data: "cancelled", error: null };
+      }
       return { data: null, error: { message: `no such rpc ${fn}` } };
     },
     videoState: async () => db.videoState,
     linkAdVideo: async (creative, video, categories) => { db.links.push({ creative, video, categories }); return { error: null }; },
     api: async (path, body) => {
+      db.log.push(`api:${path}`);
+      if (path.endsWith("/source-cancel") && db.pagesCancelDown) return { status: 503, body: { error: "VID-ENV-002", message: "uploads are off" } };
       const req = new Request(`https://app.test${path}`, { method: "POST", headers: { authorization: "Bearer owner-jwt" }, body: JSON.stringify(body) });
       const res = path.endsWith("/source-url") ? await handleSourceUrl(req, env, NOW, fetchImpl)
         : path.endsWith("/source-complete") ? await handleSourceComplete(req, env, fetchImpl)
@@ -120,7 +135,7 @@ function server() {
       for (const f of [0.25, 0.5, 0.75]) onProgress(Math.floor(data.size * f), data.size);
       if (hold) {
         await new Promise<void>((resolve, reject) => {
-          signal.addEventListener("abort", () => reject(new DOMException("The upload was cancelled", "AbortError")));
+          signal.addEventListener("abort", () => { db.log.push("upload:aborted"); reject(new DOMException("The upload was cancelled", "AbortError")); });
           void hold!.then(resolve);
         });
       }
@@ -318,8 +333,8 @@ describe("server conversion · the member's job", () => {
   it("a Cancel the server could not hear keeps the job (nothing is left behind unseen)", async () => {
     const s = server();
     await start(s);
-    const realApi = s.deps.api;
-    s.deps.api = async (path, body) => (path.endsWith("/source-cancel") ? { status: 503, body: {} } : realApi(path, body));
+    s.db.pagesCancelDown = true;
+    s.db.rpcCancelDown = true;
     expect(await cancelServerJob((await only()).id, s.deps)).toBe(false);
     expect((await only()).step).toBe("converting");
   });
@@ -383,5 +398,253 @@ describe("server conversion · the member's job", () => {
     await runVideoJobs(OWNER, s.deps);
     expect(s.db.uploads.map((u) => u.size)).toEqual([BYTES]);
     expect((await only()).step).toBe("converting");
+  });
+});
+
+/*
+ * ── Independent review of #423 (head a736ab19), findings 1–3 and the nits ──
+ * Each written to fail on the reviewed code first.
+ */
+describe("review #423 · sign-out, Dismiss, Cancel", () => {
+  it("(1) sign-out wipe: a run still in flight never writes the job — or its private caption — back", async () => {
+    const s = server();
+    const release = s.holdUpload();
+    const job = await createServerJob({ userId: "member-a", purpose: "post", file: file(), name: "clip.mov",
+      post: { content: "member A's private caption", categories: ["street"], privacy: "private" } });
+    await startServerJob(job, s.deps);
+    const run = runServerJob(job.id, s.deps);
+    await vi.waitFor(() => expect(s.db.uploads).toHaveLength(1));
+    expect(await clearVideoUploads()).toBe(true); // sign-out
+    await run;
+    release();
+    expect([...store.jobs.values()]).toEqual([]);
+    expect([...store.files.keys()]).toEqual([]);
+    expect(events.filter((e) => e.type === "failed" || (e.type === "changed" && e.job.attempts > 0))).toEqual([]);
+  });
+
+  it("(1) sign-out wipe during the background copy leaves no original behind on the device", async () => {
+    const s = server();
+    let finishCopy!: () => void;
+    const slow = memoryJobStore();
+    const realPut = slow.putFile;
+    slow.putFile = (id, n, d) => new Promise<void>((r) => { finishCopy = () => { void realPut(id, n, d).then(r); }; });
+    __setJobStore(slow);
+    await createServerJob({ userId: OWNER, purpose: "post", file: file(), name: "clip.mov", post: POST });
+    await clearVideoUploads();
+    finishCopy();
+    await vi.waitFor(() => expect([...slow.files.keys()]).toEqual([]));
+    expect(s.db.uploads).toEqual([]);
+  });
+
+  it("(2) Dismiss of a failed job whose source is still open cancels it on the server (Pages)", async () => {
+    const s = server();
+    const job = await createServerJob({ userId: OWNER, purpose: "post", file: file(), name: "clip.mov", post: POST });
+    await startServerJob(job, s.deps);
+    // A refusal that leaves the row open: after a reload the device copy is gone (never finished / over quota).
+    await store.deleteFiles(job.id);
+    __resetVideoJobs(); __setJobStore(store); subscribeVideoJobs((e) => events.push(e));
+    await runServerJob(job.id, s.deps);
+    expect(await only()).toMatchObject({ step: "failed", errorCode: "VID-LOCAL-001" });
+    expect(s.db.source!.status).toBe("awaiting_upload");
+    await dismissServerJob(job.id, s.deps);
+    expect(await jobsFor(OWNER)).toEqual([]);
+    expect(s.db.source!.status).toBe("cancelled");
+    expect(s.db.log).toContain("api:/api/video/source-cancel");
+  });
+
+  it("(2) …and falls back to the video_source_cancel RPC when Pages cannot answer", async () => {
+    const s = server();
+    const job = await createServerJob({ userId: OWNER, purpose: "post", file: file(), name: "clip.mov", post: POST });
+    await startServerJob(job, s.deps);
+    await store.deleteFiles(job.id);
+    __resetVideoJobs(); __setJobStore(store); subscribeVideoJobs((e) => events.push(e));
+    await runServerJob(job.id, s.deps);
+    s.db.pagesCancelDown = true;
+    await dismissServerJob(job.id, s.deps);
+    expect(s.db.source!.status).toBe("cancelled");
+    expect(s.db.log.slice(-2)).toEqual(["api:/api/video/source-cancel", "rpc:video_source_cancel"]);
+  });
+
+  it("(2) Dismiss of a job that failed at Post deletes its made video (nothing else ever would)", async () => {
+    const s = server();
+    await start(s);
+    s.converterFinishes();
+    s.db.videoState = "ready";
+    const j = await only();
+    await runServerJob(j.id, s.deps); // → review
+    s.db.videoState = "taken_down";   // gone wrong before the member tapped Post
+    await approveServerJob(j.id, s.deps);
+    expect(await only()).toMatchObject({ step: "failed", videoId: VID });
+    await dismissServerJob(j.id, s.deps);
+    expect(s.db.deleted).toEqual([VID]);
+    expect(await jobsFor(OWNER)).toEqual([]);
+  });
+
+  it("(3) Cancel stops the upload BEFORE it calls the server", async () => {
+    const s = server();
+    const release = s.holdUpload();
+    const job = await createServerJob({ userId: OWNER, purpose: "post", file: file(), name: "clip.mov", post: POST });
+    await startServerJob(job, s.deps);
+    const run = runServerJob(job.id, s.deps);
+    await vi.waitFor(() => expect(s.db.uploads).toHaveLength(1));
+    expect(await cancelServerJob(job.id, s.deps)).toBe(true);
+    await run; release();
+    const aborted = s.db.log.indexOf("upload:aborted");
+    const told = s.db.log.indexOf("api:/api/video/source-cancel");
+    expect(aborted).toBeGreaterThanOrEqual(0);
+    expect(aborted).toBeLessThan(told);
+  });
+
+  it("(3) Cancel falls back to the video_source_cancel RPC when the Pages Function errors", async () => {
+    const s = server();
+    await start(s);
+    s.db.pagesCancelDown = true;
+    expect(await cancelServerJob((await only()).id, s.deps)).toBe(true);
+    expect(s.db.source!.status).toBe("cancelled");
+    expect(await jobsFor(OWNER)).toEqual([]);
+  });
+});
+
+describe("review #423 · nits", () => {
+  it("a finished job whose server row is gone says so plainly (removed after 30 days unposted) and is final", async () => {
+    const s = server();
+    await start(s);
+    s.db.source = null; // purged by housekeeping while the member was away
+    s.tick(SOURCE_POLL_MS);
+    await runVideoJobs(OWNER, s.deps);
+    const j = await only();
+    expect(j).toMatchObject({ step: "failed", errorCode: "VID-SRC-GONE" });
+    expect(j.lastError).toBe("This video was removed because it was not posted within 30 days. Please post it again.");
+  });
+
+  it("a failed run keeps what it already saved (the source id from its own begin)", async () => {
+    const s = server();
+    const job = await createServerJob({ userId: OWNER, purpose: "post", file: file(), name: "clip.mov", post: POST });
+    const realApi = s.deps.api;
+    s.deps.api = async (path, body) => { if (path.endsWith("/source-url")) throw new TypeError("Failed to fetch"); return realApi(path, body); };
+    await runServerJob(job.id, s.deps); // begin answers, then the link drops
+    expect(await only()).toMatchObject({ step: "source", source: { id: SRC }, attempts: 1 });
+  });
+
+  it("a refusal at begin is said by the composer only — never saved or announced as a failed card", async () => {
+    const s = server();
+    s.db.beginRefusal = "VID-SRC-003: two videos are already waiting to be converted — wait for one to finish";
+    await startOnServer({ userId: OWNER, purpose: "post", file: file(), name: "clip.mov", post: POST }, s.deps);
+    expect(events.some((e) => e.type === "failed")).toBe(false);
+    expect(events.some((e) => e.type === "changed" && e.job.step === "failed")).toBe(false);
+  });
+});
+
+/*
+ * ── Added WITH the fixes (their own fail-first run is recorded beside the first:
+ *    docs/evidence/d2/phase5/VID-1/server-mode-client/failfirst-added-a736ab19.txt).
+ */
+describe("review #423 · Dismiss and Cancel, the honest way", () => {
+  /** A job that failed on this device while its row is still open on the server (the device copy is gone after a reload). */
+  async function failedWithOpenRow(s: ReturnType<typeof server>) {
+    const job = await createServerJob({ userId: OWNER, purpose: "post", file: file(), name: "clip.mov", post: POST });
+    await startServerJob(job, s.deps);
+    await store.deleteFiles(job.id);
+    __resetVideoJobs(); __setJobStore(store); subscribeVideoJobs((e) => events.push(e));
+    await runServerJob(job.id, s.deps);
+    expect(await only()).toMatchObject({ step: "failed", errorCode: "VID-LOCAL-001" });
+    return job;
+  }
+
+  it("(2) a Dismiss the server could not hear keeps the card — a place in the queue is never held unseen", async () => {
+    const s = server();
+    const job = await failedWithOpenRow(s);
+    s.db.pagesCancelDown = true;
+    s.db.rpcCancelDown = true;
+    expect(await dismissServerJob(job.id, s.deps)).toBe(false);
+    expect(await only()).toMatchObject({ step: "failed", errorCode: "VID-LOCAL-001" });
+    expect(s.db.source!.status).toBe("awaiting_upload");
+    expect(events.some((e) => e.type === "removed")).toBe(false);
+
+    s.db.rpcCancelDown = false; // the database answers again
+    expect(await dismissServerJob(job.id, s.deps)).toBe(true);
+    expect(s.db.source!.status).toBe("cancelled");
+    expect(await jobsFor(OWNER)).toEqual([]);
+  });
+
+  it("(2) Dismiss of a job whose row is already over (the conversion itself failed) asks the server nothing", async () => {
+    const s = server();
+    await start(s, { name: "clip.avi" });
+    s.db.source!.status = "failed";
+    s.db.source!.error = DB_TEXT;
+    s.tick(SOURCE_POLL_MS);
+    await runVideoJobs(OWNER, s.deps);
+    const calls = s.db.log.length;
+    expect(await dismissServerJob((await only()).id, s.deps)).toBe(true);
+    expect(s.db.log.slice(calls)).toEqual([]);
+    expect(await jobsFor(OWNER)).toEqual([]);
+  });
+
+  it("(2) Dismiss when the row is already gone on the server (404 from Pages) just puts the card away", async () => {
+    const s = server();
+    const job = await failedWithOpenRow(s);
+    s.db.source = null; // purged meanwhile
+    expect(await dismissServerJob(job.id, s.deps)).toBe(true);
+    expect(s.db.log.at(-1)).toBe("api:/api/video/source-cancel"); // Pages said 404: the RPC is not asked as well
+    expect(await jobsFor(OWNER)).toEqual([]);
+  });
+
+  it("(3) guard: a Cancel that was not heard leaves the job running — it is not dropped for good", async () => {
+    const s = server();
+    await start(s);
+    s.db.pagesCancelDown = true;
+    s.db.rpcCancelDown = true;
+    const id = (await only()).id;
+    expect(await cancelServerJob(id, s.deps)).toBe(false);
+    s.converterFinishes();
+    s.tick(SOURCE_POLL_MS);
+    await runVideoJobs(OWNER, s.deps);
+    expect(await only()).toMatchObject({ step: "checking", videoId: VID });
+  });
+
+  it("(1) after a sign-out wipe the same job id is not left marked busy or dropped", async () => {
+    const s = server();
+    const release = s.holdUpload();
+    const job = await createServerJob({ userId: OWNER, purpose: "post", file: file(), name: "clip.mov", post: POST });
+    await startServerJob(job, s.deps);
+    const run = runServerJob(job.id, s.deps);
+    await vi.waitFor(() => expect(s.db.uploads).toHaveLength(1));
+    const cancelling = cancelServerJob(job.id, s.deps); // dropped is set at once…
+    await clearVideoUploads();                          // …and the wipe clears it with everything else
+    await Promise.all([run, cancelling]);
+    release();
+    expect([...store.jobs.values()]).toEqual([]);
+    expect(events.filter((e) => e.type === "removed" || e.type === "failed")).toEqual([]); // nothing announced to a screen that is gone
+  });
+});
+
+describe("retention (20261013_0006): a video the server no longer has is FINAL", () => {
+  const REMOVED = "This video was removed because it was not posted within 30 days. Please post it again.";
+
+  it("checking: no video row → failed with the plain sentence, and never asked again", async () => {
+    const s = server();
+    await start(s);
+    s.converterFinishes();
+    let reads = 0;
+    s.deps.videoState = async () => { reads++; return null; };
+    s.tick(SOURCE_POLL_MS);
+    await runVideoJobs(OWNER, s.deps);
+    expect(await only()).toMatchObject({ step: "failed", errorCode: "VID-GONE", lastError: REMOVED });
+    s.tick(10 * SOURCE_POLL_MS);
+    await runVideoJobs(OWNER, s.deps);
+    expect(reads).toBe(1);
+  });
+
+  it("Post on a ready video that has since been removed: said plainly, nothing is published", async () => {
+    const s = server();
+    await start(s);
+    s.converterFinishes();
+    s.db.videoState = "ready";
+    const j = await only();
+    await runServerJob(j.id, s.deps); // → review
+    s.deps.videoState = async () => null;
+    await approveServerJob(j.id, s.deps);
+    expect(await only()).toMatchObject({ step: "failed", errorCode: "VID-GONE", lastError: REMOVED });
+    expect(s.db.publishes).toEqual([]);
   });
 });

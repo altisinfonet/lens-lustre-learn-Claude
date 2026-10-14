@@ -132,7 +132,7 @@ export default function AdminVideoConversion() {
         )}
         {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
         <button type="button" onClick={() => void save()} disabled={!dirty || saving || !user}
-          className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-primary text-sm font-medium text-primary-foreground disabled:opacity-40">
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-primary text-sm font-medium text-primary-foreground disabled:opacity-40">
           {saving && <Loader2 className="h-4 w-4 animate-spin" />} Save
         </button>
         <p className="text-[11px] text-muted-foreground">

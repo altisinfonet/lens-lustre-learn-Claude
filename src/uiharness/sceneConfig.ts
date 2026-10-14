@@ -33,6 +33,7 @@ export function isSignedOutScene(name: string): boolean {
  */
 export const CONSENT_PENDING_SCENES: readonly string[] = [
   "screen-home-server-card-consent",
+  "screen-home-server-card-consent-open",
 ];
 
 export function isConsentPendingScene(name: string): boolean {

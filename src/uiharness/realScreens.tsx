@@ -396,16 +396,30 @@ export const REAL_SCREENS: Record<string, () => JSX.Element> = {
    * the button above both. None may sit on another.
    */
   "screen-home-server-card-consent": () => homeWithServerCard(),
+  /**
+   * The tightest a phone screen gets: the cookie banner up AND the folded line
+   * tapped open. The list takes only the room that is left (it scrolls inside
+   * its cap), so "Ask anything" above it is still wholly on the screen.
+   */
+  "screen-home-server-card-consent-open": () => homeWithServerCard(true),
+  /** ONE video, no banner: the full card over the home page, "Ask anything" above it. */
+  "screen-home-server-card-single": () => homeWithServerCard(false, 1),
 };
 
-/** The card's two commonest states together: an upload under way, and one being prepared. */
-function homeWithServerCard() {
+/**
+ * The card's two commonest states together: an upload under way, and one being
+ * prepared. On a phone that is ONE slim line (Owner, 2026-10-13); `open` draws
+ * it as it is after a tap, since the harness cannot tap.
+ */
+function homeWithServerCard(open = false, count = 2) {
+  const jobs = [serverJob("up", { step: "source" }), serverJob("prep", { step: "converting" }), serverJob("ready", { step: "review", videoId: "v" })];
   return (
     <>
       {screen(<Index />, "/home", "/home")}
       <ServerJobsTray
-        jobs={[serverJob("up", { step: "source" }), serverJob("prep", { step: "converting" })]}
+        jobs={open ? jobs : jobs.slice(0, count)}
         progress={{ up: 42 }}
+        defaultOpen={open}
         onPreview={() => {}} onCancel={() => {}} onDismiss={() => {}}
       />
     </>
