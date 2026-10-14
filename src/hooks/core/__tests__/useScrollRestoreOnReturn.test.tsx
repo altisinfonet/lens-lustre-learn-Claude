@@ -89,10 +89,26 @@ function app() {
 const back = async () => { await act(async () => { window.history.back(); }); };
 const forward = async () => { await act(async () => { window.history.forward(); }); };
 
+/**
+ * The two entries a journey starts on, written as React Router writes its own
+ * (`{ usr, key, idx }`) so each carries its OWN key, as every entry the app can
+ * be on does. Seeding them with `null` state gave both the router's "default"
+ * key: React may run the feed's unmount effects a tick after the commit, and
+ * the clamp scroll from /below then matched the feed's key and was saved over
+ * the feed's position (CI flake on #434, run 38600634113). Rule 2 of the hook
+ * is exactly "a scroll on another entry is not saved", so the fixture must give
+ * the entries different identities for that rule to be what is tested.
+ */
+let seeded = 0;
+function seedBelowAndFeed() {
+  seeded += 1;
+  window.history.pushState({ usr: null, key: `below-${seeded}`, idx: 0 }, "", "/below"); // a known page beneath the feed
+  window.history.pushState({ usr: null, key: `feed-${seeded}`, idx: 1 }, "", "/feed");
+}
+
 /** Feed drawn and scrolled to `top`, then a post opened on top of it (the document shrinks, the browser clamps). */
 async function leaveFeedAt(top: number) {
-  window.history.pushState(null, "", "/below"); // a known page beneath the feed
-  window.history.pushState(null, "", "/feed");
+  seedBelowAndFeed();
   app();
   act(() => { setDocHeight(6000); });
   act(() => { scrollWindowTo(top); });
@@ -119,8 +135,7 @@ describe("returning to the feed", () => {
   });
 
   it("the page being left cannot overwrite the position: a scroll that arrives after the router moved on is not saved", async () => {
-    window.history.pushState(null, "", "/below");
-    window.history.pushState(null, "", "/feed");
+    seedBelowAndFeed();
     app();
     act(() => { setDocHeight(6000); });
     act(() => { scrollWindowTo(1500); });
