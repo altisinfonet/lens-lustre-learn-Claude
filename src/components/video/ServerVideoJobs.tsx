@@ -56,7 +56,7 @@ import {
 } from "@/lib/video/uploadJobs";
 import { realJobDeps } from "@/lib/video/jobDeps";
 import { withoutCode } from "@/lib/video/startOnServer";
-import { useDockLayer, useDockShowing, type DockLayer } from "@/lib/ui/bottomDock";
+import { useDockLayer, type DockLayer } from "@/lib/ui/bottomDock";
 
 const ServerVideoReview = lazy(() => import("./ServerVideoReview"));
 
@@ -215,6 +215,26 @@ function useWide(): boolean {
     return () => mq.removeEventListener("change", on);
   }, []);
   return wide;
+}
+
+/**
+ * True while any of `layers` is showing in the bottom dock. Follows <html>'s
+ * style, where the layers publish; state changes only when the answer does.
+ * Kept HERE, in this lazy chunk, not in bottomDock.ts: that file is in the
+ * entry bundle (the cookie banner uses it) and the bundle budget is binding.
+ */
+function useDockShowing(layers: readonly DockLayer[]): boolean {
+  const key = layers.join(",");
+  const [showing, setShowing] = useState(() => key.split(",").some((l) => document.documentElement.style.getPropertyValue(`--dock-${l}`) !== ""));
+  useEffect(() => {
+    const sync = () => setShowing(key.split(",").some((l) => document.documentElement.style.getPropertyValue(`--dock-${l}`) !== ""));
+    sync();
+    if (typeof MutationObserver !== "function") return;
+    const seen = new MutationObserver(sync);
+    seen.observe(document.documentElement, { attributes: true, attributeFilter: ["style"] });
+    return () => seen.disconnect();
+  }, [key]);
+  return showing;
 }
 
 /** The banners that share a phone's screen with the panel: while one is up, the panel is one line. */

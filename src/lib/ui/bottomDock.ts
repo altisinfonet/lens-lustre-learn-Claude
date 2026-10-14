@@ -29,7 +29,7 @@
  * layout height — never getBoundingClientRect(): the banners slide in with a
  * transform, and a mid-animation rectangle would publish the wrong edge.
  */
-import { useEffect, useLayoutEffect, useState, type RefObject } from "react";
+import { useLayoutEffect, type RefObject } from "react";
 
 export type DockLayer = "consent" | "update" | "videos" | "bar";
 
@@ -83,24 +83,3 @@ export function useDockLayer(layer: DockLayer, ref: RefObject<HTMLElement | null
   }, [layer, ref, showing, version]);
 }
 
-/**
- * True while any of `layers` is showing — for a layer that takes less room
- * when one below it is up (the server-video card folds to one line while the
- * cookie banner or the update prompt is on a phone's screen). Follows <html>'s
- * style, where the layers publish; state changes only when the answer does.
- */
-export function useDockShowing(layers: readonly DockLayer[]): boolean {
-  const key = layers.join(",");
-  const read = () => key.split(",").some((l) => document.documentElement.style.getPropertyValue(`--dock-${l}`) !== "");
-  const [showing, setShowing] = useState(read);
-  useEffect(() => {
-    const sync = () => setShowing(read());
-    sync();
-    if (typeof MutationObserver !== "function") return;
-    const seen = new MutationObserver(sync);
-    seen.observe(document.documentElement, { attributes: true, attributeFilter: ["style"] });
-    return () => seen.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `read` is rebuilt from `key` alone
-  }, [key]);
-  return showing;
-}
