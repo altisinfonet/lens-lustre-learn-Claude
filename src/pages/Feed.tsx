@@ -4,6 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useFeedRealtime } from "@/hooks/feed/useRealtimeFeed";
 import { useNewPostsBanner } from "@/hooks/feed/useNewPostsBanner";
 import { useFeedEventTracker } from "@/hooks/feed/useFeedEventTracker";
+import { useNewPostsCount } from "@/hooks/feed/useNewPostsCount";
+import FeedSeenObserver from "@/components/feed/FeedSeenObserver";
+import NewPostsPill from "@/components/feed/NewPostsPill";
 import { Link, useNavigate } from "react-router-dom";
 import { Rss, ArrowUp, WifiOff } from "lucide-react";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
@@ -22,7 +25,7 @@ import { slotForPostIndex, shouldShowFeedAd } from "@/lib/ads/feedAdPlacement";
 import { useT } from "@/i18n/I18nContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { useActivityLog } from "@/hooks/core/useActivityLog";
-import { useFeedQuery, flattenFeedPages, getNetworkIds, type FeedPost } from "@/hooks/feed/useFeedQuery";
+import { useFeedQuery, useFeedRefresh, flattenFeedPages, getNetworkIds, type FeedPost } from "@/hooks/feed/useFeedQuery";
 import { useFeedCacheUpdaters } from "@/hooks/feed/useFeedCacheUpdaters";
 import PostCard from "@/components/post/PostCard";
 import { fetchPostAttachments, attachmentsFor } from "@/lib/posts/postAttachments";
@@ -48,8 +51,15 @@ const Feed = () => {
   const { log } = useActivityLog();
   const t = useT();
   const { insertPost, replacePost, patchPost, removePost } = useFeedCacheUpdaters();
-  const { bufferedCount, bufferPost, flushBuffer } = useNewPostsBanner();
-  const { trackViewStart, trackViewEnd, trackAction } = useFeedEventTracker(user?.id);
+  const { bufferedIds, bufferPost, flushBuffer } = useNewPostsBanner();
+  /**
+   * Stage L2 (F-REV4-8, cause 1) — "seen" is recorded. Until now this line took
+   * trackViewStart/trackViewEnd and nothing ever called them, so the database
+   * never learned what a member had seen. Every card is now wrapped in a
+   * FeedSeenObserver below; the tracker sends through the OFF-2 outbox.
+   */
+  const tracker = useFeedEventTracker(user?.id);
+  const { trackAction } = tracker;
   /**
    * Stage D — the selected category strip chip.
    *
@@ -59,6 +69,7 @@ const Feed = () => {
    * nothing. The distinction is the whole reason old posts still appear.
    */
   const [activeCategory, setActiveCategory] = useState<string>(ALL_FILTER);
+  const feedCategories = useMemo(() => (activeCategory === ALL_FILTER ? null : [activeCategory]), [activeCategory]);
 
   const {
     data,
@@ -66,12 +77,45 @@ const Feed = () => {
     isFetchingNextPage: loadingMore,
     hasNextPage: hasMore,
     fetchNextPage,
-    refetch,
     // The feed can FAIL, and until 2026-08-13 this page had no idea that was
     // possible — see the error branch below.
     isError,
     isFetching,
-  } = useFeedQuery(user?.id, activeCategory === ALL_FILTER ? null : [activeCategory]);
+  } = useFeedQuery(user?.id, feedCategories);
+  const refreshFeed = useFeedRefresh(feedCategories);
+
+  /**
+   * Stage L2 · ONE way to deal a new hand: pull-to-refresh, the "new posts"
+   * pill, the retry buttons and the refresh after the member's own post all
+   * come here.
+   *   1. send what was just seen, FIRST (bounded wait), so the new deal already
+   *      knows not to lead with it;
+   *   2. ask for the new deal — the feed restarts from its first page with a
+   *      new session seed (useFeedRefresh);
+   *   3. only when it has ARRIVED, start a new seen-session, so the posts of
+   *      the new deal can be recorded (again). Not before: on a slow link the
+   *      old cards are still on screen while the request is out, and resetting
+   *      first would record every one of them a second time.
+   * A refresh that did not arrive changes nothing: the posts stay, the "new
+   * posts" count stays, and the screen says so (`refreshFailed`, below).
+   *
+   * It is called `refetch` because it IS this screen's refetch: it replaces the
+   * React Query `refetch` that pull-to-refresh, the retry button and the
+   * own-post refresh used to call (that one only re-read the pages still held
+   * — never page 0 once `maxPages` had dropped it — and sent nothing that was
+   * seen). The pull-to-refresh wrapper keeps its exact pre-L2 form, which
+   * instagramChrome.test.ts and feedFreshness.test.ts pin.
+   */
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const refetch = useCallback(async () => {
+    await tracker.flushNow();
+    const dealt = await refreshFeed();
+    setRefreshFailed(!dealt);
+    if (dealt) {
+      flushBuffer();
+      tracker.newSession();
+    }
+  }, [tracker, flushBuffer, refreshFeed]);
 
   // Blocked members' posts leave the feed the instant the block exists (App
   // Store guideline 1.2) — filtered here, over the cached pages, so there is no
@@ -82,6 +126,28 @@ const Feed = () => {
     return blockedIds.size === 0 ? all : all.filter((p) => !blockedIds.has(p.user_id));
   }, [data?.pages, blockedIds]);
   const relevantUserIds = useMemo(() => getNetworkIds(data?.pages), [data?.pages]);
+
+  /**
+   * Stage L2 · "N new posts": ids from the 60-second light count, plus (on live,
+   * where `posts` is in the realtime publication) posts that arrived by
+   * realtime — minus anything already in the feed. The list itself never
+   * moves; the posts arrive when the member taps the pill or pulls to refresh.
+   */
+  const firstPage = data?.pages?.[0];
+  const polledNew = useNewPostsCount({
+    userId: user?.id,
+    categories: feedCategories,
+    watermark: firstPage?.watermark,
+    sessionKey: firstPage?.sessionSeed,
+  });
+  const newPostCount = useMemo(() => {
+    const inFeed = new Set(posts.map((p) => p.id));
+    // A blocked member's new post is not "new for you": a refresh would not show it.
+    const polledIds = polledNew.filter((p) => !blockedIds.has(p.user_id)).map((p) => p.id);
+    return new Set([...bufferedIds, ...polledIds].filter((id) => !inFeed.has(id))).size;
+  }, [bufferedIds, polledNew, posts, blockedIds]);
+  /** A page on screen came from the DB-3004 chronological fallback: it is not the feed, so say so. */
+  const servedStale = data?.pages?.some((p) => p.degraded === true) ?? false;
 
   const reactMutation = useReactToPost();
   const unreactMutation = useUnreactToPost();
@@ -213,11 +279,16 @@ const Feed = () => {
     onReactionChange: handleReactionChange,
   });
 
+  /**
+   * Stage L2 · tapping the pill is a refresh from the top: the new posts are
+   * newest and unseen, so the new deal leads with them (R-LIVE-5). It used to
+   * splice realtime rows in above the current list; the polled count has only
+   * ids, and one path for both keeps "what arrives" identical on web and app.
+   */
   const handleShowNewPosts = useCallback(async () => {
-    const posts = flushBuffer();
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    (await attachLive(posts)).forEach((p) => insertPost(p));
-  }, [flushBuffer, insertPost]);
+    window.scrollTo({ top: 0 });
+    await refetch();
+  }, [refetch]);
 
   const handleReact = useCallback((postId: string, reactionType: ReactionType) => {
     if (!user || reactMutation.isPending) return;
@@ -303,6 +374,26 @@ const Feed = () => {
             created before categories existed visible. */}
         <div className="sticky top-0 z-20 -mx-4 mb-3">
           <CategoryStrip value={activeCategory} onChange={setActiveCategory} />
+          {/* Stage L2 — floats just below the strip (absolute; the sticky strip
+              is its containing block), so it never moves the list. It still
+              animates in and out, as the banner it replaces did. It starts at
+              opacity 0 only because it is SUMMONED (rendered only while there
+              are new posts) — the animation props sit right under that
+              condition, where contentNeverStartsInvisible.test.tsx looks for
+              it, the same shape the banner had. */}
+          <AnimatePresence>
+            {newPostCount > 0 && (
+              <NewPostsPill
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                key="new-posts-pill"
+                count={newPostCount}
+                onClick={() => void handleShowNewPosts()}
+                label={(n) => (n === 1 ? t("feed.newPosts.one", "1 new post") : t("feed.newPosts.many", "{n} new posts").replace("{n}", String(n)))}
+              />
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Stories bar — everyone's public stories (official first, then followed by recency) */}
@@ -326,10 +417,10 @@ const Feed = () => {
           text-lg/2xl, and a RefreshCw button.
 
           Nothing is lost by removing the button. This whole screen is already
-          wrapped in <PullToRefresh onRefresh={refetch}> a few lines above, so
+          wrapped in <PullToRefresh onRefresh={async () => { await refetch(); }}> a few lines above, so
           pulling down still refreshes — which is exactly how Instagram does it
-          and is why the button was redundant. `refetch` is also still called by
-          the realtime handler.
+          and is why the button was redundant. The realtime handler asks for a
+          refresh the same way, after the member's own post.
 
           Do not put a title back. Instagram's feed starts at the first post.
         */}
@@ -408,37 +499,29 @@ const Feed = () => {
                 it were live; showing the error page instead would throw away
                 content we already have. So: keep the posts, and say plainly
                 that they are the saved ones. */}
-            {isError && (
+            {/* Stage L2 — HONEST: a refresh that failed (or could not start: no
+                network), or a page served by the DB-3004 chronological
+                fallback, is not the feed. The posts stay (availability), and
+                the screen says they are stale. */}
+            {(isError || servedStale || refreshFailed) && (
               <button
                 type="button"
                 onClick={() => void refetch()}
                 disabled={isFetching}
+                data-testid="feed-refresh-failed"
                 className="w-full mb-3 py-2 px-4 rounded-lg bg-muted/60 border border-border text-muted-foreground text-xs flex items-center justify-center gap-2 hover:bg-muted disabled:opacity-50"
                 style={bodyFont}
               >
                 <WifiOff className="h-3.5 w-3.5 shrink-0" />
                 {isFetching
                   ? t("common.loading", "Loading…")
-                  : t("feed.error.stale", "Showing saved posts — tap to try again")}
+                  : t("feed.refresh.failed", "Couldn't refresh — tap to retry")}
               </button>
             )}
 
-            {/* New posts available banner */}
-            <AnimatePresence>
-              {bufferedCount > 0 && (
-                <motion.button
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  onClick={handleShowNewPosts}
-                  className="w-full mb-3 py-2.5 px-4 rounded-lg bg-primary/10 border border-primary/20 text-primary text-sm font-medium flex items-center justify-center gap-2 hover:bg-primary/15 transition-colors"
-                  style={headingFont}
-                >
-                  <ArrowUp className="h-3.5 w-3.5" />
-                  {bufferedCount === 1 ? "1 new post available" : `${bufferedCount} new posts available`}
-                </motion.button>
-              )}
-            </AnimatePresence>
+            {/* The in-flow "N new posts available" banner that pushed the whole
+                list down when it appeared is gone: Stage L2's NewPostsPill
+                floats under the category strip instead. */}
 
             {/**
               * NO `AnimatePresence` HERE — and that is the fix, not an omission.
@@ -486,6 +569,7 @@ const Feed = () => {
                       as the feed reloading itself. Inside, the motion.div stays
                       mounted for the life of the post and only its contents
                       come and go. */}
+                  <FeedSeenObserver postId={post.id} authorId={post.user_id} onVisibility={tracker.reportVisibility}>
                   <FeedCardWindow eager={i < EAGER_CARDS}>
                     <PostCard
                       post={post}
@@ -499,6 +583,7 @@ const Feed = () => {
                       onContentChange={handleContentChange}
                     />
                   </FeedCardWindow>
+                  </FeedSeenObserver>
                   </motion.div>
 
                   {/*

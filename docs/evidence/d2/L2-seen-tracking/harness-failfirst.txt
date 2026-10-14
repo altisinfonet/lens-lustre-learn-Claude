@@ -1,0 +1,7 @@
+STAGE L2 · PR B — tools/uishot/feed-seen-harness.mjs AGAINST TODAY'S CLIENT (fail-first, 2026-10-13)
+The harness page, its script and the fake tables copied into a checkout of staging's client;
+node tools/uishot/feed-seen-harness.mjs --browsers chromium. The page waits for ten observed
+cards ([data-seen-post]); today's feed observes none, so no check is ever reached.
+
+[feed-seen] chromium 151.0.7922.34: FAIL — 0/0 checks — ERROR: page.waitForFunction: Timeout 120000ms exceeded.
+[feed-seen] verdict: FAIL

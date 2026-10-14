@@ -1,0 +1,77 @@
+name: D2 · L2 feed-seen harness
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING REAL. HOLDS NO SECRET. A real Chromium against the Vite
+# dev server and the harness fake backend (synthetic VITE_* values, as ui-gate).
+#
+# Stage L2 (F-REV4-8, "refresh shows the same pictures"): the REAL Feed screen,
+# the real IntersectionObserver and the real OFF-2 outbox — the three things
+# jsdom cannot show: an observer that fires, pixels that do or do not move, and
+# the order of requests on the wire. tools/uishot/feed-seen-harness.mjs:
+#   A  the first page is asked for with a session seed
+#   B  seen at >= 50 % for 1 continuous second; NOT under a second, NOT unseen
+#   C  one view per post per session
+#   D  "N new posts": the pill appears and not one post moves; no feed request
+#   E  the tap: seen is sent BEFORE the new deal; new seed, first page, new
+#      posts lead, nothing already seen on the first screen
+#   F  the next page: same seed, nothing twice
+#   G  a lost answer: resent with the same ids, exactly once, outbox empty
+#   H  the feed RPC fails -> "Couldn't refresh — tap to retry"; the tap recovers
+# Fails on the pre-L2 app (no card is ever observed; nothing is ever sent).
+#
+# CI runs Chromium. Chrome, Edge and Firefox are run by hand with
+# `--browsers chromium,chrome,msedge,firefox`; the readings are committed under
+# docs/evidence/d2/L2-seen-tracking/.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  feed-seen:
+    name: Seen at the threshold -> a new deal on refresh; the pill moves nothing
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Clean install
+        run: npm ci --no-audit --no-fund
+      - name: Cache the Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium for Playwright
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            if npx playwright install chromium; then exit 0; fi
+            sleep $((attempt * 15))
+          done
+          exit 1
+      - name: The feed-seen harness
+        env:
+          VITE_SUPABASE_URL: https://testprojectref0000x.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: test-publishable-key-not-real
+          VITE_SUPABASE_PROJECT_ID: testprojectref0000x
+        run: node tools/uishot/feed-seen-harness.mjs --browsers chromium --json /tmp/l2-feed-seen.json
+      - name: Upload the reading
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: l2-feed-seen-harness
+          path: /tmp/l2-feed-seen.json
+          if-no-files-found: warn
+          retention-days: 30

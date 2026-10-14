@@ -77,9 +77,44 @@ describe("the client asks again every time it mounts", () => {
     expect(app).toMatch(/staleTime:\s*5\s*\*\s*60\s*\*\s*1000/);
   });
 
-  it("pull-to-refresh still explicitly refetches", () => {
-    // This path always worked; the fix is for every OTHER way in.
+  it("pull-to-refresh still explicitly refetches — after sending what was seen (Stage L2)", () => {
+    // This path always worked; the fix is for every OTHER way in. Stage L2
+    // keeps the wiring (and this file's pre-L2 assertion, unchanged) — what
+    // changed is what Feed.tsx's `refetch` does: it is now the feed's one
+    // refresh. Flush the seen-events first, so the new deal already knows what
+    // not to lead with; then ask for the deal (useFeedRefresh restarts the feed
+    // from its first page — React Query's own refetch never reached page 0 once
+    // `maxPages` had dropped it); and only when it has arrived start a new
+    // seen-session.
+    const feed = read("src/pages/Feed.tsx");
     expect(read("src/pages/Feed.tsx")).toMatch(/onRefresh=\{async \(\) => \{ await refetch\(\); \}\}/);
+    const start = feed.indexOf("const refetch = useCallback(");
+    const end = feed.indexOf("}, [tracker, flushBuffer, refreshFeed]);");
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const body = feed.slice(start, end);
+    expect(body).toMatch(/await tracker\.flushNow\(\);\s+const dealt = await refreshFeed\(\);\s+setRefreshFailed\(!dealt\);\s+if \(dealt\) \{\s+flushBuffer\(\);\s+tracker\.newSession\(\);/);
+    // and a refresh that did not arrive is said on screen, beside the two older reasons
+    expect(feed).toMatch(/\{\(isError \|\| servedStale \|\| refreshFailed\) && \(/);
+    expect(feed).toMatch(/const refreshFeed = useFeedRefresh\(feedCategories\);/);
+  });
+
+  it("a refresh restarts from the first page, so it always deals page 0 with a new seed (Stage L2)", () => {
+    const from = hook.indexOf("export function useFeedRefresh(");
+    expect(from).toBeGreaterThan(-1);
+    const body = hook.slice(from);
+    expect(body).toMatch(/pages: d\.pages\.slice\(0, 1\), pageParams: \[0\]/);
+    expect(body).toMatch(/refetchQueries\(\{ queryKey, exact: true, type: "active" \}\)/);
+  });
+
+  it("nothing re-deals the feed behind the member's back: focus and reconnect refetch only after a failure (Stage L2)", () => {
+    // App.tsx turns refetchOnWindowFocus on globally and this query is never
+    // fresh — so until L2 every return to the tab refetched the feed. Harmless
+    // then (same order for the hour, nothing seen); a new deal under the thumb now.
+    expect(app).toMatch(/refetchOnWindowFocus:\s*true/);
+    expect(hook).toMatch(/refetchOnWindowFocus:\s*refetchOnlyAfterFailure/);
+    expect(hook).toMatch(/refetchOnReconnect:\s*refetchOnlyAfterFailure/);
+    expect(hook).toMatch(/export const refetchOnlyAfterFailure = \(query: \{ state: \{ status: string \} \}\): boolean => query\.state\.status === "error";/);
   });
 });
 
