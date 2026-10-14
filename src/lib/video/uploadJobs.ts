@@ -212,7 +212,7 @@ export async function createJob(input: {
   const epoch = wipeEpoch;
   for (const [name, bytes] of input.files) await s.putFile(job.id, name, new Blob([bytes]));
   await s.putJob(job);
-  if (epoch !== wipeEpoch) { await s.deleteFiles(job.id).catch(() => {}); await s.deleteJob(job.id).catch(() => {}); return job; }
+  if (epoch !== wipeEpoch) { await discardJob(job.id).catch(() => {}); return job; }
   emit({ type: "changed", job });
   return job;
 }
@@ -317,13 +317,13 @@ export async function advanceJob(job: VideoJob, d: JobDeps, opts: { beginOnly?: 
         for (let more = 0; c.status === 202 && more < 1000; more++) {
           const copied = Number(c.body.copied) || 0;
           // A round that moved nothing would repeat for ever (and cost storage calls): stop, retry later.
-          if (j.serverProgress && copied <= j.serverProgress.copied) throw new Error("complete made no progress this round");
+          if (j.serverProgress && copied <= j.serverProgress.copied) throw new Error("complete: no progress");
           j = { ...j, serverProgress: { copied, total: Number(c.body.total) || 0 } };
           await commit(j);
           if (!d.online()) return j;
           c = await d.api("/api/video/complete", { video_id: j.videoId, version_no: j.versionNo });
         }
-        if (c.status === 202) throw new Error("complete still copying after 1000 rounds");
+        if (c.status === 202) throw new Error("complete: 1000 rounds");
         if (c.status === 200) {
           const st = String(c.body.state ?? "checking");
           j = { ...j, step: st === "ready" ? "ready" : "checking", attempts: 0 };
@@ -339,7 +339,7 @@ export async function advanceJob(job: VideoJob, d: JobDeps, opts: { beginOnly?: 
         if (c.status >= 500 || c.status === 408 || c.status === 429) throw new Error(`complete ${c.status}`);
         throw new Refused(String(c.body.message ?? `complete refused (${c.status})`), String(c.body.error ?? ""));
       }
-      if (j.step === "begun") throw new Error("the upload did not complete after 3 rounds");
+      if (j.step === "begun") throw new Error("upload: 3 rounds");
     }
     if (j.step === "checking") {
       const st = await d.videoState(j.videoId!);
@@ -378,7 +378,7 @@ export async function advanceJob(job: VideoJob, d: JobDeps, opts: { beginOnly?: 
         if (isNetworkError(error) || RETRYABLE_DB_CODES.has(error.code ?? "")) throw error;
         throw new Refused(error.message, error.code ?? codeOf(error.message));
       }
-      if (typeof data !== "string" || !data) throw new Error("the post was published but its id did not come back");
+      if (typeof data !== "string" || !data) throw new Error("publish: no id");
       j = { ...j, postId: data, step: "published" };
       await s.deleteFiles(j.id);
       await s.deleteJob(j.id);
@@ -518,7 +518,7 @@ export async function createServerJob(input: {
  */
 async function advanceSource(job: VideoJob, d: JobDeps, beginOnly: boolean, commit: Commit): Promise<VideoJob> {
   let j = job;
-  if (!j.source) throw new Refused("this video has no original to upload", "VID-LOCAL-002");
+  if (!j.source) throw new Refused("no original", "VID-LOCAL-002");
   if (j.step === "source" && !j.source.id) {
     const { data, error } = await d.rpc("video_source_begin", {
       _purpose: j.purpose, _source_bytes: j.source.bytes, _idempotency_key: j.id,
@@ -538,7 +538,7 @@ async function advanceSource(job: VideoJob, d: JobDeps, beginOnly: boolean, comm
   // cannot be done this instant. The first look is SOURCE_POLL_MS later.
   if (j.step === "source") return uploadSource(j, d, commit);
   if (j.step === "converting") {
-    if (!d.sourceRow) throw new Error("this app cannot read its server videos");
+    if (!d.sourceRow) throw new Error("no sourceRow");
     const row = await d.sourceRow(j.source!.id!);
     if (!row) throw new Refused(VIDEO_REMOVED_TEXT, "VID-SRC-GONE");
     if (row.status === "done" && row.video_id) {
@@ -580,7 +580,7 @@ async function uploadSource(job: VideoJob, d: JobDeps, commit: Commit): Promise<
     if (!blob) throw new Refused("The video file is no longer on this device. Please post it again.", "VID-LOCAL-001");
     if (blob.size !== Number(u.body.bytes)) throw new Refused("The video file on this device changed size. Please post it again.", "VID-LOCAL-003");
     if (!d.online()) return j;
-    if (!d.upload) throw new Error("this app cannot upload an original");
+    if (!d.upload) throw new Error("no upload");
     const ctl = new AbortController();
     uploads.set(j.id, ctl);
     const total = blob.size;
@@ -618,7 +618,7 @@ async function uploadSource(job: VideoJob, d: JobDeps, commit: Commit): Promise<
     if (retryable(c.status)) throw new Error(`source-complete ${c.status}`);
     throw new Refused(String(c.body.message ?? `source-complete refused (${c.status})`), String(c.body.error ?? ""));
   }
-  throw new Error("the original did not arrive after 3 rounds");
+  throw new Error("source: 3 rounds");
 }
 
 /**
