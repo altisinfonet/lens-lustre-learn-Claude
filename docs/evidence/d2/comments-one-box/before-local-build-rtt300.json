@@ -1,0 +1,105 @@
+{
+  "base": "http://127.0.0.1:4801",
+  "post": "f1263897-4b4b-41eb-a7c0-2ffd268f6cdf",
+  "runs": 5,
+  "addedLatencyMs": 300,
+  "medianFirstCommentMs": 793,
+  "at": "2026-10-15T02:34:51.669Z",
+  "detail": [
+    {
+      "firstCommentMs": 793,
+      "sawLoadingText": true,
+      "apiRequestsBeforeFirstComment": 2,
+      "apiRequestsTotal": 2,
+      "requests": [
+        {
+          "path": "fpszggreishhuvdpkmdr/rest/v1/post_comments?select=id%2Cuser_id%2Ccontent%2Ccreated_at%2Cupdated_at%2Cparent_id%2Cis_pinned&post_id=e…",
+          "start": 39,
+          "end": 411
+        },
+        {
+          "path": "fpszggreishhuvdpkmdr/rest/v1/post_comment_reactions?select=comment_id%2Cuser_id%2Creaction_type&comment_id=in.%28029f4c99-05fd-4a20-909e-3eb8…",
+          "start": 413,
+          "end": 786
+        }
+      ],
+      "otherRequestsBeforeFirstComment": []
+    },
+    {
+      "firstCommentMs": 791,
+      "sawLoadingText": true,
+      "apiRequestsBeforeFirstComment": 2,
+      "apiRequestsTotal": 2,
+      "requests": [
+        {
+          "path": "fpszggreishhuvdpkmdr/rest/v1/post_comments?select=id%2Cuser_id%2Ccontent%2Ccreated_at%2Cupdated_at%2Cparent_id%2Cis_pinned&post_id=e…",
+          "start": 36,
+          "end": 413
+        },
+        {
+          "path": "fpszggreishhuvdpkmdr/rest/v1/post_comment_reactions?select=comment_id%2Cuser_id%2Creaction_type&comment_id=in.%28029f4c99-05fd-4a20-909e-3eb8…",
+          "start": 415,
+          "end": 785
+        }
+      ],
+      "otherRequestsBeforeFirstComment": []
+    },
+    {
+      "firstCommentMs": 783,
+      "sawLoadingText": true,
+      "apiRequestsBeforeFirstComment": 2,
+      "apiRequestsTotal": 2,
+      "requests": [
+        {
+          "path": "fpszggreishhuvdpkmdr/rest/v1/post_comments?select=id%2Cuser_id%2Ccontent%2Ccreated_at%2Cupdated_at%2Cparent_id%2Cis_pinned&post_id=e…",
+          "start": 32,
+          "end": 399
+        },
+        {
+          "path": "fpszggreishhuvdpkmdr/rest/v1/post_comment_reactions?select=comment_id%2Cuser_id%2Creaction_type&comment_id=in.%28029f4c99-05fd-4a20-909e-3eb8…",
+          "start": 400,
+          "end": 775
+        }
+      ],
+      "otherRequestsBeforeFirstComment": []
+    },
+    {
+      "firstCommentMs": 799,
+      "sawLoadingText": true,
+      "apiRequestsBeforeFirstComment": 2,
+      "apiRequestsTotal": 2,
+      "requests": [
+        {
+          "path": "fpszggreishhuvdpkmdr/rest/v1/post_comments?select=id%2Cuser_id%2Ccontent%2Ccreated_at%2Cupdated_at%2Cparent_id%2Cis_pinned&post_id=e…",
+          "start": 31,
+          "end": 415
+        },
+        {
+          "path": "fpszggreishhuvdpkmdr/rest/v1/post_comment_reactions?select=comment_id%2Cuser_id%2Creaction_type&comment_id=in.%28029f4c99-05fd-4a20-909e-3eb8…",
+          "start": 417,
+          "end": 788
+        }
+      ],
+      "otherRequestsBeforeFirstComment": []
+    },
+    {
+      "firstCommentMs": 811,
+      "sawLoadingText": true,
+      "apiRequestsBeforeFirstComment": 2,
+      "apiRequestsTotal": 2,
+      "requests": [
+        {
+          "path": "fpszggreishhuvdpkmdr/rest/v1/post_comments?select=id%2Cuser_id%2Ccontent%2Ccreated_at%2Cupdated_at%2Cparent_id%2Cis_pinned&post_id=e…",
+          "start": 39,
+          "end": 415
+        },
+        {
+          "path": "fpszggreishhuvdpkmdr/rest/v1/post_comment_reactions?select=comment_id%2Cuser_id%2Creaction_type&comment_id=in.%28029f4c99-05fd-4a20-909e-3eb8…",
+          "start": 417,
+          "end": 805
+        }
+      ],
+      "otherRequestsBeforeFirstComment": []
+    }
+  ]
+}

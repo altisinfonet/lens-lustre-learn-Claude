@@ -1,0 +1,212 @@
+
+ RUN  v3.2.4 D:/50mm Retina World/work/D21
+
+ ❯ src/hooks/feed/__tests__/postCommentsOneRequest.test.tsx (3 tests | 2 failed) 243ms
+   × bug 5 — the post thread is one read, not a staircase > reads the thread in ONE request, reactions embedded, and counts them right 80ms
+     → one request before the first comment — no second read for reactions: expected [ 'post_comments', …(1) ] to deeply equal [ 'post_comments' ]
+   ✓ bug 5 — the post thread is one read, not a staircase > falls back to the two-step read if the embed is refused — never an empty thread 54ms
+   × bug 5 — the post thread is one read, not a staircase > a thread opened once draws at once on the next open — no 'Loading comments…' again 108ms
+     → the second open of the same thread showed 'Loading comments…': expected true to be false // Object.is equality
+stderr | src/components/comments/__tests__/OneCommentsBox.test.tsx > bug 3 — the post box and the ad box are ONE box > an empty thread: same search row, same emoji row, same placeholder words, same empty line
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ❯ src/components/comments/__tests__/OneCommentsBox.test.tsx (3 tests | 3 failed) 260ms
+   × bug 3 — the post box and the ad box are ONE box > an empty thread: same search row, same emoji row, same placeholder words, same empty line 149ms
+     → expected { Object (searchRow, emojiRow, ...) } to deeply equal { searchRow: true, emojiRow: 8, …(3) }
+   × bug 3 — the post box and the ad box are ONE box > a thread with comments: same again, sort selector included 96ms
+     → expected { Object (searchRow, emojiRow, ...) } to deeply equal { searchRow: true, emojiRow: 8, …(3) }
+   × bug 3 — the post box and the ad box are ONE box > the ad's placeholder names the ad the way its header does 14ms
+     → Unable to find an element with the placeholder text of: /^Add a comment for Hideaway/
+
+Ignored nodes: comments, script, style
+<div
+  data-testid="box"
+>
+  <div
+    class="px-3 py-2 relative"
+  >
+    <div
+      class="space-y-0.5"
+    >
+      <div
+        class="text-xs text-muted-foreground"
+      >
+        No comments yet.
+      </div>
+    </div>
+    <div
+      class="flex gap-2 pt-2 pb-1"
+    >
+      <span
+        class="relative inline-block w-8 h-8 text-xs"
+      >
+        <div
+          class="w-8 h-8 text-xs rounded-full bg-muted flex items-center justify-center font-semibold text-muted-foreground"
+        >
+          V
+        </div>
+      </span>
+      <input
+        placeholder="Write a comment..."
+        value=""
+      />
+    </div>
+  </div>
+</div>
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/comments/__tests__/OneCommentsBox.test.tsx > bug 3 — the post box and the ad box are ONE box > an empty thread: same search row, same emoji row, same placeholder words, same empty line
+AssertionError: expected { Object (searchRow, emojiRow, ...) } to deeply equal { searchRow: true, emojiRow: 8, …(3) }
+
+- Expected
++ Received
+
+  {
+-   "emojiRow": 8,
++   "emojiRow": 0,
+    "emptyLine": "No comments yet.",
+-   "placeholder": "Add a comment for …",
+-   "searchRow": true,
++   "placeholder": "Write a comment...",
++   "searchRow": false,
+    "sortSelector": false,
+  }
+
+ ❯ src/components/comments/__tests__/OneCommentsBox.test.tsx:132:16
+    130|     const ad = shapeOf(await drawAd());
+    131|     expect(post.searchRow && post.emojiRow > 0, "the post box itself h…
+    132|     expect(ad).toEqual(post);
+       |                ^
+    133|   });
+    134| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/components/comments/__tests__/OneCommentsBox.test.tsx > bug 3 — the post box and the ad box are ONE box > a thread with comments: same again, sort selector included
+AssertionError: expected { Object (searchRow, emojiRow, ...) } to deeply equal { searchRow: true, emojiRow: 8, …(3) }
+
+- Expected
++ Received
+
+  {
+-   "emojiRow": 8,
++   "emojiRow": 0,
+    "emptyLine": null,
+-   "placeholder": "Add a comment for …",
+-   "searchRow": true,
+-   "sortSelector": true,
++   "placeholder": "Write a comment...",
++   "searchRow": false,
++   "sortSelector": false,
+  }
+
+ ❯ src/components/comments/__tests__/OneCommentsBox.test.tsx:147:16
+    145|     const ad = shapeOf(adBox);
+    146|     expect(post.sortSelector).toBe(true);
+    147|     expect(ad).toEqual(post);
+       |                ^
+    148|   });
+    149| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  src/components/comments/__tests__/OneCommentsBox.test.tsx > bug 3 — the post box and the ad box are ONE box > the ad's placeholder names the ad the way its header does
+TestingLibraryElementError: Unable to find an element with the placeholder text of: /^Add a comment for Hideaway/
+
+Ignored nodes: comments, script, style
+<div
+  data-testid="box"
+>
+  <div
+    class="px-3 py-2 relative"
+  >
+    <div
+      class="space-y-0.5"
+    >
+      <div
+        class="text-xs text-muted-foreground"
+      >
+        No comments yet.
+      </div>
+    </div>
+    <div
+      class="flex gap-2 pt-2 pb-1"
+    >
+      <span
+        class="relative inline-block w-8 h-8 text-xs"
+      >
+        <div
+          class="w-8 h-8 text-xs rounded-full bg-muted flex items-center justify-center font-semibold text-muted-foreground"
+        >
+          V
+        </div>
+      </span>
+      <input
+        placeholder="Write a comment..."
+        value=""
+      />
+    </div>
+  </div>
+</div>
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ getByPlaceholderText node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/comments/__tests__/OneCommentsBox.test.tsx:152:24
+    150|   it("the ad's placeholder names the ad the way its header does", asyn…
+    151|     const box = await drawAd();
+    152|     expect(within(box).getByPlaceholderText(/^Add a comment for Hideaw…
+       |                        ^
+    153|     // …and its search row says which ad these comments belong to, as …
+    154|     expect(within(box).getByRole("button", { name: /search/i })).toHav…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  src/hooks/feed/__tests__/postCommentsOneRequest.test.tsx > bug 5 — the post thread is one read, not a staircase > reads the thread in ONE request, reactions embedded, and counts them right
+AssertionError: one request before the first comment — no second read for reactions: expected [ 'post_comments', …(1) ] to deeply equal [ 'post_comments' ]
+
+- Expected
++ Received
+
+  [
+    "post_comments",
++   "post_comment_reactions",
+  ]
+
+ ❯ src/hooks/feed/__tests__/postCommentsOneRequest.test.tsx:97:110
+     95|     await waitFor(() => expect(result.current.comments).toHaveLength(2…
+     96| 
+     97|     expect(reads.map((r) => r.table), "one request before the first co…
+       |                                                                                                              ^
+     98|     const nice = result.current.comments.find((c) => c.id === "c2")!;
+     99|     expect(nice.like_count).toBe(2);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  src/hooks/feed/__tests__/postCommentsOneRequest.test.tsx > bug 5 — the post thread is one read, not a staircase > a thread opened once draws at once on the next open — no 'Loading comments…' again
+AssertionError: the second open of the same thread showed 'Loading comments…': expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/hooks/feed/__tests__/postCommentsOneRequest.test.tsx:129:105
+    127|     await waitFor(() => expect(second.result.current.comments).toHaveL…
+    128|     await waitFor(() => expect(second.result.current.loaded).toBe(true…
+    129|     expect(loadingSeen.includes(true), "the second open of the same th…
+       |                                                                                                         ^
+    130|   });
+    131| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  5 failed | 1 passed (6)
+   Start at  08:12:32
+   Duration  2.72s (transform 382ms, setup 201ms, collect 1.72s, tests 503ms, environment 1.02s, prepare 554ms)
+
