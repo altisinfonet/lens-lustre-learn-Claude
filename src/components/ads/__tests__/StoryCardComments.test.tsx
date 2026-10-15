@@ -218,7 +218,9 @@ describe("an empty thread says so, rather than saying nothing", () => {
   it("shows the empty line and still prints no source", async () => {
     fetchAdComments.mockResolvedValue([]);
     await openStoryCardThread();
-    expect(await screen.findByText("No comments yet.")).toBeInTheDocument();
+    // Bug 3 (15 Oct 2026): ONE comments box — the ad says the post box's empty
+    // line now, word for word (COMMENTS_EMPTY_LABEL), not a shorter one of its own.
+    expect(await screen.findByText("No comments yet. Be the first to comment.")).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("renderRow");
   });
 });

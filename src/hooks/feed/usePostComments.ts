@@ -24,6 +24,98 @@ import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
 import { useAddComment } from "@/hooks/feed/useAddComment";
 import type { ThreadComment } from "@/components/comments/CommentThread";
 
+/** One post_comments row as the thread reads it, its reactions embedded. */
+interface CommentRow {
+  id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string | null;
+  parent_id: string | null;
+  is_pinned: boolean | null;
+  post_comment_reactions?: { user_id: string; reaction_type: string }[] | null;
+}
+
+const COMMENT_COLUMNS = "id, user_id, content, created_at, updated_at, parent_id, is_pinned";
+
+/**
+ * The thread in ONE request: the comments with their reactions embedded
+ * (post_comment_reactions_comment_id_fkey). null = the comments themselves
+ * could not be read. If only the EMBED is refused, the previous two-step read
+ * runs instead, so a schema without the FK costs a round trip, never the thread.
+ */
+async function fetchThreadRows(postId: string): Promise<CommentRow[] | null> {
+  const one = await supabase
+    .from("post_comments")
+    .select(`${COMMENT_COLUMNS}, post_comment_reactions(user_id, reaction_type)`)
+    .eq("post_id", postId)
+    .order("created_at", { ascending: true })
+    .limit(200);
+  if (!one.error) return (one.data as unknown as CommentRow[] | null) ?? null;
+
+  const { data } = await supabase
+    .from("post_comments")
+    .select(COMMENT_COLUMNS)
+    .eq("post_id", postId)
+    .order("created_at", { ascending: true })
+    .limit(200);
+  if (!data) return null;
+  const ids = data.map((c: any) => c.id);
+  const reactions = ids.length
+    ? ((await supabase.from("post_comment_reactions" as any).select("comment_id, user_id, reaction_type").in("comment_id", ids)).data as any[] | null) ?? []
+    : [];
+  const byComment = new Map<string, { user_id: string; reaction_type: string }[]>();
+  reactions.forEach((r: any) => {
+    const list = byComment.get(r.comment_id) || [];
+    list.push({ user_id: r.user_id, reaction_type: r.reaction_type });
+    byComment.set(r.comment_id, list);
+  });
+  return (data as any[]).map((c) => ({ ...c, post_comment_reactions: byComment.get(c.id) || [] }));
+}
+
+/** The per-type totals (for the badge) and "which reaction did I pick", from the embedded rows. */
+function splitThreadRows(rows: CommentRow[], viewerId: string | undefined) {
+  const likeCountMap = new Map<string, number>();
+  const userLikedSet = new Set<string>();
+  const reactionCountsMap = new Map<string, Record<string, number>>();
+  const userReactionMap = new Map<string, string>();
+  const comments = rows.map(({ post_comment_reactions, ...c }) => {
+    (post_comment_reactions || []).forEach((r) => {
+      likeCountMap.set(c.id, (likeCountMap.get(c.id) || 0) + 1);
+      const counts = reactionCountsMap.get(c.id) || {};
+      counts[r.reaction_type] = (counts[r.reaction_type] || 0) + 1;
+      reactionCountsMap.set(c.id, counts);
+      if (viewerId && r.user_id === viewerId) {
+        userLikedSet.add(c.id);
+        userReactionMap.set(c.id, r.reaction_type);
+      }
+    });
+    return c;
+  });
+  return {
+    comments,
+    reactions: { likeCountMap, userLikedSet, reactionCountsMap, userReactionMap },
+    authorIds: [...new Set(rows.map((c) => c.user_id))],
+  };
+}
+
+/**
+ * The last read of each thread opened this session, so a second open draws at
+ * once and refreshes behind the list. Small and in memory only: it holds what
+ * this member has already been shown, and every open still re-reads.
+ */
+const THREAD_CACHE = new Map<string, CommentRow[]>();
+const THREAD_CACHE_MAX = 30;
+function rememberThread(postId: string, rows: CommentRow[]) {
+  THREAD_CACHE.delete(postId);
+  THREAD_CACHE.set(postId, rows);
+  if (THREAD_CACHE.size > THREAD_CACHE_MAX) THREAD_CACHE.delete(THREAD_CACHE.keys().next().value as string);
+}
+/** A write on the thread makes the remembered copy wrong; the next open re-reads it fresh. */
+const forgetThread = (postId: string | null | undefined) => { if (postId) THREAD_CACHE.delete(postId); };
+/** Test seam: each test starts with no thread remembered. */
+export const __clearThreadCacheForTests = () => THREAD_CACHE.clear();
+
 export interface UsePostCommentsResult {
   comments: ThreadComment[];
   loading: boolean;
@@ -71,74 +163,73 @@ export function usePostComments(
 
   const { profileMap } = useProfileMap(commentUserIds);
 
+  /**
+   * BUG 5 (Owner, 15 Oct 2026: "comments take very long to load").
+   *
+   * MEASURED, not guessed — tools/uishot/comments-load-timing.mjs, a real
+   * browser on staging, click → first comment visible: median 582 ms, and the
+   * whole of it was TWO round trips IN SERIES. post_comments went out, came
+   * back, and only then did post_comment_reactions go out (`.in()` on the ids
+   * the first one returned). Each one is ~230 ms of pure network on its own
+   * (a trivial site_settings read costs the same), so the queries were never
+   * slow — the staircase was. On a phone's network every step of it is longer.
+   *
+   * The reactions now ride INSIDE the comments request — PostgREST embeds them
+   * through post_comment_reactions_comment_id_fkey, with the same RLS as the
+   * separate read had — so the thread is ONE round trip, with getAdminIds()
+   * beside it instead of behind it. If the embed is ever refused (a schema
+   * that lost the FK), the old two-step read runs instead: slower, never empty.
+   *
+   * And a thread that has been opened once is kept (THREAD_CACHE, below): the
+   * second open of the same post draws the list at once and refreshes behind
+   * it, and the reload after posting a comment no longer swaps the whole list
+   * for "Loading comments…" while it re-reads.
+   */
   // A post switch (opening Post B while Post A's fetch is still settling)
   // must never let Post A's rows land under Post B. Reset on every id change,
   // and every async step below checks it is still the current id before it
   // writes state.
+  const applyRows = useCallback((rows: CommentRow[], viewerId: string | undefined) => {
+    const split = splitThreadRows(rows, viewerId);
+    setRawComments(split.comments);
+    setRawReactions(split.reactions);
+    setCommentUserIds(split.authorIds);
+  }, []);
+
   useEffect(() => {
     setComments([]);
-    setRawComments([]);
-    setRawReactions({ likeCountMap: new Map(), userLikedSet: new Set(), reactionCountsMap: new Map(), userReactionMap: new Map() });
-    setCommentUserIds([]);
+    const cached = postId ? THREAD_CACHE.get(postId) : undefined;
+    if (cached) {
+      applyRows(cached, user?.id);
+    } else {
+      setRawComments([]);
+      setRawReactions({ likeCountMap: new Map(), userLikedSet: new Set(), reactionCountsMap: new Map(), userReactionMap: new Map() });
+      setCommentUserIds([]);
+    }
     setLoaded(false);
     setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset per post only; `user` changing must not wipe the thread
   }, [postId]);
 
   const loadComments = useCallback(async () => {
     if (!postId) return;
     const requestedFor = postId;
-    setLoading(true);
-    const { data } = await supabase
-      .from("post_comments")
-      .select("id, user_id, content, created_at, updated_at, parent_id, is_pinned")
-      .eq("post_id", postId)
-      .order("created_at", { ascending: true })
-      .limit(200);
+    // Only a thread with nothing to show says "Loading comments…". A cached
+    // one stays on screen while it refreshes.
+    if (!THREAD_CACHE.has(postId)) setLoading(true);
+    const [rows] = await Promise.all([fetchThreadRows(postId), getAdminIds()]);
 
     // The selected post moved on while this was in flight — the response is
     // for a post nobody is looking at anymore. Discard it.
     if (requestedFor !== postId) return;
 
-    if (!data) { setLoading(false); setLoaded(true); return; }
-
-    const authorIds = [...new Set(data.map((c: any) => c.user_id))];
-    const commentIds = data.map((c: any) => c.id);
-
-    // One query for every reaction row on these comments — the SELECT policy
-    // is open to any signed-in-or-not viewer, so a single fetch gives both
-    // the per-type totals (for the badge) and, by filtering client-side for
-    // the current user, "which reaction (if any) did I pick" — no second
-    // round trip needed.
-    const [, reactionsRes] = await Promise.all([
-      getAdminIds(),
-      commentIds.length
-        ? supabase.from("post_comment_reactions" as any).select("comment_id, user_id, reaction_type").in("comment_id", commentIds)
-        : { data: [] },
-    ]);
-
-    if (requestedFor !== postId) return;
-
-    const likeCountMap = new Map<string, number>();
-    const userLikedSet = new Set<string>();
-    const reactionCountsMap = new Map<string, Record<string, number>>();
-    const userReactionMap = new Map<string, string>();
-    (reactionsRes.data as any[] || []).forEach((r: any) => {
-      likeCountMap.set(r.comment_id, (likeCountMap.get(r.comment_id) || 0) + 1);
-      const counts = reactionCountsMap.get(r.comment_id) || {};
-      counts[r.reaction_type] = (counts[r.reaction_type] || 0) + 1;
-      reactionCountsMap.set(r.comment_id, counts);
-      if (user && r.user_id === user.id) {
-        userLikedSet.add(r.comment_id);
-        userReactionMap.set(r.comment_id, r.reaction_type);
-      }
-    });
-
-    setRawComments(data);
-    setRawReactions({ likeCountMap, userLikedSet, reactionCountsMap, userReactionMap });
-    setCommentUserIds(authorIds);
+    if (rows) {
+      rememberThread(postId, rows);
+      applyRows(rows, user?.id);
+    }
     setLoading(false);
     setLoaded(true);
-  }, [postId, user]);
+  }, [postId, user, applyRows]);
 
   // Build comment tree reactively when rawComments or profileMap changes
   useEffect(() => {
@@ -202,6 +293,7 @@ export function usePostComments(
   };
 
   const deleteComment = async (commentId: string, parentId: string | null) => {
+    forgetThread(postId);
     const countReplies = (id: string): number => {
       const c = comments.find((x) => x.id === id);
       return c ? c.replies.length : 0;
@@ -223,6 +315,7 @@ export function usePostComments(
   };
 
   const editComment = async (commentId: string, content: string): Promise<boolean> => {
+    forgetThread(postId);
     setEditSubmitting(true);
     const { error } = await supabase
       .from("post_comments")
@@ -253,6 +346,7 @@ export function usePostComments(
    * covered by the existing RLS, so this needed no schema change.
    */
   const setReaction = async (commentId: string, reactionType: string) => {
+    forgetThread(postId);
     if (!user) return;
     const current = findComment(comments, commentId)?.user_reaction ?? null;
     const turningOff = current === reactionType;
@@ -286,6 +380,7 @@ export function usePostComments(
   const toggleLike = (commentId: string) => setReaction(commentId, "like");
 
   const togglePin = async (commentId: string) => {
+    forgetThread(postId);
     const comment = findComment(comments, commentId);
     if (!comment) return;
     const newPinned = !comment.is_pinned;

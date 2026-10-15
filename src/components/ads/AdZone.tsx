@@ -33,6 +33,7 @@ import { type AdCreative, fetchAdCreatives, pickCreativeForSlot } from "@/lib/ad
 import AdEngagementBar from "@/components/ads/AdEngagementBar";
 import FeedVideoCard from "@/components/video/FeedVideoCard";
 import { adMedia } from "@/lib/posts/subjectMedia";
+import { rememberAdThreadSubject } from "@/lib/ads/adThreadSubject";
 
 /** Only the inline zones are valid here. */
 type InlineZone = Extract<AdZoneId, "sidebar" | "story-card" | "lightbox">;
@@ -393,6 +394,11 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
   const mediaBox = frame.aspect
     ? { className: "relative overflow-hidden w-full", style: { aspectRatio: frame.aspect } }
     : { className: "relative overflow-hidden rounded-sm h-full", style: undefined };
+
+  // Bug 3 — the comments box names the ad the way its header does (below).
+  if (zone === "story-card" && chosen) {
+    rememberAdThreadSubject(chosen.id, { owner: advertiser || "50mm Retina World", headline: cr.creative_headline || null });
+  }
 
   return (
     <div ref={containerRef} className={cn(frame.wrapper, className)}>
