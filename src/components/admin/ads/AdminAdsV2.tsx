@@ -25,6 +25,8 @@ import { compressImageToFiles } from "@/lib/imageCompression";
 import { generateImagePath, uploadImage } from "@/lib/imageUpload";
 import { feedAdPositionsLabel } from "@/lib/ads/feedAdPlacement";
 import AdCreativeLibrary from "./AdCreativeLibrary";
+import { AdLinkProblem } from "./AdLinkInput";
+import { adLinkProblem } from "@/lib/ads/adLink";
 
 /**
  * The one line under each slot name telling the admin EXACTLY where and how
@@ -217,7 +219,16 @@ const AdminAdsV2 = () => {
     finally { setSaving(null); }
   };
 
-  const saveZones = () => doSave("zones", () => saveSetting(AD_ZONES_KEY, zones));
+  const saveZones = () => {
+    // Bug 4: a zone whose link box holds something that is not an https://
+    // address is not saved — the box already says why, under it.
+    const bad = Object.values(zones).find((z) => z.mode === "own" && adLinkProblem(z.own.click_url) !== null);
+    if (bad) {
+      toast({ title: "Not saved — check the website box", description: adLinkProblem(bad.own.click_url)!, variant: "destructive" });
+      return;
+    }
+    return doSave("zones", () => saveSetting(AD_ZONES_KEY, zones));
+  };
   const saveFreq = () => doSave("freq", () => saveSetting(AD_FREQUENCY_KEY, freq));
   const saveNetworks = () => doSave("net", async () => {
     const { data } = await supabase.from("site_settings").select("value").eq("key", "adsense_config").maybeSingle();
@@ -336,7 +347,8 @@ const AdminAdsV2 = () => {
                       onChange={(url) => patchOwn(zone, { image_url: url, image_source: "upload" })} />
                     <div>
                       <label className={label}>Website to open when clicked (optional)</label>
-                      <input className={input} style={bFont} value={c.own.click_url} onChange={(e) => patchOwn(zone, { click_url: e.target.value })} placeholder="https://your-website.com" />
+                      <input className={input} style={bFont} value={c.own.click_url} onChange={(e) => patchOwn(zone, { click_url: e.target.value })} placeholder="https://your-website.com" aria-invalid={adLinkProblem(c.own.click_url) !== null} />
+                      <AdLinkProblem value={c.own.click_url} />
                     </div>
 
                     <details className="group">

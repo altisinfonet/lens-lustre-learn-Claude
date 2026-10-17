@@ -14,6 +14,7 @@ import { useVisibilityInterval } from "@/lib/timers/visibilityInterval";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AdZoneCreative } from "@/lib/ads/adZonesV2";
+import { adLink } from "@/lib/ads/adLink";
 
 interface FullscreenAdShellProps {
   creative: AdZoneCreative;
@@ -77,7 +78,9 @@ const FullscreenAdShell = ({
 
   const clickThrough = () => {
     onClickThrough?.();
-    if (creative.click_url) window.open(creative.click_url, "_blank", "noopener,noreferrer");
+    // Bug 4: plain text in the link box is no link (src/lib/ads/adLink.ts).
+    const link = adLink(creative.click_url);
+    if (link) window.open(link, "_blank", "noopener,noreferrer");
   };
 
   const hasImage = creative.image_source !== "code" && !!creative.image_url;
@@ -108,7 +111,7 @@ const FullscreenAdShell = ({
       {/* Creative */}
       <div className="w-full max-w-md">
         {hasImage ? (
-          <button onClick={clickThrough} className={cn("block w-full text-left", creative.click_url ? "cursor-pointer" : "cursor-default")} disabled={!creative.click_url}>
+          <button onClick={clickThrough} className={cn("block w-full text-left", adLink(creative.click_url) ? "cursor-pointer" : "cursor-default")} disabled={!adLink(creative.click_url)}>
             <div className="relative overflow-hidden rounded-lg shadow-2xl">
               <img src={creative.image_url} alt={creative.alt_text || "Sponsored"} className="w-full h-auto object-contain max-h-[70vh]" />
               {(creative.creative_headline || creative.creative_subtext || creative.creative_cta) && (

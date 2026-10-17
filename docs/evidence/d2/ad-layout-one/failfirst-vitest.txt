@@ -1,0 +1,167 @@
+
+ RUN  v3.2.4 D:/50mm Retina World/work/D21-unfixed
+
+stderr | src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx > bug 7 — every ad card looks alike and says Sponsored once > pic-link: one Sponsored; links only to https; CTA only with one
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ❯ src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx (9 tests | 8 failed) 679ms
+   × bug 7 — every ad card looks alike and says Sponsored once > pic-link: one Sponsored; links only to https; CTA only with one 96ms
+     → pic-link: CTA shown ↔ valid https link: expected false to be true // Object.is equality
+   × bug 7 — every ad card looks alike and says Sponsored once > pic-text: one Sponsored; links only to https; CTA only with one 33ms
+     → pic-text opens ["Hideaway Resort and Hotel"]: expected false to be true // Object.is equality
+   ✓ bug 7 — every ad card looks alike and says Sponsored once > vid-link: one Sponsored; links only to https; CTA only with one 14ms
+   × bug 7 — every ad card looks alike and says Sponsored once > vid-text: one Sponsored; links only to https; CTA only with one 13ms
+     → vid-text prints "Sponsored" 2 times: expected 2 to be 1 // Object.is equality
+   × bug 7 — every ad card looks alike and says Sponsored once > a picture ad and a video ad with the same link have the same layout 2ms
+     → expected { captionBar: 'ad-video-cta', …(3) } to deeply equal { captionBar: null, …(3) }
+   × bug 7 — the comments box on a post and on every ad is one box > pic-link opens the post's box 183ms
+     → expected { Object (searchRow, emojiRow, ...) } to deeply equal { searchRow: true, emojiRow: 8, …(1) }
+   × bug 7 — the comments box on a post and on every ad is one box > pic-text opens the post's box 137ms
+     → expected { Object (searchRow, emojiRow, ...) } to deeply equal { searchRow: true, emojiRow: 8, …(1) }
+   × bug 7 — the comments box on a post and on every ad is one box > vid-link opens the post's box 103ms
+     → expected { Object (searchRow, emojiRow, ...) } to deeply equal { searchRow: true, emojiRow: 8, …(1) }
+   × bug 7 — the comments box on a post and on every ad is one box > vid-text opens the post's box 95ms
+     → expected { Object (searchRow, emojiRow, ...) } to deeply equal { searchRow: true, emojiRow: 8, …(1) }
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/ads/__tests__/adLink.test.ts [ src/lib/ads/__tests__/adLink.test.ts ]
+Error: Failed to resolve import "@/lib/ads/adLink" from "src/lib/ads/__tests__/adLink.test.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: D:/50mm Retina World/work/D21-unfixed/src/lib/ads/__tests__/adLink.test.ts:3:67
+  1  |  /** Bug 4 — an ad's link is a full https:// address, or it is no link at all. */ import { describe, it, expect } from...
+  2  |  import { adLink, adLinkProblem, adLinkHost, AD_LINK_MESSAGE } from "@/lib/ads/adLink";
+     |                                                                      ^
+  3  |  describe("adLink", ()=>{
+  4  |      it("accepts a full https address", ()=>{
+ ❯ TransformPluginContext._formatLog ../../../50mm%20Retina%20World/work/D21/node_modules/vite/dist/node/chunks/config.js:28999:43
+ ❯ TransformPluginContext.error ../../../50mm%20Retina%20World/work/D21/node_modules/vite/dist/node/chunks/config.js:28996:14
+ ❯ normalizeUrl ../../../50mm%20Retina%20World/work/D21/node_modules/vite/dist/node/chunks/config.js:27119:18
+ ❯ ../../../50mm%20Retina%20World/work/D21/node_modules/vite/dist/node/chunks/config.js:27177:32
+ ❯ TransformPluginContext.transform ../../../50mm%20Retina%20World/work/D21/node_modules/vite/dist/node/chunks/config.js:27145:4
+ ❯ EnvironmentPluginContainer.transform ../../../50mm%20Retina%20World/work/D21/node_modules/vite/dist/node/chunks/config.js:28797:14
+ ❯ loadAndTransform ../../../50mm%20Retina%20World/work/D21/node_modules/vite/dist/node/chunks/config.js:22670:26
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx > bug 7 — every ad card looks alike and says Sponsored once > pic-link: one Sponsored; links only to https; CTA only with one
+AssertionError: pic-link: CTA shown ↔ valid https link: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx:156:62
+    154|     expect(l.opensOnly.every((h) => h === GOOD), `${id} opens ${JSON.s…
+    155|     expect(l.opensOnly.length > 0, `${id}: link present ↔ valid https …
+    156|     expect(l.cta > 0, `${id}: CTA shown ↔ valid https link`).toBe(link…
+       |                                                              ^
+    157|   });
+    158|   it("a picture ad and a video ad with the same link have the same lay…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx > bug 7 — every ad card looks alike and says Sponsored once > pic-text: one Sponsored; links only to https; CTA only with one
+AssertionError: pic-text opens ["Hideaway Resort and Hotel"]: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx:154:96
+    152|     const linked = id.endsWith("-link");
+    153|     expect(l.sponsored, `${id} prints "Sponsored" ${l.sponsored} times…
+    154|     expect(l.opensOnly.every((h) => h === GOOD), `${id} opens ${JSON.s…
+       |                                                                                                ^
+    155|     expect(l.opensOnly.length > 0, `${id}: link present ↔ valid https …
+    156|     expect(l.cta > 0, `${id}: CTA shown ↔ valid https link`).toBe(link…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+
+ FAIL  src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx > bug 7 — every ad card looks alike and says Sponsored once > vid-text: one Sponsored; links only to https; CTA only with one
+AssertionError: vid-text prints "Sponsored" 2 times: expected 2 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx:153:74
+    151|     layouts[id] = l;
+    152|     const linked = id.endsWith("-link");
+    153|     expect(l.sponsored, `${id} prints "Sponsored" ${l.sponsored} times…
+       |                                                                          ^
+    154|     expect(l.opensOnly.every((h) => h === GOOD), `${id} opens ${JSON.s…
+    155|     expect(l.opensOnly.length > 0, `${id}: link present ↔ valid https …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+
+ FAIL  src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx > bug 7 — every ad card looks alike and says Sponsored once > a picture ad and a video ad with the same link have the same layout
+AssertionError: expected { captionBar: 'ad-video-cta', …(3) } to deeply equal { captionBar: null, …(3) }
+
+- Expected
++ Received
+
+  {
+-   "captionBar": null,
+-   "captionText": null,
+-   "cta": 0,
++   "captionBar": "ad-video-cta",
++   "captionText": "Stay by the lakeLearn more",
++   "cta": 1,
+    "links": true,
+  }
+
+ ❯ src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx:161:40
+    159|     for (const [i, id] of CREATIVES.map((c, n) => [n, c.id] as const))…
+    160|     const shape = (l: ReturnType<typeof layoutOf>) => ({ captionBar: l…
+    161|     expect(shape(layouts["vid-link"])).toEqual(shape(layouts["pic-link…
+       |                                        ^
+    162|     expect(shape(layouts["vid-text"])).toEqual(shape(layouts["pic-text…
+    163|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+
+ FAIL  src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx > bug 7 — the comments box on a post and on every ad is one box > pic-link opens the post's box
+ FAIL  src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx > bug 7 — the comments box on a post and on every ad is one box > pic-text opens the post's box
+ FAIL  src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx > bug 7 — the comments box on a post and on every ad is one box > vid-link opens the post's box
+ FAIL  src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx > bug 7 — the comments box on a post and on every ad is one box > vid-text opens the post's box
+AssertionError: expected { Object (searchRow, emojiRow, ...) } to deeply equal { searchRow: true, emojiRow: 8, …(1) }
+
+- Expected
++ Received
+
+  {
+-   "emojiRow": 8,
+-   "placeholder": "Add a comment for …",
+-   "searchRow": true,
++   "emojiRow": 0,
++   "placeholder": "Write a comment...",
++   "searchRow": false,
+  }
+
+ ❯ src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx:175:27
+    173|     const dialog = await screen.findByRole("dialog");
+    174|     await waitFor(() => expect(dialog.textContent).not.toContain("Load…
+    175|     expect(boxOf(dialog)).toEqual(post);
+       |                           ^
+    176|   });
+    177| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  8 failed | 1 passed (9)
+   Start at  07:03:17
+   Duration  3.14s (transform 381ms, setup 176ms, collect 1.41s, tests 679ms, environment 779ms, prepare 179ms)
+
