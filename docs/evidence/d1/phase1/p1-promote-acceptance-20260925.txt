@@ -1,0 +1,80 @@
+D1 · U4 · P-1 PROMOTION — ACCEPTANCE
+Run: 2026-09-25T12:35:56Z
+Branch: p1/promote-staging-to-main-20260925
+Cut from: origin/main 96c9d91
+Merged:   origin/staging 5015f36
+Merge-base: c424285a90
+
+1 · MERGE COMMIT, NOT A SQUASH
+  main's own history must survive the promotion; a squash would flatten it.
+  merge commit d2903b3   parents: 96c9d91 5015f36
+  commits reachable from main but not from staging, carried through: 20
+      96c9d91 Promotion: main ← staging Rule 20 governance reconciliation (5 files) (#271)
+      2d5a815 Promotion P-1: staging -> main (216 commits, 225 files, HEAD 46ab60e) (#253)
+      25fd27e P-1 conflict fix: take staging's two files onto main [one-off targeting main, Owner-authorized] (#268)
+      8c88674 Re-cut Android Build 1.2.21 — the readability-floor gap is fixed (#251)
+      6663d33 Readability floor: cover the 9.5px badge label text-size class (#250)
+      18258d9 Fire the Android build for 1.2.21 — badge superscript + Friends tab row reach the app (#249)
+      6ff1c81 Friends page: make the Awaited/Pending/Friends/Followers/Following ro… (#248)
+      2c3c65d Redesign badge/role label: plain superscript text, no pill (#247)
+      99efb2a Badge styling refinement (#246)
+      59ff7f5 Fire the Android build for 1.2.20 — the comment redesign reaches the app (#242)
+      a8e3fd7 Re-aim item 3 at the mechanism that protects it now — it was pinning a (#245)
+      48fbb5c Teach migration resolvers to skip files that never ran (#244)
+      616e365 Take the schema bootstrap out of the migration sequence [one-off targeting main] (#243)
+      a168d88 D2 — Comment section redesign onto main, cherry-picked [targets main, deliberately] (#241)
+      cd0012e F-105de — withdraw 0023 from the runnable set; its rollback is the hazard (#237)
+      d183a95 Re-record 8 of 148 UI-gate baseline keys on main (mirror of #239) (#240)
+      d0c18e1 F-105de — run #70 confirmed the bodies and disproved the ACL; the rollback was wrong (#235)
+      9d91c05 F-105d + F-105e — re-derived from what production actually runs; supersedes 0023 (#234)
+      649ccde F-105d + F-105e on production — one transaction, and a body that is not staging's (#232)
+      4fe36a7 Promotion candidate: staging to main (201 commits) - F-105 closed on staging, production-side fix in #232 (#233)
+
+2 · THE EIGHT ADD/ADD CONFLICTS — STAGING'S VERSION IN EVERY CASE
+  path                                                                         main        staging     resolved
+  supabase/migrations/UNAPPLIED_20260911101721_new_project_full_schema_bootstrap.sql bb157d7137  2edd9e4f6e  2edd9e4f6e = staging
+  supabase/rollback/20260910_0005_oi3_verify_certificate_by_token_public_only_ROLLBACK.sql 316d777df3  ad21be81af  ad21be81af = staging
+  supabase/rollback/20260910_0012_f98_ROLLBACK.sql                             8b8e40652e  1de412dfb4  1de412dfb4 = staging
+  supabase/rollback/20260910_0019_f105d_process_referral_reward_authorize_ROLLBACK.sql 4d7c1629c7  ae033bbcca  ae033bbcca = staging
+  supabase/rollback/20260910_0024_p32mail_delete_email_revoke_ROLLBACK.sql     78ba882963  aaf323fa28  aaf323fa28 = staging
+  supabase/rollback/20260910_0025_p32mail_emit_notification_revoke_ROLLBACK.sql dbf38523e4  0174cfd342  0174cfd342 = staging
+  supabase/rollback/20260910_0026_p32mail_move_to_dlq_mail_only_revoke_ROLLBACK.sql a03c932321  9425fe9b52  9425fe9b52 = staging
+  supabase/rollback/20260917140000_p32_media_pipeline_acl_reassertion_ROLLBACK.sql 010d4230de  c6633cbc2a  c6633cbc2a = staging
+
+3 · git diff origin/staging <branch> — ONLY main's D-007 paths, plus the 0023 neutralisation
+      src/lib/__tests__/referralReward0023Withdrawn.test.ts
+      src/lib/__tests__/referralRewardProductionRederive.test.ts
+      supabase/migrations/20260910_0024_f105de_referral_reward_production_close.sql
+      supabase/migrations/PROBE_f105de_referral_reward_production_closed.sql
+      supabase/migrations/PROBE_process_referral_reward_source_dump_readonly.sql
+      supabase/migrations/UNAPPLIED_20260910_0023_f105de_referral_reward_production_close.sql
+      supabase/rollback/20260910_0024_f105de_referral_reward_production_close_ROLLBACK.sql
+      supabase/rollback/UNAPPLIED_20260910_0023_f105de_referral_reward_production_close_ROLLBACK.sql
+  total: 8 paths
+
+4 · EXECUTABLE 'GRANT ... TO PUBLIC' ACROSS EVERY ROLLBACK — statement-scoped scan
+      supabase/rollback          67 files   0 executable GRANT ... TO PUBLIC
+      supabase/migrations       698 files   0 executable GRANT ... TO PUBLIC
+      (before the neutralisation commit: 2, both in UNAPPLIED_20260910_0023_..._ROLLBACK.sql)
+
+5 · THE WORKFLOW BLOB EQUALS STAGING'S — R-13 reaches main
+      branch : de3127f71f886aafbf721e44884b39e495d7a3f2
+      staging: de3127f71f886aafbf721e44884b39e495d7a3f2
+      IDENTICAL   SET p32.lane occurrences: 1
+      (main before this merge: 0 — this is why every lane-guarded file refused there)
+
+6 · THE 0023 NEUTRALISATION — R-26 mechanism, reversibility proven
+      already neutralised: supabase/rollback/UNAPPLIED_20260910_0023_f105de_referral_reward_production_close_ROLLBACK.sql
+      strip-and-rehash : c135cf08c019e3e19ef89d92601b0a471f24ccd0ce5f559d550b7548329c070f
+      recorded in file : c135cf08c019e3e19ef89d92601b0a471f24ccd0ce5f559d550b7548329c070f
+      PASS  the original is recoverable byte for byte
+
+    the file refuses when run:
+      psql:supabase/rollback/UNAPPLIED_20260910_0023_f105de_referral_reward_production_close_ROLLBACK.sql:36: ERROR:  WITHDRAWN under Auditor rulings R-24/R-26, P-1 promotion 2026-09-25. This file is the historical record of SQL that must not run: it granted EXECUTE to PUBLIC. Its body is preserved below, commented. Replacement: supabase/rollback/20260910_0024_f105de_referral_reward_production_close_ROLLBACK.sql.
+      CONTEXT:  PL/pgSQL function inline_code_block line 2 at RAISE
+      psql exit = 3  (non-zero: refused, nothing ran)
+
+7 · SECURITY GATE ON THE PROMOTED TREE
+      CRITICAL 0 · HIGH 0 · MEDIUM 4 · LOW 1
+      
+      PASS — no blocking findings.

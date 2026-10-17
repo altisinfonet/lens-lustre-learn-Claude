@@ -134,6 +134,21 @@ export function recoverNeutralised(raw: string, path: string): MigrationText {
 }
 
 /**
+ * Read ONE file by its exact path and return its SQL as written, undoing
+ * neutralisation when the file carries it.
+ *
+ * For a caller that already knows the filename — and asserts elsewhere that it
+ * exists — resolution by fragment adds a failure mode and buys nothing. It also
+ * reaches `supabase/rollback/`, which is not a migrations directory at all:
+ * `UNAPPLIED_20260910_0023_…_ROLLBACK.sql` is neutralised the same way and is
+ * read by `referralReward0023Withdrawn.test.ts`.
+ */
+export function sqlAsWritten(absolutePath: string): MigrationText {
+  const shown = relative(process.cwd(), absolutePath).split("\\").join("/") || absolutePath;
+  return recoverNeutralised(readFileSync(absolutePath, "utf8"), shown);
+}
+
+/**
  * Find one migration by a fragment of its filename and return its SQL, undoing
  * neutralisation when the file carries it.
  *
@@ -165,5 +180,5 @@ export function migrationText(fragment: string, dir: string = MIGRATIONS_DIR): M
     );
   }
 
-  return recoverNeutralised(readFileSync(join(dir, matches[0]), "utf8"), `${shown}/${matches[0]}`);
+  return sqlAsWritten(join(dir, matches[0]));
 }
