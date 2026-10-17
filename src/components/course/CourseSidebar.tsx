@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { formatUSDFixed } from "@/lib/currencyFormat";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -71,11 +72,11 @@ const CourseSidebar = ({
               <GraduationCap className="h-4 w-4 mr-2" />
               {enrolling
                 ? t("crs.enrolling")
-                : course.is_free
+                : course.is_free || isNativeIOSApp()
                 ? t("crs.startLearning")
                 : `${t("crs.enrollFor")} ${formatUSDFixed(course.price ?? 0)}`}
             </Button>
-            {!course.is_free && course.price && (
+            {!course.is_free && course.price && !isNativeIOSApp() && (
               <p className="text-[10px] text-muted-foreground text-center mt-2" style={bodyFont}>
                 {t("crs.walletBalance")} {formatUSDFixed(balance)}
               </p>

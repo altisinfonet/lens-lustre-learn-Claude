@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, Navigate } from "react-router-dom";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
+import { isPaidCourse } from "@/lib/native/iosReview";
 import { motion } from "framer-motion";
 import PageSEO from "@/components/PageSEO";
 import { supabase } from "@/integrations/supabase/client";
@@ -89,7 +91,7 @@ const CourseDetail = () => {
       toast({ title: t("crs.certFailed"), description: error.message, variant: "destructive" });
     } else {
       setHasCertificate(true);
-      toast({ title: t("crs.certEarned"), description: t("crs.certEarnedDesc") });
+      toast({ title: isNativeIOSApp() ? t("crs.certReceivedIos", "🎉 Certificate received!") : t("crs.certEarned"), description: t("crs.certEarnedDesc") });
     }
     setIssuingCert(false);
   };
@@ -110,6 +112,11 @@ const CourseDetail = () => {
       </main>
     );
   }
+
+  // App Store 3.1.1: a paid course is not offered in the iOS app. A member who
+  // is already enrolled keeps it; nobody else is ever shown "Enroll for $…".
+  // courseData.enrolled, not the enrolled state: that is set one render later.
+  if (isNativeIOSApp() && isPaidCourse(course) && !courseData?.enrolled) return <Navigate to="/courses" replace />;
 
   const activeLessonId = enrolled && completedLessons.size > 0
     ? (lessons.find((l) => !completedLessons.has(l.id))?.id || lessons[lessons.length - 1]?.id)

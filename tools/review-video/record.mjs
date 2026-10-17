@@ -32,8 +32,9 @@ import { mkdirSync } from "node:fs";
 const UDID = need("SIM_UDID");
 const OUT = process.env.OUT_DIR || "review-videos";
 const DEMO = { email: need("REVIEW_DEMO_EMAIL"), password: need("REVIEW_DEMO_PASSWORD") };
-const DEL = { email: need("REVIEW_DELETE_EMAIL"), password: need("REVIEW_DELETE_PASSWORD") };
-const ONLY = (process.env.ONLY || "").trim(); // "1", "2" or "" for both
+const ONLY = (process.env.ONLY || "").trim(); // "1", "2", "screens" or "" for both videos
+// The throwaway account is needed only by video 2, which deletes it.
+const DEL = !ONLY || ONLY === "2" ? { email: need("REVIEW_DELETE_EMAIL"), password: need("REVIEW_DELETE_PASSWORD") } : null;
 mkdirSync(OUT, { recursive: true });
 
 function need(k) {
@@ -252,9 +253,66 @@ async function video2() {
   }
 }
 
+// ── SCREENSHOTS: the screens App Review looks at, as the iOS app shows them ──
+// Real simulator screenshots (simctl), no caption bar or tap marks. Written to
+// ${OUT}/screens and uploaded as the artifact "app-review-screenshots".
+async function shot(name) {
+  const dir = `${OUT}/screens`;
+  mkdirSync(dir, { recursive: true });
+  await sleep(1500);
+  await new Promise((res, rej) => {
+    const p = spawn("xcrun", ["simctl", "io", UDID, "screenshot", "--type=png", `${dir}/${name}.png`], { stdio: "inherit" });
+    p.on("exit", (c) => (c === 0 ? res() : rej(new Error(`screenshot ${name} failed (${c})`))));
+  });
+  log(`screenshot → screens/${name}.png at ${await path()}`);
+}
+/** Open the first link whose href starts with prefix + "/" (a competition, a course). */
+async function openFirst(prefix, what) {
+  const finder = `[...document.querySelectorAll("a[href^='${prefix}/']")].find(a => a.getAttribute("href").length > ${prefix.length + 1})`;
+  await waitFor(`return !!(${finder})`, what, 45_000);
+  await js(`const a = ${finder}; a.scrollIntoView({block:"center"}); a.click();`);
+  await waitFor(`return location.pathname.startsWith("${prefix}/")`, `${what} page`, 30_000);
+  await sleep(3000);
+}
+async function screens() {
+  await signOutOffCamera();
+  // (a) the first screen a logged-out visitor sees
+  await js("location.replace('/')"); await sleep(6000);
+  await shot("a-first-screen-logged-out");
+  // the cookie banner is answered off camera so it does not cover (b)–(i); (j) shows it
+  await js("try{localStorage.setItem('cookie_consent_v2', JSON.stringify({essential:true,analytics:false,timestamp:Date.now()}))}catch(e){} location.replace('/login')"); await sleep(5000);
+  await shot("b-login");
+  await go("/signup"); await shot("c-signup");
+  await signIn(DEMO, "demo account");
+  await go("/feed"); await sleep(4000); await shot("d-feed-logged-in");
+  await go("/competitions"); await sleep(3000);
+  await openFirst("/competitions", "a competition");
+  await shot("e-competition");
+  await go("/courses"); await sleep(3000);
+  await openFirst("/courses", "a course");
+  await shot("f-course");
+  await go("/feed"); await sleep(2500);
+  await tapText("^Profile$", "Profile tab"); await sleep(1500);
+  await shot("g-profile-menu");
+  await js("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))"); await sleep(800);
+  await go("/notifications"); await sleep(3000); await shot("h-notifications");
+  await go("/dashboard?tab=settings#delete-account");
+  await waitFor("return !!document.getElementById('delete-account')", "Delete Account section", 30_000);
+  await js("document.getElementById('delete-account').scrollIntoView({block:'start'}); window.scrollBy(0,-80)");
+  await shot("i-delete-account");
+  // (j) the cookie banner as a first visit sees it, over the Cookie Policy
+  await js("try{localStorage.removeItem('cookie_consent_v2')}catch(e){} location.replace('/cookie-policy')"); await sleep(6000);
+  await waitFor("return /Your privacy/.test(document.body.innerText)", "cookie banner", 30_000);
+  await shot("j1-cookie-banner");
+  await js("try{localStorage.setItem('cookie_consent_v2', JSON.stringify({essential:true,analytics:false,timestamp:Date.now()}))}catch(e){} location.replace('/cookie-policy')"); await sleep(5000);
+  await shot("j2-cookie-policy");
+  for (let i = 3; i <= 4; i++) { await js("window.scrollBy(0, Math.round(innerHeight*0.8))"); await sleep(1200); await shot(`j${i}-cookie-policy-cont`); }
+}
+
 let failed = false;
 try {
   await toWebview();
+  if (ONLY === "screens") await screens();
   if (!ONLY || ONLY === "1") await video1();
   if (!ONLY || ONLY === "2") await video2();
 } catch (e) {

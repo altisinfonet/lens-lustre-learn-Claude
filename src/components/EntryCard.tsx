@@ -22,6 +22,7 @@ import ImageEngagement from "@/components/ImageEngagement";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import { buildCompetitionPhotoPath } from "@/lib/competitionVotingPhotos";
 import { participantKeyForJudgingTag, participantStageLabel, PARTICIPANT_PLACEMENT_LABELS, normalizePlacementKey } from "@/lib/judging/participantStageLabels";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 // Verification workflow removed (Spec v3 Apr 2026) — Needs Review is handled
 // via email + in-app notification on round publish. No per-photo override here.
 
@@ -518,8 +519,10 @@ const EntryCard: React.FC<EntryCardProps> = ({
               Remove your vote?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Removing your vote deducts <strong>2× the original reward</strong> from your wallet.
-              This action is recorded and cannot be undone for this photo.
+              {isNativeIOSApp()
+                ? "Your vote for this photo will be removed."
+                : <>Removing your vote deducts <strong>2× the original reward</strong> from your wallet.
+              This action is recorded and cannot be undone for this photo.</>}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

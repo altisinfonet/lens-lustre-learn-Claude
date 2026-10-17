@@ -1,3 +1,5 @@
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
+import { isWalletNotificationType } from "@/lib/native/iosReview";
 /**
  * Single source of truth for "where does this notification take me?".
  *
@@ -29,6 +31,9 @@ export type NotifLinkInput = {
 };
 
 export function getNotifLink(notif: NotifLinkInput): string {
+  // App Store 3.1.1: the iOS app has no wallet — a money notification (or a
+  // push tap on one) never opens /wallet there.
+  if (isNativeIOSApp() && isWalletNotificationType(notif.type)) return "/dashboard";
   switch (notif.type) {
     // The DB triggers store NEW.post_id in reference_id for these, so we can
     // open the exact post instead of dumping the user on the feed (bug report
@@ -82,7 +87,7 @@ export function getNotifLink(notif: NotifLinkInput): string {
       return "/help-support";
     case "deposit_approved":
     case "deposit_rejected":
-      return "/wallet";
+      return isNativeIOSApp() ? "/dashboard" : "/wallet";
     case "badge_awarded":
     case "certificate_issued":
       return "/certificates";
