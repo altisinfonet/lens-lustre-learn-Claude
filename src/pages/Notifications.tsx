@@ -40,6 +40,8 @@ import {
 import { describeNotification, actorDisplayName } from "@/lib/notifications/describe";
 import { subjectFromGroup } from "@/lib/notifications/adapters";
 import { useAdminIds } from "@/hooks/core/useAdminIds";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
+import { isWalletNotificationType } from "@/lib/native/iosReview";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -183,7 +185,8 @@ const Notifications = () => {
     useNotificationHistory();
 
   const groups = useMemo<NotificationGroup[]>(
-    () => (data?.pages ?? []).flat(),
+    // App Store 3.1.1: no wallet notifications in the iOS app (same rule as the bell).
+    () => (data?.pages ?? []).flat().filter((g) => !(isNativeIOSApp() && isWalletNotificationType(g.type))),
     [data],
   );
 

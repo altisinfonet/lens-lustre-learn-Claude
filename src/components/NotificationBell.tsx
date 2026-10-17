@@ -18,6 +18,8 @@ import { describeNotification, relativeAge } from "@/lib/notifications/describe"
 import { subjectFromGroup } from "@/lib/notifications/adapters";
 import { useAdminIds } from "@/hooks/core/useAdminIds";
 import { markGroupRead } from "@/hooks/notifications/useNotificationHistory";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
+import { isWalletNotificationType } from "@/lib/native/iosReview";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -114,12 +116,18 @@ const NotificationBell = () => {
     friendRequests,
     giftNotifications,
     adminNotifications,
-    userNotifications,
+    userNotifications: allUserNotifications,
     unreadTotal,
     totalCount,
     isLoading: loading,
     cache,
   } = useNotificationsQuery(user?.id, isAdmin);
+  // App Store 3.1.1: the iOS app has no wallet — no deposit, withdrawal, gift,
+  // referral, vote-reward or wallet notifications (and so no "Wallet Updates").
+  const ios = isNativeIOSApp();
+  const userNotifications = ios
+    ? allUserNotifications.filter((g) => !isWalletNotificationType(g.type))
+    : allUserNotifications;
 
   /*
    * F-95 — handles for the notification types whose destination is a PERSON
@@ -488,7 +496,7 @@ const NotificationBell = () => {
                     )}
 
                     {/* Gift Credits */}
-                    {giftNotifications.length > 0 && (
+                    {!ios && giftNotifications.length > 0 && (
                       <NotifSection title="Gift Credits">
                         {giftNotifications.map((gift) => (
                           <div key={gift.id} className="flex items-center gap-3 px-4 py-3 border-b border-border/50 hover:bg-muted/20 transition-colors">

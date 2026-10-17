@@ -9,6 +9,7 @@ import ZoomableImage from "@/components/media/ZoomableImage";
 import { toast } from "@/hooks/core/use-toast";
 import { buildCompetitionPhotoUrl, type CompetitionVotingPhoto } from "@/lib/competitionVotingPhotos";
 import ProfileLink from "@/components/ProfileLink";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 
 interface CompetitionLightboxProps {
   images: CompetitionVotingPhoto[];
@@ -350,13 +351,15 @@ const CompetitionLightbox = memo(({
                                         className="text-[11px] tracking-[0.18em] uppercase text-foreground"
                                         style={{ fontFamily: "var(--font-heading)" }}
                                       >
-                                        Unvote Penalty
+                                        {isNativeIOSApp() ? "Remove vote" : "Unvote Penalty"}
                                       </p>
                                       <p
                                         className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground"
                                         style={{ fontFamily: "var(--font-body)" }}
                                       >
-                                        Removing your vote deducts <span className="text-foreground font-medium">2× the reward</span> from your wallet. This cannot be undone.
+                                        {isNativeIOSApp()
+                                          ? "Your vote for this photo will be removed."
+                                          : <>Removing your vote deducts <span className="text-foreground font-medium">2× the reward</span> from your wallet. This cannot be undone.</>}
                                       </p>
                                     </div>
                                   </div>

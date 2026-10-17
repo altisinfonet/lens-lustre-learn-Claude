@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { publicUrl } from "@/lib/publicUrl";
 import { useParams, Navigate } from "react-router-dom";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import DOMPurify from "dompurify";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -106,6 +107,9 @@ const ManagedPageView = () => {
   // No-op effect kept for symmetry — view_count fires inside queryFn so it
   // only runs once per fetch (not on every render).
   useEffect(() => {}, [page?.id]);
+
+  // App Store 3.1.1: nothing is sold in the iOS app, so it has no refund policy.
+  if (isNativeIOSApp() && slug === "refund-policy") return <Navigate to="/help-support" replace />;
 
   if (isLoading) {
     return (

@@ -12,6 +12,7 @@ import CertificatePreviewModal, { type IssuedCertificate } from "@/components/Ce
 import type { CertificateType } from "@/lib/generateCertificatePdf";
 import { useT } from "@/i18n/I18nContext";
 import { saveBlob } from "@/lib/saveFile";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 
 
 
@@ -381,7 +382,7 @@ const Certificates = () => {
                 {t("cert.noCerts")}
               </p>
               <p className="text-xs text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                {t("cert.earnFirst")}
+                {isNativeIOSApp() ? t("cert.getFirstIos", "Win competitions or complete courses to get your first certificate!") : t("cert.earnFirst")}
               </p>
               <Link
                 to="/courses"

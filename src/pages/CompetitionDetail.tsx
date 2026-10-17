@@ -26,6 +26,7 @@ import RoundPublishPanel from "@/components/admin/RoundPublishPanel";
 import PersonalResultBanner from "@/components/competition/PersonalResultBanner";
 import { useEntryPublicStatus } from "@/hooks/judging/useEntryPublicStatus";
 import { useT } from "@/i18n/I18nContext";
+import { hasMoneyText } from "@/lib/native/iosReview";
 
 
 interface Competition {
@@ -374,7 +375,8 @@ const CompetitionDetail = () => {
                 </div>
               )}
 
-              {competition.prize_info && (
+              {/* App Store 3.1.1: a prize line about money is not shown in the iOS app. */}
+              {competition.prize_info && !(isNativeIOSApp() && hasMoneyText(competition.prize_info)) && (
                 <div className="flex items-start gap-3 text-xs text-muted-foreground">
                   <Trophy className="h-3.5 w-3.5 text-primary mt-0.5" />
                   <span style={{ fontFamily: "var(--font-body)" }}>{competition.prize_info}</span>

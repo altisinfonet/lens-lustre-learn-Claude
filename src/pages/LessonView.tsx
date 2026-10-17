@@ -12,6 +12,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import LearningTopBar from "@/components/LearningTopBar";
 import { isLessonUnlocked } from "@/utils/courseAccess";
+import { toYouTubeNoCookie } from "@/lib/native/iosReview";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -236,7 +237,7 @@ const LessonView = () => {
             {lesson.video_url && (
               <div className="aspect-video bg-black">
                 <iframe
-                  src={lesson.video_url}
+                  src={toYouTubeNoCookie(lesson.video_url)}
                   title={lesson.title}
                   className="w-full h-full"
                   allowFullScreen

@@ -26,6 +26,7 @@ import { toast } from "@/hooks/core/use-toast";
 import { fireConversion } from "@/lib/adConversionContext";
 import { useT } from "@/i18n/I18nContext";
 import { logger } from "@/lib/logger";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 
 const FILE = "src/pages/Index.tsx";
 
@@ -947,7 +948,9 @@ const Index = () => {
                     { text: "started following you", tKey: "home.act.followed", emoji: "👋", time: "3h" },
                     { text: "commented on your post", tKey: "home.act.commented", emoji: "💬", time: "4h" },
                     { text: "entered Landscape Challenge", tKey: "home.act.entered", emoji: "🏔️", time: "5h" },
-                    { text: "earned a new badge", tKey: "home.act.badge", emoji: "🎖️", time: "6h" },
+                    isNativeIOSApp()
+                      ? { text: "got a new badge", tKey: "home.act.badgeIos", emoji: "🎖️", time: "6h" }
+                      : { text: "earned a new badge", tKey: "home.act.badge", emoji: "🎖️", time: "6h" },
                     { text: "uploaded 3 new photos", tKey: "home.act.uploaded", emoji: "🖼️", time: "8h" },
                   ].map((item, i) => (
                     <motion.div
@@ -1259,7 +1262,9 @@ const Index = () => {
 
               {/* Google Play badge — sits directly under the social icons.
                   Rendered as inline SVG (no external image) so it can never
-                  become a broken image and costs no extra network request. */}
+                  become a broken image and costs no extra network request.
+                  Never in the iOS app (App Store 2.3.10: no other platforms). */}
+              {!isNativeIOSApp() && (
               <a
                 href="https://play.google.com/store/apps/details?id=com.fiftymmretina.app"
                 target="_blank"
@@ -1284,6 +1289,7 @@ const Index = () => {
                   </span>
                 </span>
               </a>
+              )}
             </div>
             <nav aria-label={t("home.aria.footerNav", "Footer navigation")}>
               <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground block mb-3" style={{ fontFamily: "var(--font-heading)" }}>{t("home.navigate", "Navigate")}</span>
