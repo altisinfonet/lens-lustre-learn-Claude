@@ -9,7 +9,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Shield, BarChart3, Megaphone, Lock } from "lucide-react";
+import { Shield, BarChart3, Lock } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -27,28 +27,21 @@ const categories = [
   {
     key: "analytics" as const,
     label: "Analytics",
-    description: "Help us understand how you use the site so we can improve it.",
+    description: "Google Analytics, only with your permission: how the app is used, so we can improve it. Never used for advertising.",
     icon: BarChart3,
-    locked: false,
-  },
-  {
-    key: "marketing" as const,
-    label: "Marketing",
-    description: "Personalized ads and remarketing across third-party platforms.",
-    icon: Megaphone,
     locked: false,
   },
 ];
 
 const CookiePreferencesModal = ({ open, onOpenChange }: Props) => {
   const { consent, updateConsent } = useCookieConsent();
-  const [local, setLocal] = useState({ analytics: consent.analytics, marketing: consent.marketing });
+  const [local, setLocal] = useState({ analytics: consent.analytics });
 
   useEffect(() => {
     if (open) {
-      setLocal({ analytics: consent.analytics, marketing: consent.marketing });
+      setLocal({ analytics: consent.analytics });
     }
-  }, [open, consent.analytics, consent.marketing]);
+  }, [open, consent.analytics]);
 
   const handleSave = () => {
     updateConsent(local);
@@ -76,7 +69,7 @@ const CookiePreferencesModal = ({ open, onOpenChange }: Props) => {
           <div className="space-y-3">
             {categories.map((cat) => {
               const Icon = cat.icon;
-              const checked = cat.locked ? true : local[cat.key as "analytics" | "marketing"];
+              const checked = cat.locked ? true : local.analytics;
               return (
                 <div
                   key={cat.key}
@@ -101,7 +94,7 @@ const CookiePreferencesModal = ({ open, onOpenChange }: Props) => {
                     disabled={cat.locked}
                     onCheckedChange={(v) => {
                       if (!cat.locked) {
-                        setLocal((prev) => ({ ...prev, [cat.key]: v }));
+                        setLocal({ analytics: v });
                       }
                     }}
                     className="mt-1 shrink-0"

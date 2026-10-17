@@ -171,13 +171,13 @@ function seedMemberDecisions(userId: string, consent: boolean) {
   try {
     if (consent) {
       localStorage.setItem(
-        "cookie_consent",
+        "cookie_consent_v2",
         // A fixed timestamp: "now" would make two runs differ, and the loader
         // rejects the row outright if `timestamp` is missing.
-        JSON.stringify({ essential: true, analytics: false, marketing: false, timestamp: 1755000000000 }),
+        JSON.stringify({ essential: true, analytics: false, timestamp: 1755000000000 }),
       );
     } else {
-      localStorage.removeItem("cookie_consent");
+      localStorage.removeItem("cookie_consent_v2");
     }
     sessionStorage.setItem(`onboarding_done_${userId}`, "true");
   } catch {
