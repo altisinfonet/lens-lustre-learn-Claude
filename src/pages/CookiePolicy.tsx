@@ -1,6 +1,6 @@
 import { useCookieConsent } from "@/hooks/core/useCookieConsent";
 import { Helmet } from "react-helmet-async";
-import { Cookie, Shield, BarChart3, Megaphone, Settings } from "lucide-react";
+import { Cookie, Shield, BarChart3, Ban, Settings } from "lucide-react";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 
@@ -76,28 +76,25 @@ const CookiePolicy = () => {
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Help us understand how visitors interact with our website by collecting and reporting
-                  information anonymously. This data helps us improve site performance and user experience.
-                  Examples include page views, session duration, and traffic sources.
-                </p>
-              </div>
-
-              {/* Marketing */}
-              <div className="p-4 rounded-xl border border-border/50 bg-card/60">
-                <div className="flex items-center gap-3 mb-2">
-                  <Megaphone className="w-4 h-4 text-primary" />
-                  <h3 className="text-sm font-semibold text-foreground">Marketing Cookies</h3>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-muted/60 text-muted-foreground">
-                    Optional
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Used to deliver personalized advertisements and track the effectiveness of advertising
-                  campaigns. These may be set by third-party advertising partners and can track your
-                  browsing activity across websites.
+                  Optional. With your permission we use Google Analytics to see how our website and apps
+                  are used (pages viewed, visit length, device type). Google’s advertising features are
+                  turned off and this data is not used for advertising.
                 </p>
               </div>
             </div>
+          </section>
+
+          {/* No tracking */}
+          <section>
+            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2" style={headingFont}>
+              <Ban className="w-4 h-4 text-primary" />
+              No tracking or advertising cookies
+            </h2>
+            <p className="text-muted-foreground leading-relaxed">
+              We do not use cookies or similar technology to track you across other companies’ apps
+              or websites, and we do not use third-party advertising cookies. Ads shown on 50mm Retina
+              World are our own.
+            </p>
           </section>
 
           {/* How to manage */}

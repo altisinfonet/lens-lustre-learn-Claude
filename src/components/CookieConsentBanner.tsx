@@ -39,12 +39,14 @@ const CookieConsentBanner = () => {
                     <Cookie className="w-[18px] h-[18px] text-primary" />
                   </div>
                   <h3 className="text-sm font-semibold tracking-tight text-foreground">
-                    We Value Your Privacy
+                    Your privacy
                   </h3>
                 </div>
 
                 <p className="text-[13px] leading-relaxed text-muted-foreground mb-5">
-                  We use cookies to enhance your experience, analyze traffic, and personalize content.{" "}
+                  We use essential cookies to keep you signed in. With your permission, we also use
+                  Google Analytics to understand how the app is used and improve it. We do not track
+                  you across other apps or websites, and we do not use your data for advertising.{" "}
                   <a href="/cookie-policy" className="text-primary hover:underline font-medium">
                     Learn more
                   </a>
@@ -56,14 +58,14 @@ const CookieConsentBanner = () => {
                     className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:brightness-110 active:scale-[0.98] transition-all duration-150"
                   >
                     <Shield className="w-3.5 h-3.5" />
-                    Accept All
+                    Allow analytics
                   </button>
 
                   <button
                     onClick={rejectNonEssential}
                     className="flex-1 sm:flex-none inline-flex items-center justify-center px-5 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm font-medium hover:bg-muted/30 active:scale-[0.98] transition-all duration-150"
                   >
-                    Essential Only
+                    Essential only
                   </button>
 
                   <button

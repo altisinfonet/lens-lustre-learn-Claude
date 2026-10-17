@@ -56,8 +56,14 @@ const GoogleAnalytics = () => {
     window.gtag = function gtag() { window.dataLayer!.push(arguments); };
     window.gtag("js", new Date());
     // We send page_view manually on route change (SPA), so disable auto send
-    // to avoid double-counting the first load.
-    window.gtag("config", measurementId, { send_page_view: false });
+    // to avoid double-counting the first load. Google's advertising features
+    // stay off (Apple 5.1.2(i)): no Google signals (cross-device / ads
+    // reporting) and no ad personalisation from this data.
+    window.gtag("config", measurementId, {
+      send_page_view: false,
+      allow_google_signals: false,
+      allow_ad_personalization_signals: false,
+    });
 
     window.__gaLoadedId = measurementId;
     loadedRef.current = true;
