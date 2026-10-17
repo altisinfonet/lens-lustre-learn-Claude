@@ -1,0 +1,142 @@
+   × 'play-token' — CORS for the native app > OPTIONS from https://localhost (Android) -> 204, ACAO echoed, methods + headers allowed 31ms
+   × 'play-token' — CORS for the native app > OPTIONS from capacitor://localhost (iOS) and from the lane's own site are allowed 3ms
+   × 'play-token' — CORS for the native app > a stranger or look-alike origin gets NO Access-Control-Allow-Origin (never *) 6ms
+   × 'play-token' — CORS for the native app > an ERROR answer carries CORS too, so the app sees the error code, not a CORS failure 4ms
+   ✓ 'play-token' — CORS for the native app > a request without Origin (same-origin web) is answered as before, with no ACAO 2ms
+   × 'upload-urls' — CORS for the native app > OPTIONS from https://localhost (Android) -> 204, ACAO echoed, methods + headers allowed 4ms
+   × 'upload-urls' — CORS for the native app > OPTIONS from capacitor://localhost (iOS) and from the lane's own site are allowed 6ms
+   × 'upload-urls' — CORS for the native app > a stranger or look-alike origin gets NO Access-Control-Allow-Origin (never *) 2ms
+   × 'upload-urls' — CORS for the native app > an ERROR answer carries CORS too, so the app sees the error code, not a CORS failure 2ms
+   ✓ 'upload-urls' — CORS for the native app > a request without Origin (same-origin web) is answered as before, with no ACAO 24ms
+   × 'complete' — CORS for the native app > OPTIONS from https://localhost (Android) -> 204, ACAO echoed, methods + headers allowed 23ms
+   × 'complete' — CORS for the native app > OPTIONS from capacitor://localhost (iOS) and from the lane's own site are allowed 4ms
+   × 'complete' — CORS for the native app > a stranger or look-alike origin gets NO Access-Control-Allow-Origin (never *) 7ms
+   × 'complete' — CORS for the native app > an ERROR answer carries CORS too, so the app sees the error code, not a CORS failure 3ms
+   ✓ 'complete' — CORS for the native app > a request without Origin (same-origin web) is answered as before, with no ACAO 1ms
+   × 'source-url' — CORS for the native app > OPTIONS from https://localhost (Android) -> 204, ACAO echoed, methods + headers allowed 4ms
+   × 'source-url' — CORS for the native app > OPTIONS from capacitor://localhost (iOS) and from the lane's own site are allowed 2ms
+   × 'source-url' — CORS for the native app > a stranger or look-alike origin gets NO Access-Control-Allow-Origin (never *) 2ms
+   × 'source-url' — CORS for the native app > an ERROR answer carries CORS too, so the app sees the error code, not a CORS failure 3ms
+   ✓ 'source-url' — CORS for the native app > a request without Origin (same-origin web) is answered as before, with no ACAO 3ms
+   × 'source-complete' — CORS for the native app > OPTIONS from https://localhost (Android) -> 204, ACAO echoed, methods + headers allowed 2ms
+   × 'source-complete' — CORS for the native app > OPTIONS from capacitor://localhost (iOS) and from the lane's own site are allowed 2ms
+   × 'source-complete' — CORS for the native app > a stranger or look-alike origin gets NO Access-Control-Allow-Origin (never *) 1ms
+   × 'source-complete' — CORS for the native app > an ERROR answer carries CORS too, so the app sees the error code, not a CORS failure 3ms
+   ✓ 'source-complete' — CORS for the native app > a request without Origin (same-origin web) is answered as before, with no ACAO 1ms
+   × 'source-cancel' — CORS for the native app > OPTIONS from https://localhost (Android) -> 204, ACAO echoed, methods + headers allowed 3ms
+   × 'source-cancel' — CORS for the native app > OPTIONS from capacitor://localhost (iOS) and from the lane's own site are allowed 2ms
+   × 'source-cancel' — CORS for the native app > a stranger or look-alike origin gets NO Access-Control-Allow-Origin (never *) 2ms
+   × 'source-cancel' — CORS for the native app > an ERROR answer carries CORS too, so the app sees the error code, not a CORS failure 2ms
+   ✓ 'source-cancel' — CORS for the native app > a request without Origin (same-origin web) is answered as before, with no ACAO 1ms
+   × 'site-settings' — CORS for the native app > OPTIONS from https://localhost (Android) -> 204, ACAO echoed, methods + headers allowed 2ms
+   × 'site-settings' — CORS for the native app > OPTIONS from capacitor://localhost (iOS) and from the lane's own site are allowed 1ms
+   × 'site-settings' — CORS for the native app > a stranger or look-alike origin gets NO Access-Control-Allow-Origin (never *) 1ms
+   × 'site-settings' — CORS for the native app > an ERROR answer carries CORS too, so the app sees the error code, not a CORS failure 2ms
+   ✓ 'site-settings' — CORS for the native app > a request without Origin (same-origin web) is answered as before, with no ACAO 1ms
+   × the allow-list is equality, never a prefix > SITE_ORIGIN with a trailing slash still matches exactly; unset SITE_ORIGIN allows only the app 1ms
+   × a successful play-token answer carries CORS > 200 with ACAO for the app 12ms
+   ✓ the lane origin the app talks to > is this lane's site origin (production under vitest) 6ms
+   × the lane origin the app talks to > SITE_API names every route the callers use, and nothing else 13ms
+   × siteUrl > native: /api/video/play-token is absolute, to the lane's site 3ms
+   × siteUrl > native: /api/video/upload-urls is absolute, to the lane's site 4ms
+   × siteUrl > native: /api/video/complete is absolute, to the lane's site 2ms
+   × siteUrl > native: /api/video/source-url is absolute, to the lane's site 2ms
+   × siteUrl > native: /api/video/source-complete is absolute, to the lane's site 2ms
+   × siteUrl > native: /api/video/source-cancel is absolute, to the lane's site 2ms
+   × siteUrl > native: /config/site-settings is absolute, to the lane's site 3ms
+   × siteUrl > web: /api/video/play-token stays relative (same origin, no CORS) 2ms
+   × siteUrl > web: /api/video/upload-urls stays relative (same origin, no CORS) 2ms
+   × siteUrl > web: /api/video/complete stays relative (same origin, no CORS) 2ms
+   × siteUrl > web: /api/video/source-url stays relative (same origin, no CORS) 2ms
+   × siteUrl > web: /api/video/source-complete stays relative (same origin, no CORS) 2ms
+   × siteUrl > web: /api/video/source-cancel stays relative (same origin, no CORS) 2ms
+   × siteUrl > web: /config/site-settings stays relative (same origin, no CORS) 2ms
+   × the real callers, inside the app > playGrant asks the SITE for a play token, not https://localhost 19ms
+   × the real callers, inside the app > upload: realJobDeps.api(/api/video/upload-urls) goes to the site 3ms
+   × the real callers, inside the app > upload: realJobDeps.api(/api/video/complete) goes to the site 2ms
+   × the real callers, inside the app > upload: realJobDeps.api(/api/video/source-url) goes to the site 2ms
+   × the real callers, inside the app > upload: realJobDeps.api(/api/video/source-complete) goes to the site 2ms
+   × the real callers, inside the app > upload: realJobDeps.api(/api/video/source-cancel) goes to the site 2ms
+   × the real callers, inside the app > site-settings is read from the site's edge 29ms
+   ✓ the same callers on the web are unchanged > playGrant stays relative 2ms
+   ✓ the same callers on the web are unchanged > upload stays relative 2ms
+   ✓ site API guard — shapes > the 1.2.22 bug: fetch of a relative /api route 25ms
+   ✓ site API guard — shapes > a route held in a constant, fetched later 4ms
+   ✓ site API guard — shapes > a route passed to some other wrapper 2ms
+   ✓ site API guard — shapes > a template route 3ms
+   ✓ site API guard — shapes > any relative fetch at all 1ms
+   ✓ site API guard — shapes > new Request with a relative URL 1ms
+   ✓ site API guard — shapes > sendBeacon with a relative URL 1ms
+   ✓ site API guard — shapes > XHR open with a relative URL 2ms
+   ✓ site API guard — shapes > absolute Supabase URL is fine 2ms
+   ✓ site API guard — shapes > a presigned absolute URL is fine 1ms
+   ✓ site API guard — shapes > protocol-relative is not 'relative to the page' 1ms
+   ✓ site API guard — shapes > the helper call is fine 2ms
+   ✓ site API guard — shapes > a route in a comment is fine 7ms
+   ✓ site API guard — shapes > an SPA route string is fine 1ms
+   ✓ site API guard — shapes > parses .tsx with JSX around the call 6ms
+   × site API guard — shapes > the helper itself is the one place routes may be written 36ms
+   × site API guard — the real tree > src/ has zero relative own-origin calls outside siteApi.ts 5319ms
+   × site API guard — the real tree > goes red when the play-token call is put back the way 1.2.22 shipped it (fail-first on real code) 5ms
+   × site API guard — the real tree > goes red when an upload route is written inline again 20ms
+   × site API guard — the real tree > goes red when site-settings names its route inline again 3ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 57 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/__tests__/siteApiGuard.test.ts > site API guard — shapes > the helper itself is the one place routes may be written
+ FAIL  src/__tests__/siteApiGuard.test.ts > site API guard — the real tree > src/ has zero relative own-origin calls outside siteApi.ts
+ FAIL  src/__tests__/siteApiGuard.test.ts > site API guard — the real tree > goes red when the play-token call is put back the way 1.2.22 shipped it (fail-first on real code)
+ FAIL  src/__tests__/siteApiGuard.test.ts > site API guard — the real tree > goes red when an upload route is written inline again
+ FAIL  src/__tests__/siteApiGuard.test.ts > site API guard — the real tree > goes red when site-settings names its route inline again
+ FAIL  src/lib/net/__tests__/siteApi.test.ts > the lane origin the app talks to > SITE_API names every route the callers use, and nothing else
+ FAIL  src/lib/net/__tests__/siteApi.test.ts > siteUrl > native: /api/video/play-token is absolute, to the lane's site
+ FAIL  src/lib/net/__tests__/siteApi.test.ts > siteUrl > native: /api/video/upload-urls is absolute, to the lane's site
+ FAIL  src/lib/net/__tests__/siteApi.test.ts > siteUrl > native: /api/video/complete is absolute, to the lane's site
+ FAIL  src/lib/net/__tests__/siteApi.test.ts > siteUrl > native: /api/video/source-url is absolute, to the lane's site
+ FAIL  src/lib/net/__tests__/siteApi.test.ts > siteUrl > native: /api/video/source-complete is absolute, to the lane's site
+ FAIL  src/lib/net/__tests__/siteApi.test.ts > siteUrl > native: /api/video/source-cancel is absolute, to the lane's site
+ FAIL  src/lib/net/__tests__/siteApi.test.ts > siteUrl > native: /config/site-settings is absolute, to the lane's site
+ FAIL  src/lib/net/__tests__/siteApi.test.ts > siteUrl > web: /api/video/play-token stays relative (same origin, no CORS)
+ FAIL  src/lib/net/__tests__/siteApi.test.ts > siteUrl > web: /api/video/upload-urls stays relative (same origin, no CORS)
+ FAIL  src/lib/net/__tests__/siteApi.test.ts > siteUrl > web: /api/video/complete stays relative (same origin, no CORS)
+ FAIL  src/lib/net/__tests__/siteApi.test.ts > siteUrl > web: /api/video/source-url stays relative (same origin, no CORS)
+ FAIL  src/lib/net/__tests__/siteApi.test.ts > siteUrl > web: /api/video/source-complete stays relative (same origin, no CORS)
+ FAIL  src/lib/net/__tests__/siteApi.test.ts > siteUrl > web: /api/video/source-cancel stays relative (same origin, no CORS)
+ FAIL  src/lib/net/__tests__/siteApi.test.ts > siteUrl > web: /config/site-settings stays relative (same origin, no CORS)
+ FAIL  src/lib/net/__tests__/siteApi.test.ts > the real callers, inside the app > playGrant asks the SITE for a play token, not https://localhost
+ FAIL  src/lib/net/__tests__/siteApi.test.ts > the real callers, inside the app > upload: realJobDeps.api(/api/video/upload-urls) goes to the site
+ FAIL  src/lib/net/__tests__/siteApi.test.ts > the real callers, inside the app > upload: realJobDeps.api(/api/video/complete) goes to the site
+ FAIL  src/lib/net/__tests__/siteApi.test.ts > the real callers, inside the app > upload: realJobDeps.api(/api/video/source-url) goes to the site
+ FAIL  src/lib/net/__tests__/siteApi.test.ts > the real callers, inside the app > upload: realJobDeps.api(/api/video/source-complete) goes to the site
+ FAIL  src/lib/net/__tests__/siteApi.test.ts > the real callers, inside the app > upload: realJobDeps.api(/api/video/source-cancel) goes to the site
+ FAIL  src/lib/net/__tests__/siteApi.test.ts > the real callers, inside the app > site-settings is read from the site's edge
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'play-token' — CORS for the native app > OPTIONS from https://localhost (Android) -> 204, ACAO echoed, methods + headers allowed
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'upload-urls' — CORS for the native app > OPTIONS from https://localhost (Android) -> 204, ACAO echoed, methods + headers allowed
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'complete' — CORS for the native app > OPTIONS from https://localhost (Android) -> 204, ACAO echoed, methods + headers allowed
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'source-url' — CORS for the native app > OPTIONS from https://localhost (Android) -> 204, ACAO echoed, methods + headers allowed
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'source-complete' — CORS for the native app > OPTIONS from https://localhost (Android) -> 204, ACAO echoed, methods + headers allowed
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'source-cancel' — CORS for the native app > OPTIONS from https://localhost (Android) -> 204, ACAO echoed, methods + headers allowed
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'site-settings' — CORS for the native app > OPTIONS from https://localhost (Android) -> 204, ACAO echoed, methods + headers allowed
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'play-token' — CORS for the native app > OPTIONS from capacitor://localhost (iOS) and from the lane's own site are allowed
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'upload-urls' — CORS for the native app > OPTIONS from capacitor://localhost (iOS) and from the lane's own site are allowed
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'complete' — CORS for the native app > OPTIONS from capacitor://localhost (iOS) and from the lane's own site are allowed
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'source-url' — CORS for the native app > OPTIONS from capacitor://localhost (iOS) and from the lane's own site are allowed
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'source-complete' — CORS for the native app > OPTIONS from capacitor://localhost (iOS) and from the lane's own site are allowed
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'source-cancel' — CORS for the native app > OPTIONS from capacitor://localhost (iOS) and from the lane's own site are allowed
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'site-settings' — CORS for the native app > OPTIONS from capacitor://localhost (iOS) and from the lane's own site are allowed
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'play-token' — CORS for the native app > a stranger or look-alike origin gets NO Access-Control-Allow-Origin (never *)
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'upload-urls' — CORS for the native app > a stranger or look-alike origin gets NO Access-Control-Allow-Origin (never *)
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'complete' — CORS for the native app > a stranger or look-alike origin gets NO Access-Control-Allow-Origin (never *)
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'source-url' — CORS for the native app > a stranger or look-alike origin gets NO Access-Control-Allow-Origin (never *)
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'source-complete' — CORS for the native app > a stranger or look-alike origin gets NO Access-Control-Allow-Origin (never *)
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'source-cancel' — CORS for the native app > a stranger or look-alike origin gets NO Access-Control-Allow-Origin (never *)
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'site-settings' — CORS for the native app > a stranger or look-alike origin gets NO Access-Control-Allow-Origin (never *)
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'play-token' — CORS for the native app > an ERROR answer carries CORS too, so the app sees the error code, not a CORS failure
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'upload-urls' — CORS for the native app > an ERROR answer carries CORS too, so the app sees the error code, not a CORS failure
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'complete' — CORS for the native app > an ERROR answer carries CORS too, so the app sees the error code, not a CORS failure
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'source-url' — CORS for the native app > an ERROR answer carries CORS too, so the app sees the error code, not a CORS failure
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'source-complete' — CORS for the native app > an ERROR answer carries CORS too, so the app sees the error code, not a CORS failure
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'source-cancel' — CORS for the native app > an ERROR answer carries CORS too, so the app sees the error code, not a CORS failure
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > 'site-settings' — CORS for the native app > an ERROR answer carries CORS too, so the app sees the error code, not a CORS failure
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > the allow-list is equality, never a prefix > SITE_ORIGIN with a trailing slash still matches exactly; unset SITE_ORIGIN allows only the app
+ FAIL  src/lib/video/__tests__/functionsCors.test.ts > a successful play-token answer carries CORS > 200 with ACAO for the app
+ Test Files  3 failed (3)
+      Tests  57 failed | 25 passed (82)

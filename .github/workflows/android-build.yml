@@ -767,6 +767,10 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
+          # 2026-10-17 (later): bumped 1.2.22 -> 1.2.23. 1.2.22 is spent (versionCode 1125, on
+          # Play Internal testing). 1.2.23 carries the app video fix: every call to our own
+          # Pages Functions goes to the lane site origin from the app, and those Functions
+          # answer CORS for https://localhost (video could not play or upload in 1.2.22).
           # 2026-10-17: bumped 1.2.21 -> 1.2.22. 1.2.21 is spent (run 34956566930, on members' phones).
           # 1.2.22 carries the 2026-10-17 promotion (feed refresh, Back, one comments box, ads,
           # Apple consent, video client) for Android testers via Play Internal testing (draft).
@@ -814,8 +818,8 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
-          sed -i 's/versionName "1.0"/versionName "1.2.22"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.22 (1.2.21 is spent - build of 2026-09-15 run 34956566930 carried it)"
+          sed -i 's/versionName "1.0"/versionName "1.2.23"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.23 (1.2.22 is spent - versionCode 1125, Play Internal testing 2026-10-17)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 

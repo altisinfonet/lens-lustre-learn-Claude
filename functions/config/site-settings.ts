@@ -65,9 +65,13 @@
  * and silently wrong here.
  */
 
+import { withCors } from "../_cors";
+
 interface Env {
   SUPABASE_PROJECT_REF?: string;
   SUPABASE_ANON_KEY?: string;
+  /** This lane's site origin, for the CORS allow-list (functions/_cors.ts). */
+  SITE_ORIGIN?: string;
 }
 
 /** Long enough that the CDN absorbs the traffic; short enough that an admin
@@ -103,7 +107,16 @@ function fail(reason: string): Response {
   });
 }
 
-export const onRequestGet: PagesFunction<Env> = async (context) => {
+/**
+ * The native app reads this too (src/lib/net/siteApi.ts asks the lane's site
+ * origin from https://localhost), so GET and its OPTIONS preflight go through
+ * the shared CORS helper. Public, anon-readable, GET-only data: opening it to
+ * the app's origin gives that origin nothing a plain page load does not.
+ */
+export const onRequestGet = (context: { request: Request; env: Env }) => withCors(context.request, context.env, () => siteSettings(context));
+export const onRequestOptions = (context: { request: Request; env: Env }) => withCors(context.request, context.env, () => siteSettings(context));
+
+async function siteSettings(context: { request: Request; env: Env }): Promise<Response> {
   const ref = context.env?.SUPABASE_PROJECT_REF;
   const anon = context.env?.SUPABASE_ANON_KEY;
   if (!ref || !anon) {
@@ -146,8 +159,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     "content-type": "application/json; charset=utf-8",
     "cache-control": `public, max-age=${MAX_AGE_S}, stale-while-revalidate=${SWR_S}`,
     etag,
-    // The response varies with nothing: it is the same for every member, signed
-    // in or not. Said explicitly so no proxy invents a Vary of its own.
+    // The body varies with nothing: it is the same for every member, signed in
+    // or not. Said explicitly so no proxy invents a Vary of its own. (The CORS
+    // helper adds Origin, because Access-Control-Allow-Origin does vary.)
     vary: "Accept-Encoding",
   };
 
@@ -158,4 +172,4 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   }
 
   return new Response(JSON.stringify({ version, settings }), { status: 200, headers });
-};
+}

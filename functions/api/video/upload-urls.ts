@@ -23,7 +23,7 @@ import {
   type VideoManifest,
 } from "../../../src/lib/video/shared/rules";
 import {
-  HttpError, requirePrivateDelivery, amzDateOf, handleError, hexToBase64, json, loadConverterVersion, loadUploadingVersion, member, needEnv,
+  HttpError, requirePrivateDelivery, amzDateOf, handleError, withCors, hexToBase64, json, loadConverterVersion, loadUploadingVersion, member, needEnv,
   presign, readJson, ttlWithinLease, type VideoEnv,
 } from "./_lib";
 
@@ -37,7 +37,12 @@ export interface UploadUrl {
   headers: Record<string, string>;
 }
 
-export async function handleUploadUrls(request: Request, env: VideoEnv, now: Date = new Date(), fetchImpl: typeof fetch = fetch): Promise<Response> {
+/** The route, with CORS for the native app (functions/_cors.ts): OPTIONS 204, every answer carries the headers. */
+export function handleUploadUrls(request: Request, env: VideoEnv, now: Date = new Date(), fetchImpl: typeof fetch = fetch): Promise<Response> {
+  return withCors(request, env, () => uploadUrls(request, env, now, fetchImpl));
+}
+
+async function uploadUrls(request: Request, env: VideoEnv, now: Date, fetchImpl: typeof fetch): Promise<Response> {
   try {
     if (request.method !== "POST") throw new HttpError(405, "VID-REQ-000", "POST only");
     requirePrivateDelivery(env);

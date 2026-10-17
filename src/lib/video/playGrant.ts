@@ -17,6 +17,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { PLAY_TOKEN_TTL_S } from "@/lib/video/shared/playToken";
+import { SITE_API, siteFetch } from "@/lib/net/siteApi";
 
 /** receivedAt: performance.now() when it arrived — the device's own clock, never Date.now() (review #411 C6). */
 export interface PlayGrant { master_url: string; poster_url: string; expires_at: number; receivedAt: number }
@@ -44,7 +45,7 @@ const cache = new Map<string, { grant?: PlayGrant; pending?: Promise<PlayGrant |
 
 async function fetchGrant(videoId: string, token: string | undefined): Promise<PlayGrant | null> {
   try {
-    const res = await fetch("/api/video/play-token", {
+    const res = await siteFetch(SITE_API.videoPlayToken, {
       method: "POST",
       headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ video_id: videoId }),
