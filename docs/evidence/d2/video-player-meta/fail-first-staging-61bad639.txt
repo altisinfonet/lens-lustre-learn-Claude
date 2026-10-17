@@ -1,0 +1,1414 @@
+
+ RUN  v3.2.4 D:/50mm Retina World/work/D27-before
+
+ × src/lib/video/__tests__/playbackSound.test.ts > sound policy — the app (native) > autoplays WITH sound by default, even before any tap 25ms
+   → autoplayWithSound is not a function
+ × src/lib/video/__tests__/playbackSound.test.ts > sound policy — the app (native) > the member muted this session → muted 3ms
+   → autoplayWithSound is not a function
+ × src/lib/video/__tests__/playbackSound.test.ts > sound policy — the app (native) > a video with no audio track is never 'with sound' 2ms
+   → autoplayWithSound is not a function
+ × src/lib/video/__tests__/playbackSound.test.ts > sound policy — the web (browser autoplay rule) > muted by default 2ms
+   → autoplayWithSound is not a function
+ × src/lib/video/__tests__/playbackSound.test.ts > sound policy — the web (browser autoplay rule) > after the member unmuted once, later videos autoplay with sound once the page had a user activation 2ms
+   → autoplayWithSound is not a function
+ × src/lib/video/__tests__/playbackSound.test.ts > sound policy — the web (browser autoplay rule) > …but not on a fresh page with no activation yet (the browser would refuse) 2ms
+   → autoplayWithSound is not a function
+ × src/lib/video/__tests__/playbackSound.test.ts > sound policy — the web (browser autoplay rule) > a browser that cannot say (no navigator.userActivation) → try with sound; startPlayback falls back 2ms
+   → autoplayWithSound is not a function
+ × src/lib/video/__tests__/playbackSound.test.ts > sound policy — the web (browser autoplay rule) > the member muted → muted 1ms
+   → autoplayWithSound is not a function
+ × src/lib/video/__tests__/playbackSound.test.ts > the session's sound choice > starts unset, remembers on / off, and survives a re-read from sessionStorage 2ms
+   → getSoundPref is not a function
+ × src/lib/video/__tests__/playbackSound.test.ts > the session's sound choice > blocked storage never throws: memory only 28ms
+   → expected [Function] to not throw an error but 'TypeError: setSoundPref is not a func…' was thrown
+ × src/lib/video/__tests__/playbackSound.test.ts > which HLS engine > Android WebView / Chrome (canPlayType 'maybe' AND MSE) → hls.js, not the WebView's own player 1ms
+   → pickHlsEngine is not a function
+ × src/lib/video/__tests__/playbackSound.test.ts > which HLS engine > desktop Chromium / Firefox (no native HLS, MSE) → hls.js 1ms
+   → pickHlsEngine is not a function
+ × src/lib/video/__tests__/playbackSound.test.ts > which HLS engine > iPhone / Safari (native HLS) → native, even with ManagedMediaSource 2ms
+   → pickHlsEngine is not a function
+ × src/lib/video/__tests__/playbackSound.test.ts > which HLS engine > native HLS but no MSE → native 4ms
+   → pickHlsEngine is not a function
+ × src/lib/video/__tests__/playbackSound.test.ts > which HLS engine > neither → none (the calm 'can't play' message) 1ms
+   → pickHlsEngine is not a function
+ × src/lib/video/__tests__/playbackSound.test.ts > which HLS engine > Apple WebKit detection 1ms
+   → isAppleWebKit is not a function
+ × src/lib/video/__tests__/playbackSound.test.ts > startPlayback — never a broken card > with sound: `muted` is false BEFORE play() is called (not left to a re-render) 18ms
+   → startPlayback is not a function
+ × src/lib/video/__tests__/playbackSound.test.ts > startPlayback — never a broken card > sound refused (NotAllowedError) → the same video starts muted 8ms
+   → startPlayback is not a function
+ × src/lib/video/__tests__/playbackSound.test.ts > startPlayback — never a broken card > AbortError (the load it waited on was replaced) → once more when it can play 2ms
+   → startPlayback is not a function
+ × src/lib/video/__tests__/playbackSound.test.ts > startPlayback — never a broken card > refused even muted → { ok: false } with the reason (the card shows its Play button) 3ms
+   → startPlayback is not a function
+ × src/lib/video/__tests__/playbackSound.test.ts > startPlayback — never a broken card > AbortError twice → gives up, no loop 4ms
+   → startPlayback is not a function
+ ✓ src/lib/video/__tests__/playbackSound.test.ts > one video at a time > a second card claiming playback pauses the first 8ms
+ × src/lib/video/__tests__/playbackSound.test.ts > controls timing > the controls fade out 2–3 s after a tap 2ms
+   → actual value must be number or bigint, received "undefined"
+ × src/components/video/__tests__/FeedVideoCard.meta.test.tsx > the app (Capacitor Android): autoplay WITH sound > in view → it starts by itself, with sound, no tap 182ms
+   → expected [ true ] to deeply equal [ false ]
+ × src/components/video/__tests__/FeedVideoCard.meta.test.tsx > the app (Capacitor Android): autoplay WITH sound > the Android WebView answers 'maybe' to HLS: the card still uses hls.js (MSE), never the WebView's own player 33ms
+   → expected [] to deeply equal [ …(2) ]
+ × src/components/video/__tests__/FeedVideoCard.meta.test.tsx > the app (Capacitor Android): autoplay WITH sound > a refused first play() (AbortError — the load it waited on was replaced) is tried again, not turned into a Play button 50ms
+   → expected 1 to be 2 // Object.is equality
+ × src/components/video/__tests__/FeedVideoCard.meta.test.tsx > the app (Capacitor Android): autoplay WITH sound > the member mutes → the sound button changes the sound only (no pause, no restart) — and the next video starts muted 679ms
+   → Unable to find an accessible element with the role "button" and name "Turn sound off"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "Play video":
+  <button
+    aria-label="Play video"
+    class="absolute inset-0 m-auto flex h-14 w-14 items-center justify-center rounded-full bg-black/60 text-white"
+    type="button"
+  />
+
+  Name "Play":
+  <button
+    aria-label="Play"
+    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15"
+    type="button"
+  />
+
+  Name "Turn sound on":
+  <button
+    aria-label="Turn sound on"
+    aria-pressed="false"
+    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15"
+    type="button"
+  />
+
+  Name "Play":
+  <button
+    aria-label="Play"
+    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15"
+    type="button"
+  />
+
+  Name "Turn sound on":
+  <button
+    aria-label="Turn sound on"
+    aria-pressed="false"
+    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15"
+    type="button"
+  />
+
+  --------------------------------------------------
+  slider:
+
+  Name "Seek":
+  <input
+    aria-label="Seek"
+    aria-valuetext="0:00 of 0:20"
+    class="h-9 min-w-0 flex-1 cursor-pointer accent-white"
+    max="20"
+    min="0"
+    step="0.1"
+    type="range"
+    value="0"
+  />
+
+  Name "Seek":
+  <input
+    aria-label="Seek"
+    aria-valuetext="0:00 of 0:20"
+    class="h-9 min-w-0 flex-1 cursor-pointer accent-white"
+    max="20"
+    min="0"
+    step="0.1"
+    type="range"
+    value="0"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="relative w-full overflow-hidden rounded-lg bg-black "
+      data-fill="blurred"
+      data-frame-aspect="0.563"
+      data-testid="feed-video-card"
+      style="width: 100%; max-height: min(85dvh, 900px);"
+    >
+      <div
+        aria-hidden="true"
+        class="absolute inset-0 scale-110 bg-cover bg-center opacity-60 blur-xl"
+        data-testid="feed-video-fill"
+        style="background-image: url(https://cdn-staging.50mmretina.com/video/o/v/v1/poster.jpg?t=x);"
+      />
+      <video
+        aria-label="Video post"
+        class="relative h-full w-full object-contain"
+        loop=""
+        playsinline=""
+        poster="https://cdn-staging.50mmretina.com/video/o/v/v1/poster.jpg?t=x"
+        preload="none"
+        src="https://cdn-staging.50mmretina.com/video/o/v/v1/master.m3u8?t=x"
+      />
+      <button
+        aria-label="Play video"
+        class="absolute inset-0 m-auto flex h-14 w-14 items-center justify-center rounded-full bg-black/60 text-white"
+        type="button"
+      >
+        <svg
+          class="lucide lucide-play h-7 w-7"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <polygon
+            points="6 3 20 12 6 21 6 3"
+          />
+        </svg>
+      </button>
+      <div
+        class="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/75 to-transparent px-2 pb-2 pt-8 text-white"
+        data-testid="video-controls"
+      >
+        <button
+          aria-label="Play"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15"
+          type="button"
+        >
+          <svg
+            class="lucide lucide-play h-4 w-4"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <polygon
+              points="6 3 20 12 6 21 6 3"
+            />
+          </svg>
+        </button>
+        <input
+          aria-label="Seek"
+          aria-valuetext="0:00 of 0:20"
+          class="h-9 min-w-0 flex-1 cursor-pointer accent-white"
+          max="20"
+          min="0"
+          step="0.1"
+          type="range"
+          value="0"
+        />
+        <span
+          class="shrink-0 text-[11px] tabular-nums"
+          data-testid="video-clock"
+        >
+          0:00
+           / 
+          0:20
+        </span>
+        <button
+          aria-label="Turn sound on"
+          aria-pressed="false"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15"
+          type="button"
+        >
+          <svg
+            class="lucide lucide-volume-x h-4 w-4"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"
+            />
+            <line
+              x1="22"
+              x2="16"
+              y1="9"
+              y2="15"
+            />
+            <line
+              x1="16"
+              x2="22"
+              y1="9"
+              y2="15"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div
+      class="relative w-full overflow-hidden rounded-lg bg-black "
+      data-fill="blurred"
+      data-frame-aspect="0.563"
+      data-testid="feed-video-card"
+      style="width: 100%; max-height: min(85dvh, 900px);"
+    >
+      <video
+        aria-label="Video post"
+        class="relative h-full w-full object-contain"
+        loop=""
+        playsinline=""
+        preload="none"
+      />
+      <div
+        class="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/75 to-transparent px-2 pb-2 pt-8 text-white"
+        data-testid="video-controls"
+      >
+        <button
+          aria-label="Play"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15"
+          type="button"
+        >
+          <svg
+            class="lucide lucide-play h-4 w-4"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <polygon
+              points="6 3 20 12 6 21 6 3"
+            />
+          </svg>
+        </button>
+        <input
+          aria-label="Seek"
+          aria-valuetext="0:00 of 0:20"
+          class="h-9 min-w-0 flex-1 cursor-pointer accent-white"
+          max="20"
+          min="0"
+          step="0.1"
+          type="range"
+          value="0"
+        />
+        <span
+          class="shrink-0 text-[11px] tabular-nums"
+          data-testid="video-clock"
+        >
+          0:00
+           / 
+          0:20
+        </span>
+        <button
+          aria-label="Turn sound on"
+          aria-pressed="false"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15"
+          type="button"
+        >
+          <svg
+            class="lucide lucide-volume-x h-4 w-4"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"
+            />
+            <line
+              x1="22"
+              x2="16"
+              y1="9"
+              y2="15"
+            />
+            <line
+              x1="16"
+              x2="22"
+              y1="9"
+              y2="15"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</body>
+ ✓ src/components/video/__tests__/FeedVideoCard.meta.test.tsx > the web: the browser's autoplay rule > in view → starts by itself, MUTED 65ms
+ × src/components/video/__tests__/FeedVideoCard.meta.test.tsx > the web: the browser's autoplay rule > after the member unmutes once, the next video autoplays WITH sound (page already activated) 122ms
+   → expected true to be false // Object.is equality
+ × src/components/video/__tests__/FeedVideoCard.meta.test.tsx > the web: the browser's autoplay rule > the browser refuses play-with-sound → the video starts muted instead: no Play button, no paused card 31ms
+   → expected [ true ] to deeply equal [ false, true ]
+ × src/components/video/__tests__/FeedVideoCard.meta.test.tsx > the web: the browser's autoplay rule > only ONE video plays: the second to come into view pauses the first 66ms
+   → expected null to be 'false' // Object.is equality
+ × src/components/video/__tests__/FeedVideoCard.meta.test.tsx > Meta-style controls > HIDDEN by default — also while it plays 14ms
+   → expected null to be 'false' // Object.is equality
+ × src/components/video/__tests__/FeedVideoCard.meta.test.tsx > Meta-style controls > a tap on the picture shows them; ~2.5 s later they fade away again 45ms
+   → expected null to be 'true' // Object.is equality
+ × src/components/video/__tests__/FeedVideoCard.meta.test.tsx > Meta-style controls > the progress bar is thin and translucent to the eye, with a ≥ 44 px touch area; seeking works while shown 51ms
+   → Unable to find an element by: [data-testid="video-progress-track"]
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="relative w-full overflow-hidden rounded-lg bg-black "
+      data-fill="blurred"
+      data-frame-aspect="0.563"
+      data-testid="feed-video-card"
+      style="width: 100%; max-height: min(85dvh, 900px);"
+    >
+      <div
+        aria-hidden="true"
+        class="absolute inset-0 scale-110 bg-cover bg-center opacity-60 blur-xl"
+        data-testid="feed-video-fill"
+        style="background-image: url(https://cdn-staging.50mmretina.com/video/o/v/v1/poster.jpg?t=x);"
+      />
+      <video
+        aria-label="Video post"
+        class="relative h-full w-full object-contain"
+        loop=""
+        playsinline=""
+        poster="https://cdn-staging.50mmretina.com/video/o/v/v1/poster.jpg?t=x"
+        preload="none"
+        src="https://cdn-staging.50mmretina.com/video/o/v/v1/master.m3u8?t=x"
+      />
+      <button
+        aria-label="Play video"
+        class="absolute inset-0 m-auto flex h-14 w-14 items-center justify-center rounded-full bg-black/60 text-white"
+        type="button"
+      >
+        <svg
+          class="lucide lucide-play h-7 w-7"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <polygon
+            points="6 3 20 12 6 21 6 3"
+          />
+        </svg>
+      </button>
+      <div
+        class="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/75 to-transparent px-2 pb-2 pt-8 text-white"
+        data-testid="video-controls"
+      >
+        <button
+          aria-label="Play"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15"
+          type="button"
+        >
+          <svg
+            class="lucide lucide-play h-4 w-4"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <polygon
+              points="6 3 20 12 6 21 6 3"
+            />
+          </svg>
+        </button>
+        <input
+          aria-label="Seek"
+          aria-valuetext="0:00 of 0:20"
+          class="h-9 min-w-0 flex-1 cursor-pointer accent-white"
+          max="20"
+          min="0"
+          step="0.1"
+          type="range"
+          value="0"
+        />
+        <span
+          class="shrink-0 text-[11px] tabular-nums"
+          data-testid="video-clock"
+        >
+          0:00
+           / 
+          0:20
+        </span>
+        <button
+          aria-label="Turn sound on"
+          aria-pressed="false"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15"
+          type="button"
+        >
+          <svg
+            class="lucide lucide-volume-x h-4 w-4"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"
+            />
+            <line
+              x1="22"
+              x2="16"
+              y1="9"
+              y2="15"
+            />
+            <line
+              x1="16"
+              x2="22"
+              y1="9"
+              y2="15"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</body>
+ × src/components/video/__tests__/FeedVideoCard.meta.test.tsx > Meta-style controls > buttons keep their names and 44 px targets 35ms
+   → expected 'flex h-9 w-9 shrink-0 items-center ju…' to match /h-11 w-11/
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 33 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/video/__tests__/FeedVideoCard.meta.test.tsx > the app (Capacitor Android): autoplay WITH sound > in view → it starts by itself, with sound, no tap
+AssertionError: expected [ true ] to deeply equal [ false ]
+
+- Expected
++ Received
+
+  [
+-   false,
++   true,
+  ]
+
+ ❯ src/components/video/__tests__/FeedVideoCard.meta.test.tsx:99:25
+     97|     render(<FeedVideoCard video={vid()} />);
+     98|     fire(views()[0], 1); await flush();
+     99|     expect(mutedAtPlay).toEqual([false]);
+       |                         ^
+    100|     expect(videoEl().muted).toBe(false);
+    101|     expect(screen.queryByRole("button", { name: "Play video" })).toBeN…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/33]⎯
+
+ FAIL  src/components/video/__tests__/FeedVideoCard.meta.test.tsx > the app (Capacitor Android): autoplay WITH sound > the Android WebView answers 'maybe' to HLS: the card still uses hls.js (MSE), never the WebView's own player
+AssertionError: expected [] to deeply equal [ …(2) ]
+
+- Expected
++ Received
+
+- [
+-   "load https://cdn-staging.50mmretina.com/video/o/v/v1/master.m3u8?t=x",
+-   "attach",
+- ]
++ []
+
+ ❯ src/components/video/__tests__/FeedVideoCard.meta.test.tsx:110:20
+    108|     render(<FeedVideoCard video={vid()} />);
+    109|     fire(views()[0], 1); await flush();
+    110|     expect(hlsLog).toEqual([`load ${GRANT.master_url}`, "attach"]);
+       |                    ^
+    111|     expect(videoEl().getAttribute("src")).not.toBe(GRANT.master_url);
+    112|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/33]⎯
+
+ FAIL  src/components/video/__tests__/FeedVideoCard.meta.test.tsx > the app (Capacitor Android): autoplay WITH sound > a refused first play() (AbortError — the load it waited on was replaced) is tried again, not turned into a Play button
+AssertionError: expected 1 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ src/components/video/__tests__/FeedVideoCard.meta.test.tsx:121:32
+    119|     fire(views()[0], 1);
+    120|     await flush(); await act(async () => { await new Promise((r) => se…
+    121|     expect(mutedAtPlay.length).toBe(2);
+       |                                ^
+    122|     expect(screen.queryByRole("button", { name: "Play video" })).toBeN…
+    123|     expect(card().getAttribute("data-playing")).toBe("true");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/33]⎯
+
+ FAIL  src/components/video/__tests__/FeedVideoCard.meta.test.tsx > the app (Capacitor Android): autoplay WITH sound > the member mutes → the sound button changes the sound only (no pause, no restart) — and the next video starts muted
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Turn sound off"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "Play video":
+  <button
+    aria-label="Play video"
+    class="absolute inset-0 m-auto flex h-14 w-14 items-center justify-center rounded-full bg-black/60 text-white"
+    type="button"
+  />
+
+  Name "Play":
+  <button
+    aria-label="Play"
+    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15"
+    type="button"
+  />
+
+  Name "Turn sound on":
+  <button
+    aria-label="Turn sound on"
+    aria-pressed="false"
+    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15"
+    type="button"
+  />
+
+  Name "Play":
+  <button
+    aria-label="Play"
+    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15"
+    type="button"
+  />
+
+  Name "Turn sound on":
+  <button
+    aria-label="Turn sound on"
+    aria-pressed="false"
+    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15"
+    type="button"
+  />
+
+  --------------------------------------------------
+  slider:
+
+  Name "Seek":
+  <input
+    aria-label="Seek"
+    aria-valuetext="0:00 of 0:20"
+    class="h-9 min-w-0 flex-1 cursor-pointer accent-white"
+    max="20"
+    min="0"
+    step="0.1"
+    type="range"
+    value="0"
+  />
+
+  Name "Seek":
+  <input
+    aria-label="Seek"
+    aria-valuetext="0:00 of 0:20"
+    class="h-9 min-w-0 flex-1 cursor-pointer accent-white"
+    max="20"
+    min="0"
+    step="0.1"
+    type="range"
+    value="0"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="relative w-full overflow-hidden rounded-lg bg-black "
+      data-fill="blurred"
+      data-frame-aspect="0.563"
+      data-testid="feed-video-card"
+      style="width: 100%; max-height: min(85dvh, 900px);"
+    >
+      <div
+        aria-hidden="true"
+        class="absolute inset-0 scale-110 bg-cover bg-center opacity-60 blur-xl"
+        data-testid="feed-video-fill"
+        style="background-image: url(https://cdn-staging.50mmretina.com/video/o/v/v1/poster.jpg?t=x);"
+      />
+      <video
+        aria-label="Video post"
+        class="relative h-full w-full object-contain"
+        loop=""
+        playsinline=""
+        poster="https://cdn-staging.50mmretina.com/video/o/v/v1/poster.jpg?t=x"
+        preload="none"
+        src="https://cdn-staging.50mmretina.com/video/o/v/v1/master.m3u8?t=x"
+      />
+      <button
+        aria-label="Play video"
+        class="absolute inset-0 m-auto flex h-14 w-14 items-center justify-center rounded-full bg-black/60 text-white"
+        type="button"
+      >
+        <svg
+          class="lucide lucide-play h-7 w-7"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <polygon
+            points="6 3 20 12 6 21 6 3"
+          />
+        </svg>
+      </button>
+      <div
+        class="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/75 to-transparent px-2 pb-2 pt-8 text-white"
+        data-testid="video-controls"
+      >
+        <button
+          aria-label="Play"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15"
+          type="button"
+        >
+          <svg
+            class="lucide lucide-play h-4 w-4"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <polygon
+              points="6 3 20 12 6 21 6 3"
+            />
+          </svg>
+        </button>
+        <input
+          aria-label="Seek"
+          aria-valuetext="0:00 of 0:20"
+          class="h-9 min-w-0 flex-1 cursor-pointer accent-white"
+          max="20"
+          min="0"
+          step="0.1"
+          type="range"
+          value="0"
+        />
+        <span
+          class="shrink-0 text-[11px] tabular-nums"
+          data-testid="video-clock"
+        >
+          0:00
+           / 
+          0:20
+        </span>
+        <button
+          aria-label="Turn sound on"
+          aria-pressed="false"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15"
+          type="button"
+        >
+          <svg
+            class="lucide lucide-volume-x h-4 w-4"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"
+            />
+            <line
+              x1="22"
+              x2="16"
+              y1="9"
+              y2="15"
+            />
+            <line
+              x1="16"
+              x2="22"
+              y1="9"
+              y2="15"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div
+      class="relative w-full overflow-hidden rounded-lg bg-black "
+      data-fill="blurred"
+      data-frame-aspect="0.563"
+      data-testid="feed-video-card"
+      style="width: 100%; max-height: min(85dvh, 900px);"
+    >
+      <video
+        aria-label="Video post"
+        class="relative h-full w-full object-contain"
+        loop=""
+        playsinline=""
+        preload="none"
+      />
+      <div
+        class="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/75 to-transparent px-2 pb-2 pt-8 text-white"
+        data-testid="video-controls"
+      >
+        <button
+          aria-label="Play"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15"
+          type="button"
+        >
+          <svg
+            class="lucide lucide-play h-4 w-4"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <polygon
+              points="6 3 20 12 6 21 6 3"
+            />
+          </svg>
+        </button>
+        <input
+          aria-label="Seek"
+          aria-valuetext="0:00 of 0:20"
+          class="h-9 min-w-0 flex-1 cursor-pointer accent-white"
+          max="20"
+          min="0"
+          step="0.1"
+          type="range"
+          value="0"
+        />
+        <span
+          class="shrink-0 text-[11px] tabular-nums"
+          data-testid="video-clock"
+        >
+          0:00
+           / 
+          0:20
+        </span>
+        <button
+          aria-label="Turn sound on"
+          aria-pressed="false"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15"
+          type="button"
+        >
+          <svg
+            class="lucide lucide-volume-x h-4 w-4"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"
+            />
+            <line
+              x1="22"
+              x2="16"
+              y1="9"
+              y2="15"
+            />
+            <line
+              x1="16"
+              x2="22"
+              y1="9"
+              y2="15"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</body>
+ ❯ Object.getElementError ../D21/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../D21/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ getAllByRole ../D21/node_modules/@testing-library/dom/dist/query-helpers.js:109:15
+ ❯ src/components/video/__tests__/FeedVideoCard.meta.test.tsx:134:28
+    132|     const plays = mutedAtPlay.length;
+    133|     fireEvent.click(videoEl(0)); // a tap shows the controls
+    134|     fireEvent.click(screen.getAllByRole("button", { name: "Turn sound …
+       |                            ^
+    135|     expect(videoEl(0).muted).toBe(true);
+    136|     expect(pauseSpy).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/33]⎯
+
+ FAIL  src/components/video/__tests__/FeedVideoCard.meta.test.tsx > the web: the browser's autoplay rule > after the member unmutes once, the next video autoplays WITH sound (page already activated)
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/components/video/__tests__/FeedVideoCard.meta.test.tsx:159:49
+    157|     expect(videoEl(0).muted).toBe(false);
+    158|     fire(v1, 0); fire(v2, 1); await flush();
+    159|     expect(mutedAtPlay[mutedAtPlay.length - 1]).toBe(false);
+       |                                                 ^
+    160|   });
+    161| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/33]⎯
+
+ FAIL  src/components/video/__tests__/FeedVideoCard.meta.test.tsx > the web: the browser's autoplay rule > the browser refuses play-with-sound → the video starts muted instead: no Play button, no paused card
+AssertionError: expected [ true ] to deeply equal [ false, true ]
+
+- Expected
++ Received
+
+  [
+-   false,
+    true,
+  ]
+
+ ❯ src/components/video/__tests__/FeedVideoCard.meta.test.tsx:168:25
+    166|     render(<FeedVideoCard video={vid()} />);
+    167|     fire(views()[0], 1); await flush();
+    168|     expect(mutedAtPlay).toEqual([false, true]);
+       |                         ^
+    169|     expect(card().getAttribute("data-playing")).toBe("true");
+    170|     expect(screen.queryByRole("button", { name: "Play video" })).toBeN…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/33]⎯
+
+ FAIL  src/components/video/__tests__/FeedVideoCard.meta.test.tsx > the web: the browser's autoplay rule > only ONE video plays: the second to come into view pauses the first
+AssertionError: expected null to be 'false' // Object.is equality
+
+- Expected: 
+"false"
+
++ Received: 
+null
+
+ ❯ src/components/video/__tests__/FeedVideoCard.meta.test.tsx:180:50
+    178|     fire(v2, 1); await flush();
+    179|     expect(pauseSpy).toHaveBeenCalledTimes(1);
+    180|     expect(card(0).getAttribute("data-playing")).toBe("false");
+       |                                                  ^
+    181|     expect(card(1).getAttribute("data-playing")).toBe("true");
+    182|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/33]⎯
+
+ FAIL  src/components/video/__tests__/FeedVideoCard.meta.test.tsx > Meta-style controls > HIDDEN by default — also while it plays
+AssertionError: expected null to be 'false' // Object.is equality
+
+- Expected: 
+"false"
+
++ Received: 
+null
+
+ ❯ src/components/video/__tests__/FeedVideoCard.meta.test.tsx:188:53
+    186|   it("HIDDEN by default — also while it plays", async () => {
+    187|     render(<FeedVideoCard video={vid()} />);
+    188|     expect(controls().getAttribute("data-visible")).toBe("false");
+       |                                                     ^
+    189|     expect(controls().className).toMatch(/opacity-0/);
+    190|     fire(views()[0], 1); await flush();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/33]⎯
+
+ FAIL  src/components/video/__tests__/FeedVideoCard.meta.test.tsx > Meta-style controls > a tap on the picture shows them; ~2.5 s later they fade away again
+AssertionError: expected null to be 'true' // Object.is equality
+
+- Expected: 
+"true"
+
++ Received: 
+null
+
+ ❯ src/components/video/__tests__/FeedVideoCard.meta.test.tsx:199:53
+    197|     fire(views()[0], 1); await flush();
+    198|     fireEvent.click(videoEl());
+    199|     expect(controls().getAttribute("data-visible")).toBe("true");
+       |                                                     ^
+    200|     expect(controls().className).toMatch(/opacity-100/);
+    201|     act(() => { vi.advanceTimersByTime(2000); });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/33]⎯
+
+ FAIL  src/components/video/__tests__/FeedVideoCard.meta.test.tsx > Meta-style controls > the progress bar is thin and translucent to the eye, with a ≥ 44 px touch area; seeking works while shown
+TestingLibraryElementError: Unable to find an element by: [data-testid="video-progress-track"]
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="relative w-full overflow-hidden rounded-lg bg-black "
+      data-fill="blurred"
+      data-frame-aspect="0.563"
+      data-testid="feed-video-card"
+      style="width: 100%; max-height: min(85dvh, 900px);"
+    >
+      <div
+        aria-hidden="true"
+        class="absolute inset-0 scale-110 bg-cover bg-center opacity-60 blur-xl"
+        data-testid="feed-video-fill"
+        style="background-image: url(https://cdn-staging.50mmretina.com/video/o/v/v1/poster.jpg?t=x);"
+      />
+      <video
+        aria-label="Video post"
+        class="relative h-full w-full object-contain"
+        loop=""
+        playsinline=""
+        poster="https://cdn-staging.50mmretina.com/video/o/v/v1/poster.jpg?t=x"
+        preload="none"
+        src="https://cdn-staging.50mmretina.com/video/o/v/v1/master.m3u8?t=x"
+      />
+      <button
+        aria-label="Play video"
+        class="absolute inset-0 m-auto flex h-14 w-14 items-center justify-center rounded-full bg-black/60 text-white"
+        type="button"
+      >
+        <svg
+          class="lucide lucide-play h-7 w-7"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <polygon
+            points="6 3 20 12 6 21 6 3"
+          />
+        </svg>
+      </button>
+      <div
+        class="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/75 to-transparent px-2 pb-2 pt-8 text-white"
+        data-testid="video-controls"
+      >
+        <button
+          aria-label="Play"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15"
+          type="button"
+        >
+          <svg
+            class="lucide lucide-play h-4 w-4"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <polygon
+              points="6 3 20 12 6 21 6 3"
+            />
+          </svg>
+        </button>
+        <input
+          aria-label="Seek"
+          aria-valuetext="0:00 of 0:20"
+          class="h-9 min-w-0 flex-1 cursor-pointer accent-white"
+          max="20"
+          min="0"
+          step="0.1"
+          type="range"
+          value="0"
+        />
+        <span
+          class="shrink-0 text-[11px] tabular-nums"
+          data-testid="video-clock"
+        >
+          0:00
+           / 
+          0:20
+        </span>
+        <button
+          aria-label="Turn sound on"
+          aria-pressed="false"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15"
+          type="button"
+        >
+          <svg
+            class="lucide lucide-volume-x h-4 w-4"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"
+            />
+            <line
+              x1="22"
+              x2="16"
+              y1="9"
+              y2="15"
+            />
+            <line
+              x1="16"
+              x2="22"
+              y1="9"
+              y2="15"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</body>
+ ❯ Object.getElementError ../D21/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../D21/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../D21/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ getByTestId ../D21/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/video/__tests__/FeedVideoCard.meta.test.tsx:211:26
+    209|     fire(views()[0], 1); await flush();
+    210|     fireEvent.click(videoEl());
+    211|     const track = screen.getByTestId("video-progress-track");
+       |                          ^
+    212|     expect(track.className).toMatch(/h-\[(2|2\.5|3)px\]/);
+    213|     expect(track.className).toMatch(/bg-white\/\d\d/);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/33]⎯
+
+ FAIL  src/components/video/__tests__/FeedVideoCard.meta.test.tsx > Meta-style controls > buttons keep their names and 44 px targets
+AssertionError: expected 'flex h-9 w-9 shrink-0 items-center ju…' to match /h-11 w-11/
+
+- Expected: 
+/h-11 w-11/
+
++ Received: 
+"flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15"
+
+ ❯ src/components/video/__tests__/FeedVideoCard.meta.test.tsx:221:106
+    219|   it("buttons keep their names and 44 px targets", async () => {
+    220|     render(<FeedVideoCard video={vid()} />);
+    221|     for (const name of ["Play", "Turn sound on"]) expect(screen.getByR…
+       |                                                                                                          ^
+    222|   });
+    223| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/33]⎯
+
+ FAIL  src/lib/video/__tests__/playbackSound.test.ts > sound policy — the app (native) > autoplays WITH sound by default, even before any tap
+TypeError: autoplayWithSound is not a function
+ ❯ src/lib/video/__tests__/playbackSound.test.ts:19:75
+     17| describe("sound policy — the app (native)", () => {
+     18|   const app = { native: true, hasAudio: true, userActivated: false };
+     19|   it("autoplays WITH sound by default, even before any tap", () => exp…
+       |                                                                           ^
+     20|   it("the member muted this session → muted", () => expect(autoplayWit…
+     21|   it("a video with no audio track is never 'with sound'", () => expect…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/33]⎯
+
+ FAIL  src/lib/video/__tests__/playbackSound.test.ts > sound policy — the app (native) > the member muted this session → muted
+TypeError: autoplayWithSound is not a function
+ ❯ src/lib/video/__tests__/playbackSound.test.ts:20:60
+     18|   const app = { native: true, hasAudio: true, userActivated: false };
+     19|   it("autoplays WITH sound by default, even before any tap", () => exp…
+     20|   it("the member muted this session → muted", () => expect(autoplayWit…
+       |                                                            ^
+     21|   it("a video with no audio track is never 'with sound'", () => expect…
+     22| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/33]⎯
+
+ FAIL  src/lib/video/__tests__/playbackSound.test.ts > sound policy — the app (native) > a video with no audio track is never 'with sound'
+TypeError: autoplayWithSound is not a function
+ ❯ src/lib/video/__tests__/playbackSound.test.ts:21:72
+     19|   it("autoplays WITH sound by default, even before any tap", () => exp…
+     20|   it("the member muted this session → muted", () => expect(autoplayWit…
+     21|   it("a video with no audio track is never 'with sound'", () => expect…
+       |                                                                        ^
+     22| });
+     23| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/33]⎯
+
+ FAIL  src/lib/video/__tests__/playbackSound.test.ts > sound policy — the web (browser autoplay rule) > muted by default
+TypeError: autoplayWithSound is not a function
+ ❯ src/lib/video/__tests__/playbackSound.test.ts:26:39
+     24| describe("sound policy — the web (browser autoplay rule)", () => {
+     25|   const web = { native: false, hasAudio: true };
+     26|   it("muted by default", () => expect(autoplayWithSound({ ...web, pref…
+       |                                       ^
+     27|   it("after the member unmuted once, later videos autoplay with sound …
+     28|     expect(autoplayWithSound({ ...web, pref: true, userActivated: true…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/33]⎯
+
+ FAIL  src/lib/video/__tests__/playbackSound.test.ts > sound policy — the web (browser autoplay rule) > after the member unmuted once, later videos autoplay with sound once the page had a user activation
+TypeError: autoplayWithSound is not a function
+ ❯ src/lib/video/__tests__/playbackSound.test.ts:28:12
+     26|   it("muted by default", () => expect(autoplayWithSound({ ...web, pref…
+     27|   it("after the member unmuted once, later videos autoplay with sound …
+     28|     expect(autoplayWithSound({ ...web, pref: true, userActivated: true…
+       |            ^
+     29|   it("…but not on a fresh page with no activation yet (the browser wou…
+     30|     expect(autoplayWithSound({ ...web, pref: true, userActivated: fals…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/33]⎯
+
+ FAIL  src/lib/video/__tests__/playbackSound.test.ts > sound policy — the web (browser autoplay rule) > …but not on a fresh page with no activation yet (the browser would refuse)
+TypeError: autoplayWithSound is not a function
+ ❯ src/lib/video/__tests__/playbackSound.test.ts:30:12
+     28|     expect(autoplayWithSound({ ...web, pref: true, userActivated: true…
+     29|   it("…but not on a fresh page with no activation yet (the browser wou…
+     30|     expect(autoplayWithSound({ ...web, pref: true, userActivated: fals…
+       |            ^
+     31|   it("a browser that cannot say (no navigator.userActivation) → try wi…
+     32|     expect(autoplayWithSound({ ...web, pref: true, userActivated: null…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/33]⎯
+
+ FAIL  src/lib/video/__tests__/playbackSound.test.ts > sound policy — the web (browser autoplay rule) > a browser that cannot say (no navigator.userActivation) → try with sound; startPlayback falls back
+TypeError: autoplayWithSound is not a function
+ ❯ src/lib/video/__tests__/playbackSound.test.ts:32:12
+     30|     expect(autoplayWithSound({ ...web, pref: true, userActivated: fals…
+     31|   it("a browser that cannot say (no navigator.userActivation) → try wi…
+     32|     expect(autoplayWithSound({ ...web, pref: true, userActivated: null…
+       |            ^
+     33|   it("the member muted → muted", () => expect(autoplayWithSound({ ...w…
+     34| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/33]⎯
+
+ FAIL  src/lib/video/__tests__/playbackSound.test.ts > sound policy — the web (browser autoplay rule) > the member muted → muted
+TypeError: autoplayWithSound is not a function
+ ❯ src/lib/video/__tests__/playbackSound.test.ts:33:47
+     31|   it("a browser that cannot say (no navigator.userActivation) → try wi…
+     32|     expect(autoplayWithSound({ ...web, pref: true, userActivated: null…
+     33|   it("the member muted → muted", () => expect(autoplayWithSound({ ...w…
+       |                                               ^
+     34| });
+     35| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/33]⎯
+
+ FAIL  src/lib/video/__tests__/playbackSound.test.ts > the session's sound choice > starts unset, remembers on / off, and survives a re-read from sessionStorage
+TypeError: getSoundPref is not a function
+ ❯ src/lib/video/__tests__/playbackSound.test.ts:38:12
+     36| describe("the session's sound choice", () => {
+     37|   it("starts unset, remembers on / off, and survives a re-read from se…
+     38|     expect(getSoundPref()).toBeNull();
+       |            ^
+     39|     setSoundPref(true);
+     40|     expect(getSoundPref()).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/33]⎯
+
+ FAIL  src/lib/video/__tests__/playbackSound.test.ts > the session's sound choice > blocked storage never throws: memory only
+AssertionError: expected [Function] to not throw an error but 'TypeError: setSoundPref is not a func…' was thrown
+
+- Expected: 
+undefined
+
++ Received: 
+"TypeError: setSoundPref is not a function"
+
+ ❯ src/lib/video/__tests__/playbackSound.test.ts:47:42
+     45|   it("blocked storage never throws: memory only", () => {
+     46|     const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementat…
+     47|     expect(() => setSoundPref(true)).not.toThrow();
+       |                                          ^
+     48|     expect(getSoundPref()).toBe(true);
+     49|     spy.mockRestore();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/33]⎯
+
+ FAIL  src/lib/video/__tests__/playbackSound.test.ts > which HLS engine > Android WebView / Chrome (canPlayType 'maybe' AND MSE) → hls.js, not the WebView's own player
+TypeError: pickHlsEngine is not a function
+ ❯ src/lib/video/__tests__/playbackSound.test.ts:55:12
+     53| describe("which HLS engine", () => {
+     54|   it("Android WebView / Chrome (canPlayType 'maybe' AND MSE) → hls.js,…
+     55|     expect(pickHlsEngine({ nativeHls: true, mse: true, appleWebKit: fa…
+       |            ^
+     56|   it("desktop Chromium / Firefox (no native HLS, MSE) → hls.js", () =>…
+     57|   it("iPhone / Safari (native HLS) → native, even with ManagedMediaSou…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/33]⎯
+
+ FAIL  src/lib/video/__tests__/playbackSound.test.ts > which HLS engine > desktop Chromium / Firefox (no native HLS, MSE) → hls.js
+TypeError: pickHlsEngine is not a function
+ ❯ src/lib/video/__tests__/playbackSound.test.ts:56:79
+     54|   it("Android WebView / Chrome (canPlayType 'maybe' AND MSE) → hls.js,…
+     55|     expect(pickHlsEngine({ nativeHls: true, mse: true, appleWebKit: fa…
+     56|   it("desktop Chromium / Firefox (no native HLS, MSE) → hls.js", () =>…
+       |                                                                               ^
+     57|   it("iPhone / Safari (native HLS) → native, even with ManagedMediaSou…
+     58|   it("native HLS but no MSE → native", () => expect(pickHlsEngine({ na…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/33]⎯
+
+ FAIL  src/lib/video/__tests__/playbackSound.test.ts > which HLS engine > iPhone / Safari (native HLS) → native, even with ManagedMediaSource
+TypeError: pickHlsEngine is not a function
+ ❯ src/lib/video/__tests__/playbackSound.test.ts:57:90
+     55|     expect(pickHlsEngine({ nativeHls: true, mse: true, appleWebKit: fa…
+     56|   it("desktop Chromium / Firefox (no native HLS, MSE) → hls.js", () =>…
+     57|   it("iPhone / Safari (native HLS) → native, even with ManagedMediaSou…
+       |                                                                                          ^
+     58|   it("native HLS but no MSE → native", () => expect(pickHlsEngine({ na…
+     59|   it("neither → none (the calm 'can't play' message)", () => expect(pi…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/33]⎯
+
+ FAIL  src/lib/video/__tests__/playbackSound.test.ts > which HLS engine > native HLS but no MSE → native
+TypeError: pickHlsEngine is not a function
+ ❯ src/lib/video/__tests__/playbackSound.test.ts:58:53
+     56|   it("desktop Chromium / Firefox (no native HLS, MSE) → hls.js", () =>…
+     57|   it("iPhone / Safari (native HLS) → native, even with ManagedMediaSou…
+     58|   it("native HLS but no MSE → native", () => expect(pickHlsEngine({ na…
+       |                                                     ^
+     59|   it("neither → none (the calm 'can't play' message)", () => expect(pi…
+     60|   it("Apple WebKit detection", () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/33]⎯
+
+ FAIL  src/lib/video/__tests__/playbackSound.test.ts > which HLS engine > neither → none (the calm 'can't play' message)
+TypeError: pickHlsEngine is not a function
+ ❯ src/lib/video/__tests__/playbackSound.test.ts:59:69
+     57|   it("iPhone / Safari (native HLS) → native, even with ManagedMediaSou…
+     58|   it("native HLS but no MSE → native", () => expect(pickHlsEngine({ na…
+     59|   it("neither → none (the calm 'can't play' message)", () => expect(pi…
+       |                                                                     ^
+     60|   it("Apple WebKit detection", () => {
+     61|     const android = "Mozilla/5.0 (Linux; Android 14; SM-S918B Build/UP…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/33]⎯
+
+ FAIL  src/lib/video/__tests__/playbackSound.test.ts > which HLS engine > Apple WebKit detection
+TypeError: isAppleWebKit is not a function
+ ❯ src/lib/video/__tests__/playbackSound.test.ts:62:12
+     60|   it("Apple WebKit detection", () => {
+     61|     const android = "Mozilla/5.0 (Linux; Android 14; SM-S918B Build/UP…
+     62|     expect(isAppleWebKit(android, "android")).toBe(false);
+       |            ^
+     63|     expect(isAppleWebKit("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like…
+     64|     expect(isAppleWebKit("Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0)…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/33]⎯
+
+ FAIL  src/lib/video/__tests__/playbackSound.test.ts > startPlayback — never a broken card > with sound: `muted` is false BEFORE play() is called (not left to a re-render)
+TypeError: startPlayback is not a function
+ ❯ src/lib/video/__tests__/playbackSound.test.ts:92:18
+     90|   it("with sound: `muted` is false BEFORE play() is called (not left t…
+     91|     const m = media(["ok"]);
+     92|     expect(await startPlayback(m, true)).toEqual({ ok: true, muted: fa…
+       |                  ^
+     93|     expect(m.calls).toEqual([false]);
+     94|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[28/33]⎯
+
+ FAIL  src/lib/video/__tests__/playbackSound.test.ts > startPlayback — never a broken card > sound refused (NotAllowedError) → the same video starts muted
+TypeError: startPlayback is not a function
+ ❯ src/lib/video/__tests__/playbackSound.test.ts:97:18
+     95|   it("sound refused (NotAllowedError) → the same video starts muted", …
+     96|     const m = media(["NotAllowedError", "ok"]);
+     97|     expect(await startPlayback(m, true)).toEqual({ ok: true, muted: tr…
+       |                  ^
+     98|     expect(m.calls).toEqual([false, true]);
+     99|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[29/33]⎯
+
+ FAIL  src/lib/video/__tests__/playbackSound.test.ts > startPlayback — never a broken card > AbortError (the load it waited on was replaced) → once more when it can play
+TypeError: startPlayback is not a function
+ ❯ src/lib/video/__tests__/playbackSound.test.ts:102:15
+    100|   it("AbortError (the load it waited on was replaced) → once more when…
+    101|     const m = media(["AbortError", "ok"]);
+    102|     const p = startPlayback(m, false, { abortRetryMs: 10_000 });
+       |               ^
+    103|     await Promise.resolve(); await Promise.resolve();
+    104|     m.fire("canplay");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[30/33]⎯
+
+ FAIL  src/lib/video/__tests__/playbackSound.test.ts > startPlayback — never a broken card > refused even muted → { ok: false } with the reason (the card shows its Play button)
+TypeError: startPlayback is not a function
+ ❯ src/lib/video/__tests__/playbackSound.test.ts:110:18
+    108|   it("refused even muted → { ok: false } with the reason (the card sho…
+    109|     const m = media(["NotAllowedError", "NotAllowedError"]);
+    110|     expect(await startPlayback(m, true)).toEqual({ ok: false, error: "…
+       |                  ^
+    111|   });
+    112|   it("AbortError twice → gives up, no loop", async () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[31/33]⎯
+
+ FAIL  src/lib/video/__tests__/playbackSound.test.ts > startPlayback — never a broken card > AbortError twice → gives up, no loop
+TypeError: startPlayback is not a function
+ ❯ src/lib/video/__tests__/playbackSound.test.ts:114:15
+    112|   it("AbortError twice → gives up, no loop", async () => {
+    113|     const m = media(["AbortError", "AbortError"]);
+    114|     const p = startPlayback(m, false, { abortRetryMs: 1 });
+       |               ^
+    115|     expect(await p).toEqual({ ok: false, error: "AbortError" });
+    116|     expect(m.play).toHaveBeenCalledTimes(2);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[32/33]⎯
+
+ FAIL  src/lib/video/__tests__/playbackSound.test.ts > controls timing > the controls fade out 2–3 s after a tap
+TypeError: actual value must be number or bigint, received "undefined"
+ ❯ src/lib/video/__tests__/playbackSound.test.ts:133:33
+    131| describe("controls timing", () => {
+    132|   it("the controls fade out 2–3 s after a tap", () => {
+    133|     expect(pb.CONTROLS_HIDE_MS).toBeGreaterThanOrEqual(2000);
+       |                                 ^
+    134|     expect(pb.CONTROLS_HIDE_MS).toBeLessThanOrEqual(3000);
+    135|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[33/33]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  33 failed | 2 passed (35)
+   Start at  00:22:47
+   Duration  9.14s (transform 722ms, setup 575ms, collect 2.31s, tests 1.52s, environment 4.43s, prepare 902ms)
+

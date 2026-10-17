@@ -21,7 +21,7 @@ vi.mock("@/lib/offline/networkQuality", () => ({
 }));
 
 import FeedVideoCard, { formatClock } from "../FeedVideoCard";
-import { resetPlayback } from "@/lib/video/playback";
+import { resetPlayback, resetSoundPref } from "@/lib/video/playback";
 import { resetGrantCache } from "@/lib/video/playGrant";
 
 type IO = { cb: IntersectionObserverCallback; opts?: IntersectionObserverInit; el?: Element };
@@ -49,7 +49,7 @@ const vid = (over: Partial<{ id: string; width: number | null; height: number | 
 const flush = () => act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
 
 beforeEach(() => {
-  observers = []; listeners.clear(); resetPlayback(); resetGrantCache();
+  observers = []; listeners.clear(); resetPlayback(); resetGrantCache(); resetSoundPref();
   net.online = true; net.slow = false;
   vi.stubGlobal("IntersectionObserver", FakeIO);
   fetchMock = vi.fn(async () => new Response(JSON.stringify(GRANT), { status: 200 }));
@@ -206,13 +206,18 @@ describe("the control bar (Owner 2026-10-12: drag to move through the video)", (
     expect(screen.getByTestId("feed-video-card").querySelector("video")!.currentTime).toBe(8);
   });
 
-  it("a tap on the bar never toggles playback (only the picture does)", async () => {
+  // Owner 2026-10-18 (Meta-style) replaces "tapping the picture plays/pauses" (2026-10-12):
+  // a tap on the picture now SHOWS the controls; pausing is the controls' own button.
+  it("a tap on the bar never toggles playback; a tap on the picture shows the controls, their Pause button pauses", async () => {
     render(<FeedVideoCard video={vid()} />);
     fire(nearObs(), 0.1); fire(view(), 1); await flush();
     pauseSpy.mockClear();
     fireEvent.click(screen.getByTestId("video-controls"));
     expect(pauseSpy).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId("feed-video-card").querySelector("video")!);
+    expect(pauseSpy).not.toHaveBeenCalled();
+    expect(screen.getByTestId("video-controls").getAttribute("data-visible")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Pause" }));
     expect(pauseSpy).toHaveBeenCalled();
   });
 

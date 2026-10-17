@@ -1,0 +1,13 @@
+ok      210737 /    215040 B  chunk index.css  assets/index-Vm7ldccx.css
+ok      158303 /    163840 B  chunk (default)  assets/index.es-DxgIOYtz.js
+ok      201041 /    207872 B  chunk html2canvas.esm.js  assets/html2canvas.esm-DXEQVQnt.js
+ok      156014 /    163840 B  chunk (default)  assets/CinemaJudgeView-TEmZksep.js
+ok      385165 /    397312 B  chunk jspdf.es.min.js  assets/jspdf.es.min-B9B6TrTB.js
+ok      413110 /    425984 B  chunk AdminAnalytics.js  assets/AdminAnalytics-DpDing3k.js
+ok      699195 /    716800 B  chunk aacWasm.worker.js  assets/aacWasm.worker-Cxe7-1BQ.js
+ok      592626 /    611328 B  chunk hls.js  assets/hls-h6QHvJ3w.js
+ok      136516 /    163840 B  chunk (default)  assets/vendor-framer-motion-DMSdKdue.js
+ok     1713480 /   1754112 B  entry  assets/index-hYgqC_Jk.js
+ok      118233 /    163840 B  chunk (default)  assets/hls.worker-Bx8nX7sx.js
+ok      117593 /    163840 B  chunk (default)  assets/vendor-react-markdown-DzGMdg93.js
+bundle budget: 272 checks, 0 failure(s) — PASS
