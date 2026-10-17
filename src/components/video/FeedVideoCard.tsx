@@ -1,5 +1,7 @@
 /**
- * VID-1 part 2 · THE FEED VIDEO CARD — 9:16, filling the post (R-105, MASTER §3u).
+ * VID-1 part 2 · THE VIDEO PLAYER — the ONE player for every surface: feed,
+ * post page, hashtag feed, ad zones, ad page, comments box, owner review
+ * (R-105, MASTER §3u). Do not make a second one.
  *
  * The card spans the post's full width at 9:16, capped at 85 % of the screen
  * height (Owner, staging 2026-10-12: "card size and video size are not
@@ -9,34 +11,46 @@
  * and below a landscape clip — shows a blurred, enlarged copy of its poster
  * (src/lib/video/videoFrame.ts). No black bars, nothing cut off.
  *
- * Controls (Owner, same day: "no bar … to fast dragging"): play/pause, a seek
- * bar you can drag, elapsed / total time, and sound. Tapping the picture
- * plays/pauses; the bar never does.
+ * Controls, Meta-style (Owner 2026-10-18, replacing the always-on bar of
+ * 2026-10-12): HIDDEN by default. A tap on the picture shows them — a thin
+ * (3 px), translucent progress bar you can drag (its touch area is 44 px
+ * tall), play/pause, elapsed / total time and sound — and they fade out again
+ * CONTROLS_HIDE_MS later while the video plays. A tap on the sound button
+ * changes the sound only; a tap on the bar never toggles playback. Keyboard
+ * focus shows them too.
  *
  * Behaviour (rules live in src/lib/video/playback.ts, tested there):
- *   • muted autoplay while ≥ 60 % of the card is in view; pause when it falls
- *     below 30 % or the tab is hidden; one card plays at a time;
+ *   • autoplay while ≥ 60 % of the card is in view; pause when it falls below
+ *     30 % or the tab / app is hidden; one card plays at a time;
+ *   • sound (autoplayWithSound): in the APP with sound by default; on the WEB
+ *     muted (the browser rule) until the member unmutes once, then with sound
+ *     for the rest of the session; a start with sound that is refused starts
+ *     muted instead (startPlayback) — never a broken or paused card for it;
+ *   • hls.js wherever the browser has MSE, the Android app included; the
+ *     platform's own HLS player only on Apple WebKit (pickHlsEngine says why);
  *   • 240p only on a slow network / Data Saver (hls.js autoLevelCapping), else
  *     start on 240p and let ABR climb;
  *   • the poster shows first and is all a card costs until it nears the screen:
  *     no token, no hls.js, no segment is requested for a card nowhere near view;
  *   • reduced-motion members and offline devices get the poster and a Play
- *     button — nothing starts by itself;
- *   • sound is the viewer's choice: a tap on the speaker button (a user gesture).
+ *     button — nothing starts by itself.
  *
  * hls.js is a lazy chunk (P13): it is imported on the first card that needs it.
- * Safari / iOS plays HLS natively. The token (15 min) is fetched from
- * /api/video/play-token as the viewer and renewed inside its last 90 s — when
- * playback starts, and, for a video longer than the token (no time limit since
- * 2026-10-12), DURING playback: the element's own timeupdate notices the token
- * is due and the stream is re-attached at the same second. A segment refused
- * with 403 (a token that ran out anyway) gets one fresh token before the card
- * gives up. There is no timer.
+ * The token (15 min) is fetched from /api/video/play-token as the viewer and
+ * renewed inside its last 90 s — when playback starts, and, for a video longer
+ * than the token (no time limit since 2026-10-12), DURING playback: the
+ * element's own timeupdate notices the token is due and the stream is
+ * re-attached at the same second. A segment refused with 403 (a token that ran
+ * out anyway) gets one fresh token before the card gives up. There is no
+ * repeating timer (the controls' hide is one short one-shot, cleared on hide).
  */
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { getNetState, subscribeNetState } from "@/lib/offline/networkQuality";
-import { claimPlayback, leavePlayback, levelCap, releasePlayback, shouldPlay } from "@/lib/video/playback";
+import {
+  CONTROLS_HIDE_MS, autoplayWithSound, claimPlayback, getSoundPref, isAppleWebKit, isNativeApp, leavePlayback, levelCap,
+  pickHlsEngine, releasePlayback, setSoundPref, shouldPlay, startPlayback, userActivated,
+} from "@/lib/video/playback";
 import { grantDue, requestGrant, type PlayGrant } from "@/lib/video/playGrant";
 import { VIDEO_FRAME_ASPECT } from "@/lib/video/videoFrame";
 import type { FeedVideo } from "@/lib/video/postVideoRead";
@@ -60,6 +74,13 @@ export function formatClock(seconds: number): string {
 }
 
 const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+const capPlatform = (): string | null => {
+  try { return (window as unknown as { Capacitor?: { getPlatform?: () => string } }).Capacitor?.getPlatform?.() ?? null; } catch { return null; }
+};
+const hasMse = (): boolean => {
+  const w = window as unknown as { MediaSource?: unknown; ManagedMediaSource?: unknown };
+  return !!(w.MediaSource || w.ManagedMediaSource);
+};
 
 /**
  * `fillParent`: fill the parent's box instead of drawing the 9:16 card — for
@@ -76,12 +97,16 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
   const playing = useRef(false);
   const [near, setNear] = useState(false);
   const [poster, setPoster] = useState<string | null>(null);
-  const [muted, setMuted] = useState(true);
+  // What the next autoplay will do; the element's own `muted` is set right before play() (startPlayback).
+  const [muted, setMuted] = useState(() => !autoplayWithSound({ native: isNativeApp(), pref: getSoundPref(), hasAudio: video.hasAudio, userActivated: false }));
   const [failed, setFailed] = useState(false);
   const [needsTap, setNeedsTap] = useState(false);
+  const [playError, setPlayError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(video.durationS || 0);
+  const [controlsShown, setControlsShown] = useState(false);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrubbing = useRef(false);
   /** A seek asked for before the stream is attached: applied once it is. */
   const pendingSeek = useRef<number | null>(null);
@@ -95,6 +120,19 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     releasePlayback(cardId);
   }, [cardId]);
 
+  /* ── the controls: hidden by default, shown by a tap, gone again ─────────── */
+  const clearHide = () => { if (hideTimer.current) { clearTimeout(hideTimer.current); hideTimer.current = null; } };
+  const scheduleHide = useCallback(() => {
+    clearHide();
+    if (!playing.current || scrubbing.current) return; // a paused video keeps its controls until the next tap
+    hideTimer.current = setTimeout(() => { hideTimer.current = null; setControlsShown(false); }, CONTROLS_HIDE_MS);
+  }, []);
+  const reveal = useCallback(() => { setControlsShown(true); scheduleHide(); }, [scheduleHide]);
+  const hideNow = () => { clearHide(); setControlsShown(false); };
+  // Playback starting with the controls up starts their countdown.
+  useEffect(() => { if (isPlaying && controlsShown && !hideTimer.current) scheduleHide(); }, [isPlaying, controlsShown, scheduleHide]);
+  useEffect(() => () => clearHide(), []);
+
   /** token → source. Safe to call again after a pause: it only works when the token is due. `fresh`: never a shared grant (after a 403). */
   const ensureSource = useCallback(async (fresh = false): Promise<boolean> => {
     const v = el.current;
@@ -106,18 +144,24 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     setPoster(g.poster_url);
     const resumeAt = pendingSeek.current ?? (attached.current ? v.currentTime : 0);
     pendingSeek.current = null;
-    if (v.canPlayType("application/vnd.apple.mpegurl")) {
-      v.src = g.master_url; // Safari / iOS: native HLS (no level cap available there)
-      if (resumeAt) v.currentTime = resumeAt;
-    } else {
+    const nativeHls = !!v.canPlayType("application/vnd.apple.mpegurl");
+    let engine = pickHlsEngine({ nativeHls, mse: hasMse(), appleWebKit: isAppleWebKit(navigator.userAgent, capPlatform()) });
+    let Hls: (typeof import("hls.js"))["default"] | null = null;
+    let workerPath = "";
+    if (engine === "hlsjs") {
       // workerPath: hls.js's demux worker is served from our own /assets/ (hashed,
       // always the same version as the library), so the CSP needs only
       // worker-src 'self' — never blob: (VID-1 CSP review, PR #396).
-      const [{ default: Hls }, { default: workerPath }] = await Promise.all([
-        import("hls.js"),
-        import("hls.js/dist/hls.worker.js?url"),
-      ]);
-      if (!Hls.isSupported()) { setFailed(true); return false; }
+      const [lib, worker] = await Promise.all([import("hls.js"), import("hls.js/dist/hls.worker.js?url")]);
+      Hls = lib.default; workerPath = worker.default;
+      if (!Hls.isSupported()) engine = nativeHls ? "native" : "none";
+    }
+    if (engine === "none") { setFailed(true); return false; }
+    v.dataset.engine = engine;
+    if (engine === "native" || !Hls) {
+      v.src = g.master_url; // Apple WebKit: its own HLS player (no level cap available there)
+      if (resumeAt) v.currentTime = resumeAt;
+    } else {
       if (hls.current) { hls.current.destroy(); hls.current = null; }
       const h = new Hls({ startLevel: 0, capLevelToPlayerSize: false, enableWorker: true, workerPath, startPosition: resumeAt || -1 }) as unknown as HlsInstance;
       const applyCap = () => {
@@ -152,19 +196,29 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     if (!v || playing.current) return;
     playing.current = true;
     if (!(await ensureSource())) { playing.current = false; return; }
+    if (!playing.current) return; // paused while the source was being fetched
     claimPlayback(cardId, pause, () => decideRef.current?.());
-    try {
-      await v.play();
+    const sound = autoplayWithSound({ native: isNativeApp(), pref: getSoundPref(), hasAudio: video.hasAudio, userActivated: userActivated() });
+    const r = await startPlayback(v, sound);
+    setMuted(v.muted);
+    if (!playing.current) { v.pause(); return; } // paused (scrolled away, another card) while it was starting
+    if (r.ok) {
       setIsPlaying(true);
       setNeedsTap(false);
-    } catch {
-      playing.current = false; // autoplay refused: leave the poster and a Play button
+      setPlayError(null);
+    } else {
+      const reason = "error" in r ? r.error : "Error";
+      // Refused even muted (a power saver, a stream that cannot load): the
+      // poster and a Play button — and the reason kept where a device test can read it.
+      playing.current = false;
       releasePlayback(cardId);
       setNeedsTap(true);
+      setPlayError(reason);
+      console.warn(`[video] play refused: ${reason}`);
     }
-  }, [cardId, ensureSource, pause]);
+  }, [cardId, ensureSource, pause, video.hasAudio]);
 
-  // Near the screen → fetch the poster. In view → play. Out of view → pause.
+  // Near the screen → fetch the poster. In view → play. Out of view, tab or app hidden → pause.
   useEffect(() => {
     const node = box.current;
     if (!node || typeof IntersectionObserver === "undefined") return;
@@ -175,16 +229,24 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
         tabVisible: document.visibilityState === "visible",
         online: getNetState().online, reducedMotion: reducedMotion(),
       });
+      // Why it is NOT starting by itself, for a device test to read (reduced motion is a member's system setting).
+      node.dataset.autoplayHold = reducedMotion() ? "reduced-motion" : !getNetState().online ? "offline" : "";
       if (want && !playing.current) void start();
       else if (!want && playing.current) pause();
+      if (document.visibilityState !== "visible") hideNow();
     };
     decideRef.current = decide;
     const near = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) setNear(true); }, { rootMargin: "600px 0px" });
     const view = new IntersectionObserver((es) => { ratio = es[es.length - 1]?.intersectionRatio ?? 0; decide(); }, { threshold: [0, 0.3, 0.6, 1] });
     near.observe(node); view.observe(node);
     document.addEventListener("visibilitychange", decide);
+    const onPageHide = () => { if (playing.current) pause(); };
+    window.addEventListener("pagehide", onPageHide);
     const off = subscribeNetState(decide);
-    return () => { decideRef.current = null; near.disconnect(); view.disconnect(); document.removeEventListener("visibilitychange", decide); off(); };
+    return () => {
+      decideRef.current = null; near.disconnect(); view.disconnect();
+      document.removeEventListener("visibilitychange", decide); window.removeEventListener("pagehide", onPageHide); off();
+    };
   }, [start, pause]);
 
   // Poster only — the cheapest thing a card near the screen can do.
@@ -204,6 +266,24 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
   }, [cardId]);
 
   const tapPlay = () => { setNeedsTap(false); void start(); };
+  const togglePlay = () => {
+    if (playing.current) { pause(); clearHide(); setControlsShown(true); } // paused: the controls stay up
+    else { tapPlay(); reveal(); }
+  };
+  /** The picture: shows the controls (or hides them when they are up). A paused card starts. */
+  const tapPicture = () => {
+    if (!playing.current) { tapPlay(); reveal(); return; }
+    if (controlsShown) hideNow(); else reveal();
+  };
+  /** Sound only — never play/pause. The choice holds for the session (setSoundPref). */
+  const toggleSound = () => {
+    const v = el.current;
+    const next = !(v ? v.muted : muted);
+    if (v) v.muted = next;
+    setMuted(next);
+    setSoundPref(!next);
+    reveal();
+  };
 
   /** A fresh token and the stream re-attached at the same second; playback goes on. */
   const renewing = useRef(false);
@@ -234,7 +314,7 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     return () => v.removeEventListener("timeupdate", onTime);
   }, [renew]);
 
-  // Time and length, from the element itself (the stream knows its real length).
+  // Time, length and sound, from the element itself (the stream knows its real length).
   useEffect(() => {
     const v = el.current;
     if (!v) return;
@@ -242,17 +322,20 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     const onDur = () => { if (Number.isFinite(v.duration) && v.duration > 0) setDuration(v.duration); };
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
+    const onVolume = () => setMuted(v.muted);
     v.addEventListener("timeupdate", onTime);
     v.addEventListener("durationchange", onDur);
     v.addEventListener("loadedmetadata", onDur);
     v.addEventListener("play", onPlay);
     v.addEventListener("pause", onPause);
+    v.addEventListener("volumechange", onVolume);
     return () => {
       v.removeEventListener("timeupdate", onTime);
       v.removeEventListener("durationchange", onDur);
       v.removeEventListener("loadedmetadata", onDur);
       v.removeEventListener("play", onPlay);
       v.removeEventListener("pause", onPause);
+      v.removeEventListener("volumechange", onVolume);
     };
   }, []);
 
@@ -265,6 +348,9 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     pendingSeek.current = t;
     tapPlay();
   };
+  const endScrub = () => { scrubbing.current = false; scheduleHide(); };
+
+  const progress = duration > 0 ? Math.min(100, (time / duration) * 100) : 0;
 
   return (
     <div
@@ -272,6 +358,8 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
       data-testid="feed-video-card"
       data-frame-aspect={VIDEO_FRAME_ASPECT.toFixed(3)}
       data-fill="blurred"
+      data-playing={isPlaying ? "true" : "false"}
+      data-play-error={playError ?? undefined}
       className={`relative w-full overflow-hidden ${fillParent ? "h-full" : "rounded-lg"} bg-black ${className}`}
       style={fillParent
         ? { width: "100%", height: "100%" }
@@ -291,10 +379,10 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
         poster={poster ?? undefined}
         aria-label="Video post"
         className="relative h-full w-full object-contain"
-        onClick={() => (playing.current ? pause() : tapPlay())}
+        onClick={tapPicture}
       />
       {(needsTap || (!isPlaying && !failed && poster)) && (
-        <button type="button" aria-label="Play video" onClick={tapPlay}
+        <button type="button" aria-label="Play video" onClick={() => { tapPlay(); reveal(); }}
           className="absolute inset-0 m-auto flex h-14 w-14 items-center justify-center rounded-full bg-black/60 text-white">
           <Play className="h-7 w-7" />
         </button>
@@ -304,40 +392,51 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
           This video can't play right now.
         </p>
       )}
-      {/* The control bar: never toggles playback itself (taps stop here). */}
+      {/* The controls: hidden until a tap (Meta-style); never toggle playback themselves (taps stop here). */}
       <div
         data-testid="video-controls"
+        data-visible={controlsShown ? "true" : "false"}
         onClick={(e) => e.stopPropagation()}
-        className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/75 to-transparent px-2 pb-2 pt-8 text-white"
+        onFocus={reveal}
+        className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/40 to-transparent pt-6 text-white transition-opacity duration-300 ${controlsShown ? "opacity-100" : "pointer-events-none opacity-0"}`}
       >
-        <button type="button" aria-label={isPlaying ? "Pause" : "Play"} onClick={() => (playing.current ? pause() : tapPlay())}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15">
-          {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-        </button>
-        <input
-          type="range"
-          aria-label="Seek"
-          aria-valuetext={`${formatClock(time)} of ${formatClock(duration)}`}
-          min={0}
-          max={Math.max(0.1, duration)}
-          step={0.1}
-          value={Math.min(time, Math.max(0.1, duration))}
-          onPointerDown={() => { scrubbing.current = true; }}
-          onPointerUp={() => { scrubbing.current = false; }}
-          onPointerCancel={() => { scrubbing.current = false; }}
-          onChange={(e) => seek(Number(e.target.value))}
-          className="h-9 min-w-0 flex-1 cursor-pointer accent-white"
-        />
-        <span className="shrink-0 text-[11px] tabular-nums" data-testid="video-clock">
-          {formatClock(time)} / {formatClock(duration)}
-        </span>
-        {video.hasAudio && (
-          <button type="button" aria-label={muted ? "Turn sound on" : "Turn sound off"} aria-pressed={!muted}
-            onClick={() => setMuted((m) => !m)}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15">
-            {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+        <div className="flex items-center gap-1 px-1">
+          <button type="button" aria-label={isPlaying ? "Pause" : "Play"} onClick={togglePlay}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-white/15">
+            {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
           </button>
-        )}
+          <span className="shrink-0 text-[11px] tabular-nums drop-shadow" data-testid="video-clock">
+            {formatClock(time)} / {formatClock(duration)}
+          </span>
+          <span className="flex-1" />
+          {video.hasAudio && (
+            <button type="button" aria-label={muted ? "Turn sound on" : "Turn sound off"} aria-pressed={!muted}
+              onClick={toggleSound}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-white/15">
+              {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+            </button>
+          )}
+        </div>
+        {/* The bar: 3 px to the eye, 44 px to the finger (an invisible range input over it). */}
+        <div className="relative h-11 w-full" data-testid="video-progress">
+          <div aria-hidden="true" data-testid="video-progress-track" className="pointer-events-none absolute inset-x-2 bottom-3 h-[3px] rounded-full bg-white/30">
+            <div className="h-full rounded-full bg-white/80" style={{ width: `${progress}%` }} />
+          </div>
+          <input
+            type="range"
+            aria-label="Seek"
+            aria-valuetext={`${formatClock(time)} of ${formatClock(duration)}`}
+            min={0}
+            max={Math.max(0.1, duration)}
+            step={0.1}
+            value={Math.min(time, Math.max(0.1, duration))}
+            onPointerDown={() => { scrubbing.current = true; clearHide(); }}
+            onPointerUp={endScrub}
+            onPointerCancel={endScrub}
+            onChange={(e) => { seek(Number(e.target.value)); if (!scrubbing.current) scheduleHide(); }}
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+          />
+        </div>
       </div>
     </div>
   );

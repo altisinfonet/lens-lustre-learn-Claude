@@ -645,6 +645,23 @@ jobs:
       - name: Add Android platform
         run: npx cap add android
 
+      # The app autoplays video WITH SOUND (Owner 2026-10-18, src/lib/video/playback.ts
+      # autoplayWithSound). That needs the WebView to let media start without a
+      # tap — and Capacitor already does that itself: Bridge.initWebView() calls
+      # settings.setMediaPlaybackRequiresUserGesture(false) (Capacitor 8.5.0,
+      # capacitor/src/main/java/com/getcapacitor/Bridge.java). We inject nothing;
+      # this step only refuses to build if a Capacitor update ever drops that
+      # line, because then every video in the app would wait for a tap again.
+      - name: Assert the WebView lets video autoplay (Capacitor sets no user-gesture rule)
+        run: |
+          set -euo pipefail
+          BRIDGE=node_modules/@capacitor/android/capacitor/src/main/java/com/getcapacitor/Bridge.java
+          test -f "$BRIDGE" || { echo "::error::$BRIDGE not found - cannot prove the autoplay setting"; exit 1; }
+          grep -n "setMediaPlaybackRequiresUserGesture(false)" "$BRIDGE" || { echo "::error::Capacitor no longer calls setMediaPlaybackRequiresUserGesture(false): app video autoplay (with sound) would need a tap. Inject it in MainActivity before shipping."; exit 1; }
+          if grep -rn "setMediaPlaybackRequiresUserGesture(true)" android/app/src/main/java; then
+            echo "::error::the generated app turns the user-gesture rule back on"; exit 1
+          fi
+
       # `npm install @capacitor/camera` succeeding proves only that npm found a
       # tarball. What matters is that `cap add android` DETECTED it and wired it
       # into the Gradle build — if it did not, `window.Capacitor.Plugins.Camera`
@@ -767,6 +784,10 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
+          # 2026-10-18: bumped 1.2.23 -> 1.2.24. 1.2.23 is spent (versionCode 1126, on the
+          # Owner's phone). 1.2.24 carries the Meta-style video player: autoplay with sound
+          # in the app (hls.js instead of the WebView's own HLS player), controls hidden
+          # until a tap, a thin progress bar.
           # 2026-10-17 (later): bumped 1.2.22 -> 1.2.23. 1.2.22 is spent (versionCode 1125, on
           # Play Internal testing). 1.2.23 carries the app video fix: every call to our own
           # Pages Functions goes to the lane site origin from the app, and those Functions
@@ -818,8 +839,8 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
-          sed -i 's/versionName "1.0"/versionName "1.2.23"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.23 (1.2.22 is spent - versionCode 1125, Play Internal testing 2026-10-17)"
+          sed -i 's/versionName "1.0"/versionName "1.2.24"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.24 (1.2.23 is spent - versionCode 1126, Owner phone test 2026-10-18)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
