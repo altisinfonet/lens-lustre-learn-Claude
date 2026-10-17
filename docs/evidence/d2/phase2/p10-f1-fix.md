@@ -171,11 +171,30 @@ non-test helpers under `src/test-utils/` would close it; that is a change to a
 guard D2 did not design, in a PR about certificate tests, so it is **raised as
 F-D2-3 and not done here**.
 
-## Out of scope, and why it matters anyway
+## F-D2-1, closed on main by the same helper (R-72.6, 2026-10-04)
 
-A fifth test, `src/lib/__tests__/referralReward0023Withdrawn.test.ts`, fails on
+A fifth test, `src/lib/__tests__/referralReward0023Withdrawn.test.ts`, failed on
 **`main` only**, with the same cause in a different file: the rollback it reads
-exists only on `main`, was neutralised under R-24 / R-26, and so no longer opens
-with the banner the test requires. It is not one of the four R-70 named, and it
-is not fixed here. **It means main's Android `npm test` gate fails for two
-reasons, not one.** Raised as **F-D2-1**.
+exists only on `main`, was neutralised under R-24 / R-26, and so no longer opened
+with the banner the test requires. It was raised as F-D2-1 and left alone in the
+staging PR, because it was not one of the four R-70 named.
+
+R-72.6 authorised a carry PR to `main` to close it. The fix needed no new idea:
+
+* `sqlAsWritten(absolutePath)` was added beside `migrationText(fragment)`. The
+  caller already knows both filenames and asserts elsewhere that they exist, so
+  resolving by fragment would add a failure mode and buy nothing. It also reaches
+  `supabase/rollback/`, which is not a migrations directory at all.
+* The migration half of that pair was **never** neutralised — it still carries its
+  own banner. `sqlAsWritten` returns such a file unchanged, so one call serves
+  both files and **not one assertion in that test had to move.**
+* C-34: `GRANT` → `GRANTT` inside the rollback's preserved body →
+  `recorded c135cf08c019 / recovered df1347d99d5a`, named, test red. File restored
+  and re-hashed `b0e40daadc99` before and after.
+
+Main's Android `npm test` gate now fails for zero reasons rather than two.
+
+## Out of scope on staging, and why it mattered anyway
+
+The paragraph above is what this section used to raise. It is kept so the staging
+PR's reasoning still reads in order.
