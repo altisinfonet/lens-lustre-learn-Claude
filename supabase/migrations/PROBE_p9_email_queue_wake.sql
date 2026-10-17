@@ -15,6 +15,11 @@
 -- OPEN, not judged here (P9-c): any OTHER cron job whose command still calls
 -- net.http_post or holds a long literal is listed by name in the PASS notice.
 -- Commands are never printed: they may carry secrets.
+-- F-AUD-5: a "long literal" (E1 and OPEN) is judged by PROBE_p9c's exact scan —
+-- quoted literals read in order from the start ('' kept inside one), each
+-- 17+ chars and not the job's own name. The old regex '[^'']{17,}' also matched
+-- the text BETWEEN two short literals, so production listed
+-- rollup-engagement-daily (two short literals, no HTTP) as OPEN.
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN READ ONLY;
 DO $probe$
@@ -30,10 +35,11 @@ BEGIN
     RAISE EXCEPTION 'PROBE FAIL P9-email: E4 the wake machinery of 20261004_0006 is not installed';
   END IF;
   -- E1
-  FOR j IN SELECT schedule, command FROM cron.job WHERE jobname = 'process-email-queue' LOOP
+  FOR j IN SELECT jobname, schedule, command FROM cron.job WHERE jobname = 'process-email-queue' LOOP
     IF j.schedule ~* '^\s*\d+\s+seconds?\s*$' THEN hits := hits || E'\n  E1 schedule is sub-minute (' || j.schedule || ')'; END IF;
     IF j.command ~* 'http_post' THEN hits := hits || E'\n  E1 the command still calls net.http_post'; END IF;
-    IF j.command ~ '''[^'']{17,}''' THEN hits := hits || E'\n  E1 the command holds a long quoted literal'; END IF;
+    IF EXISTS (SELECT 1 FROM regexp_matches(j.command, '''((?:[^'']|'''')*)''', 'g') m
+                WHERE length(m[1]) >= 17 AND m[1] <> j.jobname) THEN hits := hits || E'\n  E1 the command holds a long quoted literal'; END IF;
     IF j.command !~* 'public\.email_queue_tick\(\)' THEN hits := hits || E'\n  E1 the command does not call public.email_queue_tick()'; END IF;
     IF NOT EXISTS (SELECT 1 FROM vault.secrets WHERE name = 'p9_cron_http:process-email-queue') THEN
       hits := hits || E'\n  E1 no vault target p9_cron_http:process-email-queue'; END IF;
@@ -68,8 +74,11 @@ BEGIN
   IF hits <> '' THEN
     RAISE EXCEPTION 'PROBE FAIL P9-email:%', hits;
   END IF;
-  SELECT string_agg(jobname, ', ' ORDER BY jobname) INTO open_ FROM cron.job
-   WHERE jobname <> 'process-email-queue' AND (command ~* 'http_post' OR command ~ '''[^'']{17,}''');
+  SELECT string_agg(c.jobname, ', ' ORDER BY c.jobname) INTO open_ FROM cron.job c
+   WHERE c.jobname <> 'process-email-queue'
+     AND (c.command ~* 'http_post'
+          OR EXISTS (SELECT 1 FROM regexp_matches(c.command, '''((?:[^'']|'''')*)''', 'g') m
+                      WHERE length(m[1]) >= 17 AND m[1] <> c.jobname));
   SELECT wakes, idle_ticks, last_wake_at INTO st FROM public.email_queue_wake_state;
   RAISE NOTICE 'PROBE PASS P9-email: job %, wakes %, idle ticks %, last wake %. OPEN (P9-c, not this unit): %',
     CASE WHEN EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'process-email-queue') THEN 'once a minute → email_queue_tick()' ELSE 'absent on this lane' END,

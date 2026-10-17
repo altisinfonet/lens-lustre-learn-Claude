@@ -9,6 +9,7 @@
     "follows":            { "kind": "natural", "columns": ["follower_id", "following_id"], "action": "follow / unfollow (§2 #5)" },
     "friendships":        { "kind": "natural", "columns": ["requester_id", "addressee_id"], "action": "friend request (§2 #5)" },
     "post_reports":       { "kind": "natural", "columns": ["post_id", "reporter_id"], "action": "report a post, legacy path (§2 #15)" },
-    "user_notifications": { "kind": "update-only", "action": "mark read (§2 #7)", "reason": "UPDATE … SET is_read = true is the same row however often it is sent" }
+    "user_notifications": { "kind": "update-only", "action": "mark read (§2 #7)", "reason": "UPDATE … SET is_read = true is the same row however often it is sent" },
+    "feed_events":        { "kind": "natural", "columns": ["id"], "action": "seen-events, Stage L2 (F-REV4-8)", "reason": "the tracker makes each event row's primary key (UUID v4) once, when the event is recorded, and every resend carries it; feed_events_pkey turns a repeat into ON CONFLICT (id) DO NOTHING — a resend is the same row" }
   }
 }

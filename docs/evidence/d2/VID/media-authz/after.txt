@@ -1,0 +1,10 @@
+
+ RUN  v3.2.4 /home/claude/lens-lustre-learn-claude
+
+ ✓ src/lib/video/__tests__/mediaAuthz.test.ts (31 tests) 113ms
+
+ Test Files  1 passed (1)
+      Tests  31 passed (31)
+   Start at  13:33:46
+   Duration  930ms (transform 103ms, setup 42ms, collect 115ms, tests 113ms, environment 309ms, prepare 133ms)
+

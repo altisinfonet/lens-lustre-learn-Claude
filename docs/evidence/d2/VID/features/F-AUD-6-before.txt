@@ -1,0 +1,1760 @@
+
+ RUN  v3.2.4 /home/claude/lens-lustre-learn-claude
+
+ ❯ src/components/admin/__tests__/AdminFeatures.test.tsx (13 tests | 2 failed) 1681ms
+   ✓ Admin → Features > shows the Owner's three words on every feature 89ms
+   ✓ Admin → Features > Save is off until something changes, then writes mode + note in ONE RPC 87ms
+   ✓ Admin → Features > the member list is shown as chips only in Selected members mode; ✕ removes 48ms
+   ✓ Admin → Features > search → Add calls feature_add_member; someone already added shows 'Added', not Add 71ms
+   × Admin → Features > F-AUD-6: every search result shows an avatar — the photo when there is one, initials when not 1044ms
+     → Unable to find role="list" and name "Search results"
+
+Ignored nodes: comments, script, style
+<section
+  aria-labelledby="feat-video_posts"
+  class="rounded-lg border border-border bg-card p-4 space-y-4"
+  data-testid="feature-video_posts"
+>
+  <div>
+    <h3
+      class="text-base font-semibold"
+      id="feat-video_posts"
+    >
+      Video posts
+    </h3>
+    <p
+      class="text-sm text-muted-foreground"
+    >
+      Who can add a video to a post.
+    </p>
+  </div>
+  <fieldset
+    class="space-y-2"
+  >
+    <legend
+      class="sr-only"
+    >
+      Video posts
+       — who can use it
+    </legend>
+    <label
+      class="flex items-center gap-2 text-sm "
+    >
+      <input
+        name="mode-video_posts"
+        type="radio"
+        value="off"
+      />
+      Off
+    </label>
+    <label
+      class="flex items-center gap-2 text-sm "
+    >
+      <input
+        checked=""
+        name="mode-video_posts"
+        type="radio"
+        value="selected"
+      />
+      Selected members
+    </label>
+    <label
+      class="flex items-center gap-2 text-sm "
+    >
+      <input
+        name="mode-video_posts"
+        type="radio"
+        value="everyone"
+      />
+      All members
+    </label>
+  </fieldset>
+  <div
+    class="space-y-3"
+  >
+    <div>
+      <p
+        class="text-sm font-medium"
+      >
+        Selected members (
+        1
+        )
+      </p>
+      <ul
+        class="mt-2 flex flex-wrap gap-2"
+      >
+        <li
+          class="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs"
+        >
+          <span>
+            Already In
+          </span>
+          <button
+            aria-label="Remove Already In"
+            class="rounded-full p-0.5 hover:bg-background"
+            type="button"
+          >
+            <svg
+              class="lucide lucide-x h-3 w-3"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M18 6 6 18"
+              />
+              <path
+                d="m6 6 12 12"
+              />
+            </svg>
+          </button>
+        </li>
+      </ul>
+    </div>
+    <form
+      class="flex gap-2"
+    >
+      <label
+        class="sr-only"
+        for="q-video_posts"
+      >
+        Search members by name, @username or email
+      </label>
+      <input
+        class="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm"
+        id="q-video_posts"
+        placeholder="Name, @username or email"
+        value="asha"
+      />
+      <button
+        class="inline-flex items-center gap-1 rounded-md border border-border px-3 py-2 text-sm"
+        type="submit"
+      >
+        <svg
+          class="lucide lucide-search h-4 w-4"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <circle
+            cx="11"
+            cy="11"
+            r="8"
+          />
+          <path
+            d="m21 21-4.3-4.3"
+          />
+        </svg>
+         Search
+      </button>
+    </form>
+    <ul
+      class="divide-y divide-border rounded-md border border-border"
+    >
+      <li
+        class="flex items-center justify-between gap-2 p-2 text-sm"
+      >
+        <span
+          class="min-w-0 truncate"
+        >
+          Asha Rao
+           @asha
+           · asha@example.com
+        </span>
+        <button
+          class="rounded-md bg-primary px-3 py-1 text-xs text-primary-foreground"
+          type="button"
+        >
+          Add
+        </button>
+      </li>
+      <li
+        class="flex items-center justify-between gap-2 p-2 text-sm"
+      >
+        <span
+          class="min-w-0 truncate"
+        >
+          Already In
+        </span>
+        <span
+          class="text-xs text-muted-foreground"
+        >
+          Added
+        </span>
+      </li>
+    </ul>
+  </div>
+  <div>
+    <label
+      class="text-sm font-medium"
+      for="note-video_posts"
+    >
+      Note (optional)
+    </label>
+    <textarea
+      class="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+      id="note-video_posts"
+      maxlength="500"
+      rows="2"
+    >
+      beta
+    </textarea>
+    <p
+      class="text-right text-xs text-muted-foreground"
+    >
+      4
+      /
+      500
+    </p>
+  </div>
+  <button
+    class="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
+    disabled=""
+    type="button"
+  >
+     Save
+  </button>
+  <details>
+    <summary
+      class="cursor-pointer text-sm font-medium"
+    >
+      History (
+      1
+      )
+    </summary>
+    <ol
+      class="mt-2 space-y-1 text-xs"
+    >
+      <li>
+        <time
+          class="text-muted-foreground"
+          datetime="2026-10-10T01:00:00Z"
+        >
+          10/10/2026, 6:30:00 AM
+        </time>
+         — 
+        Neil changed it from Off to Selected members
+         — “start”
+      </li>
+    </ol>
+  </details>
+</section>
+
+Ignored nodes: comments, script, style
+<section
+  aria-labelledby="feat-video_posts"
+  class="rounded-lg border border-border bg-card p-4 space-y-4"
+  data-testid="feature-video_posts"
+>
+  <div>
+    <h3
+      class="text-base font-semibold"
+      id="feat-video_posts"
+    >
+      Video posts
+    </h3>
+    <p
+      class="text-sm text-muted-foreground"
+    >
+      Who can add a video to a post.
+    </p>
+  </div>
+  <fieldset
+    class="space-y-2"
+  >
+    <legend
+      class="sr-only"
+    >
+      Video posts
+       — who can use it
+    </legend>
+    <label
+      class="flex items-center gap-2 text-sm "
+    >
+      <input
+        name="mode-video_posts"
+        type="radio"
+        value="off"
+      />
+      Off
+    </label>
+    <label
+      class="flex items-center gap-2 text-sm "
+    >
+      <input
+        checked=""
+        name="mode-video_posts"
+        type="radio"
+        value="selected"
+      />
+      Selected members
+    </label>
+    <label
+      class="flex items-center gap-2 text-sm "
+    >
+      <input
+        name="mode-video_posts"
+        type="radio"
+        value="everyone"
+      />
+      All members
+    </label>
+  </fieldset>
+  <div
+    class="space-y-3"
+  >
+    <div>
+      <p
+        class="text-sm font-medium"
+      >
+        Selected members (
+        1
+        )
+      </p>
+      <ul
+        class="mt-2 flex flex-wrap gap-2"
+      >
+        <li
+          class="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs"
+        >
+          <span>
+            Already In
+          </span>
+          <button
+            aria-label="Remove Already In"
+            class="rounded-full p-0.5 hover:bg-background"
+            type="button"
+          >
+            <svg
+              class="lucide lucide-x h-3 w-3"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M18 6 6 18"
+              />
+              <path
+                d="m6 6 12 12"
+              />
+            </svg>
+          </button>
+        </li>
+      </ul>
+    </div>
+    <form
+      class="flex gap-2"
+    >
+      <label
+        class="sr-only"
+        for="q-video_posts"
+      >
+        Search members by name, @username or email
+      </label>
+      <input
+        class="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm"
+        id="q-video_posts"
+        placeholder="Name, @username or email"
+        value="asha"
+      />
+      <button
+        class="inline-flex items-center gap-1 rounded-md border border-border px-3 py-2 text-sm"
+        type="submit"
+      >
+        <svg
+          class="lucide lucide-search h-4 w-4"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <circle
+            cx="11"
+            cy="11"
+            r="8"
+          />
+          <path
+            d="m21 21-4.3-4.3"
+          />
+        </svg>
+         Search
+      </button>
+    </form>
+    <ul
+      class="divide-y divide-border rounded-md border border-border"
+    >
+      <li
+        class="flex items-center justify-between gap-2 p-2 text-sm"
+      >
+        <span
+          class="min-w-0 truncate"
+        >
+          Asha Rao
+           @asha
+           · asha@example.com
+        </span>
+        <button
+          class="rounded-md bg-primary px-3 py-1 text-xs text-primary-foreground"
+          type="button"
+        >
+          Add
+        </button>
+      </li>
+      <li
+        class="flex items-center justify-between gap-2 p-2 text-sm"
+      >
+        <span
+          class="min-w-0 truncate"
+        >
+          Already In
+        </span>
+        <span
+          class="text-xs text-muted-foreground"
+        >
+          Added
+        </span>
+      </li>
+    </ul>
+  </div>
+  <div>
+    <label
+      class="text-sm font-medium"
+      for="note-video_posts"
+    >
+      Note (optional)
+    </label>
+    <textarea
+      class="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+      id="note-video_posts"
+      maxlength="500"
+      rows="2"
+    >
+      beta
+    </textarea>
+    <p
+      class="text-right text-xs text-muted-foreground"
+    >
+      4
+      /
+      500
+    </p>
+  </div>
+  <button
+    class="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
+    disabled=""
+    type="button"
+  >
+     Save
+  </button>
+  <details>
+    <summary
+      class="cursor-pointer text-sm font-medium"
+    >
+      History (
+      1
+      )
+    </summary>
+    <ol
+      class="mt-2 space-y-1 text-xs"
+    >
+      <li>
+        <time
+          class="text-muted-foreground"
+          datetime="2026-10-10T01:00:00Z"
+        >
+          10/10/2026, 6:30:00 AM
+        </time>
+         — 
+        Neil changed it from Off to Selected members
+         — “start”
+      </li>
+    </ol>
+  </details>
+</section>
+   × Admin → Features > F-AUD-6: each selected-member chip shows the same avatar 191ms
+     → Unable to find an accessible element with the role "list" and name "Selected members"
+
+Here are the accessible roles:
+
+  heading:
+
+  Name "Video posts":
+  <h3
+    class="text-base font-semibold"
+    id="feat-video_posts"
+  />
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  <p
+    class="text-sm text-muted-foreground"
+  />
+
+  --------------------------------------------------group:
+
+  Name "Video posts — who can use it":
+  <fieldset
+    class="space-y-2"
+  />
+
+  --------------------------------------------------
+  radio:
+
+  Name "Off":
+  <input
+    name="mode-video_posts"
+    type="radio"
+    value="off"
+  />
+
+  Name "Selected members":
+  <input
+    checked=""
+    name="mode-video_posts"
+    type="radio"
+    value="selected"
+  />
+
+  Name "All members":
+  <input
+    name="mode-video_posts"
+    type="radio"
+    value="everyone"
+  />
+
+  --------------------------------------------------paragraph:
+
+  Name "":
+  <p
+    class="text-sm font-medium"
+  />
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  <ul
+    class="mt-2 flex flex-wrap gap-2"
+  />
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  <li
+    class="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs"
+  />
+
+  --------------------------------------------------
+  button:
+
+  Name "Remove Already In":
+  <button
+    aria-label="Remove Already In"
+    class="rounded-full p-0.5 hover:bg-background"
+    type="button"
+  />
+
+  Name "Search":
+  <button
+    class="inline-flex items-center gap-1 rounded-md border border-border px-3 py-2 text-sm"
+    type="submit"
+  />
+
+  --------------------------------------------------
+  textbox:
+
+  Name "Search members by name, @username or email":
+  <input
+    class="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm"
+    id="q-video_posts"
+    placeholder="Name, @username or email"
+    value=""
+  />
+
+  --------------------------------------------------textbox:
+
+  Name "Note (optional)":
+  <textarea
+    class="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+    id="note-video_posts"
+    maxlength="500"
+    rows="2"
+  />
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  <p
+    class="text-right text-xs text-muted-foreground"
+  />
+
+  --------------------------------------------------button:
+
+  Name "Save":
+  <button
+    class="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
+    disabled=""
+    type="button"
+  />
+
+  --------------------------------------------------group:
+
+  Name "":
+  <details />
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  <ol
+    class="mt-2 space-y-1 text-xs"
+  />
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  <li />
+
+  --------------------------------------------------
+  time:
+
+  Name "":
+  <time
+    class="text-muted-foreground"
+    datetime="2026-10-10T01:00:00Z"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<section
+  aria-labelledby="feat-video_posts"
+  class="rounded-lg border border-border bg-card p-4 space-y-4"
+  data-testid="feature-video_posts"
+>
+  <div>
+    <h3
+      class="text-base font-semibold"
+      id="feat-video_posts"
+    >
+      Video posts
+    </h3>
+    <p
+      class="text-sm text-muted-foreground"
+    >
+      Who can add a video to a post.
+    </p>
+  </div>
+  <fieldset
+    class="space-y-2"
+  >
+    <legend
+      class="sr-only"
+    >
+      Video posts
+       — who can use it
+    </legend>
+    <label
+      class="flex items-center gap-2 text-sm "
+    >
+      <input
+        name="mode-video_posts"
+        type="radio"
+        value="off"
+      />
+      Off
+    </label>
+    <label
+      class="flex items-center gap-2 text-sm "
+    >
+      <input
+        checked=""
+        name="mode-video_posts"
+        type="radio"
+        value="selected"
+      />
+      Selected members
+    </label>
+    <label
+      class="flex items-center gap-2 text-sm "
+    >
+      <input
+        name="mode-video_posts"
+        type="radio"
+        value="everyone"
+      />
+      All members
+    </label>
+  </fieldset>
+  <div
+    class="space-y-3"
+  >
+    <div>
+      <p
+        class="text-sm font-medium"
+      >
+        Selected members (
+        1
+        )
+      </p>
+      <ul
+        class="mt-2 flex flex-wrap gap-2"
+      >
+        <li
+          class="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs"
+        >
+          <span>
+            Already In
+          </span>
+          <button
+            aria-label="Remove Already In"
+            class="rounded-full p-0.5 hover:bg-background"
+            type="button"
+          >
+            <svg
+              class="lucide lucide-x h-3 w-3"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M18 6 6 18"
+              />
+              <path
+                d="m6 6 12 12"
+              />
+            </svg>
+          </button>
+        </li>
+      </ul>
+    </div>
+    <form
+      class="flex gap-2"
+    >
+      <label
+        class="sr-only"
+        for="q-video_posts"
+      >
+        Search members by name, @username or email
+      </label>
+      <input
+        class="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm"
+        id="q-video_posts"
+        placeholder="Name, @username or email"
+        value=""
+      />
+      <button
+        class="inline-flex items-center gap-1 rounded-md border border-border px-3 py-2 text-sm"
+        type="submit"
+      >
+        <svg
+          class="lucide lucide-search h-4 w-4"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <circle
+            cx="11"
+            cy="11"
+            r="8"
+          />
+          <path
+            d="m21 21-4.3-4.3"
+          />
+        </svg>
+         Search
+      </button>
+    </form>
+  </div>
+  <div>
+    <label
+      class="text-sm font-medium"
+      for="note-video_posts"
+    >
+      Note (optional)
+    </label>
+    <textarea
+      class="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+      id="note-video_posts"
+      maxlength="500"
+      rows="2"
+    >
+      beta
+    </textarea>
+    <p
+      class="text-right text-xs text-muted-foreground"
+    >
+      4
+      /
+      500
+    </p>
+  </div>
+  <button
+    class="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
+    disabled=""
+    type="button"
+  >
+     Save
+  </button>
+  <details>
+    <summary
+      class="cursor-pointer text-sm font-medium"
+    >
+      History (
+      1
+      )
+    </summary>
+    <ol
+      class="mt-2 space-y-1 text-xs"
+    >
+      <li>
+        <time
+          class="text-muted-foreground"
+          datetime="2026-10-10T01:00:00Z"
+        >
+          10/10/2026, 6:30:00 AM
+        </time>
+         — 
+        Neil changed it from Off to Selected members
+         — “start”
+      </li>
+    </ol>
+  </details>
+</section>
+   ✓ Admin → Features > a one-letter search asks the server nothing 29ms
+   ✓ Admin → Features > the copyright check cannot be switched on without the key 17ms
+   ✓ Admin → Features > …and is open once the key is configured 7ms
+   ✓ Admin → Features > a server refusal is shown in words, and nothing pretends it saved 49ms
+   ✓ Admin → Features > history reads in plain words with the actor's name 27ms
+   ✓ Admin → Features > a note over 500 characters cannot be typed 13ms
+   ✓ Admin → Features > a load failure says so 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/admin/__tests__/AdminFeatures.test.tsx > Admin → Features > F-AUD-6: every search result shows an avatar — the photo when there is one, initials when not
+TestingLibraryElementError: Unable to find role="list" and name "Search results"
+
+Ignored nodes: comments, script, style
+<section
+  aria-labelledby="feat-video_posts"
+  class="rounded-lg border border-border bg-card p-4 space-y-4"
+  data-testid="feature-video_posts"
+>
+  <div>
+    <h3
+      class="text-base font-semibold"
+      id="feat-video_posts"
+    >
+      Video posts
+    </h3>
+    <p
+      class="text-sm text-muted-foreground"
+    >
+      Who can add a video to a post.
+    </p>
+  </div>
+  <fieldset
+    class="space-y-2"
+  >
+    <legend
+      class="sr-only"
+    >
+      Video posts
+       — who can use it
+    </legend>
+    <label
+      class="flex items-center gap-2 text-sm "
+    >
+      <input
+        name="mode-video_posts"
+        type="radio"
+        value="off"
+      />
+      Off
+    </label>
+    <label
+      class="flex items-center gap-2 text-sm "
+    >
+      <input
+        checked=""
+        name="mode-video_posts"
+        type="radio"
+        value="selected"
+      />
+      Selected members
+    </label>
+    <label
+      class="flex items-center gap-2 text-sm "
+    >
+      <input
+        name="mode-video_posts"
+        type="radio"
+        value="everyone"
+      />
+      All members
+    </label>
+  </fieldset>
+  <div
+    class="space-y-3"
+  >
+    <div>
+      <p
+        class="text-sm font-medium"
+      >
+        Selected members (
+        1
+        )
+      </p>
+      <ul
+        class="mt-2 flex flex-wrap gap-2"
+      >
+        <li
+          class="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs"
+        >
+          <span>
+            Already In
+          </span>
+          <button
+            aria-label="Remove Already In"
+            class="rounded-full p-0.5 hover:bg-background"
+            type="button"
+          >
+            <svg
+              class="lucide lucide-x h-3 w-3"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M18 6 6 18"
+              />
+              <path
+                d="m6 6 12 12"
+              />
+            </svg>
+          </button>
+        </li>
+      </ul>
+    </div>
+    <form
+      class="flex gap-2"
+    >
+      <label
+        class="sr-only"
+        for="q-video_posts"
+      >
+        Search members by name, @username or email
+      </label>
+      <input
+        class="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm"
+        id="q-video_posts"
+        placeholder="Name, @username or email"
+        value="asha"
+      />
+      <button
+        class="inline-flex items-center gap-1 rounded-md border border-border px-3 py-2 text-sm"
+        type="submit"
+      >
+        <svg
+          class="lucide lucide-search h-4 w-4"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <circle
+            cx="11"
+            cy="11"
+            r="8"
+          />
+          <path
+            d="m21 21-4.3-4.3"
+          />
+        </svg>
+         Search
+      </button>
+    </form>
+    <ul
+      class="divide-y divide-border rounded-md border border-border"
+    >
+      <li
+        class="flex items-center justify-between gap-2 p-2 text-sm"
+      >
+        <span
+          class="min-w-0 truncate"
+        >
+          Asha Rao
+           @asha
+           · asha@example.com
+        </span>
+        <button
+          class="rounded-md bg-primary px-3 py-1 text-xs text-primary-foreground"
+          type="button"
+        >
+          Add
+        </button>
+      </li>
+      <li
+        class="flex items-center justify-between gap-2 p-2 text-sm"
+      >
+        <span
+          class="min-w-0 truncate"
+        >
+          Already In
+        </span>
+        <span
+          class="text-xs text-muted-foreground"
+        >
+          Added
+        </span>
+      </li>
+    </ul>
+  </div>
+  <div>
+    <label
+      class="text-sm font-medium"
+      for="note-video_posts"
+    >
+      Note (optional)
+    </label>
+    <textarea
+      class="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+      id="note-video_posts"
+      maxlength="500"
+      rows="2"
+    >
+      beta
+    </textarea>
+    <p
+      class="text-right text-xs text-muted-foreground"
+    >
+      4
+      /
+      500
+    </p>
+  </div>
+  <button
+    class="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
+    disabled=""
+    type="button"
+  >
+     Save
+  </button>
+  <details>
+    <summary
+      class="cursor-pointer text-sm font-medium"
+    >
+      History (
+      1
+      )
+    </summary>
+    <ol
+      class="mt-2 space-y-1 text-xs"
+    >
+      <li>
+        <time
+          class="text-muted-foreground"
+          datetime="2026-10-10T01:00:00Z"
+        >
+          10/10/2026, 6:30:00 AM
+        </time>
+         — 
+        Neil changed it from Off to Selected members
+         — “start”
+      </li>
+    </ol>
+  </details>
+</section>
+
+Ignored nodes: comments, script, style
+<section
+  aria-labelledby="feat-video_posts"
+  class="rounded-lg border border-border bg-card p-4 space-y-4"
+  data-testid="feature-video_posts"
+>
+  <div>
+    <h3
+      class="text-base font-semibold"
+      id="feat-video_posts"
+    >
+      Video posts
+    </h3>
+    <p
+      class="text-sm text-muted-foreground"
+    >
+      Who can add a video to a post.
+    </p>
+  </div>
+  <fieldset
+    class="space-y-2"
+  >
+    <legend
+      class="sr-only"
+    >
+      Video posts
+       — who can use it
+    </legend>
+    <label
+      class="flex items-center gap-2 text-sm "
+    >
+      <input
+        name="mode-video_posts"
+        type="radio"
+        value="off"
+      />
+      Off
+    </label>
+    <label
+      class="flex items-center gap-2 text-sm "
+    >
+      <input
+        checked=""
+        name="mode-video_posts"
+        type="radio"
+        value="selected"
+      />
+      Selected members
+    </label>
+    <label
+      class="flex items-center gap-2 text-sm "
+    >
+      <input
+        name="mode-video_posts"
+        type="radio"
+        value="everyone"
+      />
+      All members
+    </label>
+  </fieldset>
+  <div
+    class="space-y-3"
+  >
+    <div>
+      <p
+        class="text-sm font-medium"
+      >
+        Selected members (
+        1
+        )
+      </p>
+      <ul
+        class="mt-2 flex flex-wrap gap-2"
+      >
+        <li
+          class="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs"
+        >
+          <span>
+            Already In
+          </span>
+          <button
+            aria-label="Remove Already In"
+            class="rounded-full p-0.5 hover:bg-background"
+            type="button"
+          >
+            <svg
+              class="lucide lucide-x h-3 w-3"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M18 6 6 18"
+              />
+              <path
+                d="m6 6 12 12"
+              />
+            </svg>
+          </button>
+        </li>
+      </ul>
+    </div>
+    <form
+      class="flex gap-2"
+    >
+      <label
+        class="sr-only"
+        for="q-video_posts"
+      >
+        Search members by name, @username or email
+      </label>
+      <input
+        class="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm"
+        id="q-video_posts"
+        placeholder="Name, @username or email"
+        value="asha"
+      />
+      <button
+        class="inline-flex items-center gap-1 rounded-md border border-border px-3 py-2 text-sm"
+        type="submit"
+      >
+        <svg
+          class="lucide lucide-search h-4 w-4"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <circle
+            cx="11"
+            cy="11"
+            r="8"
+          />
+          <path
+            d="m21 21-4.3-4.3"
+          />
+        </svg>
+         Search
+      </button>
+    </form>
+    <ul
+      class="divide-y divide-border rounded-md border border-border"
+    >
+      <li
+        class="flex items-center justify-between gap-2 p-2 text-sm"
+      >
+        <span
+          class="min-w-0 truncate"
+        >
+          Asha Rao
+           @asha
+           · asha@example.com
+        </span>
+        <button
+          class="rounded-md bg-primary px-3 py-1 text-xs text-primary-foreground"
+          type="button"
+        >
+          Add
+        </button>
+      </li>
+      <li
+        class="flex items-center justify-between gap-2 p-2 text-sm"
+      >
+        <span
+          class="min-w-0 truncate"
+        >
+          Already In
+        </span>
+        <span
+          class="text-xs text-muted-foreground"
+        >
+          Added
+        </span>
+      </li>
+    </ul>
+  </div>
+  <div>
+    <label
+      class="text-sm font-medium"
+      for="note-video_posts"
+    >
+      Note (optional)
+    </label>
+    <textarea
+      class="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+      id="note-video_posts"
+      maxlength="500"
+      rows="2"
+    >
+      beta
+    </textarea>
+    <p
+      class="text-right text-xs text-muted-foreground"
+    >
+      4
+      /
+      500
+    </p>
+  </div>
+  <button
+    class="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
+    disabled=""
+    type="button"
+  >
+     Save
+  </button>
+  <details>
+    <summary
+      class="cursor-pointer text-sm font-medium"
+    >
+      History (
+      1
+      )
+    </summary>
+    <ol
+      class="mt-2 space-y-1 text-xs"
+    >
+      <li>
+        <time
+          class="text-muted-foreground"
+          datetime="2026-10-10T01:00:00Z"
+        >
+          10/10/2026, 6:30:00 AM
+        </time>
+         — 
+        Neil changed it from Off to Selected members
+         — “start”
+      </li>
+    </ol>
+  </details>
+</section>
+ ❯ waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ findByRole node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/components/admin/__tests__/AdminFeatures.test.tsx:102:44
+    100|     fireEvent.change(within(c).getByLabelText(/Search members/), { tar…
+    101|     fireEvent.click(within(c).getByRole("button", { name: /Search/ }));
+    102|     const results = within(await within(c).findByRole("list", { name: …
+       |                                            ^
+    103|     expect(results).toHaveLength(2);
+    104|     for (const row of results) expect(within(row).getByTestId("member-…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/components/admin/__tests__/AdminFeatures.test.tsx > Admin → Features > F-AUD-6: each selected-member chip shows the same avatar
+TestingLibraryElementError: Unable to find an accessible element with the role "list" and name "Selected members"
+
+Here are the accessible roles:
+
+  heading:
+
+  Name "Video posts":
+  <h3
+    class="text-base font-semibold"
+    id="feat-video_posts"
+  />
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  <p
+    class="text-sm text-muted-foreground"
+  />
+
+  --------------------------------------------------group:
+
+  Name "Video posts — who can use it":
+  <fieldset
+    class="space-y-2"
+  />
+
+  --------------------------------------------------
+  radio:
+
+  Name "Off":
+  <input
+    name="mode-video_posts"
+    type="radio"
+    value="off"
+  />
+
+  Name "Selected members":
+  <input
+    checked=""
+    name="mode-video_posts"
+    type="radio"
+    value="selected"
+  />
+
+  Name "All members":
+  <input
+    name="mode-video_posts"
+    type="radio"
+    value="everyone"
+  />
+
+  --------------------------------------------------paragraph:
+
+  Name "":
+  <p
+    class="text-sm font-medium"
+  />
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  <ul
+    class="mt-2 flex flex-wrap gap-2"
+  />
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  <li
+    class="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs"
+  />
+
+  --------------------------------------------------
+  button:
+
+  Name "Remove Already In":
+  <button
+    aria-label="Remove Already In"
+    class="rounded-full p-0.5 hover:bg-background"
+    type="button"
+  />
+
+  Name "Search":
+  <button
+    class="inline-flex items-center gap-1 rounded-md border border-border px-3 py-2 text-sm"
+    type="submit"
+  />
+
+  --------------------------------------------------
+  textbox:
+
+  Name "Search members by name, @username or email":
+  <input
+    class="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm"
+    id="q-video_posts"
+    placeholder="Name, @username or email"
+    value=""
+  />
+
+  --------------------------------------------------textbox:
+
+  Name "Note (optional)":
+  <textarea
+    class="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+    id="note-video_posts"
+    maxlength="500"
+    rows="2"
+  />
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  <p
+    class="text-right text-xs text-muted-foreground"
+  />
+
+  --------------------------------------------------button:
+
+  Name "Save":
+  <button
+    class="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
+    disabled=""
+    type="button"
+  />
+
+  --------------------------------------------------group:
+
+  Name "":
+  <details />
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  <ol
+    class="mt-2 space-y-1 text-xs"
+  />
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  <li />
+
+  --------------------------------------------------
+  time:
+
+  Name "":
+  <time
+    class="text-muted-foreground"
+    datetime="2026-10-10T01:00:00Z"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<section
+  aria-labelledby="feat-video_posts"
+  class="rounded-lg border border-border bg-card p-4 space-y-4"
+  data-testid="feature-video_posts"
+>
+  <div>
+    <h3
+      class="text-base font-semibold"
+      id="feat-video_posts"
+    >
+      Video posts
+    </h3>
+    <p
+      class="text-sm text-muted-foreground"
+    >
+      Who can add a video to a post.
+    </p>
+  </div>
+  <fieldset
+    class="space-y-2"
+  >
+    <legend
+      class="sr-only"
+    >
+      Video posts
+       — who can use it
+    </legend>
+    <label
+      class="flex items-center gap-2 text-sm "
+    >
+      <input
+        name="mode-video_posts"
+        type="radio"
+        value="off"
+      />
+      Off
+    </label>
+    <label
+      class="flex items-center gap-2 text-sm "
+    >
+      <input
+        checked=""
+        name="mode-video_posts"
+        type="radio"
+        value="selected"
+      />
+      Selected members
+    </label>
+    <label
+      class="flex items-center gap-2 text-sm "
+    >
+      <input
+        name="mode-video_posts"
+        type="radio"
+        value="everyone"
+      />
+      All members
+    </label>
+  </fieldset>
+  <div
+    class="space-y-3"
+  >
+    <div>
+      <p
+        class="text-sm font-medium"
+      >
+        Selected members (
+        1
+        )
+      </p>
+      <ul
+        class="mt-2 flex flex-wrap gap-2"
+      >
+        <li
+          class="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs"
+        >
+          <span>
+            Already In
+          </span>
+          <button
+            aria-label="Remove Already In"
+            class="rounded-full p-0.5 hover:bg-background"
+            type="button"
+          >
+            <svg
+              class="lucide lucide-x h-3 w-3"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M18 6 6 18"
+              />
+              <path
+                d="m6 6 12 12"
+              />
+            </svg>
+          </button>
+        </li>
+      </ul>
+    </div>
+    <form
+      class="flex gap-2"
+    >
+      <label
+        class="sr-only"
+        for="q-video_posts"
+      >
+        Search members by name, @username or email
+      </label>
+      <input
+        class="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm"
+        id="q-video_posts"
+        placeholder="Name, @username or email"
+        value=""
+      />
+      <button
+        class="inline-flex items-center gap-1 rounded-md border border-border px-3 py-2 text-sm"
+        type="submit"
+      >
+        <svg
+          class="lucide lucide-search h-4 w-4"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <circle
+            cx="11"
+            cy="11"
+            r="8"
+          />
+          <path
+            d="m21 21-4.3-4.3"
+          />
+        </svg>
+         Search
+      </button>
+    </form>
+  </div>
+  <div>
+    <label
+      class="text-sm font-medium"
+      for="note-video_posts"
+    >
+      Note (optional)
+    </label>
+    <textarea
+      class="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+      id="note-video_posts"
+      maxlength="500"
+      rows="2"
+    >
+      beta
+    </textarea>
+    <p
+      class="text-right text-xs text-muted-foreground"
+    >
+      4
+      /
+      500
+    </p>
+  </div>
+  <button
+    class="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
+    disabled=""
+    type="button"
+  >
+     Save
+  </button>
+  <details>
+    <summary
+      class="cursor-pointer text-sm font-medium"
+    >
+      History (
+      1
+      )
+    </summary>
+    <ol
+      class="mt-2 space-y-1 text-xs"
+    >
+      <li>
+        <time
+          class="text-muted-foreground"
+          datetime="2026-10-10T01:00:00Z"
+        >
+          10/10/2026, 6:30:00 AM
+        </time>
+         — 
+        Neil changed it from Off to Selected members
+         — “start”
+      </li>
+    </ol>
+  </details>
+</section>
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ getByRole node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/admin/__tests__/AdminFeatures.test.tsx:116:36
+    114|     render(<AdminFeatures />);
+    115|     const c = await posts();
+    116|     const chips = within(within(c).getByRole("list", { name: "Selected…
+       |                                    ^
+    117|     expect(chips).toHaveLength(1);
+    118|     expect(within(chips[0]).getByTestId("member-avatar-fallback").text…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 11 passed (13)
+   Start at  11:36:02
+   Duration  2.84s (transform 175ms, setup 78ms, collect 359ms, tests 1.68s, environment 353ms, prepare 94ms)
+

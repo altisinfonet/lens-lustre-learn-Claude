@@ -79,7 +79,7 @@
  * simply absent in a browser — where this hook then does nothing at all, which
  * is correct, because a browser has its own back button.
  */
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useNavigate, useNavigationType, useLocation } from "react-router-dom";
 import { isNativeCapacitorApp } from "@/lib/native/authDeepLink";
 
@@ -242,6 +242,27 @@ export function handleBackPress(opts: {
 }
 
 /**
+ * How many screens WE pushed and have not popped. Counted from the router's
+ * own navigation type rather than the WebView's history length, which
+ * only ever grows — the reason exitApp() was unreachable. REPLACE counts for
+ * nothing on purpose: a redirect is not a screen a member can go back to.
+ *
+ * Module-level (L1) so other screens can ask the same question through
+ * `inAppHistoryDepth()` instead of keeping a second, drifting count: the
+ * notification tap (PushNotificationsGate — depth 0 means a cold start, so the
+ * feed is put beneath the target) and PostDetail's own "← Back". Reset when the
+ * hook mounts, which is once per app start.
+ */
+let depth = 0;
+/** The router entry the count last saw — a POP back to the SAME entry is not a screen (see below). */
+let lastKey: string | null = null;
+
+/** Router pushes still on our own stack: 0 = nothing of ours beneath this screen. */
+export function inAppHistoryDepth(): number {
+  return depth;
+}
+
+/**
  * Mount ONCE, high in the tree (App.tsx). Mounting it twice would register two
  * listeners and every Back press would count as two.
  */
@@ -250,16 +271,21 @@ export function useAndroidBackButton() {
   const navigationType = useNavigationType();
   const location = useLocation();
 
-  /**
-   * How many screens WE pushed and have not popped. Counted from the router's
-   * own navigation type rather than the WebView's history length, which
-   * only ever grows — the reason exitApp() was unreachable. REPLACE counts for
-   * nothing on purpose: a redirect is not a screen a member can go back to.
-   */
-  const depth = useRef(0);
   useEffect(() => {
-    if (navigationType === "PUSH") depth.current += 1;
-    else if (navigationType === "POP") depth.current = Math.max(0, depth.current - 1);
+    depth = 0;
+    lastKey = null;
+  }, []);
+
+  useEffect(() => {
+    // A POP that lands on the entry we were already on is not a screen change:
+    // it is a RAW history entry being popped — ImageCropModal pushes one outside
+    // the router and steps back over it on close. Counting it as a POP took one
+    // real screen off the count, so a later Back left the app from a screen
+    // that still had somewhere to go back to.
+    const sameEntry = location.key === lastKey;
+    lastKey = location.key;
+    if (navigationType === "PUSH") depth += 1;
+    else if (navigationType === "POP" && !sameEntry) depth = Math.max(0, depth - 1);
   }, [navigationType, location.key]);
 
   useEffect(() => {
@@ -272,7 +298,7 @@ export function useAndroidBackButton() {
 
     const onBack = () => {
       handleBackPress({
-        canGoBack: () => depth.current > 0,
+        canGoBack: () => depth > 0,
         navigateBack: () => navigate(-1),
         exitApp: () => plugin.exitApp?.(),
       });

@@ -1,0 +1,57 @@
+# vitest run converter/test — NEW tests against the PRE-FIX source (converter/src at 253f0521), 2026-10-13
+# local: Windows, Node 24.20.0, vitest 3.2.4, FFmpeg 6.0 (gyan essentials) + ffprobe
+
+ × converter/test/launcher.test.ts > converter · SystemdLauncher (production) > re-review N2: 137 (SIGKILL) is the time cap only when the run lasted the cap; before it (memory cap, OOMPolicy=kill) → killed
+   → expected { exitCode: null, stdout: '', …(3) } to match object { exitCode: null, …(2) }
+ × converter/test/dbRules.test.ts > converter · the database's version arithmetic > re-review N6f: only the sound too dense (a very short clip) → the video is kept without sound; anything else is not
+   → (0 , onlyTheSoundIsTooDense) is not a function
+ × converter/test/dbRules.test.ts > converter · the database's version arithmetic > re-review N6f: a declared length of 0 (VID-LIM-001) is damaged, not too_long; above 24 h stays too_long
+   → expected 'too_long' to be 'damaged' // Object.is equality
+ × converter/test/download.test.ts > converter · downloading the original > the production rule is pinned to this lane's R2 account host AND /<bucket>/upload/ (review of #420; bucket required, N4)
+   → expected true to be false // Object.is equality
+ × converter/test/auth.test.ts > converter · Supabase session > re-review N6g: a refresh answered 429 / 408 / 5xx is transient — thrown, the refresh token kept, NOT reported as refused (no theft alarm)
+   → promise resolved "'a3'" instead of rejecting
+ × converter/test/probe.test.ts > converter · ffprobe facts > the refusals that remain → their fixed codes
+   → expected 'unsupported_format' to be 'ok' // Object.is equality
+ × converter/test/config.test.ts > converter · configuration > re-review N4: CONVERTER_R2_BUCKET is required with the network config, and must be a bucket name
+   → expected [Function] to throw an error
+ × converter/test/config.test.ts > converter · configuration > the old Ubuntu Pro marker setting is gone (owner ruling R-VM-1)
+   → expected [ 'apiBase', 'supabaseUrl', …(16) ] to not include 'noUpdatesMarker'
+ × converter/test/worker.test.ts > converter · the worker loop > re-review N6e: a lost claim (the member cancelled) neither counts toward the internal streak nor resets it
+   → expected [ Array(5) ] to deeply equal [ 30000, 60000, 120000 ]
+ × converter/test/worker.test.ts > converter · the worker loop > re-review N4: a presigned URL refused by the R2 pin ends that job, then the loop STOPS claiming with an ALERT (main exits 4)
+   → expected undefined to be 'storage_url_refused' // Object.is equality
+ × converter/test/worker.test.ts > converter · the worker loop > the back-off schedule: 30 s doubling, capped at 15 min; undelivered ends count as internal, lost claims (member cancels) do not (N6e)
+   → expected true to be false // Object.is equality
+ × converter/test/job.test.ts > converter · one job, start to end > a PUT URL outside the lane's R2 pin is never used: internal, no PUT made, and the job is marked fatal (N4: the worker stops claiming)
+   → expected { result: 'failed', …(3) } to match object { result: 'failed', …(2) }
+ × converter/test/e2e.ffmpeg.test.ts > converter · real FFmpeg > re-review N6f: a clip so short its sound cannot fit the per-second rule keeps its video and drops the sound — never a failure
+   → too_big: the package breaks the upload rules: VID-LIM-006 audio is 17086 bytes/s, above its ceiling of 16384
+ FAIL  converter/test/auth.test.ts > converter · Supabase session > re-review N6g: a refresh answered 429 / 408 / 5xx is transient — thrown, the refresh token kept, NOT reported as refused (no theft alarm)
+AssertionError: promise resolved "'a3'" instead of rejecting
+ FAIL  converter/test/config.test.ts > converter · configuration > re-review N4: CONVERTER_R2_BUCKET is required with the network config, and must be a bucket name
+AssertionError: expected [Function] to throw an error
+ FAIL  converter/test/config.test.ts > converter · configuration > the old Ubuntu Pro marker setting is gone (owner ruling R-VM-1)
+AssertionError: expected [ 'apiBase', 'supabaseUrl', …(16) ] to not include 'noUpdatesMarker'
+ FAIL  converter/test/dbRules.test.ts > converter · the database's version arithmetic > re-review N6f: only the sound too dense (a very short clip) → the video is kept without sound; anything else is not
+TypeError: (0 , onlyTheSoundIsTooDense) is not a function
+ FAIL  converter/test/dbRules.test.ts > converter · the database's version arithmetic > re-review N6f: a declared length of 0 (VID-LIM-001) is damaged, not too_long; above 24 h stays too_long
+AssertionError: expected 'too_long' to be 'damaged' // Object.is equality
+ FAIL  converter/test/download.test.ts > converter · downloading the original > the production rule is pinned to this lane's R2 account host AND /<bucket>/upload/ (review of #420; bucket required, N4)
+AssertionError: expected true to be false // Object.is equality
+ FAIL  converter/test/e2e.ffmpeg.test.ts > converter · real FFmpeg > re-review N6f: a clip so short its sound cannot fit the per-second rule keeps its video and drops the sound — never a failure
+Serialized Error: { code: 'too_big', detail: 'the package breaks the upload rules: VID-LIM-006 audio is 17086 bytes/s, above its ceiling of 16384' }
+ FAIL  converter/test/job.test.ts > converter · one job, start to end > a PUT URL outside the lane's R2 pin is never used: internal, no PUT made, and the job is marked fatal (N4: the worker stops claiming)
+AssertionError: expected { result: 'failed', …(3) } to match object { result: 'failed', …(2) }
+ FAIL  converter/test/launcher.test.ts > converter · SystemdLauncher (production) > re-review N2: 137 (SIGKILL) is the time cap only when the run lasted the cap; before it (memory cap, OOMPolicy=kill) → killed
+AssertionError: expected { exitCode: null, stdout: '', …(3) } to match object { exitCode: null, …(2) }
+ FAIL  converter/test/probe.test.ts > converter · ffprobe facts > the refusals that remain → their fixed codes
+AssertionError: expected 'unsupported_format' to be 'ok' // Object.is equality
+ FAIL  converter/test/worker.test.ts > converter · the worker loop > re-review N6e: a lost claim (the member cancelled) neither counts toward the internal streak nor resets it
+AssertionError: expected [ Array(5) ] to deeply equal [ 30000, 60000, 120000 ]
+ FAIL  converter/test/worker.test.ts > converter · the worker loop > re-review N4: a presigned URL refused by the R2 pin ends that job, then the loop STOPS claiming with an ALERT (main exits 4)
+AssertionError: expected undefined to be 'storage_url_refused' // Object.is equality
+ FAIL  converter/test/worker.test.ts > converter · the worker loop > the back-off schedule: 30 s doubling, capped at 15 min; undelivered ends count as internal, lost claims (member cancels) do not (N6e)
+AssertionError: expected true to be false // Object.is equality
+ Test Files  9 failed | 2 passed (11)
+      Tests  13 failed | 93 passed | 4 skipped (110)

@@ -17,6 +17,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { startOutbox, stopOutbox, subscribeOutbox } from "@/lib/offline/outbox";
 import { supabaseSender } from "@/lib/offline/outboxSender";
 import { toast } from "@/hooks/core/use-toast";
+import { logger } from "@/lib/logger";
+
+function describeError(e: unknown): string {
+  const x = e as { code?: string; message?: string } | null;
+  return [x?.code, x?.message].filter(Boolean).join(" ").slice(0, 200) || String(e).slice(0, 200);
+}
 
 export default function OutboxBridge() {
   const qc = useQueryClient();
@@ -27,6 +33,28 @@ export default function OutboxBridge() {
     if (!userId) { stopOutbox(); return; }
     let refresh: ReturnType<typeof setTimeout> | null = null;
     const off = subscribeOutbox((e) => {
+      /**
+       * Stage L2 · feed_events ("seen") is ranking telemetry, not a member's
+       * action. Its delivery must not refetch the feed — that would re-deal the
+       * list under the member's thumb every time a seen-batch lands — and its
+       * refusal (the hourly rate limit, a deleted post) is not something the
+       * member did or can fix, so it is logged, never toasted.
+       */
+      if (e.type !== "changed" && e.item.action.kind === "feed_events") {
+        if (e.type === "failed") {
+          logger.warn({
+            code: "DB-3008",
+            event: "FEED_SEEN_EVENTS_DROPPED",
+            fn: "OutboxBridge",
+            file: "src/components/OutboxBridge.tsx",
+            message: "A batch of seen-events was refused by the server and dropped.",
+            reason: describeError(e.error),
+            userId,
+            detail: { events: e.item.action.events.length, attempts: e.item.attempts },
+          });
+        }
+        return;
+      }
       if (e.type === "delivered" && !e.awaited) {
         if (refresh) clearTimeout(refresh);
         refresh = setTimeout(() => { void qc.invalidateQueries({ queryKey: ["feed"] }); }, 500);

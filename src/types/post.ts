@@ -10,6 +10,8 @@ export interface UnifiedPost {
   content: string;
   image_url: string | null;
   image_urls: string[];
+  /** VID-1: set when this post is a READY video post (9:16 card). Absent/null for photo and text posts. */
+  video?: import("@/lib/video/postVideoRead").FeedVideo | null;
   /**
    * The 600px thumbnails the uploader stored beside each image, aligned with
    * image_urls by index (posts.thumbnail_urls). Optional: older posts have

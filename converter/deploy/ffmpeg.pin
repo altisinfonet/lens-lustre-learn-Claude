@@ -1,0 +1,30 @@
+# 50mm Retina World · the ONE FFmpeg the converter runs (owner ruling R-VM-1:
+# nothing paid or chargeable). An official static GPL build from BtbN/FFmpeg-Builds
+# (https://github.com/BtbN/FFmpeg-Builds), release line 9.0, from a MONTH-END
+# autobuild: BtbN keeps the last build of each month for TWO YEARS (daily ones
+# for 14 days), so this exact file stays downloadable until about 2028-09 — and
+# a pin older than a few months is overdue for a security update anyway.
+#
+# Each file is named by its exact URL and sha256. The sha256 values were checked
+# three ways on 2026-10-13: BtbN's published checksums.sha256 for this release,
+# the digest GitHub reports for each release asset, and hashing the downloaded
+# files. setup.sh / update-ffmpeg.sh refuse any file whose sha256 differs, and
+# refuse a pin whose URL is not exactly
+#   https://github.com/BtbN/FFmpeg-Builds/releases/download/<FFMPEG_RELEASE>/<FFMPEG_ASSET_arch>
+#
+# Licence: GPL version 3 (the build is configured --enable-gpl --enable-version3;
+# its LICENSE.txt is installed beside the binaries). The two commits below are the
+# exact source: FFmpeg itself (branch release/9.0 = tag n9.0.2 + 17 commits) and
+# BtbN's build scripts at this release's tag. See deploy/README.md, "Licence".
+#
+# To update: deploy/README.md ("FFmpeg: pinned, and how it is kept up to date").
+FFMPEG_RELEASE=autobuild-2026-09-30-13-08
+FFMPEG_VERSION=n9.0.2-17-g2a571b6068
+FFMPEG_SOURCE_COMMIT=2a571b606854520cf89804d8030c8b328e621689
+FFMPEG_BUILD_SCRIPTS_COMMIT=6c9aec5fc9a72ec3abedd1fa84db141fa18cf52b
+FFMPEG_ASSET_x86_64=ffmpeg-n9.0.2-17-g2a571b6068-linux64-gpl-9.0.tar.xz
+FFMPEG_URL_x86_64=https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-30-13-08/ffmpeg-n9.0.2-17-g2a571b6068-linux64-gpl-9.0.tar.xz
+FFMPEG_SHA256_x86_64=68ee646831adaae2495618346f3bba94ff207ff83bbd34d643e7004730d66269
+FFMPEG_ASSET_aarch64=ffmpeg-n9.0.2-17-g2a571b6068-linuxarm64-gpl-9.0.tar.xz
+FFMPEG_URL_aarch64=https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-30-13-08/ffmpeg-n9.0.2-17-g2a571b6068-linuxarm64-gpl-9.0.tar.xz
+FFMPEG_SHA256_aarch64=91afcd7695d4bbbb9e0057aa10baaf9875ec4e1a97303f9059ec971336a2ab46

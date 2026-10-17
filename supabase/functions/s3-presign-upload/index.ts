@@ -5,7 +5,13 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecureHeaders } from "../_shared/secureHeaders.ts";
-import { assertStorageLane } from "../_shared/s3.ts";
+import {
+  assertStorageLane,
+  s3Endpoint,
+  storageKeyWithPrefix,
+  storageObjectUrl,
+  validateStorageKey,
+} from "../_shared/s3.ts";
 
 const TTL_SECONDS = 300; // 5 min
 const RATE_LIMIT_MAX = 60;
@@ -45,14 +51,16 @@ async function isAdminUser(adminClient: any, userId: string): Promise<boolean> {
   return !!data;
 }
 
-function isPathAllowed(rawPath: string, userId: string, isAdmin: boolean): boolean {
-  const parts = rawPath.split("/");
+// `key` must already have passed validateStorageKey: these rules read the key
+// literally, so they are only meaningful for a key nothing will re-interpret.
+function isPathAllowed(key: string, userId: string, isAdmin: boolean): boolean {
+  const parts = key.split("/");
   const ownsPath = parts.some((p) => p === userId);
   if (isAdmin) return true;
   if (ownsPath) return true;
-  const inStrict = STRICT_PRIVATE_PREFIXES.some((p) => rawPath.startsWith(p));
+  const inStrict = STRICT_PRIVATE_PREFIXES.some((p) => key.startsWith(p));
   if (inStrict) return false;
-  return SHARED_PREFIXES.some((p) => rawPath.startsWith(p));
+  return SHARED_PREFIXES.some((p) => key.startsWith(p));
 }
 
 const rateBucket = new Map<string, { count: number; resetAt: number }>();
@@ -124,15 +132,17 @@ Deno.serve(async (req) => {
     let body: { path?: unknown; contentType?: unknown; size?: unknown; private?: unknown; pair?: unknown };
     try { body = await req.json(); } catch { return json(400, { error: "Invalid JSON body" }); }
 
-    const filePath = typeof body.path === "string" ? body.path.trim() : "";
+    const rawPath = typeof body.path === "string" ? body.path.trim() : "";
     const contentType = typeof body.contentType === "string" && body.contentType ? body.contentType : "application/octet-stream";
     const size = typeof body.size === "number" ? body.size : 0;
     const isPrivate = body.private === true;
 
-    if (!filePath) return json(400, { error: "Missing path" });
-    if (filePath.includes("..") || /^https?:\/\//i.test(filePath) || filePath.startsWith("/")) {
-      return json(400, { error: "Invalid path" });
-    }
+    if (!rawPath) return json(400, { error: "Missing path" });
+    // Strict storage-key grammar (allow-list; replaces the old ".." / scheme /
+    // leading-slash deny-list). The ownership gate and the signed URL below
+    // both use this validated key and nothing else.
+    const filePath = validateStorageKey(rawPath);
+    if (!filePath) return json(400, { error: "Invalid path" });
     if (size > 0 && size > MAX_BYTES) return json(413, { error: "File too large (max 50MB)" });
 
     // Optional: a paired second file to sign in the same call (halves edge worker pressure)
@@ -141,13 +151,13 @@ Deno.serve(async (req) => {
     let pairSize = 0;
     const pairObj = body.pair && typeof body.pair === "object" ? body.pair as { path?: unknown; contentType?: unknown; size?: unknown } : null;
     if (pairObj) {
-      pairPath = typeof pairObj.path === "string" ? pairObj.path.trim() : "";
+      const rawPairPath = typeof pairObj.path === "string" ? pairObj.path.trim() : "";
       pairContentType = typeof pairObj.contentType === "string" && pairObj.contentType ? pairObj.contentType : "application/octet-stream";
       pairSize = typeof pairObj.size === "number" ? pairObj.size : 0;
-      if (!pairPath) return json(400, { error: "Invalid pair.path" });
-      if (pairPath.includes("..") || /^https?:\/\//i.test(pairPath) || pairPath.startsWith("/")) {
-        return json(400, { error: "Invalid pair.path" });
-      }
+      if (!rawPairPath) return json(400, { error: "Invalid pair.path" });
+      const validPairPath = validateStorageKey(rawPairPath);
+      if (!validPairPath) return json(400, { error: "Invalid pair.path" });
+      pairPath = validPairPath;
       if (pairSize > 0 && pairSize > MAX_BYTES) return json(413, { error: "Pair file too large (max 50MB)" });
     }
 
@@ -178,14 +188,15 @@ Deno.serve(async (req) => {
       return json(403, { error: "Forbidden: pair.path not owned by caller" });
     }
 
+    // The keys that will be signed: the configured prefix joined to the
+    // validated paths, re-validated as a whole.
+    const primaryKey = storageKeyWithPrefix(s3.path_prefix, filePath);
+    const pairKey = pairPath ? storageKeyWithPrefix(s3.path_prefix, pairPath) : null;
+    if (!primaryKey || (pairPath && !pairKey)) {
+      return json(500, { error: "Storage path prefix is misconfigured" });
+    }
 
-
-    const host = s3.endpoint
-      ? s3.endpoint.replace(/^https?:\/\//, "").replace(/\/+$/, "")
-      : `${s3.bucket_name}.s3.${s3.region}.amazonaws.com`;
-    const baseUrl = s3.endpoint
-      ? `${s3.endpoint.replace(/\/+$/, "")}/${s3.bucket_name}`
-      : `https://${host}`;
+    const { baseUrl } = s3Endpoint(s3);
 
     const now = new Date();
     const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
@@ -193,11 +204,10 @@ Deno.serve(async (req) => {
     const scope = `${dateStamp}/${s3.region}/s3/aws4_request`;
     const derivedKey = await signingKey(s3.secret_access_key, dateStamp, s3.region);
 
-    async function signOne(rawPath: string, isPriv: boolean) {
-      const s3Key = s3.path_prefix
-        ? `${s3.path_prefix.replace(/\/+$/, "")}/${rawPath}`
-        : rawPath;
-      const fullUrl = new URL(`${baseUrl}/${s3Key}`);
+    async function signOne(path: string, s3Key: string, isPriv: boolean) {
+      // Proven to address exactly "/<bucket>/<s3Key>" before it is signed.
+      const objectUrl = storageObjectUrl(s3, s3Key);
+      const fullUrl = new URL(objectUrl);
 
       const params = new URLSearchParams({
         "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
@@ -228,9 +238,9 @@ Deno.serve(async (req) => {
       ].join("\n");
 
       const sig = toHex(await hmacSha256(derivedKey, stringToSign));
-      const uploadUrl = `${baseUrl}/${s3Key}?${sortedParams}&X-Amz-Signature=${sig}`;
+      const uploadUrl = `${objectUrl}?${sortedParams}&X-Amz-Signature=${sig}`;
 
-      const bucketPrefix = rawPath.split("/")[0];
+      const bucketPrefix = path.split("/")[0];
       const isPrivateBucket = isPriv || PRIVATE_BUCKETS.has(bucketPrefix);
       let publicUrl: string | null = null;
       if (!isPrivateBucket) {
@@ -240,8 +250,8 @@ Deno.serve(async (req) => {
       return { uploadUrl, publicUrl, key: s3Key };
     }
 
-    const primary = await signOne(filePath, isPrivate);
-    const pair = pairPath ? await signOne(pairPath, isPrivate) : null;
+    const primary = await signOne(filePath, primaryKey, isPrivate);
+    const pair = pairPath && pairKey ? await signOne(pairPath, pairKey, isPrivate) : null;
 
     return json(200, {
       uploadUrl: primary.uploadUrl,

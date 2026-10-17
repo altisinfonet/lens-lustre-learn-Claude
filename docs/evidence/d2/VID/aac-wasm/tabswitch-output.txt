@@ -1,0 +1,2 @@
+Firefox tab-switch: {"ok":true,"firstProblems":[],"ms":16232,"problems":0,"segments480":1,"durationS":3}
+Chrome  tab-switch: {"ok":true,"firstProblems":[],"ms":16092,"problems":0,"segments480":1,"durationS":3}

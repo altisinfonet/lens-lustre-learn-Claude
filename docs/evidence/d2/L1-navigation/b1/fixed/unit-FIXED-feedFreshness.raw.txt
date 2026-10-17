@@ -1,0 +1,15 @@
+
+ RUN  v3.2.4 D:/50mm Retina World/work/D10
+
+stderr | src/hooks/feed/__tests__/feedFreshness.test.ts > a fresh visit deals a new hand; Back keeps the hand on screen (B1) > (a) a fresh visit (PUSH — tapping Home/Feed) asks the database again, page 0, with a NEW seed — the 2026-08-05 guarantee
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/hooks/feed/__tests__/feedFreshness.test.ts (20 tests) 1975ms
+   ✓ a fresh visit deals a new hand; Back keeps the hand on screen (B1) > (a, deep) a fresh visit after six pages — page 0 dropped by maxPages — is STILL a new deal, not a re-read of the old session (control)  444ms
+
+ Test Files  1 passed (1)
+      Tests  20 passed (20)
+   Start at  00:01:13
+   Duration  4.00s (transform 214ms, setup 68ms, collect 1.00s, tests 1.98s, environment 350ms, prepare 113ms)
+

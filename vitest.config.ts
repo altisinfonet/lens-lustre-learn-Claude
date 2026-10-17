@@ -22,7 +22,8 @@ export default defineConfig({
     },
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
-    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    // converter/: the server-side video converter worker (Node; its tests declare the node environment).
+    include: ["src/**/*.{test,spec}.{ts,tsx}", "converter/**/*.test.ts"],
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },

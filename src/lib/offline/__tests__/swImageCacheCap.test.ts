@@ -80,11 +80,15 @@ describe("the worker under load", () => {
     // the NEWEST survive (LRU), the oldest went first
     expect(kept).toContain(img(119));
     expect(kept).not.toContain(img(0));
-  });
+  }, 30_000); // same simulated worker as below: explicit time budget
 
+  // 230 sequential fetches through the simulated worker take ~5–9 s on a CI
+  // runner and on Windows: over vitest's 5 s default, so this test timed out
+  // (red since #362, unseen while no PR ran the unit tests). The assertion is
+  // unchanged; only the time budget is explicit.
   it("small thumbnails are still bounded by the 200-entry cap", async () => {
     const w = loadWorker(() => 1024);
     for (let i = 0; i < 230; i++) await w.fetchImage(img(i));
     expect(w.entries().length).toBe(200);
-  });
+  }, 30_000);
 });

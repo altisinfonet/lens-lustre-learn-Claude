@@ -1,0 +1,10 @@
+
+ RUN  v3.2.4 /home/claude/lens-lustre-learn-claude
+
+ ✓ src/components/admin/__tests__/AdminFeatures.test.tsx (13 tests) 601ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  11:39:58
+   Duration  1.72s (transform 174ms, setup 82ms, collect 340ms, tests 601ms, environment 325ms, prepare 91ms)
+

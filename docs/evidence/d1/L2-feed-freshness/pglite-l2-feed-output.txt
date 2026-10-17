@@ -1,0 +1,121 @@
+
+══ A0 · the DEFAULT trap ══
+PASS A0 · a 5-argument overload WITH a default makes today's 4-argument call fail  — function public.get_broadcast_feed(_exclude_ids => uuid[], _limit => integer, _newest_first => integer, _categories => text[]) is not unique
+
+══ fixture S ══
+PASS S · fixture = production's 9 feed function bodies (md5)  — 9/9
+     S · 10918 posts (8730 public), 50 authors, viewer has no posts
+PASS S · BEFORE (fail-first, cause 2): two refreshes in the same hour return the IDENTICAL first screen
+PASS S · BEFORE (fail-first, cause 3 / R-LIVE-5): the 3 newest stay pinned on top AFTER the member viewed them
+PASS S · BEFORE (fail-first, variety): one author holds 3+ places in a row on the first screen  — max run 3
+     S · latency BEFORE · 4-arg page 1: median 302.6 ms (min 180.1, max 663.5); page 3 (20 excluded): median 450.3 ms (min 214.5, max 1475.1)
+PASS S · PROBE is lane-guarded: p32.lane unset → refused
+PASS S · BEFORE (fail-first): the PROBE FAILS on today's functions  — PROBE FAIL 20261013_0005 G1: the 5-argument get_broadcast_feed does not exist — the migration is not applied
+PASS S · lane guard: p32.lane unset → refused
+PASS S · lane guard: p32.lane = 'development' → refused
+PASS S · 20261013_0005 applies with p32.lane = 'staging' (PRE + POST pass)
+PASS S · PROBE passes after apply
+PASS S · re-run refused (PRE-002)
+PASS S · the 4-argument overload keeps its OID (installed apps' PostgREST cache unaffected)
+PASS S · EXECUTE on all 4 overloads = {postgres, authenticated, service_role} exactly (= production)  — {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+PASS S · anon cannot execute the 5-argument overload
+PASS S · anon still cannot execute the 4-argument overload
+PASS S · current client: 4-argument call returns 10 rows
+PASS S · installed-app overloads (2-arg, 3-arg) still return 10 rows
+PASS S · NULL / blank _session_seed = exactly the hourly behaviour of the 4-argument call
+PASS S · same session seed → the same 5 pages (stable pagination)
+PASS S · a new refresh (new seed) → a different first screen  — 3/10 shared (the shared ones are the unseen newest)
+PASS S · one session, 5 pages → 50 posts, no duplicates
+PASS S · variety: no author more than 2 in a row, within and ACROSS pages  — max run 2
+PASS S · unseen newest 3 lead page 1 (tier 'newest')
+PASS S · burst author's newest posts: places 1–2, the 3rd waits (variety)  — positions 0,1,3
+PASS S · the member's view events insert through RLS + the 3 production triggers
+PASS S · after views exist, the next refresh shows NONE of the viewed posts on its first screen
+PASS S · viewed newest posts are no longer pinned (R-LIVE-5)
+PASS S · even the current client (hourly seed) gets a different first screen once views exist
+PASS S · _limit clamped: 1000 → 50, NULL → 10  — 50 / 10
+PASS S · 10,000-char seed and NULL _exclude_ids are handled
+PASS S · cross-member: an accepted friend's friends-only post reaches the friend (newest, pinned)
+PASS S · cross-member: another member's PRIVATE post and a pending-friend's friends-only post never reach them — though both are newer than everything
+PASS S · cross-member: a member with no friendship gets none of the three
+PASS S · cross-member: 500 + 500 delivered rows, every one public, the caller's own, or an accepted friend's friends-only post
+PASS S · cross-member: another member's views do not change this member's pages
+PASS S · cross-member: a member cannot read another member's events, nor record one in their name (RLS)  — new row violates row-level security policy for table "feed_events"
+PASS S · cross-member: an id the caller cannot see in _exclude_ids changes nothing (the page order cannot confirm who wrote it)
+PASS S · …while two VISIBLE posts by that author as the tail still make their next post wait (the rule across pages)
+PASS S · exactly once: one event id sent three times through RLS + triggers (twice by its member, once replayed by another) is ONE row, still its member's (ON CONFLICT (id) DO NOTHING on feed_events_pkey)
+PASS S · today's table (unchanged here): a like on the member's OWN post is refused — validate_feed_event_author renames it 'self_like', which the table's CHECK does not allow; one such row fails its whole batch, so the client never records own-post actions (PR B)  — new row for relation "feed_events" violates check constraint "feed_events_event_type_check
+     S · latency AFTER · 4-arg page 1: median 140.6 ms (min 115.8, max 345.3); page 3 (20 excluded): median 157.6 ms (min 115.6, max 394.6)
+     S · latency AFTER · 5-arg page 1 (session seed): median 258.7 ms (min 106.5, max 518.3)
+PASS S · rollback applies (RB-PRE + RB-POST pass)
+PASS S · rollback restores production's 4-argument body (md5 96a65d70…) on the same OID
+PASS S · PROBE refuses the rolled-back state  — PROBE FAIL 20261013_0005 G1: the 5-argument get_broadcast_feed does not exist — the migrat
+PASS S · rollback twice refused (RB-PRE-001)
+PASS S · re-apply after rollback, PROBE passes again
+
+══ fixture P ══
+PASS P · fixture = production's 9 feed function bodies (md5)  — 9/9
+     P · 304 posts (280 public), 79 authors, viewer has no posts
+PASS P · BEFORE (fail-first, cause 2): two refreshes in the same hour return the IDENTICAL first screen
+PASS P · BEFORE (fail-first, cause 3 / R-LIVE-5): the 3 newest stay pinned on top AFTER the member viewed them
+PASS P · BEFORE (fail-first, variety): one author holds 3+ places in a row on the first screen  — max run 3
+     P · latency BEFORE · 4-arg page 1: median 51.2 ms (min 31.6, max 286.8); page 3 (20 excluded): median 65.2 ms (min 30.7, max 184.9)
+PASS P · PROBE is lane-guarded: p32.lane unset → refused
+PASS P · BEFORE (fail-first): the PROBE FAILS on today's functions  — PROBE FAIL 20261013_0005 G1: the 5-argument get_broadcast_feed does not exist — the migration is not applied
+PASS P · lane guard: p32.lane unset → refused
+PASS P · lane guard: p32.lane = 'development' → refused
+PASS P · 20261013_0005 applies with p32.lane = 'production' (PRE + POST pass)
+PASS P · PROBE passes after apply
+PASS P · re-run refused (PRE-002)
+PASS P · the 4-argument overload keeps its OID (installed apps' PostgREST cache unaffected)
+PASS P · EXECUTE on all 4 overloads = {postgres, authenticated, service_role} exactly (= production)  — {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} | {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+PASS P · anon cannot execute the 5-argument overload
+PASS P · anon still cannot execute the 4-argument overload
+PASS P · current client: 4-argument call returns 10 rows
+PASS P · installed-app overloads (2-arg, 3-arg) still return 10 rows
+PASS P · NULL / blank _session_seed = exactly the hourly behaviour of the 4-argument call
+PASS P · same session seed → the same 5 pages (stable pagination)
+PASS P · a new refresh (new seed) → a different first screen  — 3/10 shared (the shared ones are the unseen newest)
+PASS P · one session, 5 pages → 50 posts, no duplicates
+PASS P · variety: no author more than 2 in a row, within and ACROSS pages  — max run 2
+PASS P · unseen newest 3 lead page 1 (tier 'newest')
+PASS P · burst author's newest posts: places 1–2, the 3rd waits (variety)  — positions 0,1,3
+PASS P · the member's view events insert through RLS + the 3 production triggers
+PASS P · after views exist, the next refresh shows NONE of the viewed posts on its first screen
+PASS P · viewed newest posts are no longer pinned (R-LIVE-5)
+PASS P · even the current client (hourly seed) gets a different first screen once views exist
+PASS P · _limit clamped: 1000 → 50, NULL → 10  — 50 / 10
+PASS P · 10,000-char seed and NULL _exclude_ids are handled
+PASS P · cross-member: an accepted friend's friends-only post reaches the friend (newest, pinned)
+PASS P · cross-member: another member's PRIVATE post and a pending-friend's friends-only post never reach them — though both are newer than everything
+PASS P · cross-member: a member with no friendship gets none of the three
+PASS P · cross-member: 281 + 280 delivered rows, every one public, the caller's own, or an accepted friend's friends-only post
+PASS P · cross-member: another member's views do not change this member's pages
+PASS P · cross-member: a member cannot read another member's events, nor record one in their name (RLS)  — new row violates row-level security policy for table "feed_events"
+PASS P · cross-member: an id the caller cannot see in _exclude_ids changes nothing (the page order cannot confirm who wrote it)
+PASS P · …while two VISIBLE posts by that author as the tail still make their next post wait (the rule across pages)
+PASS P · exactly once: one event id sent three times through RLS + triggers (twice by its member, once replayed by another) is ONE row, still its member's (ON CONFLICT (id) DO NOTHING on feed_events_pkey)
+PASS P · today's table (unchanged here): a like on the member's OWN post is refused — validate_feed_event_author renames it 'self_like', which the table's CHECK does not allow; one such row fails its whole batch, so the client never records own-post actions (PR B)  — new row for relation "feed_events" violates check constraint "feed_events_event_type_check
+     P · latency AFTER · 4-arg page 1: median 52.0 ms (min 29.9, max 1012.2); page 3 (20 excluded): median 63.8 ms (min 25.1, max 168.7)
+     P · latency AFTER · 5-arg page 1 (session seed): median 55.7 ms (min 32.0, max 137.5)
+PASS P · rollback applies (RB-PRE + RB-POST pass)
+PASS P · rollback restores production's 4-argument body (md5 96a65d70…) on the same OID
+PASS P · PROBE refuses the rolled-back state  — PROBE FAIL 20261013_0005 G1: the 5-argument get_broadcast_feed does not exist — the migrat
+PASS P · rollback twice refused (RB-PRE-001)
+PASS P · re-apply after rollback, PROBE passes again
+
+══ scale · 100,000 posts, 2,000 members, 1,000,000 feed_events ══
+PASS X · fixture = production's 9 feed function bodies (md5)  — 9/9
+     X · 100004 posts (92004 public), 2000 authors, viewer has no posts
+     loaded 1,000,000 events in 464.1 s
+     my_events · heavy member (50,000 events) · today's 8 indexes : ->  Bitmap Heap Scan on feed_events fe · Buffers: shared hit=1232 · execution median 747.1 ms (min 420.9, max 975.4; 9 warm runs)
+     my_events · heavy member (50,000 events) · + candidate index : ->  Index Only Scan using idx_feed_events_user_seen on feed_events fe · Buffers: shared hit=418 · execution median 527.1 ms (min 426.9, max 769.8; 9 warm runs)
+     my_events · light member (2,000 events)  · today's 8 indexes : ->  Bitmap Heap Scan on feed_events fe · Buffers: shared hit=507 · execution median 29.7 ms (min 16.1, max 44.7; 9 warm runs)
+     my_events · light member (2,000 events)  · + candidate index : ->  Index Only Scan using idx_feed_events_user_seen on feed_events fe · Buffers: shared hit=24 · execution median 31.2 ms (min 22.0, max 140.3; 9 warm runs)
+     RPC page 1 · heavy member · today's 4-arg median 502.0 ms (min 406.9, max 1061.3) · new 5-arg, 8 indexes median 522.1 ms (min 432.3, max 688.6) · new 5-arg + candidate median 643.5 ms (min 525.2, max 1197.4)
+     RPC page 1 · light member · today's 4-arg median 119.1 ms (min 83.2, max 383.6) · new 5-arg, 8 indexes median 135.8 ms (min 91.0, max 281.0) · new 5-arg + candidate median 139.9 ms (min 99.4, max 623.0)
+     insert upkeep · 8 indexes: median 1398 ms per 5,000 rows (min 1260, max 2775; 5 runs) · 9 indexes: median 2755 ms per 5,000 rows (min 2244, max 3570; 5 runs)
+     sizes at 1,000,000 events · heap 114 MB · today's 8 indexes 201 MB · with the candidate 262 MB (the candidate alone 60 MB)
+PASS scale · measured both ways: today's indexes serve my_events (idx_feed_events_user_post); the candidate makes it index-only — fewer buffers; the times above are why it is NOT shipped
+
+93 pass, 0 fail

@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { assertStorageLane } from "../_shared/s3.ts";
+import { assertStorageLane, storageObjectUrl } from "../_shared/s3.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,13 +49,9 @@ async function getSignatureKey(key: string, dateStamp: string, region: string, s
 }
 
 async function uploadToS3(fileBytes: Uint8Array, contentType: string, s3Key: string, s3: S3Settings): Promise<string> {
-  const host = s3.endpoint
-    ? s3.endpoint.replace(/^https?:\/\//, "").replace(/\/+$/, "")
-    : `${s3.bucket_name}.s3.${s3.region}.amazonaws.com`;
-  const baseUrl = s3.endpoint
-    ? `${s3.endpoint.replace(/\/+$/, "")}/${s3.bucket_name}`
-    : `https://${host}`;
-  const url = `${baseUrl}/${s3Key}`;
+  // Segment-encoded and proven to address exactly "/<bucket>/<s3Key>"; a key a
+  // URL parser would re-read throws here and the file is reported as failed.
+  const url = storageObjectUrl(s3, s3Key);
 
   const now = new Date();
   const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");

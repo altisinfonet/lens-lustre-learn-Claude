@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
 import { toast } from "@/hooks/core/use-toast";
 import { uploadImage } from "@/lib/imageUpload";
+import { storageSafeFileName } from "@/lib/storageSafeName";
 import { compressImage } from "@/lib/imageCompression";
 import { AnimatePresence, motion } from "framer-motion";
 import { STORY_DISPLAY_MS } from "@/lib/storyTiming";
@@ -97,7 +98,7 @@ const FeedStoriesBar = () => {
     setUploading(true);
     try {
       const compressed = await compressForUpload(e.target.files[0]);
-      const path = `${user.id}/stories/${Date.now()}-${compressed.name}`;
+      const path = `${user.id}/stories/${Date.now()}-${storageSafeFileName(compressed.name, "story")}`;
       const result = await uploadImage({ bucket: "avatars", file: compressed, path, type: "gallery" });
       await supabase.from("stories" as any).insert({ user_id: user.id, image_url: result.url } as any);
       await loadBar();

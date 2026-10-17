@@ -6,6 +6,7 @@ import { scanFileWithToast, type AllowedFileType } from "@/lib/fileSecurityScann
 import { compressImageToFiles } from "@/lib/imageCompression";
 import { GpsPrivacyError, guardOriginalUpload } from "@/lib/gpsGuard";
 import { uploadImage } from "@/lib/imageUpload";
+import { storageSafeExtension } from "@/lib/storageSafeName";
 import { storageList, storageGetPublicUrl } from "@/lib/storageUpload";
 
 export interface UploadedFile {
@@ -110,7 +111,7 @@ const FileUploadDropZone = ({
       // the guard's scope and upload as before.
       let toStore = file;
       if (isImage) toStore = await guardOriginalUpload(file);
-      const ext = file.name.split(".").pop() || "bin";
+      const ext = storageSafeExtension(file.name, "bin");
       const uploadPath = `${folder}/${baseName}.${ext}`;
       const result = await uploadImage({ bucket, file: toStore, path: uploadPath, type: "inline", fileName: file.name });
       onFileUploaded({ url: result.url, name: file.name, type: file.type, size: file.size });

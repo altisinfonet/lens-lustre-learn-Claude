@@ -1,0 +1,2 @@
+# The converter VM files are copied to Linux as they are: always LF, whatever core.autocrlf says.
+converter/deploy/** text eol=lf

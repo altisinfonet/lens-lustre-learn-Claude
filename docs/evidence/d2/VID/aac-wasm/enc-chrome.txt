@@ -1,0 +1,10 @@
+{"name":"mkv_h264_aac.mkv","facts":"1280x720 3.0s","limits":[],"encodeMs":6228,"renditions":"v,duration_s,has_audio,width,height,files","audio":true,"problems":[]}
+{"name":"mov_h264_aac.mov","facts":"1280x720 3.0s","limits":[],"encodeMs":4471,"renditions":"v,duration_s,has_audio,width,height,files","audio":true,"problems":[]}
+{"name":"mov_hevc_aac_portrait.mov","facts":"1080x1920 3.0s","limits":[],"encodeMs":4522,"renditions":"v,duration_s,has_audio,width,height,files","audio":true,"problems":[]}
+{"name":"mp4_h264_1080p60_44k.mp4","facts":"1920x1080 3.0s","limits":[],"encodeMs":4529,"renditions":"v,duration_s,has_audio,width,height,files","audio":true,"problems":[]}
+{"name":"mp4_h264_10bit.mp4","facts":"1280x720 3.0s","limits":[],"encodeMs":4574,"renditions":"v,duration_s,has_audio,width,height,files","audio":true,"problems":[]}
+{"name":"mp4_h264_aac.mp4","facts":"1280x720 3.0s","limits":[],"encodeMs":4466,"renditions":"v,duration_s,has_audio,width,height,files","audio":true,"problems":[]}
+{"name":"mp4_h264_nosound.mp4","facts":"1280x720 3.0s","limits":[],"encodeMs":4393,"renditions":"v,duration_s,has_audio,width,height,files","audio":false,"problems":[]}
+{"name":"mp4_h264_rotated90.mp4","facts":"1280x720 3.0s","limits":[],"encodeMs":4403,"renditions":"v,duration_s,has_audio,width,height,files","audio":true,"problems":[]}
+{"name":"mp4_hevc_aac.mp4","facts":"1280x720 3.0s","limits":[],"encodeMs":4487,"renditions":"v,duration_s,has_audio,width,height,files","audio":true,"problems":[]}
+{"name":"webm_vp9_opus.webm","facts":"1280x720 3.0s","limits":[],"encodeMs":4416,"renditions":"v,duration_s,has_audio,width,height,files","audio":true,"problems":[]}

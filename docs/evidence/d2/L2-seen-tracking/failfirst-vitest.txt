@@ -1,0 +1,41 @@
+STAGE L2 · PR B — THE NEW AND CHANGED TEST FILES ON TODAY'S CLIENT CODE (fail-first, 2026-10-13)
+The five test files of this branch copied into a checkout of staging's client (src/ as on 2a36b568),
+nothing else changed: npx vitest run <the five files>.
+
+ FAIL  src/hooks/feed/__tests__/feedNewPostsPill.test.tsx [ src/hooks/feed/__tests__/feedNewPostsPill.test.tsx ]
+Error: Failed to resolve import "@/hooks/feed/useNewPostsCount" from "src/hooks/feed/__tests__/feedNewPostsPill.test.tsx". Does the file exist?
+ FAIL  src/hooks/feed/__tests__/feedSeenTracker.test.ts [ src/hooks/feed/__tests__/feedSeenTracker.test.ts ]
+Error: Failed to resolve import "@/hooks/feed/usePostSeenObserver" from "src/hooks/feed/__tests__/feedSeenTracker.test.ts". Does the file exist?
+⎯⎯⎯⎯⎯⎯ Failed Tests 19 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/hooks/feed/__tests__/feedFreshness.test.ts > the client asks again every time it mounts > pull-to-refresh still explicitly refetches — after sending what was seen (Stage L2)
+AssertionError: expected 'import { Fragment, useEffect, useStat…' to match /<PullToRefresh onRefresh=\{handleRefr…/
+ FAIL  src/hooks/feed/__tests__/feedFreshness.test.ts > the client asks again every time it mounts > a refresh restarts from the first page, so it always deals page 0 with a new seed (Stage L2)
+AssertionError: expected -1 to be greater than -1
+ FAIL  src/hooks/feed/__tests__/feedFreshness.test.ts > the client asks again every time it mounts > nothing re-deals the feed behind the member's back: focus and reconnect refetch only after a failure (Stage L2)
+AssertionError: expected 'import { useInfiniteQuery } from "@ta…' to match /refetchOnWindowFocus:\s*refetchOnlyAf…/
+ FAIL  src/hooks/feed/__tests__/feedSessionSeed.test.tsx > one session: one seed for every page, and no post twice > page 0 and page 1 carry the SAME _session_seed; page 1 excludes exactly what page 0 delivered
+ FAIL  src/hooks/feed/__tests__/feedSessionSeed.test.tsx > one session: one seed for every page, and no post twice > the session's watermark rides on every page (maxPages drops page 0; the pill must keep working)
+ FAIL  src/hooks/feed/__tests__/feedSessionSeed.test.tsx > a refresh is a new session > sends a NEW seed, deals a different first screen, and restarts from the first page (one request, not one per loaded page)
+ FAIL  src/hooks/feed/__tests__/feedSessionSeed.test.tsx > a refresh is a new session > after six pages — page 0 dropped by maxPages — a refresh STILL deals page 0 with a new seed
+ FAIL  src/hooks/feed/__tests__/feedSessionSeed.test.tsx > a refresh is a new session > a refresh that FAILS changes nothing: the next page still belongs to the session on screen
+ FAIL  src/hooks/feed/__tests__/feedSessionSeed.test.tsx > the database does not have the 5-argument function yet (bundle before migration) > falls back to the 4-argument call, says so once (DB-3007), and does not ask again
+ FAIL  src/hooks/feed/__tests__/feedSessionSeed.test.tsx > honest errors > a page served by the DB-3004 chronological fallback is flagged, so the screen can say it is stale
+ FAIL  src/hooks/feed/__tests__/feedSessionSeed.test.tsx > nothing re-deals the feed behind the member's back > refetchOnlyAfterFailure: a feed on screen is left alone; a failed one is retried
+ FAIL  src/hooks/feed/__tests__/feedSessionSeed.test.tsx > nothing re-deals the feed behind the member's back > the window regaining focus, or the network coming back, does NOT ask for a new deal
+TypeError: __resetSessionSeedRpcProbe is not a function
+TypeError: Cannot read properties of undefined (reading 'clear')
+ FAIL  src/lib/offline/__tests__/outboxFeedEvents.test.ts > exactly once > a batch delivered normally writes each event once, with the member as user_id
+AssertionError: expected 'queued' to be 'delivered' // Object.is equality
+ FAIL  src/lib/offline/__tests__/outboxFeedEvents.test.ts > exactly once > the answer is lost twice: resent with the SAME event ids, still three rows (ON CONFLICT (id) DO NOTHING)
+AssertionError: expected [] to deeply equal [ …(3) ]
+ FAIL  src/lib/offline/__tests__/outboxFeedEvents.test.ts > retried, never dropped on a network failure > 503 twice, then delivered
+AssertionError: expected 20 to be 3 // Object.is equality
+ FAIL  src/lib/offline/__tests__/outboxFeedEvents.test.ts > telemetry is never in a member's way > feed_events is an unordered kind
+TypeError: Cannot read properties of undefined (reading 'has')
+ FAIL  src/lib/offline/__tests__/outboxFeedEvents.test.ts > telemetry is never in a member's way > a seen-batch waiting on back-off does not hold a comment queued after it
+ FAIL  src/lib/offline/__tests__/outboxFeedEvents.test.ts > telemetry is never in a member's way > a comment waiting on back-off does not hold a seen-batch — but still holds the reply behind it (FIFO kept)
+AssertionError: expected [] to have a length of 1 but got +0
+ FAIL  src/lib/offline/__tests__/outboxFeedEvents.test.ts > telemetry is never in a member's way > keeps at most undefined unsent seen-batches per member, dropping the oldest
+AssertionError: expected [] to have a length of undefined but got +0
+ Test Files  5 failed (5)
+      Tests  19 failed | 11 passed (30)

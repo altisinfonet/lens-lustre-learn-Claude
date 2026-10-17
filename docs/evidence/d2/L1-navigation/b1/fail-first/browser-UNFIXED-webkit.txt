@@ -1,0 +1,19 @@
+PASS  [webkit] feed → comments → close (x) → Back → the page below  {"historyBefore":3,"historyAfterClose":4}
+PASS  [webkit] feed → comments → close (escape) → Back → the page below  {"historyBefore":3,"historyAfterClose":4}
+PASS  [webkit] feed → comments → close (backdrop) → Back → the page below  {"historyBefore":3,"historyAfterClose":4}
+PASS  [webkit] (control) feed → comments → Back (browser) closes it → Back → the page below
+PASS  [webkit] phone width (sheet): feed → comments → Escape → Back → the page below
+PASS  [webkit] phone width (sheet): feed → comments → swipe down → Back → the page below
+PASS  [webkit] (control) phone width (sheet): feed → comments → Back closes it → Back → the page below
+PASS  [webkit] (control) /post/<id> (opened in-app, as the bell does) → comments → Back ×2 → feed
+PASS  [webkit] /post/<id> (opened in-app) → comments → Escape → Back → feed — the reported loop, on the website
+PASS  [webkit] /post/<id> → comments → X → page's own ← Back → feed
+PASS  [webkit] external link straight to /post/<id> (no in-app history) → page's ← Back → feed, no extra step
+PASS  [webkit] cold link that already carries ?comments=<id> → opens → Escape → no step left
+PASS  [webkit] (control) feed scroll position: comments opened and closed → the feed has not moved  {"scrollBefore":1026,"scrollAfter":1026}
+FAIL  [webkit] feed scroll position (1280px): feed → a post → Back → the feed is where it was left, the same post at the top  — after returning from the post: the feed was at 1026px and came back at 493px
+FAIL  [webkit] feed scroll position (390px): feed → a post → Back → the feed is where it was left, the same post at the top  — after returning from the post: the feed was at 978px and came back at 548px
+PASS  [webkit] (control) feed scroll position: a FRESH visit to the feed starts at the top and is a NEW deal (nothing is restored on a push)  {"scrollOnFreshVisit":0,"dealsBefore":1,"dealsAfter":2}
+PASS  [webkit] native (Android stub): cold start → notification tap → post → comments → Back ×2 → feed → Back leaves the app
+PASS  [webkit] native (Android stub): cold start → notification for a post that is gone → the feed, with a short notice
+FAIL  webkit 26.5: 16/18 journeys

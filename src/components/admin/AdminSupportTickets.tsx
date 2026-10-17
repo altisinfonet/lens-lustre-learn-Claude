@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cachedFetchProfilesByIds } from "@/lib/profileBatch";
 import { generateImagePath, uploadImage } from "@/lib/imageUpload";
+import { storageSafeExtension } from "@/lib/storageSafeName";
 import { toast } from "@/hooks/core/use-toast";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { useConfirmAction } from "@/hooks/admin/useConfirmAction";
@@ -101,7 +102,7 @@ const AdminSupportTickets = ({ user }: Props) => {
   const uploadAttachment = async (file: File): Promise<{ url: string; name: string } | null> => {
     const safe = await scanFileWithToast(file, toast, { allowedTypes: "image+pdf", maxSize: 50 * 1024 * 1024 });
     if (!safe) return null;
-    const ext = file.name.split(".").pop() || "bin";
+    const ext = storageSafeExtension(file.name, "bin");
     const path = generateImagePath({ userId: user.id, type: "support", ext });
     try {
       const result = await uploadImage({ bucket: "support-attachments", file, path, type: "support", fileName: file.name });

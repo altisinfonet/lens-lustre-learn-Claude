@@ -1,9 +1,12 @@
-import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { MessageCircle, Send, Globe, Users, Lock, ChevronDown, ImagePlus, X, Tag, CalendarClock, Crop, ArrowLeft } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import TagPeopleModal, { type PendingTag } from "@/components/post/TagPeopleModal";
 import CategoryChips, { canPublishCategories } from "@/components/post/CategoryChips";
+import VideoPostButton from "@/components/video/VideoPostButton";
+import { useFeatureAllowed } from "@/hooks/core/useFeatureAllowed";
+import { routePickedFiles } from "@/lib/video/pickRouting";
 import DraftsList from "@/components/post/DraftsList";
 import {
   usePostDrafts, useCreateDraft, useUpdateDraft, usePublishDraft, type PostDraft,
@@ -73,6 +76,10 @@ interface WallPostsProps {
   isOwnWall: boolean;
   composerOnly?: boolean;
 }
+
+// VID-1: a video picked from the photo picker opens the video uploader. Lazy, so
+// members without video never download it (P13).
+const VideoPostComposer = lazy(() => import("@/components/video/VideoPostComposer"));
 
 const Avatar = ({ src, name, size = "md" }: { src: string | null; name: string | null; size?: "sm" | "md" | "lg" }) => {
   const sizeClasses = { sm: "w-8 h-8 text-xs", md: "w-10 h-10 text-sm", lg: "w-10 h-10 text-sm" };
@@ -222,6 +229,9 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   // to call twice.
   const selectedCountRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // VID-1 (Owner 2026-10-11): one picker for photos and videos, like Instagram.
+  const videoAllowed = useFeatureAllowed("video_posts");
+  const [pickedVideo, setPickedVideo] = useState<File | null>(null);
   /**
    * ONE REF FOR BOTH CAPTION BOXES, and that is not a shortcut.
    *
@@ -447,7 +457,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         description: `Continuing with the other ${files.length}.`,
       });
     }
-    files.forEach(processFile);
+    acceptPicked(files);
     return files.length;
   };
 
@@ -706,9 +716,37 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   };
 
 
+  /**
+   * Every picked or dropped file passes through here first (VID-1). A video goes
+   * to the video uploader when `video_posts` is on for this member; otherwise the
+   * member is told that, instead of "File format not supported" — the file is
+   * fine, the feature is off. Photos continue exactly as before.
+   */
+  const acceptPicked = (files: File[]) => {
+    const { photos, video, droppedForVideo } = routePickedFiles(files);
+    if (video) {
+      if (!videoAllowed) {
+        toast({
+          title: "Video posts aren't switched on for your account yet",
+          description: "Photos work as usual. An admin can switch video on in Admin → Features.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (droppedForVideo > 0) {
+        toast({
+          title: "A video post holds one video",
+          description: `Posting "${video.name}". The other ${droppedForVideo} file${droppedForVideo === 1 ? " was" : "s were"} not added.`,
+        });
+      }
+      setPickedVideo(video);
+      return;
+    }
+    photos.forEach(processFile);
+  };
+
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    files.forEach(file => processFile(file));
+    acceptPicked(Array.from(e.target.files || []));
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -716,8 +754,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
-    const files = Array.from(e.dataTransfer.files);
-    files.forEach(file => processFile(file));
+    acceptPicked(Array.from(e.dataTransfer.files));
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -1747,6 +1784,8 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                 >
                   <ImagePlus className="h-5 w-5 text-emerald-500" />
                 </button>
+                {/* VID-7: renders nothing unless video_posts is on for this member. */}
+                <VideoPostButton />
               </div>
             )}
 
@@ -1766,7 +1805,13 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
 
           {/* Mounted OUTSIDE the dialog so `openComposer(true)` can click it on
               the very first open, before the dialog subtree exists. */}
-          <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageSelect} className="hidden" />
+          <input ref={fileInputRef} type="file" accept={videoAllowed ? "image/*,video/*" : "image/*"} multiple onChange={handleImageSelect} className="hidden" />
+
+          {pickedVideo && (
+            <Suspense fallback={null}>
+              <VideoPostComposer open onOpenChange={(o) => { if (!o) setPickedVideo(null); }} initialFile={pickedVideo} />
+            </Suspense>
+          )}
 
           {cropIndex !== null && imagePreviews[cropIndex] && (
             <ImageCropModal

@@ -1,0 +1,272 @@
+# run 2026-10-13T15:12:09Z · base origin/staging 4ba1b614 · node v24.20.0 · @electric-sql/pglite 0.5.9
+VID-1 · 20261013_0006 converter finished-row retention — PGlite harness
+engine: PostgreSQL 18.6 (PGlite 0.5.9)
+files (sha256, first 16 hex, LF): migration 2c507f8c970e1157 · rollback f2c2f67c3a512ff2 · probe 3486cae0c0974831
+
+════════ LANE SHAPE: staging ════════
+
+── staging · BEFORE 20261013_0006 (the lane as it is: …0005, 0007 mark, 20261012_0001, 20261012_0002) ──
+  PASS  S0  [guard] setup: 13 server conversions finished through the real functions (ready; one still checking; two deleted by their owners)
+               → {"d3":"ready","d29":"ready","posted3":"ready","ad3":"ready","del3":"deleted","posted1":"ready","d31":"ready","d31late":"ready","posted31":"ready","del31":"deleted","chk31":"checking","fresh":"ready","gone":"ready"}
+  FAIL  C1  [new]   unposted for 31 days → removed: video, versions, checks and source row gone; files queued as video/<owner>/<video>/; audit says why
+               → cleanup: function public.video_source_unposted_cleanup() does not exist; video ready, source done, queued 0
+  FAIL  C2  [new]   the same for a video still 'checking' after 31 days (its music check never ended)
+               → video checking, source done, queued 0
+  FAIL  C3  [new]   the cleanup leaves a POSTED video alone, however old (31 days)
+               → cleanup: function public.video_source_unposted_cleanup() does not exist
+  FAIL  C4  [new]   the cleanup leaves a DELETED video to video_housekeeping (nothing queued twice)
+               → cleanup: function public.video_source_unposted_cleanup() does not exist
+  FAIL  C5  [new]   the cleanup refuses less than 30 days, and a batch below 1
+               → function public.video_source_unposted_cleanup(interval) does not exist · function public.video_source_unposted_cleanup(interval, integer) does 
+  FAIL  C6  [new]   finished 3 days ago, not posted → the row SURVIVES today's 2-day expiry; its owner still reads status + video_id
+               → source gone, video ready, owner reads 0 row(s)
+  FAIL  C7  [new]   finished 29 days ago, not posted → still kept, video still ready, nothing queued
+               → source gone, video ready
+  FAIL  C8  [new]   job ended 31 days ago but the video became ready 5 days ago → kept (30 days run from the later time)
+               → source gone, video ready (and no cleanup to judge it)
+  PASS  G0  [guard] another member's fresh finished video is untouched by whatever ran (cleanup, housekeeping)
+               → source done, video ready
+  PASS  G1  [guard] POSTED (post_videos) and ended 3 days ago → the row is released and purged; the video and its post stay; nothing queued
+               → source gone, video ready, queued 0
+  PASS  G2  [guard] linked to an AD (ad_videos) and ended 3 days ago → released and purged; the ad keeps its video
+               → source gone, video ready
+  PASS  G3  [guard] DELETED by its owner (video_delete) and ended 3 days ago → the row is released and purged; the video waits its own 30 days
+               → source gone, video deleted
+  PASS  G4  [guard] posted, but ended only 1 day ago → the row stays (the 2-day rule is unchanged)
+               → source done
+  PASS  G5  [guard] posted 31 days ago → released and purged by housekeeping; the video is not touched
+               → source gone, video ready
+  PASS  G6  [guard] a FAILED and a CANCELLED job, 3 days old → purged as before (they made no video)
+               → failed gone, cancelled gone; housekeeping {"purged":13,"events_purged":0,"lease_expired":0,"queue_timed_out":0,"upload_abandoned":0}
+  PASS  G7  [guard] the video deleted 31 days ago is purged by video_housekeeping; its files are queued exactly once
+               → video gone, queued 1
+  FAIL  C10 [new]   DELETED ACCOUNT: its source rows and videos cascade away, and the converted video's files are queued (once; nothing else is)
+               → rows left 0 source / 0 video; queued for the converted video 0; queue grew by 0
+  INFO  I1          the same account's DEVICE-path video (no source row) is queued 0 time(s) — outside this unit (20261005_0005's account path), stated in the migration header
+  PASS  G8  [guard] CROSS-MEMBER: a stranger reads nothing of a kept row, cannot cancel it (VID-SRC-004) or delete its video (VID-DEL-001); anon reads nothing; the owner reads it, never the claim token; the owner's cancel of a finished job answers 'done' and changes nothing
+               → stranger rows 0; cancel VID-SRC-004:; delete VID-DEL-001:; anon permission denied
+  FAIL  C11 [new]   no API role can run the cleanup or the housekeeping, read the purge queue, or delete a source row (authenticated and anon: permission denied ×8)
+               → function public.video_source_unposted_cleanup() does not exi · denied
+  ── BEFORE: 10/10 [new] cases RED (all must be), 10/10 [guard] cases green → as it must be: the tests can fail
+  PASS  the PROBE is RED before the apply (R1, R2, R3, R4)
+               → R1 video_source_housekeeping() still purges every finished row after 2 days (it does not wait fo ¦ R2 public.video_source_unposted_cleanup(interval, integer) does not exist — nothing removes an u ¦ R3 the hourly job video-source-unposted-cleanup is missing, doubled, inactive, or not '47 * * *  ¦ R4 trigger tg_video_sources_owner_gone is missing, disabled, or not AFTER DELETE FOR EACH ROW — 
+
+── staging · AFTER 20261013_0006 ──
+  apply: trigger "tg_video_sources_owner_gone" for relation "public.video_sources" does not exist, skipping | VID-RET-0006: finished converter rows are kept until posted or deleted; unposted converted videos are removed after 30 days with their files queued; a deleted account's converted files are queued
+  PASS  S0  [guard] setup: 13 server conversions finished through the real functions (ready; one still checking; two deleted by their owners)
+               → {"d3":"ready","d29":"ready","posted3":"ready","ad3":"ready","del3":"deleted","posted1":"ready","d31":"ready","d31late":"ready","posted31":"ready","del31":"deleted","chk31":"checking","fresh":"ready","gone":"ready"}
+  PASS  C1  [new]   unposted for 31 days → removed: video, versions, checks and source row gone; files queued as video/<owner>/<video>/; audit says why
+               → returned {"removed":2}; queue ["video/00000106-0000-4000-8000-000000000000/ccbb07ee-91f4-400f-83d9-68138d324d2e/"]; audit ["not posted in 30 days"]
+  PASS  C2  [new]   the same for a video still 'checking' after 31 days (its music check never ended)
+               → video gone, source gone, queued 1
+  PASS  C3  [new]   the cleanup leaves a POSTED video alone, however old (31 days)
+               → video ready, link kept, nothing queued
+  PASS  C4  [new]   the cleanup leaves a DELETED video to video_housekeeping (nothing queued twice)
+               → video deleted, queued 0
+  PASS  C5  [new]   the cleanup refuses less than 30 days, and a batch below 1
+               → video_source_unposted_cleanup: _keep 29 days is below the 30 days the  · video_source_unposted_cleanup: _batch must be between 1 and 1000
+  PASS  C6  [new]   finished 3 days ago, not posted → the row SURVIVES today's 2-day expiry; its owner still reads status + video_id
+               → source done, video ready, owner reads 1 row(s)
+  PASS  C7  [new]   finished 29 days ago, not posted → still kept, video still ready, nothing queued
+               → source done, video ready
+  PASS  C8  [new]   job ended 31 days ago but the video became ready 5 days ago → kept (30 days run from the later time)
+               → source done, video ready
+  PASS  G0  [guard] another member's fresh finished video is untouched by whatever ran (cleanup, housekeeping)
+               → source done, video ready
+  PASS  G1  [guard] POSTED (post_videos) and ended 3 days ago → the row is released and purged; the video and its post stay; nothing queued
+               → source gone, video ready, queued 0
+  PASS  G2  [guard] linked to an AD (ad_videos) and ended 3 days ago → released and purged; the ad keeps its video
+               → source gone, video ready
+  PASS  G3  [guard] DELETED by its owner (video_delete) and ended 3 days ago → the row is released and purged; the video waits its own 30 days
+               → source gone, video deleted
+  PASS  G4  [guard] posted, but ended only 1 day ago → the row stays (the 2-day rule is unchanged)
+               → source done
+  PASS  G5  [guard] posted 31 days ago → released and purged by housekeeping; the video is not touched
+               → source gone, video ready
+  PASS  G6  [guard] a FAILED and a CANCELLED job, 3 days old → purged as before (they made no video)
+               → failed gone, cancelled gone; housekeeping {"purged":7,"events_purged":0,"lease_expired":0,"queue_timed_out":0,"upload_abandoned":0}
+  PASS  G7  [guard] the video deleted 31 days ago is purged by video_housekeeping; its files are queued exactly once
+               → video gone, queued 1
+  PASS  C10 [new]   DELETED ACCOUNT: its source rows and videos cascade away, and the converted video's files are queued (once; nothing else is)
+               → rows left 0 source / 0 video; queued for the converted video 1; queue grew by 1
+  INFO  I1          the same account's DEVICE-path video (no source row) is queued 0 time(s) — outside this unit (20261005_0005's account path), stated in the migration header
+  PASS  G8  [guard] CROSS-MEMBER: a stranger reads nothing of a kept row, cannot cancel it (VID-SRC-004) or delete its video (VID-DEL-001); anon reads nothing; the owner reads it, never the claim token; the owner's cancel of a finished job answers 'done' and changes nothing
+               → stranger rows 0; cancel VID-SRC-004:; delete VID-DEL-001:; anon permission denied
+  PASS  C11 [new]   no API role can run the cleanup or the housekeeping, read the purge queue, or delete a source row (authenticated and anon: permission denied ×8)
+               → denied
+  ── AFTER: 10/10 [new] cases GREEN, 10/10 [guard] cases green → ALL GREEN
+  PASS  the PROBE is GREEN after the apply
+               → PROBE PASS VID-RET: finished rows wait for posted/deleted (2-day purge once released), 30-day cleanup hourly at :47 → purge queue, owner-gone trigger on, no API role reaches any of it. Now: 4 finished row(s) kept (unposted), 1 released and waiting for the 2-day purge, 4 file prefix(es) waiting in video_r2_purge_queue. pg_cron (n
+
+── staging · cron and grants under this lane's default privileges ──
+  PASS  one new job, hourly, running only the function; the lane's other 2 job(s) are byte-identical
+               → video-housekeeping [41 * * * *] · video-source-housekeeping [*/5 * * * *] · video-source-unposted-cleanup [47 * * * *]
+  PASS  no HTTP, vault read or credential in the command; never more often than once a minute
+  PASS  EXECUTE on the three functions: never PUBLIC, anon or authenticated
+               → tg_video_sources_owner_gone: postgres,service_role · video_source_housekeeping: postgres,service_role · video_source_unposted_cleanup: postgres,service_role
+  PASS  the housekeeping function's ACL is what 20261012_0002 left (CREATE OR REPLACE kept it)
+               → {postgres=X/postgres,service_role=X/postgres}
+
+── staging · PROBE mutants (each must turn the PROBE red; each is undone) ──
+  PASS  mutant: housekeeping put back to the 20261012_0002 body → PROBE red (R1)
+               → R1 video_source_housekeeping() still purges every finished row after 2 days (it does not wait for posted / del
+  PASS  mutant: cleanup granted to authenticated → PROBE red (R2)
+               → R2 the cleanup is executable by PUBLIC, anon or authenticated
+  PASS  mutant: the job rescheduled to every minute → PROBE red (R3)
+               → R3 the hourly job video-source-unposted-cleanup is missing, doubled, inactive, or not '47 * * * *' with exactl
+  PASS  mutant: a second job running the cleanup → PROBE red (R3)
+               → R3 another cron job also runs the cleanup
+  PASS  mutant: the owner-gone trigger disabled → PROBE red (R4)
+               → R4 trigger tg_video_sources_owner_gone is missing, disabled, or not AFTER DELETE FOR EACH ROW — a deleted acco
+  PASS  mutant: the purge queue readable by authenticated → PROBE red (R5)
+               → R5 authenticated can read or write the purge queue, or change / delete source rows
+  PASS  mutant: an unposted finished video 32 days old (the cleanup has not run) → PROBE red (R6)
+               → R6 1 finished, unposted video(s) are more than 31 days old — the hourly cleanup is not keeping up, or not runn
+  PASS  every mutant undone → the PROBE is green again
+
+── staging · lane guard, rollback (exact), re-apply twice ──
+  PASS  no lane asserted → the apply is refused
+  PASS  no lane asserted → the rollback is refused
+  PASS  rollback: housekeeping body md5 and ACL equal the pre-0006 ones; the cleanup, the trigger, its function and the job are gone; cron.job is byte-identical to before
+               → VID-RET-RB: 3 finished row(s) older than 2 days and not released will be purged by the next housekeeping run | VID-RET-RB: 20261013_0006 rolled back — housekeeping is the 20261012_0002 body; the cleanup, its job and the owner-gone trigger are gone
+  PASS  after the rollback the PROBE is red again (R1–R4)
+  PASS  a second rollback is refused (VID-RET-RB-PRE-002) — it never overwrites a body that is not 0006's
+  PASS  re-apply, then apply AGAIN: both succeed; still one job, one trigger; the PROBE is green (re-runnable)
+
+════════ LANE SHAPE: production ════════
+
+── production · BEFORE 20261013_0006 (the lane as it is: …0005, 0007 mark, 20261012_0001, 20261012_0002) ──
+  PASS  S0  [guard] setup: 13 server conversions finished through the real functions (ready; one still checking; two deleted by their owners)
+               → {"d3":"ready","d29":"ready","posted3":"ready","ad3":"ready","del3":"deleted","posted1":"ready","d31":"ready","d31late":"ready","posted31":"ready","del31":"deleted","chk31":"checking","fresh":"ready","gone":"ready"}
+  FAIL  C1  [new]   unposted for 31 days → removed: video, versions, checks and source row gone; files queued as video/<owner>/<video>/; audit says why
+               → cleanup: function public.video_source_unposted_cleanup() does not exist; video ready, source done, queued 0
+  FAIL  C2  [new]   the same for a video still 'checking' after 31 days (its music check never ended)
+               → video checking, source done, queued 0
+  FAIL  C3  [new]   the cleanup leaves a POSTED video alone, however old (31 days)
+               → cleanup: function public.video_source_unposted_cleanup() does not exist
+  FAIL  C4  [new]   the cleanup leaves a DELETED video to video_housekeeping (nothing queued twice)
+               → cleanup: function public.video_source_unposted_cleanup() does not exist
+  FAIL  C5  [new]   the cleanup refuses less than 30 days, and a batch below 1
+               → function public.video_source_unposted_cleanup(interval) does not exist · function public.video_source_unposted_cleanup(interval, integer) does 
+  FAIL  C6  [new]   finished 3 days ago, not posted → the row SURVIVES today's 2-day expiry; its owner still reads status + video_id
+               → source gone, video ready, owner reads 0 row(s)
+  FAIL  C7  [new]   finished 29 days ago, not posted → still kept, video still ready, nothing queued
+               → source gone, video ready
+  FAIL  C8  [new]   job ended 31 days ago but the video became ready 5 days ago → kept (30 days run from the later time)
+               → source gone, video ready (and no cleanup to judge it)
+  PASS  G0  [guard] another member's fresh finished video is untouched by whatever ran (cleanup, housekeeping)
+               → source done, video ready
+  PASS  G1  [guard] POSTED (post_videos) and ended 3 days ago → the row is released and purged; the video and its post stay; nothing queued
+               → source gone, video ready, queued 0
+  PASS  G2  [guard] linked to an AD (ad_videos) and ended 3 days ago → released and purged; the ad keeps its video
+               → source gone, video ready
+  PASS  G3  [guard] DELETED by its owner (video_delete) and ended 3 days ago → the row is released and purged; the video waits its own 30 days
+               → source gone, video deleted
+  PASS  G4  [guard] posted, but ended only 1 day ago → the row stays (the 2-day rule is unchanged)
+               → source done
+  PASS  G5  [guard] posted 31 days ago → released and purged by housekeeping; the video is not touched
+               → source gone, video ready
+  PASS  G6  [guard] a FAILED and a CANCELLED job, 3 days old → purged as before (they made no video)
+               → failed gone, cancelled gone; housekeeping {"purged":13,"events_purged":0,"lease_expired":0,"queue_timed_out":0,"upload_abandoned":0}
+  PASS  G7  [guard] the video deleted 31 days ago is purged by video_housekeeping; its files are queued exactly once
+               → video gone, queued 1
+  FAIL  C10 [new]   DELETED ACCOUNT: its source rows and videos cascade away, and the converted video's files are queued (once; nothing else is)
+               → rows left 0 source / 0 video; queued for the converted video 0; queue grew by 0
+  INFO  I1          the same account's DEVICE-path video (no source row) is queued 0 time(s) — outside this unit (20261005_0005's account path), stated in the migration header
+  PASS  G8  [guard] CROSS-MEMBER: a stranger reads nothing of a kept row, cannot cancel it (VID-SRC-004) or delete its video (VID-DEL-001); anon reads nothing; the owner reads it, never the claim token; the owner's cancel of a finished job answers 'done' and changes nothing
+               → stranger rows 0; cancel VID-SRC-004:; delete VID-DEL-001:; anon permission denied
+  FAIL  C11 [new]   no API role can run the cleanup or the housekeeping, read the purge queue, or delete a source row (authenticated and anon: permission denied ×8)
+               → function public.video_source_unposted_cleanup() does not exi · denied
+  ── BEFORE: 10/10 [new] cases RED (all must be), 10/10 [guard] cases green → as it must be: the tests can fail
+  PASS  the PROBE is RED before the apply (R1, R2, R3, R4)
+               → R1 video_source_housekeeping() still purges every finished row after 2 days (it does not wait fo ¦ R2 public.video_source_unposted_cleanup(interval, integer) does not exist — nothing removes an u ¦ R3 the hourly job video-source-unposted-cleanup is missing, doubled, inactive, or not '47 * * *  ¦ R4 trigger tg_video_sources_owner_gone is missing, disabled, or not AFTER DELETE FOR EACH ROW — 
+
+── production · AFTER 20261013_0006 ──
+  apply: trigger "tg_video_sources_owner_gone" for relation "public.video_sources" does not exist, skipping | VID-RET-0006: finished converter rows are kept until posted or deleted; unposted converted videos are removed after 30 days with their files queued; a deleted account's converted files are queued
+  PASS  S0  [guard] setup: 13 server conversions finished through the real functions (ready; one still checking; two deleted by their owners)
+               → {"d3":"ready","d29":"ready","posted3":"ready","ad3":"ready","del3":"deleted","posted1":"ready","d31":"ready","d31late":"ready","posted31":"ready","del31":"deleted","chk31":"checking","fresh":"ready","gone":"ready"}
+  PASS  C1  [new]   unposted for 31 days → removed: video, versions, checks and source row gone; files queued as video/<owner>/<video>/; audit says why
+               → returned {"removed":2}; queue ["video/00000106-0000-4000-8000-000000000000/8d103d80-351f-4d99-bf8b-194735be682c/"]; audit ["not posted in 30 days"]
+  PASS  C2  [new]   the same for a video still 'checking' after 31 days (its music check never ended)
+               → video gone, source gone, queued 1
+  PASS  C3  [new]   the cleanup leaves a POSTED video alone, however old (31 days)
+               → video ready, link kept, nothing queued
+  PASS  C4  [new]   the cleanup leaves a DELETED video to video_housekeeping (nothing queued twice)
+               → video deleted, queued 0
+  PASS  C5  [new]   the cleanup refuses less than 30 days, and a batch below 1
+               → video_source_unposted_cleanup: _keep 29 days is below the 30 days the  · video_source_unposted_cleanup: _batch must be between 1 and 1000
+  PASS  C6  [new]   finished 3 days ago, not posted → the row SURVIVES today's 2-day expiry; its owner still reads status + video_id
+               → source done, video ready, owner reads 1 row(s)
+  PASS  C7  [new]   finished 29 days ago, not posted → still kept, video still ready, nothing queued
+               → source done, video ready
+  PASS  C8  [new]   job ended 31 days ago but the video became ready 5 days ago → kept (30 days run from the later time)
+               → source done, video ready
+  PASS  G0  [guard] another member's fresh finished video is untouched by whatever ran (cleanup, housekeeping)
+               → source done, video ready
+  PASS  G1  [guard] POSTED (post_videos) and ended 3 days ago → the row is released and purged; the video and its post stay; nothing queued
+               → source gone, video ready, queued 0
+  PASS  G2  [guard] linked to an AD (ad_videos) and ended 3 days ago → released and purged; the ad keeps its video
+               → source gone, video ready
+  PASS  G3  [guard] DELETED by its owner (video_delete) and ended 3 days ago → the row is released and purged; the video waits its own 30 days
+               → source gone, video deleted
+  PASS  G4  [guard] posted, but ended only 1 day ago → the row stays (the 2-day rule is unchanged)
+               → source done
+  PASS  G5  [guard] posted 31 days ago → released and purged by housekeeping; the video is not touched
+               → source gone, video ready
+  PASS  G6  [guard] a FAILED and a CANCELLED job, 3 days old → purged as before (they made no video)
+               → failed gone, cancelled gone; housekeeping {"purged":7,"events_purged":0,"lease_expired":0,"queue_timed_out":0,"upload_abandoned":0}
+  PASS  G7  [guard] the video deleted 31 days ago is purged by video_housekeeping; its files are queued exactly once
+               → video gone, queued 1
+  PASS  C10 [new]   DELETED ACCOUNT: its source rows and videos cascade away, and the converted video's files are queued (once; nothing else is)
+               → rows left 0 source / 0 video; queued for the converted video 1; queue grew by 1
+  INFO  I1          the same account's DEVICE-path video (no source row) is queued 0 time(s) — outside this unit (20261005_0005's account path), stated in the migration header
+  PASS  G8  [guard] CROSS-MEMBER: a stranger reads nothing of a kept row, cannot cancel it (VID-SRC-004) or delete its video (VID-DEL-001); anon reads nothing; the owner reads it, never the claim token; the owner's cancel of a finished job answers 'done' and changes nothing
+               → stranger rows 0; cancel VID-SRC-004:; delete VID-DEL-001:; anon permission denied
+  PASS  C11 [new]   no API role can run the cleanup or the housekeeping, read the purge queue, or delete a source row (authenticated and anon: permission denied ×8)
+               → denied
+  ── AFTER: 10/10 [new] cases GREEN, 10/10 [guard] cases green → ALL GREEN
+  PASS  the PROBE is GREEN after the apply
+               → PROBE PASS VID-RET: finished rows wait for posted/deleted (2-day purge once released), 30-day cleanup hourly at :47 → purge queue, owner-gone trigger on, no API role reaches any of it. Now: 4 finished row(s) kept (unposted), 1 released and waiting for the 2-day purge, 4 file prefix(es) waiting in video_r2_purge_queue. pg_cron (n
+
+── production · cron and grants under this lane's default privileges ──
+  PASS  one new job, hourly, running only the function; the lane's other 20 job(s) are byte-identical
+               → video-housekeeping [41 * * * *] · video-source-housekeeping [*/5 * * * *] · video-source-unposted-cleanup [47 * * * *]
+  PASS  no HTTP, vault read or credential in the command; never more often than once a minute
+  PASS  EXECUTE on the three functions: never PUBLIC, anon or authenticated
+               → tg_video_sources_owner_gone: postgres,service_role · video_source_housekeeping: postgres,service_role · video_source_unposted_cleanup: postgres,service_role
+  PASS  the housekeeping function's ACL is what 20261012_0002 left (CREATE OR REPLACE kept it)
+               → {postgres=X/postgres,service_role=X/postgres}
+
+── production · PROBE mutants (each must turn the PROBE red; each is undone) ──
+  PASS  mutant: housekeeping put back to the 20261012_0002 body → PROBE red (R1)
+               → R1 video_source_housekeeping() still purges every finished row after 2 days (it does not wait for posted / del
+  PASS  mutant: cleanup granted to authenticated → PROBE red (R2)
+               → R2 the cleanup is executable by PUBLIC, anon or authenticated
+  PASS  mutant: the job rescheduled to every minute → PROBE red (R3)
+               → R3 the hourly job video-source-unposted-cleanup is missing, doubled, inactive, or not '47 * * * *' with exactl
+  PASS  mutant: a second job running the cleanup → PROBE red (R3)
+               → R3 another cron job also runs the cleanup
+  PASS  mutant: the owner-gone trigger disabled → PROBE red (R4)
+               → R4 trigger tg_video_sources_owner_gone is missing, disabled, or not AFTER DELETE FOR EACH ROW — a deleted acco
+  PASS  mutant: the purge queue readable by authenticated → PROBE red (R5)
+               → R5 authenticated can read or write the purge queue, or change / delete source rows
+  PASS  mutant: an unposted finished video 32 days old (the cleanup has not run) → PROBE red (R6)
+               → R6 1 finished, unposted video(s) are more than 31 days old — the hourly cleanup is not keeping up, or not runn
+  PASS  every mutant undone → the PROBE is green again
+
+── production · lane guard, rollback (exact), re-apply twice ──
+  PASS  no lane asserted → the apply is refused
+  PASS  no lane asserted → the rollback is refused
+  PASS  rollback: housekeeping body md5 and ACL equal the pre-0006 ones; the cleanup, the trigger, its function and the job are gone; cron.job is byte-identical to before
+               → VID-RET-RB: 3 finished row(s) older than 2 days and not released will be purged by the next housekeeping run | VID-RET-RB: 20261013_0006 rolled back — housekeeping is the 20261012_0002 body; the cleanup, its job and the owner-gone trigger are gone
+  PASS  after the rollback the PROBE is red again (R1–R4)
+  PASS  a second rollback is refused (VID-RET-RB-PRE-002) — it never overwrites a body that is not 0006's
+  PASS  re-apply, then apply AGAIN: both succeed; still one job, one trigger; the PROBE is green (re-runnable)
+
+════════ LANE SHAPE: production-today (no video objects at all) ════════
+  PASS  20261013_0006 refuses (VID-RET-PRE-001) and changes nothing — 18 cron jobs before and after
+               → VID-RET-PRE-001: the video tables (20261005_0005) or the converter queue (20261012_0002) are not on this lane — apply them first
+  PASS  the PROBE says so too (it does not pass on a lane without the queue)
+
+RESULT: OK — red before where it must be, green after, on both lane shapes
+exit 0

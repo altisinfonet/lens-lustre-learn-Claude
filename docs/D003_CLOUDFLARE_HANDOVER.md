@@ -66,7 +66,7 @@ infrastructure action that genuinely cannot be performed with the available tool
 2. **R2 binding**: variable `MEDIA`, bucket `50mm`, jurisdiction `default`.
 3. **Secret**: `MEDIA_TOKEN_KEY` — 32 random bytes, base64url. The same value is
    set as a Supabase secret so the application can sign.
-4. **Route**: `cdn.50mmretina.com/*` → `media-authz`.
+4. **Route**: `cdn.50mmretina.com/video/*` → `media-authz` — **`/video/*` only, never `/*`** (2026-10-17: a whole-host route would put every photo behind the free plan's daily cap; see cloudflare/media-authz/README.md step 6).
 5. **DNS**: `cdn.50mmretina.com` becomes a proxied (orange-cloud) record pointing
    at the Worker route instead of the R2 public bucket.
 6. **R2 public access: DISABLED** on bucket `50mm`.

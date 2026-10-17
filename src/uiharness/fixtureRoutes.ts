@@ -23,8 +23,9 @@
 import type { FakeRoute } from "./fakeBackend";
 import {
   HARNESS_USER_ID,
-  adCreatives, categories, certificates, dashboardInit, follows, posts,
-  postComments, postReactions, profiles, profilesPublicData, siteSettings, userRoles,
+  adCreatives, categories, certificates, dashboardInit, dbAuditLogs, faqEntries, featuredArtists, follows, heroBanners,
+  photoOfTheDay, portfolioImages, posts, postComments, postReactions, profiles, profilesPublicData, siteSettings,
+  topContributors, userRoles,
 } from "./fixtures";
 
 /** Tables answered with rows. */
@@ -40,6 +41,14 @@ const TABLES: Record<string, unknown[]> = {
   follows,
   post_reactions: postReactions,
   ad_creatives: adCreatives,
+  /** Admin → Video Conversion's History (2026-10-12): the setting's one migration INSERT. */
+  db_audit_logs: dbAuditLogs,
+  /** The home page's own sources (2026-10-13, screen-home-server-card) — see fixtures.ts. */
+  hero_banners: heroBanners,
+  portfolio_images: portfolioImages,
+  photo_of_the_day: photoOfTheDay,
+  featured_artists: featuredArtists,
+  faq_entries: faqEntries,
   /**
    * The profile header's follower/following counts, added 2026-08-16 with the
    * Instagram-style header. Deliberately FOUR-DIGIT and uneven: a fixture of
@@ -66,6 +75,21 @@ const EMPTY_BY_DESIGN: Record<string, string> = {
   // Nobody has blocked anyone — the ordinary state; the feed filter is a no-op.
   user_blocks: "a member who has blocked nobody; the ordinary case",
   friendships: "no pending request and no accepted edge in this fixture set",
+  /*
+   * ── post_videos, added 2026-10-10 with VID-1 part 2 (#385). ───────────────
+   *
+   * useFeedQuery now asks post_videos for every page of posts, and the gate
+   * said so: "NO FIXTURE for GET /rest/v1/post_videos?…" on screen-feed and
+   * journey-create-from-feed, every viewport (UI gate run 2026-10-10 03:23 UTC).
+   *
+   * EMPTY IS THE REAL STATE: every post in this fixture set is a photo post, and
+   * a photo post has no post_videos row. The video_posts switch is Off on both
+   * lanes (R-102/R-103), so this is also what every member's feed returns today.
+   * The 9:16 video card is NOT photographed by this answer — it earns its own
+   * scene (with a ready video, a poster and a play-token answer) rather than
+   * changing the default feed every other scene is read through.
+   */
+  post_videos: "every fixture post is a photo post; video_posts is Off on both lanes",
   /*
    * ── /dashboard's THREE, added 2026-09-06 with screen-dashboard. ──────────
    *
@@ -168,6 +192,9 @@ const RPCS: Record<string, (body: Record<string, unknown>, params: URLSearchPara
    */
   get_broadcast_feed: () => posts,
 
+  /** The home page's Top Contributors card (2026-10-13): three ranked members of the fixture set. */
+  get_top_contributors_v3: () => topContributors,
+
   /**
    * F-89 — A VANITY URL THAT RESOLVES TO NOTHING.
    *
@@ -246,6 +273,18 @@ const RPCS: Record<string, (body: Record<string, unknown>, params: URLSearchPara
    *     rendered too rather than only reasoned about;
    *   - one impersonal type carrying no actor at all.
    */
+  /**
+   * VID-7 · `feature_allowed_me(_feature)`. Every switch ships Off, so the
+   * harness answers false: the screens look exactly as they did before video
+   * existed — which is the property the Off default promises. A scene that
+   * wants the video button sets `window.__harnessFeatures = ["video_posts"]`.
+   */
+  feature_allowed_me: (body: Record<string, unknown>) => {
+    const f = body?._feature;
+    const on = (globalThis as { __harnessFeatures?: string[] }).__harnessFeatures ?? [];
+    return typeof f === "string" && on.includes(f);
+  },
+
   get_my_notifications_grouped: () => [
     {
       group_key: "g-following",

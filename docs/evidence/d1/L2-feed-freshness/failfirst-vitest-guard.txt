@@ -1,0 +1,63 @@
+STAGE L2 · PR A · src/__tests__/feedL2SessionSeed.test.ts — FAIL-FIRST (2026-10-13, vitest, Windows worktree)
+
+════ 1 · ON TODAY'S TREE (the three 20261013_0005 files moved out of supabase/; the newest
+        migration that defines get_broadcast_feed is then 20260814074922): 14 of 14 FAIL ════
+ ❯ src/__tests__/feedL2SessionSeed.test.ts (14 tests | 14 failed) 121ms
+   × L2 · the newest feed migration carries the session seed > defines the 5-argument overload (_session_seed text) 17ms
+     → 20260814074922_feed_rpc_candidate_pool.sql does not define get_broadcast_feed(..., _session_seed text): expected 0 to be greater than 500
+   × L2 · the newest feed migration carries the session seed > gives _session_seed NO default — with the 4-argument overload present a default makes every current call ambiguous 2ms
+     → the 5-argument overload is not defined, so there is nothing to judge: expected 0 to be greater than 500
+   × L2 · the newest feed migration carries the session seed > keeps today's hourly seed, byte for byte, when no seed is sent 7ms
+     → expected '' to contain 'to_char(now(), \'YYYYMMDDHH24\') || c…'
+   × L2 · the newest feed migration carries the session seed > a sent seed is still bound to the viewer, so two members never share an order 2ms
+     → expected '' to match /left\(btrim\(_session_seed\), 64\)\s*…/
+   × L2 · the newest feed migration carries the session seed > pins the newest posts only while the member has NOT seen them (R-LIVE-5) 2ms
+     → newest CTE not found: expected '' not to be '' // Object.is equality
+   × L2 · the newest feed migration carries the session seed > limits any one author to 2 consecutive places, carried across pages from _exclude_ids 2ms
+     → expected '' to match /\(\(r\.user_id = pk\.a1 AND pk\.a1 = …/
+   × L2 · the newest feed migration carries the session seed > reads a tail post's author only when the caller may see that post (the page order must not confirm who wrote a post they cannot read) 2ms
+     → expected '' to match /JOIN public\.posts p\s+ON p\.id = t\.…/
+   × L2 · the newest feed migration carries the session seed > reads only the caller's own events (one member's 'seen' never reaches another member's page) 1ms
+     → expected '' to match /WHERE fe\.user_id = auth\.uid\(\)/
+   × L2 · the newest feed migration carries the session seed > clamps _limit (NULL used to mean 'no limit' on a SECURITY DEFINER function) 3ms
+     → expected '' to contain 'LEAST(GREATEST(coalesce(_limit, 10), …'
+   × L2 · the newest feed migration carries the session seed > the 4-argument overload is a one-line wrapper that passes NULL 2ms
+     → expected '' to contain 'SELECT * FROM public.get_broadcast_fe…'
+   × L2 · the newest feed migration carries the session seed > grants the new overload exactly what production grants the others: authenticated + service_role, never PUBLIC or anon 3ms
+     → expected '\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\…' to match /REVOKE ALL ON FUNCTION public\.get_br…/
+   × L2 · the newest feed migration carries the session seed > adds no index and touches no table (measured, then left out — C-2 forbids dropping one again) 1ms
+     → the 5-argument overload is not defined, so there is nothing to judge: expected 0 to be greater than 500
+   × L2 · the newest feed migration carries the session seed > is lane-guarded, and its PROBE is read-only 3ms
+     → expected '\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\…' to match /current_setting\('p32\.lane', true\),…/
+   × L2 · the newest feed migration carries the session seed > has a rollback that restores production's 4-argument body and drops the new overload 69ms
+     → expected '-- ==================================…' to contain '96a65d7037ecc5351da75a28f8cace73'
+⎯⎯⎯⎯⎯⎯ Failed Tests 14 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  14 failed (14)
+
+════ 2 · THE FILE AS WRITTEN, THEN ONE PLANTED DEFECT AT A TIME (the migration is copied
+        back after each; the last line proves it) ════
+== the file as written
+ ✓ src/__tests__/feedL2SessionSeed.test.ts (14 tests) 23ms
+      Tests  14 passed (14)
+== planted defect 1: _session_seed text DEFAULT NULL
+   × L2 · the newest feed migration carries the session seed > gives _session_seed NO default — with the 4-argument overload present a default makes every current call ambiguous 19ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 13 passed (14)
+== planted defect 2: an index is added
+   × L2 · the newest feed migration carries the session seed > adds no index and touches no table (measured, then left out — C-2 forbids dropping one again) 28ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 13 passed (14)
+== planted defect 3: the tail visibility predicate is disabled (true OR ...)
+   × L2 · the newest feed migration carries the session seed > reads a tail post's author only when the caller may see that post (the page order must not confirm who wrote a post they cannot read) 15ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 13 passed (14)
+== planted defect 4: my_events reads every member's events
+   × L2 · the newest feed migration carries the session seed > reads only the caller's own events (one member's 'seen' never reaches another member's page) 15ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 13 passed (14)
+== planted defect 5: EXECUTE on the new overload is also granted to anon
+   × L2 · the newest feed migration carries the session seed > grants the new overload exactly what production grants the others: authenticated + service_role, never PUBLIC or anon 28ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 13 passed (14)
+migration restored byte for byte

@@ -1,0 +1,406 @@
+/**
+ * VID-1 / R-104 · the video upload screen.
+ *
+ * What the member sees, in order:
+ *   1. pick a video (one file);
+ *   2. the PREVIEW, in the 9:16 VIDEO card (src/lib/video/videoFrame.ts —
+ *      Owner 2026-10-05: every video is shown 9:16; any other shape is fitted
+ *      whole, never cropped, with a blurred copy of the video filling the
+ *      rest, as Instagram does; 2026-10-12: the card fills the width, capped
+ *      by the screen height, exactly like the feed card), so what they see is
+ *      what the post will be;
+ *   3. the limits, said before anything is encoded (500 MB, any length — Owner
+ *      2026-10-11; the server re-checks and also counts 10 a day). A long video
+ *      says how long this device takes to prepare it, and a video too long for
+ *      this browser's memory says so with the way out (limits.ts);
+ *   3b. the COVER (Owner 2026-10-11): a frame picked with a slider, or an
+ *      uploaded picture (cover.ts); untouched → the frame at 1 s, as before;
+ *   4. a caption, the audience and 1–5 categories (CategoryChips, required —
+ *      the same rule as photos; the database backstops it: VID-CAT-001);
+ *   5. Post → encode on the device (progress shown) → the upload job takes over,
+ *      survives a dropped link or a closed app, and posts when the server says
+ *      the video is ready.
+ *
+ * SERVER CONVERSION (Admin → Video Conversion = "On our server";
+ * CONVERTER-DESIGN.md v2 §8): nothing is encoded here. Post starts a server
+ * job (video_source_begin answers while this screen is open, so a refusal is
+ * said here), the screen closes, and the job uploads the ORIGINAL with its
+ * progress shown at the bottom of the app (ServerVideoJobs). Only the 500 MB
+ * rule applies, and a format this browser can't play is the converter's to
+ * judge. The cover and "Remove sound" are device-only: the server path has no
+ * way to carry them yet. VID-SRC-001 (server mode switched off meanwhile)
+ * turns this screen back into the device path, with a note saying so.
+ * Lazy-loaded; the encoder and its muxer load only when Post is pressed.
+ */
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Film, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import OptimizedImage from "@/components/OptimizedImage";
+import CategoryChips, { canPublishCategories } from "@/components/post/CategoryChips";
+import { PostAudienceChooser, type Privacy } from "@/components/post/PostAudienceChooser";
+import { videoFrameAspect } from "@/lib/video/videoFrame";
+import { readVideoFacts, videoLimitProblems, memoryProblem, serverLimitProblems, formatDuration, type VideoFacts } from "@/lib/video/limits";
+import { coverFromImage, coverFromVideoAt } from "@/lib/video/cover";
+import { createJob, runVideoJobs } from "@/lib/video/uploadJobs";
+import { realJobDeps } from "@/lib/video/jobDeps";
+import { useConversionMode, type ConversionMode } from "@/lib/video/conversionMode";
+import { startOnServer } from "@/lib/video/startOnServer";
+import { useAuth } from "@/hooks/core/useAuth";
+import { toast } from "@/hooks/core/use-toast";
+import { useT } from "@/i18n/I18nContext";
+
+export interface VideoPostComposerProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** UI harness: open with this file already picked. */
+  initialFile?: File;
+  /** Test seam (the UI harness): skip the device encoder. */
+  encode?: (file: File, opts: { mute: boolean; onProgress: (f: number) => void; poster?: Uint8Array }) => Promise<{
+    files: Map<string, Uint8Array>; manifest: import("@/lib/video/shared/rules").VideoManifest; manifestSha256: string;
+  }>;
+  /** Test seam (the UI harness): where the video is prepared, instead of the site setting. */
+  conversion?: ConversionMode;
+}
+
+type Phase = { kind: "pick" } | { kind: "reading" } | { kind: "ready"; facts: VideoFacts } | { kind: "encoding"; facts: VideoFacts; progress: number }
+  /** `unplayable`: this browser could not read the video — the server may still convert it. */
+  | { kind: "error"; message: string; unplayable?: boolean }
+  /** Server conversion: video_source_begin in flight (facts null = a video this browser can't play). */
+  | { kind: "starting"; facts: VideoFacts | null };
+
+/** null = untouched: the encoder takes the frame at 1 s, as it always has. */
+type Cover = null | { kind: "frame"; at: number } | { kind: "image"; url: string; bytes: Uint8Array };
+
+/** The encoder's own default cover time (webEncoder.ts), so the slider starts where the cover already is. */
+const defaultCoverAt = (duration: number) => Math.min(1, duration / 2);
+
+export default function VideoPostComposer({ open, onOpenChange, encode, initialFile, conversion }: VideoPostComposerProps) {
+  const t = useT();
+  const { user } = useAuth();
+  const [file, setFile] = useState<File | null>(null);
+  const [url, setUrl] = useState<string | null>(null);
+  const [phase, setPhase] = useState<Phase>({ kind: "pick" });
+  const [caption, setCaption] = useState("");
+  const [categories, setCategories] = useState<string[]>([]);
+  const [privacy, setPrivacy] = useState<Privacy>("public");
+  const [mute, setMute] = useState(false);
+  const [cover, setCover] = useState<Cover>(null);
+  const [coverError, setCoverError] = useState<string | null>(null);
+  const [coverBusy, setCoverBusy] = useState(false);
+  /** VID-SRC-001 came back: this screen prepares the video on the device after all. */
+  const [deviceAfterAll, setDeviceAfterAll] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const coverVideoRef = useRef<HTMLVideoElement>(null);
+  const server = useConversionMode(open, conversion) === "server" && !deviceAfterAll;
+
+  useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
+  const coverUrl = cover?.kind === "image" ? cover.url : null;
+  useEffect(() => () => { if (coverUrl) URL.revokeObjectURL(coverUrl); }, [coverUrl]);
+  useEffect(() => {
+    if (!open) { setFile(null); setUrl(null); setPhase({ kind: "pick" }); setCaption(""); setCategories([]); setMute(false); setCover(null); setCoverError(null); setDeviceAfterAll(false); }
+  }, [open]);
+
+  useEffect(() => {
+    if (open && initialFile) void pick(initialFile);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialFile]);
+
+  const facts = phase.kind === "ready" || phase.kind === "encoding" || phase.kind === "starting" ? phase.facts : null;
+  /** Server mode: a video this browser can't read is still the converter's to try. */
+  const unplayable = server && ((phase.kind === "error" && phase.unplayable === true) || (phase.kind === "starting" && !phase.facts));
+  const problems = useMemo(() => {
+    if (server) return file && (facts || unplayable) ? serverLimitProblems(file.size, "post") : [];
+    if (!facts) return [];
+    const p = videoLimitProblems(facts, "post");
+    const mem = memoryProblem(facts, mute);
+    return mem ? [...p, mem] : p;
+  }, [facts, mute, server, file, unplayable]);
+  const frame = videoFrameAspect();
+  const canPost = (phase.kind === "ready" || (unplayable && phase.kind === "error")) && problems.length === 0 && canPublishCategories(categories) && !!user && !coverBusy;
+  const busy = phase.kind === "encoding" || phase.kind === "starting";
+  const coverAt = cover?.kind === "frame" ? cover.at : facts ? defaultCoverAt(facts.durationSeconds) : 0;
+
+  // The small cover preview is the video itself, paused on the chosen frame.
+  useEffect(() => {
+    const v = coverVideoRef.current;
+    if (v && cover?.kind !== "image") {
+      try { v.currentTime = coverAt; } catch { /* not seekable yet: loadedmetadata below retries */ }
+    }
+  }, [coverAt, cover?.kind, url]);
+
+  async function pickCoverImage(f: File | undefined) {
+    if (!f) return;
+    setCoverError(null);
+    setCoverBusy(true);
+    try {
+      // Made now, not at Post: an unreadable picture (e.g. HEIC in Chrome) is
+      // said straight away, and Post sends exactly what the preview shows.
+      const bytes = await coverFromImage(f);
+      setCover({ kind: "image", url: URL.createObjectURL(f), bytes });
+    } catch (e) {
+      setCoverError((e as Error).message.replace(/^VID-[A-Z]+-\d+: /, ""));
+    } finally {
+      setCoverBusy(false);
+      if (coverInputRef.current) coverInputRef.current.value = "";
+    }
+  }
+
+  async function pick(f: File | undefined) {
+    if (!f) return;
+    if (url) URL.revokeObjectURL(url);
+    setFile(f);
+    setUrl(URL.createObjectURL(f));
+    setCover(null);
+    setCoverError(null);
+    setPhase({ kind: "reading" });
+    try {
+      setPhase({ kind: "ready", facts: await readVideoFacts(f) });
+    } catch (e) {
+      setPhase({ kind: "error", message: (e as Error).message.replace(/^VID-[A-Z]+-\d+: /, ""), unplayable: true });
+    }
+  }
+
+  /** Server conversion: begin while this screen is open, then the upload runs on its own (bottom of the app). */
+  async function postOnServer() {
+    if (!canPost || !file || !user) return;
+    const before = phase;
+    setPhase({ kind: "starting", facts: phase.kind === "ready" ? phase.facts : null });
+    try {
+      const r = await startOnServer({
+        userId: user.id, purpose: "post", file, name: file.name, post: { content: caption.trim(), categories, privacy },
+      }, realJobDeps);
+      if (r.kind === "started") { onOpenChange(false); return; }
+      if (r.kind === "switched_off") { setDeviceAfterAll(true); setPhase(before); return; }
+      setPhase({ kind: "error", message: r.message });
+    } catch (e) {
+      setPhase({ kind: "error", message: (e as Error).message });
+    }
+  }
+
+  async function post() {
+    if (server) { await postOnServer(); return; }
+    if (!canPost || !file || !user || phase.kind !== "ready") return;
+    const f = phase.facts;
+    setPhase({ kind: "encoding", facts: f, progress: 0 });
+    try {
+      const onProgress = (p: number) => setPhase({ kind: "encoding", facts: f, progress: p });
+      const poster = cover?.kind === "image" ? cover.bytes
+        : cover?.kind === "frame" ? await coverFromVideoAt(file, cover.at)
+        : undefined;
+      const pkg = encode
+        ? await encode(file, { mute, onProgress, poster })
+        : await (await import("@/lib/video/webEncoder")).encodeVideoToHls(file, { mute, onProgress, poster });
+      await createJob({
+        userId: user.id, purpose: "post", manifest: pkg.manifest, manifestSha256: pkg.manifestSha256, files: pkg.files,
+        post: { content: caption.trim(), categories, privacy },
+      });
+      void runVideoJobs(user.id, realJobDeps);
+      toast({ title: t("video.queued", "Your video is uploading"), description: t("video.queuedHint", "It will appear on your wall when it's ready. You can leave this screen.") });
+      onOpenChange(false);
+    } catch (e) {
+      setPhase({ kind: "error", message: (e as Error).message });
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!busy) onOpenChange(o); }}>
+      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-lg" data-testid="video-composer" data-conversion={server ? "server" : "device"}>
+        {/* A plain column, not the dialog's grid: grid rows shrink under max-h and
+            the aspect-ratio frame then paints over the rows below it. */}
+        <div className="flex min-w-0 flex-col gap-3">
+        <DialogTitle>{t("video.newTitle", "New video post")}</DialogTitle>
+        <DialogDescription>{t("video.limits", "Up to 500 MB, any length.")}</DialogDescription>
+        {deviceAfterAll && (
+          <p role="status" data-testid="video-server-off" className="rounded-md bg-amber-500/10 px-2.5 py-2 text-xs text-amber-700 dark:text-amber-400">
+            {t("video.serverOff", "Server conversion was just switched off, so this video will be prepared on this device. Check it below, then tap Post video.")}
+          </p>
+        )}
+
+        <input
+          ref={inputRef}
+          type="file"
+          accept="video/*"
+          className="hidden"
+          aria-label={t("video.choose", "Choose a video")}
+          onChange={(e) => void pick(e.target.files?.[0])}
+        />
+
+        {!url && (
+          <Button type="button" variant="outline" className="min-h-11 w-full" onClick={() => inputRef.current?.click()}>
+            {t("video.choose", "Choose a video")}
+          </Button>
+        )}
+
+        {url && !unplayable && (
+          <div
+            className="relative w-full shrink-0 overflow-hidden rounded-lg bg-black"
+            style={{ width: "100%", aspectRatio: String(frame), maxHeight: "62dvh" }}
+            data-testid="video-preview-frame"
+            data-frame-aspect={frame.toFixed(3)}
+          >
+            {/* Same picture as the feed card (Owner 2026-10-12): the frame fills the
+                width; whatever the video does not cover shows its own blurred copy. */}
+            <video src={url} muted playsInline aria-hidden="true" tabIndex={-1}
+              className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-xl" />
+            <video src={url} muted playsInline controls className="relative h-full w-full object-contain"
+              aria-label={t("video.preview", "Preview of your video")} />
+          </div>
+        )}
+        {/* Server mode, a format this browser can't play: the file itself, not an empty 9:16 frame. */}
+        {url && unplayable && file && (
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3" data-testid="video-no-preview">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-black text-white/70">
+              <Film className="h-6 w-6" aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{file.name}</p>
+              <p className="text-xs text-muted-foreground">
+                {Math.max(1, Math.round(file.size / 1_048_576))} MB · {t("video.noPreview", "this browser can't show a preview")}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {phase.kind === "reading" && <p className="text-sm text-muted-foreground">{t("video.reading", "Reading the video…")}</p>}
+        {facts && (
+          <p className="text-sm text-muted-foreground">
+            {formatDuration(facts.durationSeconds)} · {Math.max(1, Math.round(facts.bytes / 1_048_576))} MB
+          </p>
+        )}
+        {!server && facts && facts.durationSeconds > 180 && problems.length === 0 && (
+          <p className="text-xs text-muted-foreground" data-testid="video-long-note">
+            {t("video.longNote", "Long video: this device prepares it in about its own length ({len}). Keep this tab open and in front until it says it is uploading.").replace("{len}", formatDuration(facts.durationSeconds))}
+          </p>
+        )}
+        {server && (facts || unplayable) && problems.length === 0 && (
+          <p className="text-xs text-muted-foreground" data-testid="video-server-note">
+            {unplayable
+              ? t("video.serverNoteUnplayable", "Our server will convert it. Once the upload reaches 100% you can close this page.")
+              : t("video.serverNote", "Prepared on our server: once the upload reaches 100% you can close this page.")}
+          </p>
+        )}
+        {problems.length > 0 && (
+          <ul className="space-y-1 text-sm text-destructive" role="alert">
+            {problems.map((p) => <li key={p}>{p}</li>)}
+          </ul>
+        )}
+        {phase.kind === "error" && !unplayable && <p className="text-sm text-destructive" role="alert">{phase.message}</p>}
+
+        {url && facts && !server && (
+          <div className="space-y-2" data-testid="video-cover" data-cover-kind={cover?.kind ?? "default"}>
+            <p className="text-sm font-medium">{t("video.cover", "Cover")}</p>
+            <div className="flex items-start gap-3">
+              <div className="relative w-16 shrink-0 overflow-hidden rounded bg-black" style={{ aspectRatio: String(frame) }}>
+                {cover?.kind === "image" ? (
+                  <OptimizedImage src={cover.url} alt={t("video.coverPreview", "Your cover")} loading="eager" className="h-full w-full object-contain" />
+                ) : (
+                  <video ref={coverVideoRef} src={url} muted playsInline preload="auto" tabIndex={-1}
+                    aria-label={t("video.coverPreview", "Your cover")} className="h-full w-full object-contain"
+                    onLoadedMetadata={(e) => { try { e.currentTarget.currentTime = coverAt; } catch { /* ignore */ } }} />
+                )}
+              </div>
+              <div className="min-w-0 flex-1 space-y-2">
+                {cover?.kind !== "image" && (
+                  <label className="block text-xs text-muted-foreground">
+                    {t("video.coverFrame", "Slide to choose a frame")}
+                    <input
+                      type="range"
+                      min={0}
+                      max={Math.max(0.1, facts.durationSeconds)}
+                      step={0.1}
+                      value={coverAt}
+                      disabled={phase.kind === "encoding"}
+                      onChange={(e) => setCover({ kind: "frame", at: Number(e.target.value) })}
+                      className="mt-1 block min-h-11 w-full"
+                      aria-label={t("video.coverFrame", "Slide to choose a frame")}
+                    />
+                  </label>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" size="sm" className="min-h-11"
+                    disabled={coverBusy || phase.kind === "encoding"} onClick={() => coverInputRef.current?.click()}>
+                    {cover?.kind === "image" ? t("video.coverChange", "Change cover image") : t("video.coverUpload", "Upload a cover image")}
+                  </Button>
+                  {cover?.kind === "image" && phase.kind !== "encoding" && (
+                    <Button type="button" variant="ghost" size="sm" className="min-h-11"
+                      onClick={() => setCover({ kind: "frame", at: defaultCoverAt(facts.durationSeconds) })}>
+                      {t("video.coverUseFrame", "Use a frame instead")}
+                    </Button>
+                  )}
+                </div>
+                {coverError && <p className="text-xs text-destructive" role="alert">{coverError}</p>}
+              </div>
+            </div>
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              aria-label={t("video.coverUpload", "Upload a cover image")}
+              onChange={(e) => void pickCoverImage(e.target.files?.[0])}
+            />
+          </div>
+        )}
+
+        {url && (
+          <>
+            <Textarea
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              placeholder={t("video.caption", "Say something about this video…")}
+              aria-label={t("video.caption", "Say something about this video…")}
+              maxLength={2200}
+            />
+            <PostAudienceChooser value={privacy} onChange={setPrivacy} variant="row" rowLabel={t("composer.audience", "Post audience")} />
+            <CategoryChips value={categories} onChange={setCategories} />
+            {!server && (
+              <label className="flex min-h-11 items-center gap-2 text-sm">
+                <input type="checkbox" checked={mute} onChange={(e) => setMute(e.target.checked)} className="h-4 w-4" />
+                {t("video.removeSound", "Remove sound")}
+              </label>
+            )}
+          </>
+        )}
+
+        {phase.kind === "starting" && (
+          <p className="flex items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            {t("video.starting", "Starting the upload…")}
+          </p>
+        )}
+
+        {phase.kind === "encoding" && (
+          <div className="space-y-1" aria-live="polite">
+            <div className="h-2 w-full overflow-hidden rounded bg-muted">
+              <div className="h-full bg-primary transition-[width]" style={{ width: `${Math.round(phase.progress * 100)}%` }} />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t("video.preparing", "Preparing your video on this device…")} {Math.round(phase.progress * 100)}%
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {t("video.keepInFront", "Keep this tab open and in front: preparing pauses while you are in another tab, and carries on when you come back.")}
+            </p>
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          {url && !busy && (
+            <Button type="button" variant="ghost" className="min-h-11" onClick={() => inputRef.current?.click()}>
+              {t("video.change", "Change video")}
+            </Button>
+          )}
+          <Button type="button" className="min-h-11 flex-1" disabled={!canPost} onClick={() => void post()}>
+            {t("video.post", "Post video")}
+          </Button>
+        </div>
+        {url && !canPublishCategories(categories) && (
+          <p className="text-xs text-muted-foreground">{t("video.needsCategory", "Choose 1 to 5 categories to post.")}</p>
+        )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

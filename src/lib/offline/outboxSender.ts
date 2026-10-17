@@ -9,6 +9,8 @@
  *   like     insert on the natural key (post_id, user_id); a 23505 means it is
  *            already there — delivered.
  *   unlike   delete by (post_id, user_id): repeating it changes nothing.
+ *   seen     (Stage L2) upsert feed_events on the primary key the tracker made
+ *            once per event, ignoreDuplicates: a resend is the same row.
  * Any 23505 is "delivered": the only way to get one is that the row exists.
  *
  * Classification, for outbox.ts: status 0 (fetch threw, our timeout), 408, 429
@@ -74,6 +76,19 @@ export function supabaseSender(client: SupabaseClient): Sender {
         if (!w.ok) return w;
         const r = await call(db.from(t.table).select("id").eq("reporter_id", item.userId).eq("idempotency_key", item.key).maybeSingle());
         return { ok: true, result: r.error ? undefined : r.data ?? undefined };
+      }
+      case "feed_events": {
+        // Stage L2. Each event's id was made once, when it was recorded; ON
+        // CONFLICT (id) DO NOTHING makes a resend after a lost answer harmless.
+        // user_id is the item's member (RLS: own rows only); author_id is
+        // overwritten server-side by validate_feed_event_author. A final 4xx —
+        // the hourly rate limit (P0001), a deleted post — drops the batch: it is
+        // ranking telemetry, never retried into a wall.
+        if (a.events.length === 0) return { ok: true };
+        return classify(await call(db.from(t.table).upsert(
+          a.events.map((e) => ({ id: e.id, user_id: item.userId, post_id: e.post_id, author_id: e.author_id, event_type: e.event_type, dwell_ms: e.dwell_ms })),
+          { onConflict: t.onConflict, ignoreDuplicates: true },
+        )));
       }
     }
   };

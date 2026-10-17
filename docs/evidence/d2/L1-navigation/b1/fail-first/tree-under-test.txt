@@ -1,0 +1,7 @@
+7014e9aa L1 test fixture: seed /below and /feed with their own router keys
+--- git status at the fail-first runs (tests + harness + one test-hook attribute; useFeedQuery.ts, Feed.tsx, signOutWipe.ts exactly as at 7014e9aa, so B1 is present; src/lib/feedSessions.ts absent):
+ M src/components/post/PostCard.tsx   (data-post-id={post.id} on the card root only)
+ M src/hooks/feed/__tests__/feedFreshness.test.ts
+ M src/uiharness/nav/main.tsx
+ M tools/uishot/nav-harness.mjs
+?? docs/evidence/d2/L1-navigation/b1/

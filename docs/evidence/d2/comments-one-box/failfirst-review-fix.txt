@@ -1,0 +1,255 @@
+# Fail-first, review fix round (17 Oct 2026). BEFORE = source at 2dabb199, new tests copied in
+
+ RUN  v3.2.4 D:/50mm Retina World/work/D20
+
+ ❯ src/components/comments/__tests__/threadCacheServerWins.test.tsx (8 tests | 7 failed) 596ms
+   × post thread — the server always wins > a cached thread whose comments were deleted on the server opens EMPTY 204ms
+     → the deleted comments are still on screen: expected [ { id: 'c1', …(16) }, …(1) ] to deeply equal []
+   × post thread — privacy on a shared device > member A → member B (new open): B is never drawn A's cached thread 95ms
+     → B was shown A's thread while B's own read was in flight: expected [ 'c1', 'c2' ] to deeply equal []
+   × post thread — privacy on a shared device > member A → member B with the screen still open: A's thread is gone on B's first render 93ms
+     → B was shown A's thread after the member changed: expected [ 'c1', 'c2' ] to deeply equal []
+   × post thread — privacy on a shared device > sign-out wipes the post cache: the next open shows nothing until the server answers 95ms
+     → a thread cached before the sign-out was drawn after it: expected [ 'c1', 'c2' ] to deeply equal []
+   ✓ ad thread — the server always wins > a cached ad thread whose comments were deleted on the server opens EMPTY 44ms
+   × ad thread — privacy on a shared device > member A signs out: a signed-out viewer never sees A's cached ad comments 32ms
+     → a signed-out viewer was shown A's ad comments: expected [ 'A on the ad', 'another' ] to deeply equal []
+   × ad thread — privacy on a shared device > sign-out wipes the ad cache: the same viewer's next open waits for the server 18ms
+     → an ad thread cached before the sign-out was drawn after it: expected [ 'A on the ad', 'another' ] to deeply equal []
+   × ad thread — privacy on a shared device > member A → member B: B is never drawn A's cached ad thread 12ms
+     → B was shown A's ad thread: expected [ 'A on the ad', 'another' ] to deeply equal []
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/comments/__tests__/threadCache.test.ts [ src/lib/comments/__tests__/threadCache.test.ts ]
+Error: Failed to resolve import "@/lib/comments/threadCache" from "src/lib/comments/__tests__/threadCache.test.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: D:/50mm Retina World/work/D20/src/lib/comments/__tests__/threadCache.test.ts:7:78
+  4  |   * one call on sign-out.
+  5  |   */ import { describe, it, expect } from "vitest";
+  6  |  import { createThreadCache, clearCommentThreadCaches, THREAD_CACHE_MAX } from "@/lib/comments/threadCache";
+     |                                                                                 ^
+  7  |  describe("threadCache", ()=>{
+  8  |      it("keys by viewer: B, and a signed-out viewer, never get A's copy", ()=>{
+ ❯ TransformPluginContext._formatLog ../../../50mm%20Retina%20World/work/D20/node_modules/vite/dist/node/chunks/config.js:28999:43
+ ❯ TransformPluginContext.error ../../../50mm%20Retina%20World/work/D20/node_modules/vite/dist/node/chunks/config.js:28996:14
+ ❯ normalizeUrl ../../../50mm%20Retina%20World/work/D20/node_modules/vite/dist/node/chunks/config.js:27119:18
+ ❯ ../../../50mm%20Retina%20World/work/D20/node_modules/vite/dist/node/chunks/config.js:27177:32
+ ❯ TransformPluginContext.transform ../../../50mm%20Retina%20World/work/D20/node_modules/vite/dist/node/chunks/config.js:27145:4
+ ❯ EnvironmentPluginContainer.transform ../../../50mm%20Retina%20World/work/D20/node_modules/vite/dist/node/chunks/config.js:28797:14
+ ❯ loadAndTransform ../../../50mm%20Retina%20World/work/D20/node_modules/vite/dist/node/chunks/config.js:22670:26
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/comments/__tests__/threadCacheServerWins.test.tsx > post thread — the server always wins > a cached thread whose comments were deleted on the server opens EMPTY
+AssertionError: the deleted comments are still on screen: expected [ { id: 'c1', …(16) }, …(1) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   {
++     "author_avatar": null,
++     "author_badges": [],
++     "author_handle": null,
++     "author_last_active": null,
++     "author_name": "Photographer",
++     "content": "A's private note",
++     "created_at": "2026-10-01T00:00:00Z",
++     "id": "c1",
++     "is_liked": false,
++     "is_pinned": false,
++     "like_count": 0,
++     "parent_id": null,
++     "reaction_counts": {},
++     "replies": [],
++     "updated_at": null,
++     "user_id": "member-a",
++     "user_reaction": null,
++   },
++   {
++     "author_avatar": null,
++     "author_badges": [],
++     "author_handle": null,
++     "author_last_active": null,
++     "author_name": "Photographer",
++     "content": "second",
++     "created_at": "2026-10-01T00:00:00Z",
++     "id": "c2",
++     "is_liked": false,
++     "is_pinned": false,
++     "like_count": 0,
++     "parent_id": null,
++     "reaction_counts": {},
++     "replies": [],
++     "updated_at": null,
++     "user_id": "u2",
++     "user_reaction": null,
++   },
++ ]
+
+ ❯ src/components/comments/__tests__/threadCacheServerWins.test.tsx:141:88
+    139|     await waitFor(() => expect(second.result.current.loaded).toBe(true…
+    140|     await act(async () => { await new Promise((r) => setTimeout(r, 0))…
+    141|     expect(second.result.current.comments, "the deleted comments are s…
+       |                                                                                        ^
+    142|   });
+    143| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  src/components/comments/__tests__/threadCacheServerWins.test.tsx > post thread — privacy on a shared device > member A → member B (new open): B is never drawn A's cached thread
+AssertionError: B was shown A's thread while B's own read was in flight: expected [ 'c1', 'c2' ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "c1",
++   "c2",
++ ]
+
+ ❯ src/components/comments/__tests__/threadCacheServerWins.test.tsx:156:91
+    154|     const second = openPost();
+    155|     await act(async () => { await new Promise((r) => setTimeout(r, 0))…
+    156|     expect(postRenders.flat(), "B was shown A's thread while B's own r…
+       |                                                                                           ^
+    157|     release();
+    158|     await waitFor(() => expect(second.result.current.loaded).toBe(true…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  src/components/comments/__tests__/threadCacheServerWins.test.tsx > post thread — privacy on a shared device > member A → member B with the screen still open: A's thread is gone on B's first render
+AssertionError: B was shown A's thread after the member changed: expected [ 'c1', 'c2' ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "c1",
++   "c2",
++ ]
+
+ ❯ src/components/comments/__tests__/threadCacheServerWins.test.tsx:170:83
+    168|     h.rerender();
+    169|     await act(async () => { await new Promise((r) => setTimeout(r, 0))…
+    170|     expect(postRenders.flat(), "B was shown A's thread after the membe…
+       |                                                                                   ^
+    171|     release();
+    172|     await waitFor(() => expect(h.result.current.comments).toHaveLength…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  src/components/comments/__tests__/threadCacheServerWins.test.tsx > post thread — privacy on a shared device > sign-out wipes the post cache: the next open shows nothing until the server answers
+AssertionError: a thread cached before the sign-out was drawn after it: expected [ 'c1', 'c2' ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "c1",
++   "c2",
++ ]
+
+ ❯ src/components/comments/__tests__/threadCacheServerWins.test.tsx:185:90
+    183|     const second = openPost();
+    184|     await act(async () => { await new Promise((r) => setTimeout(r, 0))…
+    185|     expect(postRenders.flat(), "a thread cached before the sign-out wa…
+       |                                                                                          ^
+    186|     expect(second.result.current.loading).toBe(true);
+    187|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  src/components/comments/__tests__/threadCacheServerWins.test.tsx > ad thread — privacy on a shared device > member A signs out: a signed-out viewer never sees A's cached ad comments
+AssertionError: a signed-out viewer was shown A's ad comments: expected [ 'A on the ad', 'another' ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "A on the ad",
++   "another",
++ ]
+
+ ❯ src/components/comments/__tests__/threadCacheServerWins.test.tsx:219:99
+    217|     openAd();
+    218|     await act(async () => { await new Promise((r) => setTimeout(r, 0))…
+    219|     expect(adRenders.flatMap((r) => r.contents), "a signed-out viewer …
+       |                                                                                                   ^
+    220|   });
+    221| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  src/components/comments/__tests__/threadCacheServerWins.test.tsx > ad thread — privacy on a shared device > sign-out wipes the ad cache: the same viewer's next open waits for the server
+AssertionError: an ad thread cached before the sign-out was drawn after it: expected [ 'A on the ad', 'another' ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "A on the ad",
++   "another",
++ ]
+
+ ❯ src/components/comments/__tests__/threadCacheServerWins.test.tsx:232:112
+    230|     openAd();
+    231|     await act(async () => { await new Promise((r) => setTimeout(r, 0))…
+    232|     expect(adRenders.flatMap((r) => r.contents), "an ad thread cached …
+       |                                                                                                                ^
+    233|     expect(adRenders.at(-1)?.loading).toBe(true);
+    234|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  src/components/comments/__tests__/threadCacheServerWins.test.tsx > ad thread — privacy on a shared device > member A → member B: B is never drawn A's cached ad thread
+AssertionError: B was shown A's ad thread: expected [ 'A on the ad', 'another' ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "A on the ad",
++   "another",
++ ]
+
+ ❯ src/components/comments/__tests__/threadCacheServerWins.test.tsx:246:79
+    244|     openAd();
+    245|     await act(async () => { await new Promise((r) => setTimeout(r, 0))…
+    246|     expect(adRenders.flatMap((r) => r.contents), "B was shown A's ad t…
+       |                                                                               ^
+    247|     release();
+    248|     await waitFor(() => expect(adRenders.at(-1)?.contents).toHaveLengt…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  7 failed | 1 passed (8)
+   Start at  08:05:53
+   Duration  3.31s (transform 328ms, setup 255ms, collect 709ms, tests 596ms, environment 1.42s, prepare 297ms)
+
+
+# AFTER = fixed source
+
+ RUN  v3.2.4 D:/50mm Retina World/work/D20
+
+ ✓ src/lib/comments/__tests__/threadCache.test.ts (4 tests) 9ms
+ ✓ src/components/comments/__tests__/threadCacheServerWins.test.tsx (8 tests) 767ms
+
+ Test Files  2 passed (2)
+      Tests  12 passed (12)
+   Start at  08:06:07
+   Duration  4.51s (transform 432ms, setup 357ms, collect 1.01s, tests 776ms, environment 2.41s, prepare 854ms)
+

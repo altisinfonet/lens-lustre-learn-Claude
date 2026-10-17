@@ -1,0 +1,254 @@
+name: D2 · VID-1 converter worker (the pinned FFmpeg + the systemd sandbox, x86_64 + arm64)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING REAL. HOLDS NO SECRET. Runs on the GitHub runners only —
+# never on the converter VM.
+#
+# CONVERTER-DESIGN.md v2 (§3, §6 [R1]; amendment §10.5, owner ruling R-VM-1)
+# on Ubuntu 24.04 — the VM's OS, systemd 255 — on x86_64 AND arm64 (the VM is
+# an Ampere aarch64), each with the EXACT FFmpeg the VM runs: the static build
+# pinned in converter/deploy/ffmpeg.pin (sha256-verified), installed by the
+# deploy script itself — nothing paid, no subscription, no token:
+#   1. the pinned FFmpeg, installed by update-ffmpeg.sh; it has zscale, tonemap,
+#      limiter, libx264, libx265 (checked by the script, and again here);
+#   2. the converter's tests with THAT ffmpeg + ffprobe (required, not skipped),
+#      including amendment A1: an iPhone-like multi-stream file and a 10-bit PQ
+#      HEVC source tone-mapped to 8-bit BT.709;
+#   3. the single-file bundle builds;
+#   4. deploy/setup.sh on this machine, systemd-analyze verify on the units;
+#   5. deploy/sandbox-check.sh --selftest: as user `converter`, through polkit,
+#      a converter-ff@<uuid> run works; nothing else can be started; the run
+#      cannot read the secrets, has no network, cannot write outside its job,
+#      and the time cap ends it; the worker's self-test and network check under
+#      the REAL converter.service sandbox, with the positive control; and it
+#      refuses while converter.service runs;
+#   6. update-ffmpeg.sh: the real update path (self-test through the sandbox);
+#      a pin naming another URL is refused; a file whose sha256 is not the pin's
+#      is refused; a build that fails the self-test is rolled back.
+# The FFmpeg binaries are GPL v3: they are installed on the runner and thrown
+# away with it — NEVER uploaded as an artifact (only worker.mjs is).
+# What this cannot prove: the Ampere VM itself (GitHub's arm64 runner is not it).
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    paths:
+      - 'converter/**'
+      - 'src/lib/video/**'
+      - 'functions/api/video/**'
+      - 'vitest.config.ts'
+      - 'tsconfig.converter.json'
+      - '.github/workflows/d2-converter.yml'
+  push:
+    branches: [staging]
+    paths:
+      - 'converter/**'
+      - 'src/lib/video/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  converter:
+    name: Converter on ${{ matrix.arch }} — the pinned FFmpeg; the sandbox holds on systemd 255
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            arch: x86_64
+          - os: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    env:
+      FFMPEG_PATH: /opt/converter/ffmpeg/current/bin/ffmpeg
+      FFPROBE_PATH: /opt/converter/ffmpeg/current/bin/ffprobe
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Install (lockfile only)
+        run: npm ci --no-audit --no-fund
+      - name: polkit, curl, xz (from Ubuntu's main archive) — FFmpeg is NOT Ubuntu's
+        run: |
+          set -euo pipefail
+          sudo DEBIAN_FRONTEND=noninteractive apt-get update -q
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q polkitd curl xz-utils
+          uname -m
+          systemctl --version | head -1
+      - name: The pinned FFmpeg (ffmpeg.pin), by the deploy script — sha256-verified, root-owned
+        run: |
+          set -euo pipefail
+          sudo bash converter/deploy/update-ffmpeg.sh --no-selftest converter/deploy/ffmpeg.pin
+          ls -l /opt/converter/ffmpeg/
+          cur="$(readlink -f /opt/converter/ffmpeg/current)"
+          cat "$cur/SOURCE"
+          # the build's licence and its exact source pointer stay beside the binaries (GPL v3)
+          grep -q 'GNU GENERAL PUBLIC LICENSE' "$cur/LICENSE.txt"
+          grep -qx "url=$(sed -n "s/^FFMPEG_URL_$(uname -m)=//p" converter/deploy/ffmpeg.pin)" "$cur/SOURCE"
+          grep -qx "ffmpeg_source=https://github.com/FFmpeg/FFmpeg/tree/$(sed -n 's/^FFMPEG_SOURCE_COMMIT=//p' converter/deploy/ffmpeg.pin)" "$cur/SOURCE"
+          "$cur/bin/ffmpeg" -hide_banner -version | tr ' ' '\n' | grep -E '^--enable-(gpl|version3)$'
+          if "$cur/bin/ffmpeg" -hide_banner -version | grep -q -- '--enable-nonfree'; then echo "a nonfree build must never be pinned"; exit 1; fi
+          stat -c '%U:%G %a %n' /opt/converter/ffmpeg/current/bin/ffmpeg /opt/converter/ffmpeg/current/bin/ffprobe
+          want="$(sed -n 's/^FFMPEG_VERSION=//p' converter/deploy/ffmpeg.pin)"
+          test "$(basename "$(readlink -f /opt/converter/ffmpeg/current)")" = "$want-$(uname -m)"
+      - name: This FFmpeg has what the converter needs (zscale + tonemap + limiter for HDR; libx264, libx265)
+        run: |
+          set -euo pipefail
+          "$FFMPEG_PATH" -hide_banner -version | head -1
+          "$FFPROBE_PATH" -hide_banner -version | head -1
+          "$FFMPEG_PATH" -hide_banner -filters | grep -E '^ *[.A-Z|]+ +(zscale|tonemap|limiter) '
+          "$FFMPEG_PATH" -hide_banner -encoders | grep -E '^ *[.A-Z]+ +(libx264|libx265) '
+          "$FFMPEG_PATH" -hide_banner -version | tr ' ' '\n' | grep -E '^--enable-lib(zimg|x264|x265)$'
+          if command -v ffmpeg >/dev/null; then echo "note: an ffmpeg is also on PATH ($(command -v ffmpeg)) — the tests use FFMPEG_PATH"; fi
+      - name: Converter tests with the pinned ffmpeg + ffprobe (required here, not skipped)
+        env:
+          CONVERTER_REQUIRE_FFMPEG: '1'
+        run: npx vitest run converter src/lib/video/__tests__/packageFromFragmented.test.ts src/lib/video/__tests__/converterCodecs.test.ts --reporter=verbose
+      - name: Build the single-file worker
+        run: |
+          set -euo pipefail
+          npm run converter:build
+          ls -l converter/dist/
+          node --check converter/dist/worker.mjs
+      - name: Keep the built worker (what the deploy step installs — its sha256 is in the file beside it)
+        uses: actions/upload-artifact@v4
+        with:
+          name: converter-worker-${{ matrix.arch }}
+          path: |
+            converter/dist/worker.mjs
+            converter/dist/worker.mjs.sha256
+          retention-days: 14
+      - name: setup.sh on this runner (1 GB job space)
+        run: |
+          set -euo pipefail
+          sudo env JOBS_FS_SIZE=1G NODE_BIN="$(command -v node)" bash converter/deploy/setup.sh --worker converter/dist/worker.mjs
+          test ! -e /etc/converter/ffmpeg-no-security-updates
+          cmp converter/deploy/ffmpeg.pin /opt/converter/ffmpeg.pin
+      - name: systemd-analyze verify (strict) and the security exposure
+        run: |
+          set -euo pipefail
+          d="$(mktemp -d)"
+          cp /etc/systemd/system/converter.service "$d/"
+          cp /etc/systemd/system/converter-ff@.service "$d/converter-ff@00000000-0000-4000-8000-000000000000.service"
+          out="$(sudo systemd-analyze verify "$d/converter.service" "$d/converter-ff@00000000-0000-4000-8000-000000000000.service" 2>&1 || true)"
+          echo "$out"
+          if echo "$out" | grep -E "Unknown (key|section)|Failed to parse|Invalid|unknown lvalue" ; then exit 1; fi
+          grep -qx 'OOMPolicy=kill' /etc/systemd/system/converter-ff@.service
+          grep -qx 'RestartPreventExitStatus=4' /etc/systemd/system/converter.service
+          sudo systemd-analyze security --no-pager converter-ff@00000000-0000-4000-8000-000000000000.service | tail -25
+          sudo systemd-analyze security --no-pager converter.service | tail -3
+      - name: sandbox-check.sh --selftest
+        run: sudo bash converter/deploy/sandbox-check.sh --selftest
+      - name: sandbox-check.sh, run as root, never writes through a link the worker planted (re-review N1)
+        run: |
+          set -euo pipefail
+          # what a compromised worker could do: a link in its own directories, aimed at a root-only file
+          canary=/etc/converter/.n1-canary
+          sudo install -o root -g root -m 0600 /dev/null "$canary"
+          sudo runuser -u converter -- ln -s "$canary" /var/lib/converter/state/.sandbox-check
+          sudo runuser -u converter -- ln -s "$canary" /var/lib/converter/secrets/.sandbox-check
+          sudo bash converter/deploy/sandbox-check.sh
+          # the root-only file is exactly as it was: same owner, mode and (empty) content
+          test "$(sudo stat -c '%U:%G %a %s' "$canary")" = "root:root 600 0"
+          sudo test ! -e /var/lib/converter/state/.sandbox-check
+          sudo test ! -e /var/lib/converter/secrets/.sandbox-check
+          test "$(sudo stat -c '%U:%G %a' /var/lib/converter/state)" = "converter:converter 700"
+          test "$(sudo stat -c '%U:%G %a' /var/lib/converter/secrets)" = "converter:converter 700"
+          sudo rm -f "$canary"
+      - name: sandbox-check.sh --selftest REFUSES while converter.service runs (re-review N3)
+        run: |
+          set -euo pipefail
+          sudo mkdir -p /etc/systemd/system/converter.service.d
+          # a stand-in that just stays up, so the unit is "active" without credentials
+          printf '[Service]\nExecStart=\nExecStart=/bin/sleep 600\nRestart=no\n' | sudo tee /etc/systemd/system/converter.service.d/zz-ci-hold.conf >/dev/null
+          sudo systemctl daemon-reload
+          sudo systemctl start converter.service
+          systemctl is-active converter.service
+          set +e
+          out="$(sudo bash converter/deploy/sandbox-check.sh --selftest 2>&1)"; rc=$?
+          set -e
+          echo "$out" | tail -8
+          sudo systemctl stop converter.service
+          sudo rm -f /etc/systemd/system/converter.service.d/zz-ci-hold.conf
+          sudo rmdir /etc/systemd/system/converter.service.d 2>/dev/null || true
+          sudo systemctl daemon-reload
+          test "$rc" -ne 0
+          echo "$out" | grep -q 'FAIL  converter.service is active — stop it first'
+          if echo "$out" | grep -q 'self-test passed under converter.service'; then echo "it ran the self-test anyway"; exit 1; fi
+      - name: update-ffmpeg.sh — the real update path, self-test through the sandbox
+        run: |
+          set -euo pipefail
+          before="$(readlink /opt/converter/ffmpeg/current)"
+          sudo bash converter/deploy/update-ffmpeg.sh converter/deploy/ffmpeg.pin
+          test "$(readlink /opt/converter/ffmpeg/current)" = "$before"
+      - name: update-ffmpeg.sh — a wrong URL and a tampered file are refused; a build that fails the self-test is rolled back
+        run: |
+          set -euo pipefail
+          w="$(mktemp -d)"
+          arch="$(uname -m)"
+          top="ffmpeg-fake-rollback-test-linux"
+          rel="autobuild-2000-01-31-00-00"
+          base="https://github.com/BtbN/FFmpeg-Builds/releases/download"
+          mkdir -p "$w/$top/bin"
+          # a "build" that passes the install check (it lists the filters and encoders) but converts nothing
+          printf '%s\n' '#!/bin/sh' \
+            'case " $* " in' \
+            '  *" -filters "*) printf " ... zscale V->V x\n ... tonemap V->V x\n ... limiter V->V x\n" ;;' \
+            '  *" -encoders "*) printf " V....D libx264 x\n V....D libx265 x\n" ;;' \
+            '  *) echo "ffmpeg version fake-rollback-test" ;;' \
+            'esac' > "$w/$top/bin/ffmpeg"
+          cp "$w/$top/bin/ffmpeg" "$w/$top/bin/ffprobe"
+          chmod 0755 "$w/$top/bin/ffmpeg" "$w/$top/bin/ffprobe"
+          echo "a stand-in licence file (CI rollback test)" > "$w/$top/LICENSE.txt"
+          tar -cJf "$w/$top.tar.xz" -C "$w" "$top"
+          sum="$(sha256sum "$w/$top.tar.xz" | cut -d' ' -f1)"
+          zeros="$(printf '0%.0s' $(seq 40))"
+          # pin <sha256> <url>
+          pin() {
+            printf 'FFMPEG_RELEASE=%s\nFFMPEG_VERSION=fake-rollback-test\nFFMPEG_SOURCE_COMMIT=%s\nFFMPEG_BUILD_SCRIPTS_COMMIT=%s\nFFMPEG_ASSET_%s=%s.tar.xz\nFFMPEG_URL_%s=%s\nFFMPEG_SHA256_%s=%s\n' \
+              "$rel" "$zeros" "$zeros" "$arch" "$top" "$arch" "$2" "$arch" "$1" > "$w/fake.pin"
+          }
+          # update <log>: run the real update script with the stand-in file; returns its exit status
+          update() { sudo env FFMPEG_TARBALL="$w/$top.tar.xz" bash converter/deploy/update-ffmpeg.sh "$w/fake.pin" > "$1" 2>&1; }
+          cur="$(readlink /opt/converter/ffmpeg/current)"
+          prev="$(readlink /opt/converter/ffmpeg/previous 2>/dev/null || echo none)"
+          untouched() {
+            test "$(readlink /opt/converter/ffmpeg/current)" = "$cur"
+            test "$(readlink /opt/converter/ffmpeg/previous 2>/dev/null || echo none)" = "$prev"
+            test ! -e "/opt/converter/ffmpeg/fake-rollback-test-$arch"
+            cmp converter/deploy/ffmpeg.pin /opt/converter/ffmpeg.pin
+          }
+          # 0. a pin whose URL is not BtbN's release download of that tag and file → refused before anything is read
+          pin "$sum" "https://example.com/$rel/$top.tar.xz"
+          if update "$w/0.log"; then cat "$w/0.log"; echo "a pin naming another host was accepted"; exit 1; fi
+          cat "$w/0.log"
+          grep -q "pin: FFMPEG_URL_$arch must be exactly" "$w/0.log"
+          untouched
+          # 1. a file whose sha256 is not the pin's → REFUSED (for that reason), nothing installed or swapped
+          pin "$(printf '0%.0s' $(seq 64))" "$base/$rel/$top.tar.xz"
+          if update "$w/1.log"; then cat "$w/1.log"; echo "a tampered file was accepted"; exit 1; fi
+          cat "$w/1.log"
+          grep -q "REFUSED: $top.tar.xz does not have the pinned sha256" "$w/1.log"
+          untouched
+          # 2. the SAME file with its right sha256 passes that check (so 1 was the sha256's doing), is installed,
+          #    then fails the self-test → rolled back: current and previous as before, the failed build gone
+          pin "$sum" "$base/$rel/$top.tar.xz"
+          if update "$w/2.log"; then cat "$w/2.log"; echo "a build that cannot convert was kept"; exit 1; fi
+          cat "$w/2.log"
+          if grep -q "REFUSED" "$w/2.log"; then echo "the right sha256 was refused"; exit 1; fi
+          grep -q "active: /opt/converter/ffmpeg/current -> /opt/converter/ffmpeg/fake-rollback-test-$arch" "$w/2.log"
+          grep -q "SELF-TEST FAILED with the new FFmpeg — rolling back" "$w/2.log"
+          untouched
+          /opt/converter/ffmpeg/current/bin/ffmpeg -hide_banner -version | head -1
+          echo "refused and rolled back as designed"
+      - name: On failure — the units' journal
+        if: failure()
+        run: |
+          sudo journalctl -u 'converter*' --no-pager -n 200 || true
+          sudo journalctl -u polkit --no-pager -n 50 || true
