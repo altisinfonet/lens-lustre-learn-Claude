@@ -74,8 +74,7 @@ jobs:
       # for THIS job only; the App Store build (ios-build.yml) is untouched.
       - name: Make the web view inspectable (this simulator job only)
         run: |
-          node -e 'const fs=require("fs");const p="capacitor.config.ts";const s=fs.readFileSync(p,"utf8");if(!s.includes("android: {"))process.exit(1);fs.writeFileSync(p,s.replace("android: {","ios: { webContentsDebuggingEnabled: true },
-  android: {"))'
+          node tools/review-video/inspectable.mjs
           grep -n "webContentsDebuggingEnabled" capacitor.config.ts
 
       - name: Add iOS platform and sync
