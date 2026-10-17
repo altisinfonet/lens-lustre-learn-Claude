@@ -70,7 +70,8 @@ const driver = await remote({
     "appium:newCommandTimeout": 900,
     "appium:wdaLaunchTimeout": 1_200_000,
     "appium:wdaConnectionTimeout": 1_200_000,
-    "appium:webviewConnectTimeout": 60_000,
+    "appium:webviewConnectTimeout": 120_000,
+    "appium:simulatorStartupTimeout": 600_000,
     "appium:includeSafariInWebviews": false,
   },
 });

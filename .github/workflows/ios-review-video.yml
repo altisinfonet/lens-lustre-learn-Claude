@@ -68,6 +68,16 @@ jobs:
             @capacitor/filesystem@8.1.2 @capacitor/camera@8.2.2 \
             @capacitor/app@8.1.1 @capacitor/browser@8.0.4
 
+      # Simulator-only: Capacitor 8 ships a prebuilt (release) iOS framework, so its
+      # "inspectable in Debug" default is compiled out and Appium sees no web view
+      # ("Empty page dictionary" — why every earlier run failed). Turn inspection on
+      # for THIS job only; the App Store build (ios-build.yml) is untouched.
+      - name: Make the web view inspectable (this simulator job only)
+        run: |
+          node -e 'const fs=require("fs");const p="capacitor.config.ts";const s=fs.readFileSync(p,"utf8");if(!s.includes("android: {"))process.exit(1);fs.writeFileSync(p,s.replace("android: {","ios: { webContentsDebuggingEnabled: true },
+  android: {"))'
+          grep -n "webContentsDebuggingEnabled" capacitor.config.ts
+
       - name: Add iOS platform and sync
         run: |
           npx cap add ios
@@ -90,6 +100,9 @@ jobs:
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
           xcrun simctl boot "$UDID" || true
           xcrun simctl bootstatus "$UDID" -b
+          # A fresh simulator keeps migrating data for a while after "booted";
+          # Appium refused it at 120 s (run #7). Let it settle.
+          sleep 90
           xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
           xcrun simctl list devices | grep "$UDID"
 
