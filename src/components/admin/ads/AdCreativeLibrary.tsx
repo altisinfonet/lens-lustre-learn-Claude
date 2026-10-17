@@ -31,6 +31,7 @@ import type { AdZoneId } from "@/lib/ads/adZonesV2";
 import AdVideoButton from "@/components/admin/ads/AdVideoButton";
 import { fetchAdVideoMap } from "@/lib/video/postVideoRead";
 import { subscribeVideoJobs } from "@/lib/video/uploadJobs";
+import { AdLinkInput } from "./AdLinkInput";
 
 interface Row {
   id: string;
@@ -273,12 +274,14 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
                 {zone === "story-card" && (
                   <AdVideoButton creativeId={r.id} videoState={videoStates.get(r.id) ?? null} onChanged={() => void load()} />
                 )}
-                <input
+                {/* Bug 4: a web address only (https://, http:// or a bare site.com),
+                    with the reason under the box, and a warning when the SAVED
+                    link fails the rule (no button shows on the feed). */}
+                <AdLinkInput
                   className={input}
                   style={bFont}
-                  defaultValue={r.click_url}
-                  placeholder="Website to open when clicked (optional)"
-                  onBlur={(e) => { if (e.target.value !== r.click_url) void patch(r.id, { click_url: e.target.value.trim() }); }}
+                  value={r.click_url}
+                  onSave={(next) => void patch(r.id, { click_url: next })}
                 />
                 {/* THE AD'S OWN PAGE, READY TO COPY.
 

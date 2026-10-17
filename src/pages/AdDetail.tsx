@@ -38,6 +38,7 @@ import FeedVideoCard from "@/components/video/FeedVideoCard";
 import { adMedia } from "@/lib/posts/subjectMedia";
 import { fetchAdVideoMap, type FeedVideo } from "@/lib/video/postVideoRead";
 import PageSEO from "@/components/PageSEO";
+import { adLink, adLinkHost } from "@/lib/ads/adLink";
 
 interface Creative {
   id: string;
@@ -201,10 +202,11 @@ const AdDetail = () => {
           {media.video && (
             <>
               <FeedVideoCard video={media.video} />
-              {creative.click_url && (
-                <a href={creative.click_url} target="_blank" rel="noopener noreferrer"
+              {/* Bug 4: a CTA only for a real https:// link; never a second "Sponsored". */}
+              {adLink(creative.click_url) && (
+                <a href={adLink(creative.click_url)!} target="_blank" rel="noopener noreferrer"
                   className="flex min-h-11 items-center justify-between gap-3 border-y border-border px-3 py-2 text-sm hover:bg-muted/40">
-                  <span className="min-w-0 truncate">{creative.headline || creative.alt_text || creative.advertiser_name || "Sponsored"}</span>
+                  <span className="min-w-0 truncate">{creative.headline || adLinkHost(adLink(creative.click_url)!)}</span>
                   <span className="shrink-0 font-semibold text-primary">{creative.cta || "Learn more"} ›</span>
                 </a>
               )}
@@ -213,8 +215,8 @@ const AdDetail = () => {
 
           {/* Picture. Clicking it goes where the ad goes, and nowhere else. */}
           {media.imageUrls.length > 0 &&
-            (creative.click_url ? (
-              <a href={creative.click_url} target="_blank" rel="noopener noreferrer" className="block">
+            (adLink(creative.click_url) ? (
+              <a href={adLink(creative.click_url)!} target="_blank" rel="noopener noreferrer" className="block">
                 <img
                   src={media.imageUrls[0]}
                   alt={creative.alt_text || "Sponsored"}

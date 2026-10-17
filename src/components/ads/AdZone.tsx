@@ -34,6 +34,7 @@ import AdEngagementBar from "@/components/ads/AdEngagementBar";
 import FeedVideoCard from "@/components/video/FeedVideoCard";
 import { adMedia } from "@/lib/posts/subjectMedia";
 import { rememberAdThreadSubject } from "@/lib/ads/adThreadSubject";
+import { adLink, adLinkHost } from "@/lib/ads/adLink";
 
 /** Only the inline zones are valid here. */
 type InlineZone = Extract<AdZoneId, "sidebar" | "story-card" | "lightbox">;
@@ -119,6 +120,14 @@ const AdsenseUnit = ({ slotId, format, publisherId }: { slotId: string; format: 
     />
   );
 };
+
+/** The caption bar's words — one component, so a picture ad and a video ad say them alike. */
+const AdCaptionText = ({ title, subtext }: { title: string; subtext: string }) => (
+  <span className="min-w-0 flex-1">
+    {title && <span className="block truncate text-foreground">{title}</span>}
+    {subtext && <span className="block truncate text-xs text-muted-foreground">{subtext}</span>}
+  </span>
+);
 
 const CreativeOverlay = ({ headline, subtext, cta }: { headline: string; subtext: string; cta: string }) => {
   if (!headline && !subtext && !cta) return null;
@@ -379,10 +388,18 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
   const advertiser = (cr.advertiser_name || "").trim();
   const advertiserLogo = (cr.advertiser_logo_url || "").trim();
 
+  // Bug 4 — the link is used only when it is a real https:// address; plain
+  // text in the admin box is no link at all (src/lib/ads/adLink.ts).
+  const link = adLink(cr.click_url);
+  const storyCard = zone === "story-card";
+  // The caption bar's words. Never "Sponsored": the header already says it.
+  const barTitle = cr.creative_headline || (link ? adLinkHost(link) : "");
+  const barSubtext = cr.creative_subtext;
+
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
     trackZoneEvent(zone, c.mode, "click", device, chosen?.id);
-    if (cr.click_url) window.open(cr.click_url, "_blank", "noopener,noreferrer");
+    if (link) window.open(link, "_blank", "noopener,noreferrer");
   };
 
   /**
@@ -500,39 +517,63 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
         </div>
       )}
 
-      {/* OWN — VIDEO creative (VID-5), in the feed's story card only (the sidebar
-          and lightbox frames have no fixed height for a video — review #412):
-          A tap on a video plays/pauses/seeks, so the ad's link cannot wrap it:
-          it moves to a call-to-action bar under the video, as on Instagram. */}
+      {/* ── ONE AD LAYOUT, PICTURE OR VIDEO (bug 4, Owner, 15 Oct 2026) ──
+
+          The video ad said "Sponsored" twice — once in the header above, once
+          as the CTA bar's title, its last fallback — and drew "Learn more ›"
+          for a "website" that was the plain words "Hideaway Resort and Hotel".
+          The picture ad laid the same words out a third way, printed on the
+          picture. So the story card is now ONE layout for both: the header
+          (the only "Sponsored"), the media, then the same caption bar — title
+          and subtext, with the CTA on it only when `link` is a real https://
+          address (src/lib/ads/adLink.ts). A tap on a video plays it, so the
+          link cannot wrap a video; a picture may still be tapped through.
+
+          VID-5 note kept: the video plays in the story card's own frame
+          (the sidebar and lightbox frames have no fixed height — review #412). */}
       {c.mode === "own" && media.video && (
-        <>
-          <div className={mediaBox.className} style={mediaBox.style} data-testid="ad-video">
-            <FeedVideoCard video={media.video} fillParent />
-          </div>
-          {cr.click_url && (
-            <a href={cr.click_url} target="_blank" rel="noopener noreferrer" onClick={handleClick}
-              data-testid="ad-video-cta"
-              className="flex min-h-11 items-center justify-between gap-3 border-y border-border px-3 py-2 text-sm hover:bg-muted/40">
-              <span className="min-w-0 truncate text-foreground">{cr.creative_headline || cr.alt_text || cr.advertiser_name || "Sponsored"}</span>
-              <span className="shrink-0 font-semibold text-primary">{cr.creative_cta || "Learn more"} ›</span>
-            </a>
-          )}
-        </>
+        <div className={mediaBox.className} style={mediaBox.style} data-testid="ad-video">
+          <FeedVideoCard video={media.video} fillParent />
+        </div>
       )}
 
-      {/* OWN — image creative (library picture, or the zone's single image) */}
+      {/* OWN — image creative (library picture, or the zone's single image).
+          The words go on the picture only in the small sidebar/lightbox frames;
+          the story card puts them in the caption bar below, as for a video. */}
       {c.mode === "own" && media.imageUrls.length > 0 && (
-        cr.click_url ? (
-          <a href={cr.click_url} target="_blank" rel="noopener noreferrer" className="block relative" onClick={handleClick}>
+        link ? (
+          <a href={link} target="_blank" rel="noopener noreferrer" className="block relative" onClick={handleClick}>
             <div className={mediaBox.className} style={mediaBox.style}>
               <img src={media.imageUrls[0]} alt={cr.alt_text || "Sponsored"} className={frame.image} loading="lazy" />
-              <CreativeOverlay headline={cr.creative_headline} subtext={cr.creative_subtext} cta={cr.creative_cta} />
+              {!storyCard && <CreativeOverlay headline={cr.creative_headline} subtext={cr.creative_subtext} cta={cr.creative_cta} />}
             </div>
           </a>
         ) : (
           <div className={mediaBox.className} style={mediaBox.style}>
             <img src={media.imageUrls[0]} alt={cr.alt_text || "Sponsored"} className={frame.image} loading="lazy" />
-            <CreativeOverlay headline={cr.creative_headline} subtext={cr.creative_subtext} cta={cr.creative_cta} />
+            {/* No link, no CTA: a button that goes nowhere is the bug. */}
+            {!storyCard && <CreativeOverlay headline={cr.creative_headline} subtext={cr.creative_subtext} cta="" />}
+          </div>
+        )
+      )}
+
+      {/* THE CAPTION BAR — the same element under a picture and under a video.
+          `data-testid="ad-video-cta"` is the name VID-5 gave it when only the
+          video had one (src/lib/video/__tests__/adVideos.test.ts holds it);
+          it is every story-card ad's CTA now. */}
+      {c.mode === "own" && storyCard && (media.video || media.imageUrls.length > 0) && (barTitle || barSubtext || link) && (
+        link ? (
+          <a href={link} target="_blank" rel="noopener noreferrer" onClick={handleClick}
+            data-testid="ad-video-cta"
+            data-ad-kind={media.video ? "video" : "picture"}
+            className="flex min-h-11 items-center justify-between gap-3 border-y border-border px-3 py-2 text-sm hover:bg-muted/40">
+            <AdCaptionText title={barTitle} subtext={barSubtext} />
+            <span className="shrink-0 font-semibold text-primary">{cr.creative_cta || "Learn more"} ›</span>
+          </a>
+        ) : (
+          <div data-testid="ad-caption" data-ad-kind={media.video ? "video" : "picture"}
+            className="flex min-h-11 items-center gap-3 border-y border-border px-3 py-2 text-sm">
+            <AdCaptionText title={barTitle} subtext={barSubtext} />
           </div>
         )
       )}
