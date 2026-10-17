@@ -1,0 +1,12 @@
+﻿# SEC-VID-12 fail-first (2026-10-10T12:44:37Z UTC)
+
+## Before (handler.ts without the SEC-VID-12 rule, same test file)
+❯ src/lib/video/__tests__/mediaAuthz.test.ts (32 tests | 1 failed | 31 skipped) 33ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: video%2F11111111-1111-4111-8111-111111111111/33333333-3333-4333-8333-333333333333/v1/240p_0.m4s: expected 200 to be 400 // Object.is equality
+Tests  1 failed | 31 skipped (32)
+Duration  2.24s (transform 129ms, setup 132ms, collect 114ms, tests 33ms, environment 1.03s, prepare 293ms)
+
+## After (with the rule)
+Tests  32 passed (32)
+Duration  2.12s (transform 156ms, setup 177ms, collect 151ms, tests 202ms, environment 904ms, prepare 205ms)

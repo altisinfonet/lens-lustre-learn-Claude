@@ -1,0 +1,151 @@
+{
+  "at": "2026-10-14T18:31:17.773Z",
+  "browser": "webkit",
+  "version": "26.5",
+  "journeys": [
+    {
+      "name": "feed → comments → close (x) → Back → the page below",
+      "viewport": "1280x900",
+      "control": false,
+      "pass": true,
+      "reading": {
+        "historyBefore": 3,
+        "historyAfterClose": 4
+      }
+    },
+    {
+      "name": "feed → comments → close (escape) → Back → the page below",
+      "viewport": "1280x900",
+      "control": false,
+      "pass": true,
+      "reading": {
+        "historyBefore": 3,
+        "historyAfterClose": 4
+      }
+    },
+    {
+      "name": "feed → comments → close (backdrop) → Back → the page below",
+      "viewport": "1280x900",
+      "control": false,
+      "pass": true,
+      "reading": {
+        "historyBefore": 3,
+        "historyAfterClose": 4
+      }
+    },
+    {
+      "name": "feed → comments → Back (browser) closes it → Back → the page below",
+      "viewport": "1280x900",
+      "control": true,
+      "pass": true
+    },
+    {
+      "name": "phone width (sheet): feed → comments → Escape → Back → the page below",
+      "viewport": "390x844",
+      "control": false,
+      "pass": true
+    },
+    {
+      "name": "phone width (sheet): feed → comments → swipe down → Back → the page below",
+      "viewport": "390x844",
+      "control": false,
+      "pass": true
+    },
+    {
+      "name": "phone width (sheet): feed → comments → Back closes it → Back → the page below",
+      "viewport": "390x844",
+      "control": true,
+      "pass": true
+    },
+    {
+      "name": "/post/<id> (opened in-app, as the bell does) → comments → Back ×2 → feed",
+      "viewport": "1280x900",
+      "control": true,
+      "pass": true
+    },
+    {
+      "name": "/post/<id> (opened in-app) → comments → Escape → Back → feed — the reported loop, on the website",
+      "viewport": "1280x900",
+      "control": false,
+      "pass": true
+    },
+    {
+      "name": "/post/<id> → comments → X → page's own ← Back → feed",
+      "viewport": "1280x900",
+      "control": false,
+      "pass": true
+    },
+    {
+      "name": "external link straight to /post/<id> (no in-app history) → page's ← Back → feed, no extra step",
+      "viewport": "1280x900",
+      "control": false,
+      "pass": true
+    },
+    {
+      "name": "cold link that already carries ?comments=<id> → opens → Escape → no step left",
+      "viewport": "1280x900",
+      "control": false,
+      "pass": true
+    },
+    {
+      "name": "feed scroll position: comments opened and closed → the feed has not moved",
+      "viewport": "1280x900",
+      "control": true,
+      "pass": true,
+      "reading": {
+        "scrollBefore": 1026,
+        "scrollAfter": 1026
+      }
+    },
+    {
+      "name": "feed scroll position (1280px): feed → a post → Back → the feed is where it was left, the same post at the top",
+      "viewport": "1280x900",
+      "control": false,
+      "pass": true,
+      "reading": {
+        "scrollBefore": 1026,
+        "scrollOnThePostPage": 0,
+        "scrollAfterReturn": 1026,
+        "topPostBefore": "aaaaaaa1-0000-4000-8000-000000000002",
+        "topPostAfter": "aaaaaaa1-0000-4000-8000-000000000002"
+      }
+    },
+    {
+      "name": "feed scroll position (390px): feed → a post → Back → the feed is where it was left, the same post at the top",
+      "viewport": "390x844",
+      "control": false,
+      "pass": true,
+      "reading": {
+        "scrollBefore": 978,
+        "scrollOnThePostPage": 0,
+        "scrollAfterReturn": 978,
+        "topPostBefore": "aaaaaaa1-0000-4000-8000-000000000001",
+        "topPostAfter": "aaaaaaa1-0000-4000-8000-000000000001"
+      }
+    },
+    {
+      "name": "feed scroll position: a FRESH visit to the feed starts at the top and is a NEW deal (nothing is restored on a push)",
+      "viewport": "1280x900",
+      "control": true,
+      "pass": true,
+      "reading": {
+        "scrollOnFreshVisit": 0,
+        "dealsBefore": 1,
+        "dealsAfter": 3
+      }
+    },
+    {
+      "name": "native (Android stub): cold start → notification tap → post → comments → Back ×2 → feed → Back leaves the app",
+      "viewport": "390x844",
+      "control": false,
+      "pass": true
+    },
+    {
+      "name": "native (Android stub): cold start → notification for a post that is gone → the feed, with a short notice",
+      "viewport": "390x844",
+      "control": false,
+      "pass": true
+    }
+  ],
+  "verdict": "PASS"
+}

@@ -1,0 +1,11 @@
+✓ no posts AND no comments for 36 h → exit 0 (R-82: a reading never blocks)
+✓ …and the quiet spell is still SAID, as a warning
+✓ …and it is not reported as a problem
+✓ …and it becomes a GitHub annotation, so the run page shows it
+✓ one post in 36 h → HEALTHY, exit 0
+✓ …with no warning
+✓ activity query itself errors → still exit 1 (could-not-run is a fault)
+✓ misaligned thumbnails → still exit 1
+✓ a real fault AND a quiet spell → exit 1, warning still listed
+
+PASS

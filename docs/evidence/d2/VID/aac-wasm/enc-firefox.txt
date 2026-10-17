@@ -1,0 +1,11 @@
+Firefox firefox/157.0.1
+{"name":"mkv_h264_aac.mkv","supported":true,"facts":"1280x720","ms":4290,"audio":true,"problems":[]}
+{"name":"mov_h264_aac.mov","supported":true,"facts":"1280x720","ms":3639,"audio":true,"problems":[]}
+{"name":"mov_hevc_aac_portrait.mov","supported":true,"error":"VID-META-003: This browser can't play this video's format — usually H.265 (HEVC) or 10-bit video from a newer phone. Open the site in Chrome or Edge, or on iPhone set Settings → Camera → Formats → Most Compatible."}
+{"name":"mp4_h264_1080p60_44k.mp4","supported":true,"facts":"1920x1080","ms":4450,"audio":true,"problems":[]}
+{"name":"mp4_h264_10bit.mp4","supported":true,"error":"VID-META-003: This browser can't play this video's format — usually H.265 (HEVC) or 10-bit video from a newer phone. Open the site in Chrome or Edge, or on iPhone set Settings → Camera → Formats → Most Compatible."}
+{"name":"mp4_h264_aac.mp4","supported":true,"facts":"1280x720","ms":3585,"audio":true,"problems":[]}
+{"name":"mp4_h264_nosound.mp4","supported":true,"facts":"1280x720","ms":3188,"audio":false,"problems":[]}
+{"name":"mp4_h264_rotated90.mp4","supported":true,"facts":"1280x720","ms":3602,"audio":true,"problems":[]}
+{"name":"mp4_hevc_aac.mp4","supported":true,"error":"VID-META-003: This browser can't play this video's format — usually H.265 (HEVC) or 10-bit video from a newer phone. Open the site in Chrome or Edge, or on iPhone set Settings → Camera → Formats → Most Compatible."}
+{"name":"webm_vp9_opus.webm","supported":true,"facts":"1280x720","ms":3692,"audio":true,"problems":[]}

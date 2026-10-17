@@ -15,10 +15,12 @@ import UserIdentityBlock from "@/components/UserIdentityBlock";
 import ContributorScore from "@/components/ContributorScore";
 import TaggedPeople from "@/components/post/TaggedPeople";
 import PostMedia from "@/components/post/PostMedia";
+import FeedVideoCard from "@/components/video/FeedVideoCard";
+import { postMedia } from "@/lib/posts/subjectMedia";
 import Caption from "@/components/post/Caption";
 import HashtagSuggestions from "@/components/post/HashtagSuggestions";
 import { useCaptionHashtags } from "@/hooks/feed/useCaptionHashtags";
-import { useCommentsOverlay } from "@/contexts/CommentsOverlayContext";
+import { useCommentsOverlay, usePostCommentsDeepLink } from "@/contexts/CommentsOverlayContext";
 import { timeAgo, privacyIcon } from "@/lib/postUtils";
 import { formatNumber } from "@/lib/postAnalytics";
 import { displayEngagement, formatEngagementCount } from "@/lib/displayEngagement";
@@ -74,6 +76,9 @@ const PostCard = ({
   const authorOnline = useOnline(post.user_id);
   const queryClient = useQueryClient();
   const { openPostComments } = useCommentsOverlay();
+  // L1: a link that already carries ?comments=<this post> (shared link, cold
+  // start, reload) opens this card's thread — no second fetch path.
+  usePostCommentsDeepLink(post, onCommentCountChange);
   const [reportingOpen, setReportingOpen] = useState(false);
   // App Store 1.2: block the author from the post's own menu.
   const [blockOpen, setBlockOpen] = useState(false);
@@ -160,7 +165,11 @@ const PostCard = ({
     currentUserId && (post.tagged_people ?? []).some((t) => t.id === currentUserId),
   );
 
-  const imageUrls = post.image_urls.length > 0 ? post.image_urls : post.image_url ? [post.image_url] : [];
+  // VID-1 / R-105: a video post is ONE 9:16 card and never also a photo frame.
+  // What the card shows comes from the one module every screen uses
+  // (src/lib/posts/subjectMedia.ts) — the comments box shows the same.
+  const media = postMedia(post);
+  const imageUrls = media.imageUrls;
   // Stored thumbnails ride along ONLY when they align one-to-one with the
   // images. A mismatched array (single-image fallback path, partial uploads)
   // must not put photo 1's thumbnail under photo 2 — no thumbs is merely
@@ -287,7 +296,7 @@ const PostCard = ({
   // that renders them — not as a bottom border on the card, which also drew a
   // line under the very last post in the feed.
   return (
-    <div className="bleed-phone mb-4 overflow-hidden">
+    <div className="bleed-phone mb-4 overflow-hidden" data-post-id={post.id}>
       {/* ── Header ── */}
       {/* Header. `pb-2` is load-bearing: it is the ONLY thing standing between
           the header and the media on a post with no caption. Until 2026-08-01
@@ -543,6 +552,12 @@ const PostCard = ({
           • Web: `group-hover/media`, pure CSS, no JavaScript and no click stolen.
           • App: the FIRST tap reveals them and opens nothing; the second opens
             the photograph, exactly as it always did. See `interceptFirstTap`. */}
+      {media.video && (
+        // VID-1 / R-105: a video post is ONE 9:16 card; it replaces the photo frame, never sits beside it.
+        <div className="px-0" data-testid="post-video">
+          <FeedVideoCard video={media.video} />
+        </div>
+      )}
       {imageUrls.length > 0 && (
         <div className="relative group/media px-0">
           <PostMedia

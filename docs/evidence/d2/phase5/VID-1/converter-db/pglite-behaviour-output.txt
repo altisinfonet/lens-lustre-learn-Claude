@@ -1,0 +1,90 @@
+PASS 0 the migration applies on top of 0005/0001/0007 
+PASS 1 no converter account yet → every converter function refuses
+PASS 2 site setting 'device' → video_source_begin refuses
+PASS 3 a member starts a server conversion 
+PASS 4 same idempotency key → same job (replayed)
+PASS 5 video posts off for the member → refused
+PASS 6 banned member → refused
+PASS 7 the converter account cannot start a source
+PASS 8 … nor use the device path (review #416 finding 4)
+PASS 9 a non-admin cannot start an ad conversion
+PASS 10 500 MB + 1 byte → refused
+PASS 11 a second open source is allowed 
+PASS 12 a third open source → refused
+PASS 13 a device upload still fits (2 sources + 1 video = 3) 
+PASS 14 a 4th upload of any kind → VID-LIM-004
+PASS 15 another member cannot queue someone else's source
+PASS 16 a malformed ETag is refused
+PASS 17 the owner queues it 
+PASS 18 the owner cannot read the claim token
+PASS 19 … nor when it was claimed
+PASS 20 the owner reads their own jobs
+PASS 21 another member reads none of them
+PASS 22 a member cannot claim jobs
+PASS 23 first claim: the oldest job (A's) 
+PASS 24 a second claim while one is live → refused (one job at a time; review #416 finding 5)
+PASS 25 wrong claim token → refused
+PASS 26 the converter declares the package 
+PASS 27 the video belongs to the source's owner, purpose from the source, key = the attempt's token, marked converted_from
+PASS 28 converted_from is not readable by members
+PASS 29 a retry in the same attempt gets the same video
+PASS 30 a different package in the same attempt → refused
+PASS 31 the open count is still 3 for A: the source counts once, its video is not counted again (3)
+PASS 32 converter_version gives the claimed video's facts, with the lease end (URLs never outlive the claim) 
+PASS 33 … nothing with a wrong token
+PASS 34 … nothing for a member's device video
+PASS 35 … nothing for a member, even with the token
+PASS 36 heartbeat extends a held lease
+PASS 37 heartbeat with a wrong token → refused
+PASS 38 a claim older than 6 h cannot be kept alive: the lease is capped at claimed_at + 6 h, then the claim is dead (review #416 finding 10)
+PASS 39 the converter cannot mark a member's device video
+PASS 40 another member cannot mark it
+PASS 41 the converter marks the video it is converting 
+PASS 42 done → the job is done 
+PASS 43 after done, the converter cannot touch that video
+PASS 44 next claim: B's job before A's second (A was served last) — round-robin by member
+PASS 45 the owner's video posts switched off → the converter's mark is refused
+PASS 46 the run-out attempt's half-made video is deleted
+PASS 47 B's job is back in the queue with no stale link
+PASS 48 B's job is claimed again: attempt 2
+PASS 49 the new attempt makes a fresh video 
+PASS 50 B's three tries at one upload count ONCE for the day (review #416 finding 2) — 1
+PASS 51 attempt 2 uploaded
+PASS 52 a lease that runs out after the upload → done, the video kept
+PASS 53 a final failure shows the fixed text for its code, not the converter's words
+PASS 54 the converter's own words are kept in the audit trail only
+PASS 55 free text instead of a code → refused (no phishing text for members)
+PASS 56 'internal' → back to the queue, and its wait starts again (it is not timed out by the old queued_at; re-review NIT 3)
+PASS 57 a failure reported after the upload went through ends the job as done (review #416 finding 6)
+PASS 58 the owner was switched off while queued → the job is NOT handed out (its original is not read) and WAITS — a temporary Off does not fail it (re-review NIT 2)
+PASS 58b still switched off after 48 h → failed, telling the member uploads are switched off for them
+PASS 59 the 11th start after 10 cancels → VID-LIM-003 (cancelling does not free the day; review #416 finding 1) VID-LIM-003: 10 video uploads in 24 hours is the limit
+PASS 60 ten started-and-cancelled sources count ten for the day (10)
+PASS 61 the member deleted the half-made video mid-conversion: the source still counts (open count unchanged: 2 → 2)
+PASS 62 another member cannot cancel it
+PASS 63 the owner cancels mid-conversion: job cancelled, half-made video deleted
+PASS 64 the converter's claim on a cancelled job is dead
+PASS 63b a claim that hit the 6 h ceiling → failed as too long after ONE attempt (the VM is not held 3 × 6 h)
+PASS 65 the audit trail recorded the story (71 events)
+PASS 66 audit rows cannot be changed or deleted
+PASS 67 housekeeping: unfinished upload → failed; queued 49 h → failed (review #416 finding 10); ended 3 days ago → purged {"purged":1,"events_purged":0,"lease_expired":0,"queue_timed_out":1,"upload_abandoned":1}
+PASS 68 the timed-out job tells the member the converter was not available
+PASS 69 health: a job waiting 40 min raises the alert {"alert":true,"queued":1,"converting":0,"vm_last_seen_s":1,"oldest_queued_s":2400}
+PASS 70 the service role (health check) can read it 
+PASS 71 the owner still marks their own device video 
+PASS 72 internal functions are not callable by members
+PASS 73 health is not callable by members
+PASS 74 anon cannot call converter functions
+PASS 75 members cannot write video_sources directly
+PASS 76 PROBE PASS on the applied schema 
+PASS 77 PROBE catches: claim_token readable
+PASS 78 PROBE catches: anon EXECUTE on video_mark_uploaded
+PASS 79 PROBE catches: done_has_video dropped
+PASS 80 PROBE catches: cron command replaced
+PASS 81 PROBE catches: health not readable by service_role
+PASS 82 PROBE catches: converter holds a role
+PASS 83 the rollback runs and its own post-checks pass 
+PASS 84 after rollback the device path still works (0005 body) 
+PASS 85 the migration applies again after the rollback (clean round trip) 
+PASS 86 the rollback refuses to overwrite a later body (review #416 finding 9)
+89 pass, 0 fail

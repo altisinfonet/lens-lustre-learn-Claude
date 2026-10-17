@@ -1,0 +1,243 @@
+# vid2-attest-run-tests.sh · run 2026-10-10T02:59Z · PostgreSQL 17.11 + pg_cron 1.6 · scratch cluster · head before commit: 070132a
+
+══ 0 · the function body is 0006's, changed only where F-D1-4 says
+  PASS  diff 0006 → 0007 body: the signature and the one PERFORM, nothing else
+  PASS  the rollback restores 0006's body byte for byte
+  PASS  openssl HMAC = pgcrypto HMAC on the same message (checked again after the fixture below)
+
+══ staging · 1 · fixture + 0004 + 0005 + 0006 (as on staging today); video_posts and video_ads on for All members
+psql:/home/claude/lens-lustre-learn-claude/docs/evidence/d1/VID/vid-fixture-base.sql:16: NOTICE:  schema "extensions" already exists, skipping
+psql:/home/claude/lens-lustre-learn-claude/docs/evidence/d1/VID/vid-fixture-base.sql:17: NOTICE:  extension "pgcrypto" already exists, skipping
+  lane shape: staging · category minimum on INSERT: off (B1)
+  PASS  0004 + 0005 + 0006 applied (lane staging)
+  PASS  openssl and pgcrypto (schema extensions, as on the lanes) give the same HMAC
+
+══ staging · 2 · FAIL FIRST — before 0007 the holes are real
+  PASS  PROBE refuses — before 0007:
+                PROBE FAIL VID-2A: A1 the upload attestation (20261005_0007) is not installed
+  PASS  F-D1-4 reproduced: Neil calls video_mark_uploaded directly with a made-up hash, no files, no complete → ready
+  PASS  SEC-VID-4 reproduced: ad_videos has 2 permissive SELECT paths for authenticated
+
+══ staging · 3 · apply 20261005_0007 (lane staging)
+  PASS  apply with no lane asserted — refused
+  PASS  apply — VID2-0007: uploads complete only with an attestation (lane staging); attest key configured: f; ad_videos: 1 read + insert/update/delete
+  PASS  a second apply is refused (PRE-002)
+  PASS  the lane word fixed into the database is 'staging'; ad_videos has 1 SELECT path
+
+══ staging · 4 · no key on the lane → nothing completes (fail closed) and the PROBE goes red (A3)
+  PASS  a correctly signed call, no key in vault → VID-MU-004; video untouched
+  PASS  PROBE refuses — a switch is on, no key:
+          A3 a video switch is not Off but this lane has no attest key (≥ 32 chars): video_ads=everyone, video_posts=everyone
+  PASS  a key shorter than 32 characters counts as no key → VID-MU-004
+  PASS  PROBE passes — key set
+        PROBE PASS VID-2A: lane staging; attest key configured t; previous key none; switches copyright_music_check=off, video_ads=everyone, video_posts=everyone
+  PASS  PROBE passes — PROBE_vid4 accepts the attested form
+        PROBE PASS VID-4: copyright_music_check=off (key configured: f); checking 0, due now 0, overdue > 6 h 0; library active 0
+
+══ staging · 5 · SEC's fail-first set: every forged or stale completion is refused, and changes nothing
+  PASS  the 3-argument call → does not exist (no unattested path)
+  PASS  none: no attestation → VID-MU-005
+  PASS  none: no issued_at → VID-MU-005
+  PASS  malformed attestation → VID-MU-005
+  PASS  tampered: one hex digit changed → VID-MU-005
+  PASS  other lane: signed for 'production' → VID-MU-005
+  PASS  other key (another lane's key) → VID-MU-005
+  PASS  other version: signed for v2, called for v1 → VID-MU-005
+  PASS  other video: Neil's video W's attestation used on V → VID-MU-005
+  PASS  other manifest: signed over a manifest hash that is not the stored one → VID-MU-005
+  PASS  has_audio flipped to false in the signature (stored row says true) → VID-MU-005
+  PASS  audio hash swapped: signed H1, passed a made-up H3 → VID-MU-005
+  PASS  audio hash dropped from the call ('none') → VID-MU-005
+  PASS  expired: correctly signed 15 min 1 s ago → VID-MU-006
+  PASS  dated 2 min ahead → VID-MU-006
+  PASS  replay by another member: Riya sends Neil's valid attestation → VID-MU-001
+  PASS  anon cannot call it at all
+  PASS  the check and the lane function are internal (member and service_role refused)
+  PASS  after every refusal above: V still uploading, no check row, uploaded_at unset
+
+══ staging · 6 · the real path: complete's attestation is accepted (switch Off as shipped)
+  PASS  signed 14 min 40 s ago (inside 15 min) → ready, music check off
+  PASS  the attested audio hash is the one stored
+  PASS  outbox retry with a fresh attestation → replayed, nothing changes
+  PASS  a replay WITHOUT an attestation → VID-MU-005 (checked before the replay answer)
+  PASS  a silent video, signed with audio 'none' → ready
+  PASS  Riya signing for Neil's W with the real key still → VID-MU-001 (owner first)
+
+══ staging · 7 · key rotation: current + previous accepted; a bad previous is never trusted
+  PASS  after rotation: signed with the previous key → ready; with the new key → ready
+  PASS  PROBE passes — rotated keys
+        PROBE PASS VID-2A: lane staging; attest key configured t; previous key accepted; switches copyright_music_check=off, video_ads=everyone, video_posts=everyone
+  PASS  previous = current: K1 is dead, only K2 works
+  PASS  a previous key under 32 characters is ignored, never trusted
+
+══ staging · 8 · remedies pass the same gate (music check On for Neil, a match, then mute → v2)
+  PASS  On for Neil: attested completion → checking, queued
+  PASS  the worker reports a match → music_blocked
+  PASS  the mute remedy makes v2 (manifest H2, no audio) → uploading
+  PASS  v1's call on a v2 video → VID-MU-002
+  PASS  v2 signed over v1's manifest → VID-MU-005
+  PASS  v2 signed over v2's stored row → checking (checked again)
+
+══ staging · 9 · SEC-VID-4: ad_videos — one read path; admin writes unchanged; members refused
+  PASS  admin ad video, attested → ready
+  PASS  a member inserting → refused (RLS)
+  PASS  video_ads Off → the admin cannot attach (INSERT WITH CHECK)
+  PASS  admin, switch on → linked
+  PASS  a member's UPDATE and DELETE touch 0 rows
+  PASS  admin UPDATE (switch on) → night
+  PASS  admin UPDATE with video_ads Off → refused (UPDATE WITH CHECK, as before)
+  PASS  inactive creative: the admin still reads its video ad (unchanged); Neil and anon do not
+  PASS  admin DELETE works even with video_ads Off (clean-up, as before)
+
+══ staging · 10 · mutants — each one must turn the PROBE red (and the first proves the test could fail)
+  PASS  mutant 1 (verify removed): an unattested call publishes again — the hole the tests guard
+  PASS  PROBE refuses — mutant 1: verify removed:
+          A1 video_mark_uploaded does not check the attestation before the replay answer and every write
+  PASS  PROBE refuses — mutant 2: a 3-argument form is back:
+          A1 an unattested video_mark_uploaded form exists (2 forms)
+  PASS  PROBE refuses — mutant 3: the check granted to authenticated:
+          A2 the attestation check is reachable by an API role (or mark_uploaded by anon, or verify is DEFINER)
+  PASS  PROBE refuses — dispatched as production on a staging database: A2 the lane fixed into the attestation (staging) is not this lane (production)
+  PASS  PROBE refuses — mutant 5: the attest key reused as another secret:
+          A4 the attest key has the same value as 1 other vault secret(s)
+  PASS  PROBE refuses — mutant 6: a second SELECT path on ad_videos:
+          A5 ad_videos has 2 permissive SELECT paths for authenticated (want 1)
+  PASS  PROBE refuses — mutant 7: key removed while switches are on:
+          A3 a video switch is not Off but this lane has no attest key (≥ 32 chars): copyright_music_check=selected, video_ads=everyone, video_posts=everyone
+  PASS  PROBE passes — every mutant undone
+        PROBE PASS VID-2A: lane staging; attest key configured t; previous key none; switches copyright_music_check=selected, video_ads=everyone, video_posts=everyone
+
+══ staging · 11 · rollback (reopens F-D1-4, says so), the 0006 rollback after it, and re-apply
+  PASS  rollback with no lane asserted — refused
+  PASS  rollback — VID2-0007 rolled back: F-D1-4 is OPEN again (unattested video_mark_uploaded restored)
+  PASS  0006's function and 0005's FOR ALL policy are back
+  PASS  PROBE refuses — after rollback:
+                PROBE FAIL VID-2A: A1 the upload attestation (20261005_0007) is not installed
+  PASS  PROBE passes — PROBE_vid4 still passes on the 3-argument form
+        PROBE PASS VID-4: copyright_music_check=selected (key configured: t); checking 1, due now 1, overdue > 6 h 0; library active 0
+  PASS  a second rollback is refused (RB-001)
+  PASS  re-applied
+  PASS  PROBE passes — re-applied
+        PROBE PASS VID-2A: lane staging; attest key configured t; previous key none; switches copyright_music_check=selected, video_ads=everyone, video_posts=everyone
+  PASS  after re-apply: Riya's attested completion → ready
+  PASS  0006's rollback refuses while 0007 is applied (F-D1-7: roll back 0007 first) — VID4-0006-RB-PRE-001:
+
+══ production · 1 · fixture + 0004 + 0005 + 0006 (as on staging today); video_posts and video_ads on for All members
+psql:/home/claude/lens-lustre-learn-claude/docs/evidence/d1/VID/vid-fixture-base.sql:16: NOTICE:  schema "extensions" already exists, skipping
+psql:/home/claude/lens-lustre-learn-claude/docs/evidence/d1/VID/vid-fixture-base.sql:17: NOTICE:  extension "pgcrypto" already exists, skipping
+  lane shape: production · category minimum on INSERT: on (B2)
+  PASS  0004 + 0005 + 0006 applied (lane production)
+  PASS  openssl and pgcrypto (schema extensions, as on the lanes) give the same HMAC
+
+══ production · 2 · FAIL FIRST — before 0007 the holes are real
+  PASS  PROBE refuses — before 0007:
+                PROBE FAIL VID-2A: A1 the upload attestation (20261005_0007) is not installed
+  PASS  F-D1-4 reproduced: Neil calls video_mark_uploaded directly with a made-up hash, no files, no complete → ready
+  PASS  SEC-VID-4 reproduced: ad_videos has 2 permissive SELECT paths for authenticated
+
+══ production · 3 · apply 20261005_0007 (lane production)
+  PASS  apply with no lane asserted — refused
+  PASS  apply — VID2-0007: uploads complete only with an attestation (lane production); attest key configured: f; ad_videos: 1 read + insert/update/delete
+  PASS  a second apply is refused (PRE-002)
+  PASS  the lane word fixed into the database is 'production'; ad_videos has 1 SELECT path
+
+══ production · 4 · no key on the lane → nothing completes (fail closed) and the PROBE goes red (A3)
+  PASS  a correctly signed call, no key in vault → VID-MU-004; video untouched
+  PASS  PROBE refuses — a switch is on, no key:
+          A3 a video switch is not Off but this lane has no attest key (≥ 32 chars): video_ads=everyone, video_posts=everyone
+  PASS  a key shorter than 32 characters counts as no key → VID-MU-004
+  PASS  PROBE passes — key set
+        PROBE PASS VID-2A: lane production; attest key configured t; previous key none; switches copyright_music_check=off, video_ads=everyone, video_posts=everyone
+  PASS  PROBE passes — PROBE_vid4 accepts the attested form
+        PROBE PASS VID-4: copyright_music_check=off (key configured: f); checking 0, due now 0, overdue > 6 h 0; library active 0
+
+══ production · 5 · SEC's fail-first set: every forged or stale completion is refused, and changes nothing
+  PASS  the 3-argument call → does not exist (no unattested path)
+  PASS  none: no attestation → VID-MU-005
+  PASS  none: no issued_at → VID-MU-005
+  PASS  malformed attestation → VID-MU-005
+  PASS  tampered: one hex digit changed → VID-MU-005
+  PASS  other lane: signed for 'staging' → VID-MU-005
+  PASS  other key (another lane's key) → VID-MU-005
+  PASS  other version: signed for v2, called for v1 → VID-MU-005
+  PASS  other video: Neil's video W's attestation used on V → VID-MU-005
+  PASS  other manifest: signed over a manifest hash that is not the stored one → VID-MU-005
+  PASS  has_audio flipped to false in the signature (stored row says true) → VID-MU-005
+  PASS  audio hash swapped: signed H1, passed a made-up H3 → VID-MU-005
+  PASS  audio hash dropped from the call ('none') → VID-MU-005
+  PASS  expired: correctly signed 15 min 1 s ago → VID-MU-006
+  PASS  dated 2 min ahead → VID-MU-006
+  PASS  replay by another member: Riya sends Neil's valid attestation → VID-MU-001
+  PASS  anon cannot call it at all
+  PASS  the check and the lane function are internal (member and service_role refused)
+  PASS  after every refusal above: V still uploading, no check row, uploaded_at unset
+
+══ production · 6 · the real path: complete's attestation is accepted (switch Off as shipped)
+  PASS  signed 14 min 40 s ago (inside 15 min) → ready, music check off
+  PASS  the attested audio hash is the one stored
+  PASS  outbox retry with a fresh attestation → replayed, nothing changes
+  PASS  a replay WITHOUT an attestation → VID-MU-005 (checked before the replay answer)
+  PASS  a silent video, signed with audio 'none' → ready
+  PASS  Riya signing for Neil's W with the real key still → VID-MU-001 (owner first)
+
+══ production · 7 · key rotation: current + previous accepted; a bad previous is never trusted
+  PASS  after rotation: signed with the previous key → ready; with the new key → ready
+  PASS  PROBE passes — rotated keys
+        PROBE PASS VID-2A: lane production; attest key configured t; previous key accepted; switches copyright_music_check=off, video_ads=everyone, video_posts=everyone
+  PASS  previous = current: K1 is dead, only K2 works
+  PASS  a previous key under 32 characters is ignored, never trusted
+
+══ production · 8 · remedies pass the same gate (music check On for Neil, a match, then mute → v2)
+  PASS  On for Neil: attested completion → checking, queued
+  PASS  the worker reports a match → music_blocked
+  PASS  the mute remedy makes v2 (manifest H2, no audio) → uploading
+  PASS  v1's call on a v2 video → VID-MU-002
+  PASS  v2 signed over v1's manifest → VID-MU-005
+  PASS  v2 signed over v2's stored row → checking (checked again)
+
+══ production · 9 · SEC-VID-4: ad_videos — one read path; admin writes unchanged; members refused
+  PASS  admin ad video, attested → ready
+  PASS  a member inserting → refused (RLS)
+  PASS  video_ads Off → the admin cannot attach (INSERT WITH CHECK)
+  PASS  admin, switch on → linked
+  PASS  a member's UPDATE and DELETE touch 0 rows
+  PASS  admin UPDATE (switch on) → night
+  PASS  admin UPDATE with video_ads Off → refused (UPDATE WITH CHECK, as before)
+  PASS  inactive creative: the admin still reads its video ad (unchanged); Neil and anon do not
+  PASS  admin DELETE works even with video_ads Off (clean-up, as before)
+
+══ production · 10 · mutants — each one must turn the PROBE red (and the first proves the test could fail)
+  PASS  mutant 1 (verify removed): an unattested call publishes again — the hole the tests guard
+  PASS  PROBE refuses — mutant 1: verify removed:
+          A1 video_mark_uploaded does not check the attestation before the replay answer and every write
+  PASS  PROBE refuses — mutant 2: a 3-argument form is back:
+          A1 an unattested video_mark_uploaded form exists (2 forms)
+  PASS  PROBE refuses — mutant 3: the check granted to authenticated:
+          A2 the attestation check is reachable by an API role (or mark_uploaded by anon, or verify is DEFINER)
+  PASS  PROBE refuses — dispatched as staging on a production database: A2 the lane fixed into the attestation (production) is not this lane (staging)
+  PASS  PROBE refuses — mutant 5: the attest key reused as another secret:
+          A4 the attest key has the same value as 1 other vault secret(s)
+  PASS  PROBE refuses — mutant 6: a second SELECT path on ad_videos:
+          A5 ad_videos has 2 permissive SELECT paths for authenticated (want 1)
+  PASS  PROBE refuses — mutant 7: key removed while switches are on:
+          A3 a video switch is not Off but this lane has no attest key (≥ 32 chars): copyright_music_check=selected, video_ads=everyone, video_posts=everyone
+  PASS  PROBE passes — every mutant undone
+        PROBE PASS VID-2A: lane production; attest key configured t; previous key none; switches copyright_music_check=selected, video_ads=everyone, video_posts=everyone
+
+══ production · 11 · rollback (reopens F-D1-4, says so), the 0006 rollback after it, and re-apply
+  PASS  rollback with no lane asserted — refused
+  PASS  rollback — VID2-0007 rolled back: F-D1-4 is OPEN again (unattested video_mark_uploaded restored)
+  PASS  0006's function and 0005's FOR ALL policy are back
+  PASS  PROBE refuses — after rollback:
+                PROBE FAIL VID-2A: A1 the upload attestation (20261005_0007) is not installed
+  PASS  PROBE passes — PROBE_vid4 still passes on the 3-argument form
+        PROBE PASS VID-4: copyright_music_check=selected (key configured: t); checking 1, due now 1, overdue > 6 h 0; library active 0
+  PASS  a second rollback is refused (RB-001)
+  PASS  re-applied
+  PASS  PROBE passes — re-applied
+        PROBE PASS VID-2A: lane production; attest key configured t; previous key none; switches copyright_music_check=selected, video_ads=everyone, video_posts=everyone
+  PASS  after re-apply: Riya's attested completion → ready
+  PASS  0006's rollback refuses while 0007 is applied (F-D1-7: roll back 0007 first) — VID4-0006-RB-PRE-001:
+
+══ RESULT
+ALL CASES PASS (staging shape + production shape)

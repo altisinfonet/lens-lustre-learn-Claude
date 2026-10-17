@@ -1,0 +1,1777 @@
+
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90mD:/50mm Retina World/work/D10-unfixed[39m
+
+ [31m×[39m src/pages/__tests__/postDetailBackAndGonePost.test.tsx[2m > [22ma notification about a post that is gone[2m > [22mtapped at cold start: lands on the feed with a short notice, and Back then leaves the app[33m 1532[2mms[22m[39m
+[31m   → expected '/post/00000000-0000-4000-8000-0000000…' to be '/feed' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html>[31m
+  [36m<head />[31m
+  [36m<body>[31m
+    [36m<div>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"where"[31m
+      [36m>[31m
+        [0m/post/00000000-0000-4000-8000-00000000dead[0m
+      [36m</div>[31m
+      [36m<main[31m
+        [33mclass[31m=[32m"min-h-screen bg-background flex flex-col items-center justify-center gap-4"[31m
+      [36m>[31m
+        [36m<p[31m
+          [33mclass[31m=[32m"text-sm text-muted-foreground"[31m
+          [33mstyle[31m=[32m"font-family: var(--font-body);"[31m
+        [36m>[31m
+          [0mPost not found or has been removed.[0m
+        [36m</p>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"text-xs text-primary hover:underline"[31m
+          [33mstyle[31m=[32m"font-family: var(--font-heading);"[31m
+        [36m>[31m
+          [0mGo back[0m
+        [36m</button>[31m
+      [36m</main>[31m
+    [36m</div>[31m
+  [36m</body>[31m
+[36m</html>[31m[39m
+ [31m×[39m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mopened in-app, closed by every method[2m > [22mthe X button: close adds no history step, and Back then lands on the page below[33m 3415[2mms[22m[39m
+[31m   → closing must never push: expected 5 to be 4 // Object.is equality[39m
+ [31m×[39m src/pages/__tests__/postDetailBackAndGonePost.test.tsx[2m > [22ma notification about a post that is gone[2m > [22mtapped with in-app history beneath: the dead post's entry BECOMES the feed, so Back returns to where the member was[33m 1416[2mms[22m[39m
+[31m   → expected '/post/00000000-0000-4000-8000-0000000…' to be '/feed' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html>[31m
+  [36m<head />[31m
+  [36m<body>[31m
+    [36m<div>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"where"[31m
+      [36m>[31m
+        [0m/post/00000000-0000-4000-8000-00000000dead[0m
+      [36m</div>[31m
+      [36m<main[31m
+        [33mclass[31m=[32m"min-h-screen bg-background flex flex-col items-center justify-center gap-4"[31m
+      [36m>[31m
+        [36m<p[31m
+          [33mclass[31m=[32m"text-sm text-muted-foreground"[31m
+          [33mstyle[31m=[32m"font-family: var(--font-body);"[31m
+        [36m>[31m
+          [0mPost not found or has been removed.[0m
+        [36m</p>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"text-xs text-primary hover:underline"[31m
+          [33mstyle[31m=[32m"font-family: var(--font-heading);"[31m
+        [36m>[31m
+          [0mGo back[0m
+        [36m</button>[31m
+      [36m</main>[31m
+    [36m</div>[31m
+  [36m</body>[31m
+[36m</html>[31m[39m
+ [31m×[39m src/hooks/core/__tests__/androidBackNavigation.test.tsx[2m > [22mcomments on the feed, then Back, Back[2m > [22mfirst Back closes the sheet, second Back leaves the app — never a loop[33m 4219[2mms[22m[39m
+[31m   → Back must not re-open the thread: expected <div role="dialog" …(12)>…(3)</div> to be null[39m
+ [31m×[39m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mopened in-app, closed by every method[2m > [22mEscape: close adds no history step, and Back then lands on the page below[33m 3292[2mms[22m[39m
+[31m   → closing must never push: expected 9 to be 8 // Object.is equality[39m
+ [31m×[39m src/pages/__tests__/postDetailBackAndGonePost.test.tsx[2m > [22mthe post page's own Back, when the post was reached WITHOUT a notification[2m > [22man outside link (nothing of ours beneath): 'Go back' goes to the feed and adds no step; opened in-app it steps back[33m 3592[2mms[22m[39m
+[31m   → expected '/post/00000000-0000-4000-8000-0000000…' to be '/feed' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html>[31m
+  [36m<head />[31m
+  [36m<body>[31m
+    [36m<div>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"where"[31m
+      [36m>[31m
+        [0m/post/00000000-0000-4000-8000-00000000dead[0m
+      [36m</div>[31m
+      [36m<main[31m
+        [33mclass[31m=[32m"min-h-screen bg-background flex flex-col items-center justify-center gap-4"[31m
+      [36m>[31m
+        [36m<p[31m
+          [33mclass[31m=[32m"text-sm text-muted-foreground"[31m
+          [33mstyle[31m=[32m"font-family: var(--font-body);"[31m
+        [36m>[31m
+          [0mPost not found or has been removed.[0m
+        [36m</p>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"text-xs text-primary hover:underline"[31m
+          [33mstyle[31m=[32m"font-family: var(--font-heading);"[31m
+        [36m>[31m
+          [0mGo back[0m
+        [36m</button>[31m
+      [36m</main>[31m
+    [36m</div>[31m
+  [36m</body>[31m
+[36m</html>[31m[39m
+ [31m×[39m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mopened in-app, closed by every method[2m > [22ma backdrop tap: close adds no history step, and Back then lands on the page below[33m 1420[2mms[22m[39m
+[31m   → closing must never push: expected 13 to be 12 // Object.is equality[39m
+ [31m×[39m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mopened in-app, closed by every method[2m > [22mEscape on the mobile sheet (what Android Back dispatches): close adds no history step, and Back then lands on the page below[33m 1143[2mms[22m[39m
+[31m   → closing must never push: expected 17 to be 16 // Object.is equality[39m
+ [31m×[39m src/hooks/core/__tests__/androidBackNavigation.test.tsx[2m > [22mcomments on the feed, then Back, Back[2m > [22mopened and closed three times in a row: still one Back to leave[33m 5223[2mms[22m[39m
+[31m   → expected "spy" to be called 1 times, but got 0 times[39m
+ [31m×[39m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mopened in-app, closed by the browser's own Back[2m > [22m1280px: Back closes the thread and adds nothing; the next Back lands on the page below[33m 469[2mms[22m[39m
+[31m   → subject is cleared on close: expected 'post-1' to be 'none' // Object.is equality[39m
+ [31m×[39m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mopened in-app, closed by the browser's own Back[2m > [22m375px: Back closes the thread and adds nothing; the next Back lands on the page below[33m 527[2mms[22m[39m
+[31m   → subject is cleared on close: expected 'post-1' to be 'none' // Object.is equality[39m
+ [31m×[39m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mthe watcher never re-opens a closed thread[2m > [22mclosing twice in one tick (two close paths racing) steps back ONCE, not twice[32m 283[2mms[22m[39m
+[31m   → neither close may push: expected 26 to be 24 // Object.is equality[39m
+ [31m×[39m src/hooks/core/__tests__/androidBackNavigation.test.tsx[2m > [22ma notification tapped at cold start (no in-app history)[2m > [22mputs the feed beneath the post: Back lands on the feed, the next Back leaves[33m 1350[2mms[22m[39m
+[31m   → expected '/' to be '/feed' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html[31m
+  [33mstyle[31m=[32m""[31m
+[36m>[31m
+  [36m<head />[31m
+  [36m<body[31m
+    [33mstyle[31m=[32m""[31m
+  [36m>[31m
+    [36m<div>[31m
+      [36m<button>[31m
+        [0mopen comments[0m
+      [36m</button>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"where"[31m
+      [36m>[31m
+        [0m/[0m
+      [36m</div>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"navtype"[31m
+      [36m>[31m
+        [0mPOP[0m
+      [36m</div>[31m
+    [36m</div>[31m
+  [36m</body>[31m
+[36m</html>[31m[39m
+ [31m×[39m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mthe watcher never re-opens a closed thread[2m > [22mthe closed thread stays closed while its card keeps re-rendering[33m 408[2mms[22m[39m
+[31m   → expected 30 to be 29 // Object.is equality[39m
+ [31m×[39m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mthe watcher never re-opens a closed thread[2m > [22mbrowser Forward — a real navigation into our own entry — may open it again, and closing then still steps back[33m 1484[2mms[22m[39m
+[31m   → expected '/feed' to be '/feed?comments=post-1' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html[31m
+  [33mstyle[31m=[32m""[31m
+[36m>[31m
+  [36m<head />[31m
+  [36m<body[31m
+    [33mstyle[31m=[32m""[31m
+  [36m>[31m
+    [36m<div>[31m
+      [36m<button>[31m
+        [0mopen [0m
+        [0mpost-1[0m
+      [36m</button>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"where"[31m
+      [36m>[31m
+        [0m/feed[0m
+      [36m</div>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"subject"[31m
+      [36m>[31m
+        [0mpost-1[0m
+      [36m</div>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"open"[31m
+      [36m>[31m
+        [0mfalse[0m
+      [36m</div>[31m
+    [36m</div>[31m
+  [36m</body>[31m
+[36m</html>[31m[39m
+ [31m×[39m src/hooks/core/__tests__/androidBackNavigation.test.tsx[2m > [22ma notification tapped at cold start (no in-app history)[2m > [22mpost → comments → Back ×2 → feed (the reported loop)[33m 1871[2mms[22m[39m
+[31m   → expected '/post/post-1?comments=post-1' to be '/feed' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html[31m
+  [33mstyle[31m=[32m"scroll-behavior: auto;"[31m
+[36m>[31m
+  [36m<head />[31m
+  [36m<body[31m
+    [33mdata-scroll-locked[31m=[32m"1"[31m
+    [33mstyle[31m=[32m"pointer-events: none;"[31m
+  [36m>[31m
+    [36m<span[31m
+      [33maria-hidden[31m=[32m"true"[31m
+      [33mdata-aria-hidden[31m=[32m"true"[31m
+      [33mdata-radix-focus-guard[31m=[32m""[31m
+      [33mstyle[31m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[31m
+      [33mtabindex[31m=[32m"0"[31m
+    [36m/>[31m
+    [36m<div[31m
+      [33maria-hidden[31m=[32m"true"[31m
+      [33mdata-aria-hidden[31m=[32m"true"[31m
+    [36m>[31m
+      [36m<button>[31m
+        [0mopen comments[0m
+      [36m</button>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"where"[31m
+      [36m>[31m
+        [0m/post/post-1?comments=post-1[0m
+      [36m</div>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"navtype"[31m
+      [36m>[31m
+        [0mPOP[0m
+      [36m</div>[31m
+    [36m</div>[31m
+    [36m<div[31m
+      [33maria-hidden[31m=[32m"true"[31m
+      [33mclass[31m=[32m"fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px]"[31m
+      [33mdata-aria-hidden[31m=[32m"true"[31m
+      [33mdata-state[31m=[32m"open"[31m
+      [33mdata-vaul-animate[31m=[32m"true"[31m
+      [33mdata-vaul-overlay[31m=[32m""[31m
+      [33mdata-vaul-snap-points[31m=[32m"false"[31m
+      [33mdata-vaul-snap-points-overlay[31m=[32m"true"[31m
+      [33mstyle[31m=[32m"pointer-events: auto;"[31m
+    [36m/>[31m
+    [36m<div[31m
+      [33maria-labelledby[31m=[32m"radix-_r_p_"[31m
+      [33mclass[31m=[32m"fixed inset-x-0 bottom-0 z-50 mt-24 border bg-background h-[78vh] flex flex-col rounded-t-2xl motion-reduce:!animate-none motion-reduce:!duration-0"[31m
+      [33mdata-state[31m=[32m"open"[31m
+      [33mdata-vaul-animate[31m=[32m"true"[31m
+      [33mdata-vaul-custom-container[31m=[32m"false"[31m
+      [33mdata-vaul-delayed-snap-points[31m=[32m"false"[31m
+      [33mdata-vaul-drawer[31m=[32m""[31m
+      [33mdata-vaul-drawer-direction[31m=[32m"bottom"[31m
+      [33mdata-vaul-snap-points[31m=[32m"false"[31m
+      [33mid[31m=[32m"radix-_r_o_"[31m
+      [33mrole[31m=[32m"dialog"[31m
+      [33mstyle[31m=[32m"pointer-events: auto;"[31m
+      [33mtabindex[31m=[32m"-1"[31m
+    [36m>[31m
+      [36m<div[31m
+        [33mclass[31m=[32m"mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted"[31m
+      [36m/>[31m
+      [36m<h2[31m
+        [33mclass[31m=[32m"shrink-0 pt-3 pb-2.5 text-center text-[15px] font-semibold tracking-tight text-foreground"[31m
+        [33mid[31m=[32m"radix-_r_p_"[31m
+      [36m>[31m
+        [0mComments[0m
+      [36m</h2>[31m
+      [36m<div[31m
+        [33mclass[31m=[32m"flex-1 min-h-0 flex flex-col"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"flex flex-col h-full min-h-0"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"shrink-0 border-b border-border/60"[31m
+          [36m>[31m
+            [36m<button[31m
+              [33mclass[31m=[32m"flex h-11 w-full items-center gap-2 px-4 text-left text-sm text-muted-foreground transition-colors hover:text-foreground"[31m
+              [33mtype[31m=[32m"button"[31m
+            [36m>[31m
+              [36m<svg[31m
+                [33mclass[31m=[32m"lucide lucide-search h-4 w-4 shrink-0"[31m
+                [33mfill[31m=[32m"none"[31m
+                [33mheight[31m=[32m"24"[31m
+                [33mstroke[31m=[32m"currentColor"[31m
+                [33mstroke-linecap[31m=[32m"round"[31m
+                [33mstroke-linejoin[31m=[32m"round"[31m
+                [33mstroke-width[31m=[32m"2"[31m
+                [33mviewBox[31m=[32m"0 0 24 24"[31m
+                [33mwidth[31m=[32m"24"[31m
+                [33mxmlns[31m=[32m"http://www.w3.org/2000/svg"[31m
+              [36m>[31m
+                [36m<circle[31m
+                  [33mcx[31m=[32m"11"[31m
+                  [33mcy[31m=[32m"11"[31m
+                  [33mr[31m=[32m"8"[31m
+                [36m/>[31m
+                [36m<path[31m
+                  [33md[31m=[32m"m21 21-4.3-4.3"[31m
+                [36m/>[31m
+              [36m</svg>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"font-medium text-primary"[31m
+              [36m>[31m
+                [0mSearch[0m
+              [36m</span>[31m
+              [36m<span[31m
+                [33maria-hidden[31m=[32m"true"[31m
+                [33mclass[31m=[32m"text-muted-foreground/70"[31m
+              [36m>[31m
+                [0m·[0m
+              [36m</span>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"truncate text-primary/90"[31m
+              [36m>[31m
+                [0mcaption[0m
+              [36m</span>[31m
+            [36m</button>[31m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"flex-1 min-h-0 overflow-y-auto overscroll-contain"[31m
+          [36m>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"px-3 py-2 relative"[31m
+            [36m>[31m
+              [36m<div[31m
+                [33mclass[31m=[32m"space-y-0.5"[31m
+              [36m>[31m
+                [36m<div[31m
+                  [33mclass[31m=[32m"text-xs text-muted-foreground"[31m
+                [36m>[31m
+                  [0mNo comments yet. Be the first to comment.[0m
+                [36m</div>[31m
+              [36m</div>[31m
+            [36m</div>[31m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"shrink-0 border-t border-border px-3 py-2.5 bg-background"[31m
+          [36m>[31m
+            [36m<div>[31m
+              [36m<div[31m
+                [33maria-label[31m=[32m"Add an emoji to your comment"[31m
+                [33mclass[31m=[32m"mb-1.5 flex items-center gap-0.5"[31m
+                [33mrole[31m=[32m"group"[31m
+              [36m>[31m
+                [36m<button[31m
+                  [33maria-label[31m=[32m"Add Heart to your comment"[31m
+                  [33mclass[31m=[32m"flex h-11 min-w-0 flex-1 basis-0 items-center justify-center rounded-full text-[22px] leading-none transition-transform duration-150 hover:scale-110 hover:bg-muted/50 active:scale-95 disabled:opacity-50 motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:active:scale-100"[31m
+                  [33mtype[31m=[32m"button"[31m
+                [36m>[31m
+                  [36m<span[31m
+                    [33maria-hidden[31m=[32m"true"[31m
+                  [36m>[31m
+                    [0m❤️[0m
+                  [36m</span>[31m
+                [36m</button>[31m
+                [36m<button[31m
+       ...[39m
+ [31m×[39m src/hooks/core/__tests__/androidBackNavigation.test.tsx[2m > [22ma notification tapped at cold start (no in-app history)[2m > [22mwith in-app history already there, a tap opens the post on top of it and tells the page the feed was NOT put beneath[32m 156[2mms[22m[39m
+[31m   → the entry says how it was reached: expected null to deeply equal { from: 'notification', …(1) }[39m
+ [31m×[39m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22ma deep link / cold start that already carries ?comments=[2m > [22mopens the thread, and closing it leaves no step behind[33m 1104[2mms[22m[39m
+[31m   → Unable to find role="dialog"
+
+Ignored nodes: comments, script, style
+[36m<body[31m
+  [33mstyle[31m=[32m""[31m
+[36m>[31m
+  [36m<div>[31m
+    [36m<span>[31m
+      [0mcard [0m
+      [0mpost-2[0m
+    [36m</span>[31m
+    [36m<span>[31m
+      [0mcard [0m
+      [0mpost-1[0m
+    [36m</span>[31m
+    [36m<div[31m
+      [33mdata-testid[31m=[32m"where"[31m
+    [36m>[31m
+      [0m/feed?comments=post-1[0m
+    [36m</div>[31m
+    [36m<div[31m
+      [33mdata-testid[31m=[32m"subject"[31m
+    [36m>[31m
+      [0mnone[0m
+    [36m</div>[31m
+    [36m<div[31m
+      [33mdata-testid[31m=[32m"open"[31m
+    [36m>[31m
+      [0mfalse[0m
+    [36m</div>[31m
+  [36m</div>[31m
+[36m</body>[31m
+
+Ignored nodes: comments, script, style
+[36m<html[31m
+  [33mstyle[31m=[32m""[31m
+[36m>[31m
+  [36m<head />[31m
+  [36m<body[31m
+    [33mstyle[31m=[32m""[31m
+  [36m>[31m
+    [36m<div>[31m
+      [36m<span>[31m
+        [0mcard [0m
+        [0mpost-2[0m
+      [36m</span>[31m
+      [36m<span>[31m
+        [0mcard [0m
+        [0mpost-1[0m
+      [36m</span>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"where"[31m
+      [36m>[31m
+        [0m/feed?comments=post-1[0m
+      [36m</div>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"subject"[31m
+      [36m>[31m
+        [0mnone[0m
+      [36m</div>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"open"[31m
+      [36m>[31m
+        [0mfalse[0m
+      [36m</div>[31m
+    [36m</div>[31m
+  [36m</body>[31m
+[36m</html>[31m[39m
+ [31m×[39m src/hooks/core/__tests__/androidBackNavigation.test.tsx[2m > [22mthe depth counter stays honest[2m > [22ma POP that returns to the SAME router entry (a raw history entry popped, e.g. the crop dialog's) is not a screen[33m 1195[2mms[22m[39m
+[31m   → expected '/a' to be '/start' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html[31m
+  [33mstyle[31m=[32m""[31m
+[36m>[31m
+  [36m<head />[31m
+  [36m<body[31m
+    [33mstyle[31m=[32m""[31m
+  [36m>[31m
+    [36m<div>[31m
+      [36m<button>[31m
+        [0mopen comments[0m
+      [36m</button>[31m
+      [36m<button>[31m
+        [0mgo [0m
+        [0m/a[0m
+      [36m</button>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"where"[31m
+      [36m>[31m
+        [0m/a[0m
+      [36m</div>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"navtype"[31m
+      [36m>[31m
+        [0mPOP[0m
+      [36m</div>[31m
+    [36m</div>[31m
+  [36m</body>[31m
+[36m</html>[31m[39m
+ [31m×[39m src/hooks/core/__tests__/androidBackNavigation.test.tsx[2m > [22mthe depth counter stays honest[2m > [22mexposes the depth so other screens can ask 'is there in-app history?'[32m 58[2mms[22m[39m
+[31m   → inAppHistoryDepth must be exported: expected 'undefined' to be 'function' // Object.is equality[39m
+ [31m×[39m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22ma deep link / cold start that already carries ?comments=[2m > [22mopening another thread on top of an UNCLAIMED link (its post is not on screen) does not land back on the stale link[33m 1474[2mms[22m[39m
+[31m   → expected '/feed?comments=post-1' to be '/below' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html[31m
+  [33mstyle[31m=[32m""[31m
+[36m>[31m
+  [36m<head />[31m
+  [36m<body[31m
+    [33mdata-scroll-locked[31m=[32m"1"[31m
+    [33mstyle[31m=[32m"pointer-events: none;"[31m
+  [36m>[31m
+    [36m<span[31m
+      [33maria-hidden[31m=[32m"true"[31m
+      [33mdata-aria-hidden[31m=[32m"true"[31m
+      [33mdata-radix-focus-guard[31m=[32m""[31m
+      [33mstyle[31m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[31m
+      [33mtabindex[31m=[32m"0"[31m
+    [36m/>[31m
+    [36m<div[31m
+      [33maria-hidden[31m=[32m"true"[31m
+      [33mdata-aria-hidden[31m=[32m"true"[31m
+    [36m>[31m
+      [36m<button>[31m
+        [0mopen [0m
+        [0mpost-1[0m
+      [36m</button>[31m
+      [36m<span>[31m
+        [0mcard [0m
+        [0mpost-2[0m
+      [36m</span>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"where"[31m
+      [36m>[31m
+        [0m/feed?comments=post-1[0m
+      [36m</div>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"subject"[31m
+      [36m>[31m
+        [0mpost-1[0m
+      [36m</div>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"open"[31m
+      [36m>[31m
+        [0mtrue[0m
+      [36m</div>[31m
+    [36m</div>[31m
+    [36m<div[31m
+      [33maria-hidden[31m=[32m"true"[31m
+      [33mclass[31m=[32m"fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"[31m
+      [33mdata-aria-hidden[31m=[32m"true"[31m
+      [33mdata-state[31m=[32m"open"[31m
+      [33mstyle[31m=[32m"pointer-events: auto;"[31m
+    [36m/>[31m
+    [36m<div[31m
+      [33maria-labelledby[31m=[32m"radix-_r_1n_"[31m
+      [33mclass[31m=[32m"fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] border bg-background shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg max-w-3xl w-[calc(100vw-2rem)] h-[85vh] max-h-[720px] p-0 gap-0 overflow-hidden grid grid-cols-1 md:grid-cols-[1.1fr_1fr] motion-reduce:!animate-none motion-reduce:!duration-0"[31m
+      [33mdata-state[31m=[32m"open"[31m
+      [33mid[31m=[32m"radix-_r_1m_"[31m
+      [33mrole[31m=[32m"dialog"[31m
+      [33mstyle[31m=[32m"pointer-events: auto;"[31m
+      [33mtabindex[31m=[32m"-1"[31m
+    [36m>[31m
+      [36m<div[31m
+        [33mclass[31m=[32m"flex flex-col min-h-0 h-full"[31m
+      [36m>[31m
+        [36m<h2[31m
+          [33mclass[31m=[32m"shrink-0 border-b border-border px-4 py-3 text-[15px] font-semibold tracking-tight text-foreground"[31m
+          [33mid[31m=[32m"radix-_r_1n_"[31m
+        [36m>[31m
+          [0mComments[0m
+        [36m</h2>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"flex flex-col h-full min-h-0"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"shrink-0 border-b border-border/60"[31m
+          [36m>[31m
+            [36m<button[31m
+              [33mclass[31m=[32m"flex h-11 w-full items-center gap-2 px-4 text-left text-sm text-muted-foreground transition-colors hover:text-foreground"[31m
+              [33mtype[31m=[32m"button"[31m
+            [36m>[31m
+              [36m<svg[31m
+                [33mclass[31m=[32m"lucide lucide-search h-4 w-4 shrink-0"[31m
+                [33mfill[31m=[32m"none"[31m
+                [33mheight[31m=[32m"24"[31m
+                [33mstroke[31m=[32m"currentColor"[31m
+                [33mstroke-linecap[31m=[32m"round"[31m
+                [33mstroke-linejoin[31m=[32m"round"[31m
+                [33mstroke-width[31m=[32m"2"[31m
+                [33mviewBox[31m=[32m"0 0 24 24"[31m
+                [33mwidth[31m=[32m"24"[31m
+                [33mxmlns[31m=[32m"http://www.w3.org/2000/svg"[31m
+              [36m>[31m
+                [36m<circle[31m
+                  [33mcx[31m=[32m"11"[31m
+                  [33mcy[31m=[32m"11"[31m
+                  [33mr[31m=[32m"8"[31m
+                [36m/>[31m
+                [36m<path[31m
+                  [33md[31m=[32m"m21 21-4.3-4.3"[31m
+                [36m/>[31m
+              [36m</svg>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"font-medium text-primary"[31m
+              [36m>[31m
+                [0mSearch[0m
+              [36m</span>[31m
+              [36m<span[31m
+                [33maria-hidden[31m=[32m"true"[31m
+                [33mclass[31m=[32m"text-muted-foreground/70"[31m
+              [36m>[31m
+                [0m·[0m
+              [36m</span>[31m
+              [36m<span[31m
+                [33mclass[31m=[32m"truncate text-primary/90"[31m
+              [36m>[31m
+                [0mcaption post-1[0m
+              [36m</span>[31m
+            [36m</button>[31m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"flex-1 min-h-0 overflow-y-auto overscroll-contain"[31m
+          [36m>[31m
+            [36m<div[31m
+              [33mclass[31m=[32m"px-3 py-2 relative"[31m
+            [36m>[31m
+              [36m<div[31m
+                [33mclass[31m=[32m"space-y-0.5"[31m
+              [36m>[31m
+                [36m<div[31m
+                  [33mclass[31m=[32m"text-xs text-muted-foreground"[31m
+                [36m>[31m
+                  [0mNo comments yet. Be the first to comment.[0m
+                [36m</div>[31m
+              [36m</div>[31m
+            [36m</div>[31m
+          [36m</div>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"shrink-0 border-t border-border px-3 py-2.5 bg-background"[31m
+          [36m>[31m
+            [36m<div>[31m
+              [36m<div[31m
+                [33maria-label[31m=[32m"Add an emoji to your comment"[31m
+                [33mclass[31m=[32m"mb-1.5 flex items-center gap-0.5"[31m
+                [33mrole[31m=[32m"group"[31m
+              [36m>[31m
+                [36m<button[31m
+                  [33maria-label[31m=[32m"Add Heart to your comment"[31m
+                  [33mclass[31m=[32m"flex h-11 min-w-0 flex-1 basis-0 items-center justify-center rounded-full text-[22px] leading-none transition-transform duration-150 hover:scale-110 hover:bg-muted/50 active:scale-95 disabled:opacity-50 motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:active:scale-100"[31m
+                  [33mtype[31m=[32m"button"[31m
+                [36m>[31m
+                  [36m<span[31m
+                    [33maria-hidden[31m=[32m"true"[31m
+         ...[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Suites 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx[2m [ src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx ][22m
+[31m[1mError[22m: Failed to resolve import "@/hooks/core/useScrollRestoreOnReturn" from "src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx". Does the file exist?[39m
+  Plugin: [35mvite:import-analysis[39m
+  File: [36mD:/50mm Retina World/work/D10-unfixed/src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx[39m:19:79
+[33m  30 |  import { render, screen, fireEvent, waitFor, act, cleanup } from "@testing-library/react";
+  31 |  import { BrowserRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+  32 |  import { useScrollRestoreOnReturn, forgetAllScroll, RESTORE_DEADLINE_MS } from "@/hooks/core/useScrollRestoreOnReturn";
+     |                                                                                  ^
+  33 |  const VIEWPORT = 800;
+  34 |  /** The modelled document: how tall it is right now, and where it is scrolled. */ let docHeight = VIEWPORT;[39m
+[90m [2m❯[22m TransformPluginContext._formatLog ../../../50mm%20Retina%20World/work/D10/node_modules/vite/dist/node/chunks/config.js:[2m28999:43[22m[39m
+[90m [2m❯[22m TransformPluginContext.error ../../../50mm%20Retina%20World/work/D10/node_modules/vite/dist/node/chunks/config.js:[2m28996:14[22m[39m
+[90m [2m❯[22m normalizeUrl ../../../50mm%20Retina%20World/work/D10/node_modules/vite/dist/node/chunks/config.js:[2m27119:18[22m[39m
+[90m [2m❯[22m ../../../50mm%20Retina%20World/work/D10/node_modules/vite/dist/node/chunks/config.js:[2m27177:32[22m[39m
+[90m [2m❯[22m TransformPluginContext.transform ../../../50mm%20Retina%20World/work/D10/node_modules/vite/dist/node/chunks/config.js:[2m27145:4[22m[39m
+[90m [2m❯[22m EnvironmentPluginContainer.transform ../../../50mm%20Retina%20World/work/D10/node_modules/vite/dist/node/chunks/config.js:[2m28797:14[22m[39m
+[90m [2m❯[22m loadAndTransform ../../../50mm%20Retina%20World/work/D10/node_modules/vite/dist/node/chunks/config.js:[2m22670:26[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/22]⎯[22m[39m
+
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 21 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mopened in-app, closed by every method[2m > [22mthe X button: close adds no history step, and Back then lands on the page below
+[31m[1mAssertionError[22m: closing must never push: expected 5 to be 4 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 4[39m
+[31m+ 5[39m
+
+[36m [2m❯[22m src/contexts/__tests__/CommentsOverlayHistory.test.tsx:[2m180:64[22m[39m
+    [90m178| [39m      [35mawait[39m [34mwaitFor[39m(() [33m=>[39m [34mexpect[39m([34mwhere[39m())[33m.[39m[34mtoBe[39m([32m"/feed"[39m))[33m;[39m
+    [90m179| [39m      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNul…
+    [90m180| [39m      expect(window.history.length, "closing must never push").toBe(le…
+    [90m   | [39m                                                               [31m^[39m
+    [90m181| [39m      expect(screen.getByTestId("subject").textContent, "subject is cl…
+    [90m182| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/22]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mopened in-app, closed by every method[2m > [22mEscape: close adds no history step, and Back then lands on the page below
+[31m[1mAssertionError[22m: closing must never push: expected 9 to be 8 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 8[39m
+[31m+ 9[39m
+
+[36m [2m❯[22m src/contexts/__tests__/CommentsOverlayHistory.test.tsx:[2m180:64[22m[39m
+    [90m178| [39m      [35mawait[39m [34mwaitFor[39m(() [33m=>[39m [34mexpect[39m([34mwhere[39m())[33m.[39m[34mtoBe[39m([32m"/feed"[39m))[33m;[39m
+    [90m179| [39m      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNul…
+    [90m180| [39m      expect(window.history.length, "closing must never push").toBe(le…
+    [90m   | [39m                                                               [31m^[39m
+    [90m181| [39m      expect(screen.getByTestId("subject").textContent, "subject is cl…
+    [90m182| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/22]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mopened in-app, closed by every method[2m > [22ma backdrop tap: close adds no history step, and Back then lands on the page below
+[31m[1mAssertionError[22m: closing must never push: expected 13 to be 12 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 12[39m
+[31m+ 13[39m
+
+[36m [2m❯[22m src/contexts/__tests__/CommentsOverlayHistory.test.tsx:[2m180:64[22m[39m
+    [90m178| [39m      [35mawait[39m [34mwaitFor[39m(() [33m=>[39m [34mexpect[39m([34mwhere[39m())[33m.[39m[34mtoBe[39m([32m"/feed"[39m))[33m;[39m
+    [90m179| [39m      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNul…
+    [90m180| [39m      expect(window.history.length, "closing must never push").toBe(le…
+    [90m   | [39m                                                               [31m^[39m
+    [90m181| [39m      expect(screen.getByTestId("subject").textContent, "subject is cl…
+    [90m182| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/22]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mopened in-app, closed by every method[2m > [22mEscape on the mobile sheet (what Android Back dispatches): close adds no history step, and Back then lands on the page below
+[31m[1mAssertionError[22m: closing must never push: expected 17 to be 16 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 16[39m
+[31m+ 17[39m
+
+[36m [2m❯[22m src/contexts/__tests__/CommentsOverlayHistory.test.tsx:[2m180:64[22m[39m
+    [90m178| [39m      [35mawait[39m [34mwaitFor[39m(() [33m=>[39m [34mexpect[39m([34mwhere[39m())[33m.[39m[34mtoBe[39m([32m"/feed"[39m))[33m;[39m
+    [90m179| [39m      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNul…
+    [90m180| [39m      expect(window.history.length, "closing must never push").toBe(le…
+    [90m   | [39m                                                               [31m^[39m
+    [90m181| [39m      expect(screen.getByTestId("subject").textContent, "subject is cl…
+    [90m182| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/22]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mopened in-app, closed by the browser's own Back[2m > [22m1280px: Back closes the thread and adds nothing; the next Back lands on the page below
+[41m[1m FAIL [22m[49m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mopened in-app, closed by the browser's own Back[2m > [22m375px: Back closes the thread and adds nothing; the next Back lands on the page below
+[31m[1mAssertionError[22m: subject is cleared on close: expected 'post-1' to be 'none' // Object.is equality[39m
+
+Expected: [32m"none"[39m
+Received: [31m"post-1"[39m
+
+[36m [2m❯[22m src/contexts/__tests__/CommentsOverlayHistory.test.tsx:[2m205:88[22m[39m
+    [90m203| [39m      [35mawait[39m [34mwaitFor[39m(() [33m=>[39m [34mexpect[39m([34mwhere[39m())[33m.[39m[34mtoBe[39m([32m"/feed"[39m))[33m;[39m
+    [90m204| [39m      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNul…
+    [90m205| [39m      expect(screen.getByTestId("subject").textContent, "subject is cl…
+    [90m   | [39m                                                                                       [31m^[39m
+    [90m206| [39m      expect(window.history.length, "Back must not be answered with a …
+    [90m207| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/22]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mthe watcher never re-opens a closed thread[2m > [22mclosing twice in one tick (two close paths racing) steps back ONCE, not twice
+[31m[1mAssertionError[22m: neither close may push: expected 26 to be 24 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 24[39m
+[31m+ 26[39m
+
+[36m [2m❯[22m src/contexts/__tests__/CommentsOverlayHistory.test.tsx:[2m223:61[22m[39m
+    [90m221| [39m    [34mact[39m(() [33m=>[39m { [34mcloseFromOutside[39m()[33m;[39m [34mcloseFromOutside[39m()[33m;[39m })[33m;[39m
+    [90m222| [39m    [35mawait[39m [34mwaitFor[39m(() [33m=>[39m [34mexpect[39m([34mwhere[39m())[33m.[39m[34mtoBe[39m([32m"/feed"[39m))[33m;[39m
+    [90m223| [39m    expect(window.history.length, "neither close may push").toBe(lenOp…
+    [90m   | [39m                                                            [31m^[39m
+    [90m224| [39m    [90m// Give a second, wrongly-issued Back time to land if one was sent.[39m
+    [90m225| [39m    await act(async () => { await new Promise((r) => setTimeout(r, 30)…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/22]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mthe watcher never re-opens a closed thread[2m > [22mthe closed thread stays closed while its card keeps re-rendering
+[31m[1mAssertionError[22m: expected 30 to be 29 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 29[39m
+[31m+ 30[39m
+
+[36m [2m❯[22m src/contexts/__tests__/CommentsOverlayHistory.test.tsx:[2m241:35[22m[39m
+    [90m239| [39m    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape", cod…
+    [90m240| [39m    [35mawait[39m [34mwaitFor[39m(() [33m=>[39m [34mexpect[39m([34mwhere[39m())[33m.[39m[34mtoBe[39m([32m"/feed"[39m))[33m;[39m
+    [90m241| [39m    [34mexpect[39m(window[33m.[39mhistory[33m.[39mlength)[33m.[39m[34mtoBe[39m(lenOpen)[33m;[39m
+    [90m   | [39m                                  [31m^[39m
+    [90m242| [39m    fireEvent[33m.[39m[34mclick[39m(screen[33m.[39m[34mgetByText[39m([32m"rerender 0"[39m))[33m;[39m
+    [90m243| [39m    fireEvent[33m.[39m[34mclick[39m(screen[33m.[39m[34mgetByText[39m([32m"rerender 1"[39m))[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/22]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22mthe watcher never re-opens a closed thread[2m > [22mbrowser Forward — a real navigation into our own entry — may open it again, and closing then still steps back
+[31m[1mAssertionError[22m: expected '/feed' to be '/feed?comments=post-1' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html[31m
+  [33mstyle[31m=[32m""[31m
+[36m>[31m
+  [36m<head />[31m
+  [36m<body[31m
+    [33mstyle[31m=[32m""[31m
+  [36m>[31m
+    [36m<div>[31m
+      [36m<button>[31m
+        [0mopen [0m
+        [0mpost-1[0m
+      [36m</button>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"where"[31m
+      [36m>[31m
+        [0m/feed[0m
+      [36m</div>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"subject"[31m
+      [36m>[31m
+        [0mpost-1[0m
+      [36m</div>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"open"[31m
+      [36m>[31m
+        [0mfalse[0m
+      [36m</div>[31m
+    [36m</div>[31m
+  [36m</body>[31m
+[36m</html>[31m[39m
+
+Expected: [32m"/feed[7m?comments=post-1[27m"[39m
+Received: [31m"/feed"[39m
+
+[36m [2m❯[22m src/contexts/__tests__/CommentsOverlayHistory.test.tsx:[2m257:41[22m[39m
+    [90m255| [39m
+    [90m256| [39m    [35mawait[39m [34mforward[39m()[33m;[39m
+    [90m257| [39m    [35mawait[39m [34mwaitFor[39m(() [33m=>[39m [34mexpect[39m([34mwhere[39m())[33m.[39m[34mtoBe[39m([32m"/feed?comments=post-1"[39m))[33m;[39m
+    [90m   | [39m                                        [31m^[39m
+    [90m258| [39m    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDo…
+    [90m259| [39m
+[90m [2m❯[22m runWithExpensiveErrorDiagnosticsDisabled ../D10/node_modules/@testing-library/dom/dist/config.js:[2m47:12[22m[39m
+[90m [2m❯[22m checkCallback ../D10/node_modules/@testing-library/dom/dist/wait-for.js:[2m124:77[22m[39m
+[90m [2m❯[22m Timeout.checkRealTimersCallback ../D10/node_modules/@testing-library/dom/dist/wait-for.js:[2m118:16[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/22]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22ma deep link / cold start that already carries ?comments=[2m > [22mopens the thread, and closing it leaves no step behind
+[31m[1mTestingLibraryElementError[22m: Unable to find role="dialog"
+
+Ignored nodes: comments, script, style
+[36m<body[31m
+  [33mstyle[31m=[32m""[31m
+[36m>[31m
+  [36m<div>[31m
+    [36m<span>[31m
+      [0mcard [0m
+      [0mpost-2[0m
+    [36m</span>[31m
+    [36m<span>[31m
+      [0mcard [0m
+      [0mpost-1[0m
+    [36m</span>[31m
+    [36m<div[31m
+      [33mdata-testid[31m=[32m"where"[31m
+    [36m>[31m
+      [0m/feed?comments=post-1[0m
+    [36m</div>[31m
+    [36m<div[31m
+      [33mdata-testid[31m=[32m"subject"[31m
+    [36m>[31m
+      [0mnone[0m
+    [36m</div>[31m
+    [36m<div[31m
+      [33mdata-testid[31m=[32m"open"[31m
+    [36m>[31m
+      [0mfalse[0m
+    [36m</div>[31m
+  [36m</div>[31m
+[36m</body>[31m
+
+Ignored nodes: comments, script, style
+[36m<html[31m
+  [33mstyle[31m=[32m""[31m
+[36m>[31m
+  [36m<head />[31m
+  [36m<body[31m
+    [33mstyle[31m=[32m""[31m
+  [36m>[31m
+    [36m<div>[31m
+      [36m<span>[31m
+        [0mcard [0m
+        [0mpost-2[0m
+      [36m</span>[31m
+      [36m<span>[31m
+        [0mcard [0m
+        [0mpost-1[0m
+      [36m</span>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"where"[31m
+      [36m>[31m
+        [0m/feed?comments=post-1[0m
+      [36m</div>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"subject"[31m
+      [36m>[31m
+        [0mnone[0m
+      [36m</div>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"open"[31m
+      [36m>[31m
+        [0mfalse[0m
+      [36m</div>[31m
+    [36m</div>[31m
+  [36m</body>[31m
+[36m</html>[31m[39m
+[90m [2m❯[22m Proxy.waitFor ../D10/node_modules/@testing-library/dom/dist/wait-for.js:[2m163:27[22m[39m
+[36m [2m❯[22m src/contexts/__tests__/CommentsOverlayHistory.test.tsx:[2m273:11[22m[39m
+    [90m271| [39m    [34mdraw[39m([33m<[39m[33m>[39m[33m<[39m[33mDeepLinkCard[39m [33mp[39m[33m=[39m[33m{[39m[34mpost[39m([32m"post-2"[39m)[33m}[39m [33m/[39m[33m>[39m[33m<[39m[33mDeepLinkCard[39m [33m/[39m[33m>[39m[33m<[39m[33m/[39m[33m>[39m)[33m;[39m
+    [90m272| [39m
+    [90m273| [39m    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDo…
+    [90m   | [39m          [31m^[39m
+    [90m274| [39m    expect(screen.getByTestId("subject").textContent, "the thread the …
+    [90m275| [39m    expect(window.history.length, "a deep link open pushes nothing").t…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/22]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/contexts/__tests__/CommentsOverlayHistory.test.tsx[2m > [22ma deep link / cold start that already carries ?comments=[2m > [22mopening another thread on top of an UNCLAIMED link (its post is not on screen) does not land back on the stale link
+[31m[1mAssertionError[22m[39m: expected '/feed?comments=post-1' to be '/below' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html[39m
+  [33mstyle[39m=[32m""[39m
+[36m>[39m
+  [36m<head />[39m
+  [36m<body[39m
+    [33mdata-scroll-locked[39m=[32m"1"[39m
+    [33mstyle[39m=[32m"pointer-events: none;"[39m
+  [36m>[39m
+    [36m<span[39m
+      [33maria-hidden[39m=[32m"true"[39m
+      [33mdata-aria-hidden[39m=[32m"true"[39m
+      [33mdata-radix-focus-guard[39m=[32m""[39m
+      [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+      [33mtabindex[39m=[32m"0"[39m
+    [36m/>[39m
+    [36m<div[39m
+      [33maria-hidden[39m=[32m"true"[39m
+      [33mdata-aria-hidden[39m=[32m"true"[39m
+    [36m>[39m
+      [36m<button>[39m
+        [0mopen [0m
+        [0mpost-1[0m
+      [36m</button>[39m
+      [36m<span>[39m
+        [0mcard [0m
+        [0mpost-2[0m
+      [36m</span>[39m
+      [36m<div[39m
+        [33mdata-testid[39m=[32m"where"[39m
+      [36m>[39m
+        [0m/feed?comments=post-1[0m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mdata-testid[39m=[32m"subject"[39m
+      [36m>[39m
+        [0mpost-1[0m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mdata-testid[39m=[32m"open"[39m
+      [36m>[39m
+        [0mtrue[0m
+      [36m</div>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33maria-hidden[39m=[32m"true"[39m
+      [33mclass[39m=[32m"fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"[39m
+      [33mdata-aria-hidden[39m=[32m"true"[39m
+      [33mdata-state[39m=[32m"open"[39m
+      [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [36m/>[39m
+    [36m<div[39m
+      [33maria-labelledby[39m=[32m"radix-_r_1n_"[39m
+      [33mclass[39m=[32m"fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] border bg-background shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg max-w-3xl w-[calc(100vw-2rem)] h-[85vh] max-h-[720px] p-0 gap-0 overflow-hidden grid grid-cols-1 md:grid-cols-[1.1fr_1fr] motion-reduce:!animate-none motion-reduce:!duration-0"[39m
+      [33mdata-state[39m=[32m"open"[39m
+      [33mid[39m=[32m"radix-_r_1m_"[39m
+      [33mrole[39m=[32m"dialog"[39m
+      [33mstyle[39m=[32m"pointer-events: auto;"[39m
+      [33mtabindex[39m=[32m"-1"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col min-h-0 h-full"[39m
+      [36m>[39m
+        [36m<h2[39m
+          [33mclass[39m=[32m"shrink-0 border-b border-border px-4 py-3 text-[15px] font-semibold tracking-tight text-foreground"[39m
+          [33mid[39m=[32m"radix-_r_1n_"[39m
+        [36m>[39m
+          [0mComments[0m
+        [36m</h2>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col h-full min-h-0"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"shrink-0 border-b border-border/60"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"flex h-11 w-full items-center gap-2 px-4 text-left text-sm text-muted-foreground transition-colors hover:text-foreground"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33mclass[39m=[32m"lucide lucide-search h-4 w-4 shrink-0"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<circle[39m
+                  [33mcx[39m=[32m"11"[39m
+                  [33mcy[39m=[32m"11"[39m
+                  [33mr[39m=[32m"8"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m21 21-4.3-4.3"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"font-medium text-primary"[39m
+              [36m>[39m
+                [0mSearch[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"text-muted-foreground/70"[39m
+              [36m>[39m
+                [0m·[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"truncate text-primary/90"[39m
+              [36m>[39m
+                [0mcaption post-1[0m
+              [36m</span>[39m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex-1 min-h-0 overflow-y-auto overscroll-contain"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"px-3 py-2 relative"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"space-y-0.5"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"text-xs text-muted-foreground"[39m
+                [36m>[39m
+                  [0mNo comments yet. Be the first to comment.[0m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"shrink-0 border-t border-border px-3 py-2.5 bg-background"[39m
+          [36m>[39m
+            [36m<div>[39m
+              [36m<div[39m
+                [33maria-label[39m=[32m"Add an emoji to your comment"[39m
+                [33mclass[39m=[32m"mb-1.5 flex items-center gap-0.5"[39m
+                [33mrole[39m=[32m"group"[39m
+              [36m>[39m
+                [36m<button[39m
+                  [33maria-label[39m=[32m"Add Heart to your comment"[39m
+                  [33mclass[39m=[32m"flex h-11 min-w-0 flex-1 basis-0 items-center justify-center rounded-full text-[22px] leading-none transition-transform duration-150 hover:scale-110 hover:bg-muted/50 active:scale-95 disabled:opacity-50 motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:active:scale-100"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+         ...
+
+Expected: [32m"/[7mbelow[27m"[39m
+Received: [31m"/[7mfeed?comments=post-1[27m"[39m
+
+[36m [2m❯[22m src/contexts/__tests__/CommentsOverlayHistory.test.tsx:[2m299:41[22m[39m
+    [90m297| [39m    [34mexpect[39m(screen[33m.[39m[34mqueryByRole[39m([32m"dialog"[39m))[33m.[39m[34mtoBeNull[39m()[33m;[39m
+    [90m298| [39m    [35mawait[39m [34mback[39m()[33m;[39m
+    [90m299| [39m    [35mawait[39m [34mwaitFor[39m(() [33m=>[39m [34mexpect[39m([34mwhere[39m())[33m.[39m[34mtoBe[39m([32m"/below"[39m))[33m;[39m
+    [90m   | [39m                                        [31m^[39m
+    [90m300| [39m    [34mexpect[39m(screen[33m.[39m[34mqueryByRole[39m([32m"dialog"[39m))[33m.[39m[34mtoBeNull[39m()[33m;[39m
+    [90m301| [39m  })[33m;[39m
+[90m [2m❯[22m runWithExpensiveErrorDiagnosticsDisabled ../D10/node_modules/@testing-library/dom/dist/config.js:[2m47:12[22m[39m
+[90m [2m❯[22m checkCallback ../D10/node_modules/@testing-library/dom/dist/wait-for.js:[2m124:77[22m[39m
+[90m [2m❯[22m Timeout.checkRealTimersCallback ../D10/node_modules/@testing-library/dom/dist/wait-for.js:[2m118:16[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/22]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/pages/__tests__/postDetailBackAndGonePost.test.tsx[2m > [22ma notification about a post that is gone[2m > [22mtapped at cold start: lands on the feed with a short notice, and Back then leaves the app
+[31m[1mAssertionError[22m: expected '/post/00000000-0000-4000-8000-0000000…' to be '/feed' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html>[31m
+  [36m<head />[31m
+  [36m<body>[31m
+    [36m<div>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"where"[31m
+      [36m>[31m
+        [0m/post/00000000-0000-4000-8000-00000000dead[0m
+      [36m</div>[31m
+      [36m<main[31m
+        [33mclass[31m=[32m"min-h-screen bg-background flex flex-col items-center justify-center gap-4"[31m
+      [36m>[31m
+        [36m<p[31m
+          [33mclass[31m=[32m"text-sm text-muted-foreground"[31m
+          [33mstyle[31m=[32m"font-family: var(--font-body);"[31m
+        [36m>[31m
+          [0mPost not found or has been removed.[0m
+        [36m</p>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"text-xs text-primary hover:underline"[31m
+          [33mstyle[31m=[32m"font-family: var(--font-heading);"[31m
+        [36m>[31m
+          [0mGo back[0m
+        [36m</button>[31m
+      [36m</main>[31m
+    [36m</div>[31m
+  [36m</body>[31m
+[36m</html>[31m[39m
+
+Expected: [32m"/[7mfee[27md"[39m
+Received: [31m"/[7mpost/00000000-0000-4000-8000-00000000dea[27md"[39m
+
+[36m [2m❯[22m src/pages/__tests__/postDetailBackAndGonePost.test.tsx:[2m150:41[22m[39m
+    [90m148| [39m    await act(async () => { tapNotification({ type: "post_comment", re…
+    [90m149| [39m
+    [90m150| [39m    [35mawait[39m [34mwaitFor[39m(() [33m=>[39m [34mexpect[39m([34mwhere[39m())[33m.[39m[34mtoBe[39m([32m"/feed"[39m))[33m;[39m
+    [90m   | [39m                                        [31m^[39m
+    [90m151| [39m    expect(toastSpy, "the member is told why they are on the feed").to…
+    [90m152| [39m    [34mexpect[39m(toastSpy[33m.[39mmock[33m.[39mcalls[[34m0[39m][[34m0[39m])[33m.[39m[34mtoMatchObject[39m({ title[33m:[39m [33mNOTICE[39m })[33m;[39m
+[90m [2m❯[22m runWithExpensiveErrorDiagnosticsDisabled ../D10/node_modules/@testing-library/dom/dist/config.js:[2m47:12[22m[39m
+[90m [2m❯[22m checkCallback ../D10/node_modules/@testing-library/dom/dist/wait-for.js:[2m124:77[22m[39m
+[90m [2m❯[22m Timeout.checkRealTimersCallback ../D10/node_modules/@testing-library/dom/dist/wait-for.js:[2m118:16[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/22]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/pages/__tests__/postDetailBackAndGonePost.test.tsx[2m > [22ma notification about a post that is gone[2m > [22mtapped with in-app history beneath: the dead post's entry BECOMES the feed, so Back returns to where the member was
+[31m[1mAssertionError[22m: expected '/post/00000000-0000-4000-8000-0000000…' to be '/feed' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html>[31m
+  [36m<head />[31m
+  [36m<body>[31m
+    [36m<div>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"where"[31m
+      [36m>[31m
+        [0m/post/00000000-0000-4000-8000-00000000dead[0m
+      [36m</div>[31m
+      [36m<main[31m
+        [33mclass[31m=[32m"min-h-screen bg-background flex flex-col items-center justify-center gap-4"[31m
+      [36m>[31m
+        [36m<p[31m
+          [33mclass[31m=[32m"text-sm text-muted-foreground"[31m
+          [33mstyle[31m=[32m"font-family: var(--font-body);"[31m
+        [36m>[31m
+          [0mPost not found or has been removed.[0m
+        [36m</p>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"text-xs text-primary hover:underline"[31m
+          [33mstyle[31m=[32m"font-family: var(--font-heading);"[31m
+        [36m>[31m
+          [0mGo back[0m
+        [36m</button>[31m
+      [36m</main>[31m
+    [36m</div>[31m
+  [36m</body>[31m
+[36m</html>[31m[39m
+
+Expected: [32m"/[7mfee[27md"[39m
+Received: [31m"/[7mpost/00000000-0000-4000-8000-00000000dea[27md"[39m
+
+[36m [2m❯[22m src/pages/__tests__/postDetailBackAndGonePost.test.tsx:[2m168:41[22m[39m
+    [90m166| [39m
+    [90m167| [39m    await act(async () => { tapNotification({ type: "post_comment", re…
+    [90m168| [39m    [35mawait[39m [34mwaitFor[39m(() [33m=>[39m [34mexpect[39m([34mwhere[39m())[33m.[39m[34mtoBe[39m([32m"/feed"[39m))[33m;[39m
+    [90m   | [39m                                        [31m^[39m
+    [90m169| [39m    [34mexpect[39m(toastSpy[33m.[39mmock[33m.[39mcalls[[34m0[39m][[34m0[39m])[33m.[39m[34mtoMatchObject[39m({ title[33m:[39m [33mNOTICE[39m })[33m;[39m
+    [90m170| [39m    expect(window.history.length, "the tap's one entry was replaced, n…
+[90m [2m❯[22m runWithExpensiveErrorDiagnosticsDisabled ../D10/node_modules/@testing-library/dom/dist/config.js:[2m47:12[22m[39m
+[90m [2m❯[22m checkCallback ../D10/node_modules/@testing-library/dom/dist/wait-for.js:[2m124:77[22m[39m
+[90m [2m❯[22m Timeout.checkRealTimersCallback ../D10/node_modules/@testing-library/dom/dist/wait-for.js:[2m118:16[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/22]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/pages/__tests__/postDetailBackAndGonePost.test.tsx[2m > [22mthe post page's own Back, when the post was reached WITHOUT a notification[2m > [22man outside link (nothing of ours beneath): 'Go back' goes to the feed and adds no step; opened in-app it steps back
+[31m[1mAssertionError[22m: expected '/post/00000000-0000-4000-8000-0000000…' to be '/feed' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html>[31m
+  [36m<head />[31m
+  [36m<body>[31m
+    [36m<div>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"where"[31m
+      [36m>[31m
+        [0m/post/00000000-0000-4000-8000-00000000dead[0m
+      [36m</div>[31m
+      [36m<main[31m
+        [33mclass[31m=[32m"min-h-screen bg-background flex flex-col items-center justify-center gap-4"[31m
+      [36m>[31m
+        [36m<p[31m
+          [33mclass[31m=[32m"text-sm text-muted-foreground"[31m
+          [33mstyle[31m=[32m"font-family: var(--font-body);"[31m
+        [36m>[31m
+          [0mPost not found or has been removed.[0m
+        [36m</p>[31m
+        [36m<button[31m
+          [33mclass[31m=[32m"text-xs text-primary hover:underline"[31m
+          [33mstyle[31m=[32m"font-family: var(--font-heading);"[31m
+        [36m>[31m
+          [0mGo back[0m
+        [36m</button>[31m
+      [36m</main>[31m
+    [36m</div>[31m
+  [36m</body>[31m
+[36m</html>[31m[39m
+
+Expected: [32m"/[7mfee[27md"[39m
+Received: [31m"/[7mpost/00000000-0000-4000-8000-00000000dea[27md"[39m
+
+[36m [2m❯[22m src/pages/__tests__/postDetailBackAndGonePost.test.tsx:[2m188:41[22m[39m
+    [90m186| [39m
+    [90m187| [39m    fireEvent[33m.[39m[34mclick[39m(goBack)[33m;[39m
+    [90m188| [39m    [35mawait[39m [34mwaitFor[39m(() [33m=>[39m [34mexpect[39m([34mwhere[39m())[33m.[39m[34mtoBe[39m([32m"/feed"[39m))[33m;[39m
+    [90m   | [39m                                        [31m^[39m
+    [90m189| [39m    expect(window.history.length, "the fallback REPLACES this entry").…
+    [90m190| [39m
+[90m [2m❯[22m runWithExpensiveErrorDiagnosticsDisabled ../D10/node_modules/@testing-library/dom/dist/config.js:[2m47:12[22m[39m
+[90m [2m❯[22m checkCallback ../D10/node_modules/@testing-library/dom/dist/wait-for.js:[2m124:77[22m[39m
+[90m [2m❯[22m Timeout.checkRealTimersCallback ../D10/node_modules/@testing-library/dom/dist/wait-for.js:[2m118:16[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/22]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/hooks/core/__tests__/androidBackNavigation.test.tsx[2m > [22mcomments on the feed, then Back, Back[2m > [22mfirst Back closes the sheet, second Back leaves the app — never a loop
+[31m[1mAssertionError[22m: Back must not re-open the thread: expected <div role="dialog" …(12)>…(3)</div> to be null[39m
+
+[32m- Expected:[39m 
+null
+
+[31m+ Received:[39m 
+<div
+  aria-labelledby="radix-_r_1_"
+  class="fixed inset-x-0 bottom-0 z-50 mt-24 border bg-background h-[78vh] flex flex-col rounded-t-2xl motion-reduce:!animate-none motion-reduce:!duration-0"
+  data-state="open"
+  data-vaul-animate="true"
+  data-vaul-custom-container="false"
+  data-vaul-delayed-snap-points="false"
+  data-vaul-drawer=""
+  data-vaul-drawer-direction="bottom"
+  data-vaul-snap-points="false"
+  id="radix-_r_0_"
+  role="dialog"
+  style="pointer-events: auto;"
+  tabindex="-1"
+>
+  <div
+    class="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted"
+  />
+  <h2
+    class="shrink-0 pt-3 pb-2.5 text-center text-[15px] font-semibold tracking-tight text-foreground"
+    id="radix-_r_1_"
+  >
+    Comments
+  </h2>
+  <div
+    class="flex-1 min-h-0 flex flex-col"
+  >
+    <div
+      class="flex flex-col h-full min-h-0"
+    >
+      <div
+        class="shrink-0 border-b border-border/60"
+      >
+        <button
+          class="flex h-11 w-full items-center gap-2 px-4 text-left text-sm text-muted-foreground transition-colors hover:text-foreground"
+          type="button"
+        >
+          <svg
+            class="lucide lucide-search h-4 w-4 shrink-0"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <circle
+              cx="11"
+              cy="11"
+              r="8"
+            />
+            <path
+              d="m21 21-4.3-4.3"
+            />
+          </svg>
+          <span
+            class="font-medium text-primary"
+          >
+            Search
+          </span>
+          <span
+            aria-hidden="true"
+            class="text-muted-foreground/70"
+          >
+            ·
+          </span>
+          <span
+            class="truncate text-primary/90"
+          >
+            caption
+          </span>
+        </button>
+      </div>
+      <div
+        class="flex-1 min-h-0 overflow-y-auto overscroll-contain"
+      >
+        <div
+          class="px-3 py-2 relative"
+        >
+          <div
+            class="space-y-0.5"
+          >
+            <div
+              class="text-xs text-muted-foreground"
+            >
+              No comments yet. Be the first to comment.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        class="shrink-0 border-t border-border px-3 py-2.5 bg-background"
+      >
+        <div>
+          <div
+            aria-label="Add an emoji to your comment"
+            class="mb-1.5 flex items-center gap-0.5"
+            role="group"
+          >
+            <button
+              aria-label="Add Heart to your comment"
+              class="flex h-11 min-w-0 flex-1 basis-0 items-center justify-center rounded-full text-[22px] leading-none transition-transform duration-150 hover:scale-110 hover:bg-muted/50 active:scale-95 disabled:opacity-50 motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:active:scale-100"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+              >
+                ❤️
+              </span>
+            </button>
+            <button
+              aria-label="Add Raised hands to your comment"
+              class="flex h-11 min-w-0 flex-1 basis-0 items-center justify-center rounded-full text-[22px] leading-none transition-transform duration-150 hover:scale-110 hover:bg-muted/50 active:scale-95 disabled:opacity-50 motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:active:scale-100"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+              >
+                🙌
+              </span>
+            </button>
+            <button
+              aria-label="Add Fire to your comment"
+              class="flex h-11 min-w-0 flex-1 basis-0 items-center justify-center rounded-full text-[22px] leading-none transition-transform duration-150 hover:scale-110 hover:bg-muted/50 active:scale-95 disabled:opacity-50 motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:active:scale-100"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+              >
+                🔥
+              </span>
+            </button>
+            <button
+              aria-label="Add Clapping hands to your comment"
+              class="flex h-11 min-w-0 flex-1 basis-0 items-center justify-center rounded-full text-[22px] leading-none transition-transform duration-150 hover:scale-110 hover:bg-muted/50 active:scale-95 disabled:opacity-50 motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:active:scale-100"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+              >
+                👏
+              </span>
+            </button>
+            <button
+              aria-label="Add Crying face to your comment"
+              class="flex h-11 min-w-0 flex-1 basis-0 items-center justify-center rounded-full text-[22px] leading-none transition-transform duration-150 hover:scale-110 hover:bg-muted/50 active:scale-95 disabled:opacity-50 motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:active:scale-100"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+              >
+                😢
+              </span>
+            </button>
+            <button
+              aria-label="Add Heart eyes to your comment"
+              class="flex h-11 min-w-0 flex-1 basis-0 items-center justify-center rounded-full text-[22px] leading-none transition-transform duration-150 hover:scale-110 hover:bg-muted/50 active:scale-95 disabled:opacity-50 motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:active:scale-100"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+              >
+                😍
+              </span>
+            </button>
+            <button
+              aria-label="Add Shocked face to your comment"
+              class="flex h-11 min-w-0 flex-1 basis-0 items-center justify-center rounded-full text-[22px] leading-none transition-transform duration-150 hover:scale-110 hover:bg-muted/50 active:scale-95 disabled:opacity-50 motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:active:scale-100"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+              >
+                😮
+              </span>
+            </button>
+            <button
+              aria-label="Add Laughing to tears to your comment"
+              class="flex h-11 min-w-0 flex-1 basis-0 items-center justify-center rounded-full text-[22px] leading-none transition-transform duration-150 hover:scale-110 hover:bg-muted/50 active:scale-95 disabled:opacity-50 motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:active:scale-100"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+              >
+                😂
+              </span>
+            </button>
+          </div>
+          <div
+            class="flex items-start gap-2"
+          >
+            <span
+              class="relative inline-block w-8 h-8 text-xs"
+            >
+              <div
+                class="w-8 h-8 text-xs rounded-full bg-muted flex items-center justify-center font-semibold text-muted-foreground"
+              >
+                V
+              </div>
+            </span>
+            <div
+              class="flex-1 mention-input-wrapper "
+            >
+              <div
+                class="relative"
+              >
+                <div … />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+[36m [2m❯[22m src/hooks/core/__tests__/androidBackNavigation.test.tsx:[2m163:78[22m[39m
+    [90m161| [39m
+    [90m162| [39m    [35mawait[39m [34mpress[39m()[33m;[39m
+    [90m163| [39m    expect(screen.queryByRole("dialog"), "Back must not re-open the th…
+    [90m   | [39m                                                                             [31m^[39m
+    [90m164| [39m    expect(exitApp, "at the start of the app, Back leaves it").toHaveB…
+    [90m165| [39m    [34mexpect[39m([34mwhere[39m())[33m.[39m[34mtoBe[39m([32m"/feed"[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/22]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/hooks/core/__tests__/androidBackNavigation.test.tsx[2m > [22mcomments on the feed, then Back, Back[2m > [22mopened and closed three times in a row: still one Back to leave
+[31m[1mAssertionError[22m: expected "spy" to be called 1 times, but got 0 times[39m
+[36m [2m❯[22m src/hooks/core/__tests__/androidBackNavigation.test.tsx:[2m177:21[22m[39m
+    [90m175| [39m    }
+    [90m176| [39m    [35mawait[39m [34mpress[39m()[33m;[39m
+    [90m177| [39m    [34mexpect[39m(exitApp)[33m.[39m[34mtoHaveBeenCalledTimes[39m([34m1[39m)[33m;[39m
+    [90m   | [39m                    [31m^[39m
+    [90m178| [39m  })[33m;[39m
+    [90m179| [39m})[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/22]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/hooks/core/__tests__/androidBackNavigation.test.tsx[2m > [22ma notification tapped at cold start (no in-app history)[2m > [22mputs the feed beneath the post: Back lands on the feed, the next Back leaves
+[31m[1mAssertionError[22m: expected '/' to be '/feed' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html[31m
+  [33mstyle[31m=[32m""[31m
+[36m>[31m
+  [36m<head />[31m
+  [36m<body[31m
+    [33mstyle[31m=[32m""[31m
+  [36m>[31m
+    [36m<div>[31m
+      [36m<button>[31m
+        [0mopen comments[0m
+      [36m</button>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"where"[31m
+      [36m>[31m
+        [0m/[0m
+      [36m</div>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"navtype"[31m
+      [36m>[31m
+        [0mPOP[0m
+      [36m</div>[31m
+    [36m</div>[31m
+  [36m</body>[31m
+[36m</html>[31m[39m
+
+Expected: [32m"/[7mfeed[27m"[39m
+Received: [31m"/"[39m
+
+[36m [2m❯[22m src/hooks/core/__tests__/androidBackNavigation.test.tsx:[2m190:41[22m[39m
+    [90m188| [39m
+    [90m189| [39m    [35mawait[39m [34mpress[39m()[33m;[39m
+    [90m190| [39m    [35mawait[39m [34mwaitFor[39m(() [33m=>[39m [34mexpect[39m([34mwhere[39m())[33m.[39m[34mtoBe[39m([32m"/feed"[39m))[33m;[39m
+    [90m   | [39m                                        [31m^[39m
+    [90m191| [39m    [34mexpect[39m(exitApp)[33m.[39mnot[33m.[39m[34mtoHaveBeenCalled[39m()[33m;[39m
+    [90m192| [39m
+[90m [2m❯[22m runWithExpensiveErrorDiagnosticsDisabled ../D10/node_modules/@testing-library/dom/dist/config.js:[2m47:12[22m[39m
+[90m [2m❯[22m checkCallback ../D10/node_modules/@testing-library/dom/dist/wait-for.js:[2m124:77[22m[39m
+[90m [2m❯[22m Timeout.checkRealTimersCallback ../D10/node_modules/@testing-library/dom/dist/wait-for.js:[2m118:16[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/22]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/hooks/core/__tests__/androidBackNavigation.test.tsx[2m > [22ma notification tapped at cold start (no in-app history)[2m > [22mpost → comments → Back ×2 → feed (the reported loop)
+[31m[1mAssertionError[22m[39m: expected '/post/post-1?comments=post-1' to be '/feed' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html[39m
+  [33mstyle[39m=[32m"scroll-behavior: auto;"[39m
+[36m>[39m
+  [36m<head />[39m
+  [36m<body[39m
+    [33mdata-scroll-locked[39m=[32m"1"[39m
+    [33mstyle[39m=[32m"pointer-events: none;"[39m
+  [36m>[39m
+    [36m<span[39m
+      [33maria-hidden[39m=[32m"true"[39m
+      [33mdata-aria-hidden[39m=[32m"true"[39m
+      [33mdata-radix-focus-guard[39m=[32m""[39m
+      [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+      [33mtabindex[39m=[32m"0"[39m
+    [36m/>[39m
+    [36m<div[39m
+      [33maria-hidden[39m=[32m"true"[39m
+      [33mdata-aria-hidden[39m=[32m"true"[39m
+    [36m>[39m
+      [36m<button>[39m
+        [0mopen comments[0m
+      [36m</button>[39m
+      [36m<div[39m
+        [33mdata-testid[39m=[32m"where"[39m
+      [36m>[39m
+        [0m/post/post-1?comments=post-1[0m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mdata-testid[39m=[32m"navtype"[39m
+      [36m>[39m
+        [0mPOP[0m
+      [36m</div>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33maria-hidden[39m=[32m"true"[39m
+      [33mclass[39m=[32m"fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px]"[39m
+      [33mdata-aria-hidden[39m=[32m"true"[39m
+      [33mdata-state[39m=[32m"open"[39m
+      [33mdata-vaul-animate[39m=[32m"true"[39m
+      [33mdata-vaul-overlay[39m=[32m""[39m
+      [33mdata-vaul-snap-points[39m=[32m"false"[39m
+      [33mdata-vaul-snap-points-overlay[39m=[32m"true"[39m
+      [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [36m/>[39m
+    [36m<div[39m
+      [33maria-labelledby[39m=[32m"radix-_r_p_"[39m
+      [33mclass[39m=[32m"fixed inset-x-0 bottom-0 z-50 mt-24 border bg-background h-[78vh] flex flex-col rounded-t-2xl motion-reduce:!animate-none motion-reduce:!duration-0"[39m
+      [33mdata-state[39m=[32m"open"[39m
+      [33mdata-vaul-animate[39m=[32m"true"[39m
+      [33mdata-vaul-custom-container[39m=[32m"false"[39m
+      [33mdata-vaul-delayed-snap-points[39m=[32m"false"[39m
+      [33mdata-vaul-drawer[39m=[32m""[39m
+      [33mdata-vaul-drawer-direction[39m=[32m"bottom"[39m
+      [33mdata-vaul-snap-points[39m=[32m"false"[39m
+      [33mid[39m=[32m"radix-_r_o_"[39m
+      [33mrole[39m=[32m"dialog"[39m
+      [33mstyle[39m=[32m"pointer-events: auto;"[39m
+      [33mtabindex[39m=[32m"-1"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted"[39m
+      [36m/>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"shrink-0 pt-3 pb-2.5 text-center text-[15px] font-semibold tracking-tight text-foreground"[39m
+        [33mid[39m=[32m"radix-_r_p_"[39m
+      [36m>[39m
+        [0mComments[0m
+      [36m</h2>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex-1 min-h-0 flex flex-col"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col h-full min-h-0"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"shrink-0 border-b border-border/60"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"flex h-11 w-full items-center gap-2 px-4 text-left text-sm text-muted-foreground transition-colors hover:text-foreground"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33mclass[39m=[32m"lucide lucide-search h-4 w-4 shrink-0"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<circle[39m
+                  [33mcx[39m=[32m"11"[39m
+                  [33mcy[39m=[32m"11"[39m
+                  [33mr[39m=[32m"8"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m21 21-4.3-4.3"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"font-medium text-primary"[39m
+              [36m>[39m
+                [0mSearch[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"text-muted-foreground/70"[39m
+              [36m>[39m
+                [0m·[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"truncate text-primary/90"[39m
+              [36m>[39m
+                [0mcaption[0m
+              [36m</span>[39m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex-1 min-h-0 overflow-y-auto overscroll-contain"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"px-3 py-2 relative"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"space-y-0.5"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"text-xs text-muted-foreground"[39m
+                [36m>[39m
+                  [0mNo comments yet. Be the first to comment.[0m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"shrink-0 border-t border-border px-3 py-2.5 bg-background"[39m
+          [36m>[39m
+            [36m<div>[39m
+              [36m<div[39m
+                [33maria-label[39m=[32m"Add an emoji to your comment"[39m
+                [33mclass[39m=[32m"mb-1.5 flex items-center gap-0.5"[39m
+                [33mrole[39m=[32m"group"[39m
+              [36m>[39m
+                [36m<button[39m
+                  [33maria-label[39m=[32m"Add Heart to your comment"[39m
+                  [33mclass[39m=[32m"flex h-11 min-w-0 flex-1 basis-0 items-center justify-center rounded-full text-[22px] leading-none transition-transform duration-150 hover:scale-110 hover:bg-muted/50 active:scale-95 disabled:opacity-50 motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:active:scale-100"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                  [36m>[39m
+                    [0m❤️[0m
+                  [36m</span>[39m
+                [36m</button>[39m
+                [36m<button[39m
+       ...
+
+Expected: [32m"/[7mfeed[27m"[39m
+Received: [31m"/[7mpost/post-1?comments=post-1[27m"[39m
+
+[36m [2m❯[22m src/hooks/core/__tests__/androidBackNavigation.test.tsx:[2m210:41[22m[39m
+    [90m208| [39m    [35mawait[39m [34mwaitFor[39m(() [33m=>[39m [34mexpect[39m([34mwhere[39m())[33m.[39m[34mtoBe[39m([32m"/post/post-1"[39m))[33m;[39m
+    [90m209| [39m    [35mawait[39m [34mpress[39m()[33m;[39m [90m// leaves the post[39m
+    [90m210| [39m    [35mawait[39m [34mwaitFor[39m(() [33m=>[39m [34mexpect[39m([34mwhere[39m())[33m.[39m[34mtoBe[39m([32m"/feed"[39m))[33m;[39m
+    [90m   | [39m                                        [31m^[39m
+    [90m211| [39m    [34mexpect[39m(screen[33m.[39m[34mqueryByRole[39m([32m"dialog"[39m))[33m.[39m[34mtoBeNull[39m()[33m;[39m
+    [90m212| [39m    [35mawait[39m [34mpress[39m()[33m;[39m
+[90m [2m❯[22m runWithExpensiveErrorDiagnosticsDisabled ../D10/node_modules/@testing-library/dom/dist/config.js:[2m47:12[22m[39m
+[90m [2m❯[22m checkCallback ../D10/node_modules/@testing-library/dom/dist/wait-for.js:[2m124:77[22m[39m
+[90m [2m❯[22m Timeout.checkRealTimersCallback ../D10/node_modules/@testing-library/dom/dist/wait-for.js:[2m118:16[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/22]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/hooks/core/__tests__/androidBackNavigation.test.tsx[2m > [22ma notification tapped at cold start (no in-app history)[2m > [22mwith in-app history already there, a tap opens the post on top of it and tells the page the feed was NOT put beneath
+[31m[1mAssertionError[22m: the entry says how it was reached: expected null to deeply equal { from: 'notification', …(1) }[39m
+
+[32m- Expected:[39m 
+{
+  "feedBeneath": false,
+  "from": "notification",
+}
+
+[31m+ Received:[39m 
+null
+
+[36m [2m❯[22m src/hooks/core/__tests__/androidBackNavigation.test.tsx:[2m229:8[22m[39m
+    [90m227| [39m    [90m// (src/pages/__tests__/postDetailBackAndGonePost.test.tsx).[39m
+    [90m228| [39m    expect((window.history.state as { usr?: unknown } | null)?.usr, "t…
+    [90m229| [39m      [33m.[39m[34mtoEqual[39m({ [35mfrom[39m[33m:[39m [32m"notification"[39m[33m,[39m feedBeneath[33m:[39m [35mfalse[39m })[33m;[39m
+    [90m   | [39m       [31m^[39m
+    [90m230| [39m
+    [90m231| [39m    [35mawait[39m [34mpress[39m()[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/22]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/hooks/core/__tests__/androidBackNavigation.test.tsx[2m > [22mthe depth counter stays honest[2m > [22ma POP that returns to the SAME router entry (a raw history entry popped, e.g. the crop dialog's) is not a screen
+[31m[1mAssertionError[22m: expected '/a' to be '/start' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html[31m
+  [33mstyle[31m=[32m""[31m
+[36m>[31m
+  [36m<head />[31m
+  [36m<body[31m
+    [33mstyle[31m=[32m""[31m
+  [36m>[31m
+    [36m<div>[31m
+      [36m<button>[31m
+        [0mopen comments[0m
+      [36m</button>[31m
+      [36m<button>[31m
+        [0mgo [0m
+        [0m/a[0m
+      [36m</button>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"where"[31m
+      [36m>[31m
+        [0m/a[0m
+      [36m</div>[31m
+      [36m<div[31m
+        [33mdata-testid[31m=[32m"navtype"[31m
+      [36m>[31m
+        [0mPOP[0m
+      [36m</div>[31m
+    [36m</div>[31m
+  [36m</body>[31m
+[36m</html>[31m[39m
+
+Expected: [32m"/[7mstart[27m"[39m
+Received: [31m"/[7ma[27m"[39m
+
+[36m [2m❯[22m src/hooks/core/__tests__/androidBackNavigation.test.tsx:[2m252:41[22m[39m
+    [90m250| [39m
+    [90m251| [39m    [35mawait[39m [34mpress[39m()[33m;[39m
+    [90m252| [39m    [35mawait[39m [34mwaitFor[39m(() [33m=>[39m [34mexpect[39m([34mwhere[39m())[33m.[39m[34mtoBe[39m([32m"/start"[39m))[33m;[39m
+    [90m   | [39m                                        [31m^[39m
+    [90m253| [39m    expect(exitApp, "one real screen is still beneath /a — Back must g…
+    [90m254| [39m  })[33m;[39m
+[90m [2m❯[22m runWithExpensiveErrorDiagnosticsDisabled ../D10/node_modules/@testing-library/dom/dist/config.js:[2m47:12[22m[39m
+[90m [2m❯[22m checkCallback ../D10/node_modules/@testing-library/dom/dist/wait-for.js:[2m124:77[22m[39m
+[90m [2m❯[22m Timeout.checkRealTimersCallback ../D10/node_modules/@testing-library/dom/dist/wait-for.js:[2m118:16[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/22]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/hooks/core/__tests__/androidBackNavigation.test.tsx[2m > [22mthe depth counter stays honest[2m > [22mexposes the depth so other screens can ask 'is there in-app history?'
+[31m[1mAssertionError[22m: inAppHistoryDepth must be exported: expected 'undefined' to be 'function' // Object.is equality[39m
+
+Expected: [32m"[7mf[27mun[7mction[27m"[39m
+Received: [31m"un[7mdefined[27m"[39m
+
+[36m [2m❯[22m src/hooks/core/__tests__/androidBackNavigation.test.tsx:[2m258:64[22m[39m
+    [90m256| [39m  it("exposes the depth so other screens can ask 'is there in-app hist…
+    [90m257| [39m    const depth = (Back as unknown as { inAppHistoryDepth?: () => numb…
+    [90m258| [39m    expect(typeof depth, "inAppHistoryDepth must be exported").toBe("f…
+    [90m   | [39m                                                               [31m^[39m
+    [90m259| [39m    [34mcoldStartAt[39m([32m"/start"[39m)[33m;[39m
+    [90m260| [39m    [34mapp[39m([33m<[39m[33mGoTo[39m [33mto[39m[33m=[39m[32m"/a"[39m [33m/[39m[33m>[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/22]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m4 failed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[31m21 failed[39m[22m[90m (21)[39m
+[2m   Start at [22m 18:29:48
+[2m   Duration [22m 27.28s[2m (transform 4.01s, setup 1.69s, collect 23.89s, tests 35.65s, environment 9.10s, prepare 1.41s)[22m
+

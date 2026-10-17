@@ -1,0 +1,37 @@
+name: D2 · health check activity rule warns, never fails (F-AUD-3)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING. HOLDS NO SECRET. WRITES NOTHING.
+#
+# R-82 (Owner): live traffic readings are monitors only and never block a close.
+# F-AUD-3: scripts/health-check.mjs failed main when nobody posted or commented
+# for 36 h. The self-test runs the REAL script against a fixture `fetch` and
+# proves: quiet 36 h → exit 0 with a visible warning; a failing query or a
+# broken thumbnail contract → still exit 1. health.yml (Auditor) is unchanged.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/health-check.mjs'
+      - 'scripts/web-health-activity.test.mjs'
+      - '.github/workflows/d2-health-activity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  activity-warns:
+    name: A quiet 36 h warns; real faults still fail
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Self-test — the real script against a fixture backend
+        run: node scripts/web-health-activity.test.mjs

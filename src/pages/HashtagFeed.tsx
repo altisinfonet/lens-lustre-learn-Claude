@@ -3,11 +3,14 @@ import { useEffect, useState, useCallback } from "react";
 import { Hash, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { memberPath } from "@/lib/urlHelpers";
-import { fetchPostMediaMap, resolvePostImageUrls } from "@/lib/media/postMediaRead";
+import { fetchPostAttachments, attachmentsFor } from "@/lib/posts/postAttachments";
 import { fetchProfileMap } from "@/lib/profileMapCache";
 import { useAuth } from "@/hooks/core/useAuth";
 import RichContentRenderer from "@/components/RichContentRenderer";
 import FacebookPhotoGrid from "@/components/FacebookPhotoGrid";
+import FeedVideoCard from "@/components/video/FeedVideoCard";
+import { postMedia } from "@/lib/posts/subjectMedia";
+import type { FeedVideo } from "@/lib/video/postVideoRead";
 import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import PresenceAvatar from "@/components/PresenceAvatar";
@@ -29,6 +32,8 @@ interface HashPost {
   author_handle: string | null;
   author_badges: string[];
   author_last_active: string | null;
+  /** VID-1: the post's playable video, when it is a video post. */
+  video: FeedVideo | null;
 }
 
 const HashtagFeed = () => {
@@ -88,21 +93,20 @@ const HashtagFeed = () => {
     }
 
     /**
-     * ITEM E — same sanctioned media read path as the feed, the wall and the
-     * photo detail page. One batched call for the whole result set; the
-     * hashtag page must not show a different photograph from the feed for the
-     * same post.
+     * ITEM E + VID-1 — photographs and video through the one module every
+     * surface uses (postAttachments.ts), one batched call for the whole result
+     * set: the hashtag page must not show a post differently from the feed.
      */
-    const postMediaMap = await fetchPostMediaMap(visiblePosts.map((p) => p.id));
+    const attachments = await fetchPostAttachments(visiblePosts.map((p) => p.id));
+    const attachedById = new Map(visiblePosts.map((p) => [p.id, attachmentsFor(
+      attachments, p.id, (p as any).image_urls || (p.image_url ? [p.image_url] : []),
+    )]));
 
     setPosts(
-      visiblePosts.map((p) => ({
+      // A post whose video is not playable for this viewer is left out (null), as on the feed.
+      visiblePosts.filter((p) => attachedById.get(p.id) !== null).map((p) => ({
         ...p,
-        image_urls: resolvePostImageUrls(
-          postMediaMap,
-          p.id,
-          (p as any).image_urls || (p.image_url ? [p.image_url] : []),
-        ),
+        ...attachedById.get(p.id)!,
         author_name: resolveName(p.user_id, profileMap.get(p.user_id)?.full_name ?? null, adminIds),
         author_avatar: profileMap.get(p.user_id)?.avatar_url || null,
         author_handle: profileMap.get(p.user_id)?.custom_url ?? null,
@@ -195,10 +199,17 @@ const HashtagFeed = () => {
                 </div>
               )}
 
-              {/* Images */}
-              {post.image_urls.length > 0 && (
-                <FacebookPhotoGrid urls={post.image_urls} author={{ userId: post.user_id, name: post.author_name ?? null, handle: post.author_handle ?? null }} />
-              )}
+              {/* Video, else photographs — the one answer every screen uses (src/lib/posts/subjectMedia.ts) */}
+              {(() => {
+                const media = postMedia(post);
+                return media.video ? (
+                  <div data-testid="post-video">
+                    <FeedVideoCard video={media.video} />
+                  </div>
+                ) : media.imageUrls.length > 0 ? (
+                  <FacebookPhotoGrid urls={media.imageUrls} author={{ userId: post.user_id, name: post.author_name ?? null, handle: post.author_handle ?? null }} />
+                ) : null;
+              })()}
             </div>
           ))}
         </div>

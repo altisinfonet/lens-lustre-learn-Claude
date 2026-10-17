@@ -57,7 +57,7 @@ import { Copy } from "lucide-react";
 import { toast } from "@/hooks/core/use-toast";
 import { useAuth } from "@/hooks/core/useAuth";
 import { publicUrl } from "@/lib/publicUrl";
-import { useCommentsOverlay } from "@/contexts/CommentsOverlayContext";
+import { useAdCommentsDeepLink, useCommentsOverlay } from "@/contexts/CommentsOverlayContext";
 import type { ReactionType } from "@/components/ReactionPicker";
 import PostActionRow from "@/components/post/PostActionRow";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
@@ -71,11 +71,16 @@ import {
   unreactToAd,
 } from "@/lib/ads/adEngagement";
 import AdComments from "@/components/ads/AdComments";
+import { NO_MEDIA, type SubjectMedia } from "@/lib/posts/subjectMedia";
 
 interface Props {
   creativeId: string;
-  /** The creative's own picture — shown beside the thread in the overlay, same as a post's photo. Unused when `commentsAlwaysOpen`. */
-  imageUrl?: string | null;
+  /**
+   * What the card drew — the creative's video, else its picture (adMedia in
+   * src/lib/posts/subjectMedia.ts) — shown beside the thread in the overlay,
+   * exactly as the card showed it. Unused when `commentsAlwaysOpen`.
+   */
+  media?: SubjectMedia;
   /**
    * The feed card opens its thread in the SAME comments overlay a post's
    * comment icon opens (CommentsOverlayContext) — never a second, ad-shaped
@@ -85,7 +90,7 @@ interface Props {
   commentsAlwaysOpen?: boolean;
 }
 
-const AdEngagementBar = ({ creativeId, imageUrl = null, commentsAlwaysOpen = false }: Props) => {
+const AdEngagementBar = ({ creativeId, media = NO_MEDIA, commentsAlwaysOpen = false }: Props) => {
   const { user } = useAuth();
   const { openAdComments } = useCommentsOverlay();
   const [eng, setEng] = useState<AdEngagement>(() => emptyEngagement(creativeId));
@@ -96,6 +101,10 @@ const AdEngagementBar = ({ creativeId, imageUrl = null, commentsAlwaysOpen = fal
     const map = await fetchAdEngagement([creativeId]);
     setEng(map.get(creativeId) ?? emptyEngagement(creativeId));
   }, [creativeId]);
+
+  // L1: a link that already carries ?comments=ad:<this creative> opens this
+  // card's thread (the /ad/<id> page draws it inline, so it never claims).
+  useAdCommentsDeepLink(creativeId, media, reload, !commentsAlwaysOpen);
 
   useEffect(() => {
     let alive = true;
@@ -168,7 +177,7 @@ const AdEngagementBar = ({ creativeId, imageUrl = null, commentsAlwaysOpen = fal
       setInlineOpen((v) => !v);
       return;
     }
-    openAdComments(creativeId, imageUrl, reload);
+    openAdComments(creativeId, media, reload);
   };
 
   return (

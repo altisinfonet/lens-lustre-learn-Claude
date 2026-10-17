@@ -294,9 +294,18 @@ describe("a post and an advertisement draw the SAME comment row", () => {
   ];
 
   it("both render CommentThread", () => {
-    for (const f of ADAPTERS) {
-      expect(code(read(f)), `${f} must draw the shared thread`).toMatch(/<CommentThread\b/);
-    }
+    // Bug 3 (Owner, 15 Oct 2026): ONE comments box. The post adapter draws
+    // CommentThread inside CommentsBox, which PostCommentsSection.tsx defines;
+    // the ad adapter draws that SAME CommentsBox, imported from there — so the
+    // ad's row is the post's row by construction, not by a second copy.
+    const post = code(read(ADAPTERS[0]));
+    expect(post, `${ADAPTERS[0]} must draw the shared thread`).toMatch(/<CommentThread\b/);
+    expect(post, "the one box is defined beside the post adapter").toMatch(/export const CommentsBox\b/);
+    const ad = code(read(ADAPTERS[1]));
+    expect(ad, `${ADAPTERS[1]} must draw the shared box`).toMatch(/<CommentsBox\b/);
+    expect(ad, `${ADAPTERS[1]} must take the box from the post adapter, not grow its own`).toMatch(
+      /import \{ CommentsBox[^}]*\} from "@\/components\/PostCommentsSection"/,
+    );
   });
 
   it("neither defines a comment renderer of its own", () => {

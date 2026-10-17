@@ -358,6 +358,20 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     resolution:
       "The photographs still display; only the numbers are absent, which reads as 'no votes yet' rather than 'we could not count'. Blank is honest here, but confirm the tallies exist before anyone quotes a result.",
   },
+  {
+    code: "DB-3007",
+    severity: "warn",
+    description: "The feed's per-refresh session order is not deployed on this database, so the feed used the hourly order.",
+    resolution:
+      "Stage L2: apply supabase/migrations/20261013_0005_l2_feed_session_seed.sql on this lane (then its PROBE). Until then the feed still loads, but every refresh inside the same clock hour deals the same order.",
+  },
+  {
+    code: "DB-3008",
+    severity: "warn",
+    description: "A batch of 'seen' feed events was refused by the server and dropped.",
+    resolution:
+      "Ranking telemetry only — nothing the member did is lost. 'Rate limit exceeded' (500 events per member per hour, rate_limit_feed_events) and 'Invalid post_id' (the post was deleted) are expected; anything else (RLS, a missing column) means the client and the database disagree about feed_events.",
+  },
 
   // ── API ───────────────────────────────────────────────────────────────────
   {

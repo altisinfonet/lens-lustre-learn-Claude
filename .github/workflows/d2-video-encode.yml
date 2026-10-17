@@ -1,0 +1,70 @@
+name: D2 · VID-1 web encoder harness
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING REAL. HOLDS NO SECRET. A real Chromium against the Vite
+# dev server (synthetic VITE_* values, as ui-gate).
+#
+# VID-1 §2 / §3.4: a real 3-second video (1280x720 with sound; 360x640 with
+# "remove sound") is encoded by the PRODUCTION encoder module in the browser.
+# The result is judged by the SAME function /api/video/complete uses
+# (src/lib/video/shared/judge.ts) + the manifest rules, every file hash is
+# re-checked, every rendition must sit under its bytes-per-second ceiling,
+# and ffprobe (an independent decoder) must open master.m3u8 with the
+# expected video renditions and an audio stream exactly when there is sound.
+# Codecs: VP9 + Opus through the encoder's test seam (Playwright's Chromium
+# has no H.264/AAC encoder); every other step is the production path.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  encode:
+    name: Browser encodes a real video into HLS the server accepts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Clean install
+        run: npm ci --no-audit --no-fund
+      - name: Cache the Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium for Playwright
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            if npx playwright install chromium; then exit 0; fi
+            sleep $((attempt * 15))
+          done
+          exit 1
+      - name: ffprobe present (the independent check)
+        run: ffprobe -version | head -1
+      - name: The encoder harness
+        env:
+          VITE_SUPABASE_URL: https://testprojectref0000x.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: test-publishable-key-not-real
+          VITE_SUPABASE_PROJECT_ID: testprojectref0000x
+        run: node tools/uishot/video-encode-harness.mjs --json /tmp/vid-encode.json
+      - name: Upload the reading
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vid-encode-harness
+          path: /tmp/vid-encode.json
+          if-no-files-found: warn
+          retention-days: 30

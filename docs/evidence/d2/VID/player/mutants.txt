@@ -1,0 +1,36 @@
+M1 ignore hidden tab: KILLED  [⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 114 passed (116)]
+M2 slow network not capped to 240p: KILLED  [⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  3 failed | 113 passed (116)]
+M3 no hysteresis: KILLED  [⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 115 passed (116)]
+M4 two cards play at once: KILLED  [⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 114 passed (116)]
+M5 token prefix not checked: KILLED  [⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  3 failed | 113 passed (116)]
+M6 expiry not checked: KILLED  [⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 115 passed (116)]
+M7 host (aud) not checked: KILLED  [⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 115 passed (116)]
+M8 lifetime ceiling removed: KILLED  [⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 115 passed (116)]
+M9 sub-folder escape allowed: KILLED  [⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 115 passed (116)]
+M10 non-ready video gets a token: KILLED  [⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  6 failed | 110 passed (116)]
+M11 403 instead of 404: KILLED  [⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  8 failed | 108 passed (116)]
+M12 private-delivery guard removed: KILLED  [⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 115 passed (116)]
+M13 non-ready post shown as text post: KILLED  [⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  6 failed | 110 passed (116)]
+M14 card cropped (object-cover): KILLED  [⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 115 passed (116)]
+M15 fill never drawn: KILLED  [⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 115 passed (116)]
+M16 card not 9:16: KILLED  [⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  7 failed | 109 passed (116)]
+M17 autoplay with sound: KILLED  [⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 114 passed (116)]
+M18 fetch before near screen: KILLED  [⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 114 passed (116)]

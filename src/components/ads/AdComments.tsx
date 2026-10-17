@@ -33,11 +33,14 @@
  *   * per-comment reporting from the row menu — a flagged ad comment reaches
  *     the SAME admin queue, but through the blocklist trigger in the migration,
  *     not through a member-facing Report button
- *   * a sort selector — an ad thread is short and ordered by time
  *
- * These are passed as `features`, so they are absences this file states out
- * loud rather than differences in a second implementation. Adding any of them
- * later is a table and one flag.
+ * These are absences of TABLES, so they are the only thing this file leaves
+ * out of the shared box: CommentsBox (src/components/PostCommentsSection.tsx)
+ * shows a feature when the source hands it the callback, and this hands over
+ * none of the three. Adding any of them later is a table and one callback.
+ * Everything else — the search row, sorting, the emoji row, blocking an
+ * author, the placeholder, the empty line — is the box's, the same as on a
+ * post (bug 3, Owner, 15 Oct 2026: "one comments box").
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * WHY THE COUNT COMES BACK FROM THE PARENT
@@ -47,14 +50,17 @@
  * bump, and a number that says 4 above a list of 3 is worse than a number that
  * arrives a moment late.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createThreadCache, threadCacheKey } from "@/lib/comments/threadCache";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { useProfileMap } from "@/hooks/profile/useProfileMap";
 import { useProfileCore } from "@/hooks/profile/useProfileData";
 import { toast } from "@/hooks/core/use-toast";
 import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
-import CommentThread, { type ThreadComment } from "@/components/comments/CommentThread";
+import type { ThreadComment } from "@/components/comments/CommentThread";
+import { CommentsBox, type CommentsBoxSource } from "@/components/PostCommentsSection";
+import { adThreadSubject } from "@/lib/ads/adThreadSubject";
 import {
   type AdComment,
   addAdComment,
@@ -71,26 +77,55 @@ interface Props {
 /**
  * The ad thread is ONE level deep. `fetchAdComments` returns a flat list and
  * this groups replies under their top-level parent; a reply to a reply would
- * have nowhere to be drawn, which is why CommentThread is told the same depth.
+ * have nowhere to be drawn, which is why the box is told the same depth.
  */
 const AD_MAX_REPLY_DEPTH = 1;
+
+/**
+ * Bug 5: the last read of each ad thread opened this session, so a second open
+ * draws at once and refreshes behind the list — the same rule as the post
+ * thread's (usePostComments THREAD_CACHE). A write forgets it.
+ *
+ * Keyed by VIEWER and creative, bounded, and emptied on every sign-out
+ * (src/lib/comments/threadCache.ts): ad_creative_comments are readable by
+ * signed-in members only, so a signed-out viewer, or the next member on a
+ * shared phone, must never be drawn the previous member's copy. And the
+ * server always wins: whatever the fresh read returns, an empty thread
+ * included, replaces the screen.
+ */
+const AD_THREAD_CACHE = createThreadCache<AdComment[]>();
 
 const AdComments = ({ creativeId, onCountChange }: Props) => {
   const { user } = useAuth();
   const { data: currentProfile } = useProfileCore(user?.id);
   const { isAdmin } = useIsAdmin();
-  const [rows, setRows] = useState<AdComment[]>([]);
+  const viewerId = user?.id ?? null;
+  const threadKey = threadCacheKey(viewerId, creativeId);
+  const threadKeyRef = useRef(threadKey);
+  threadKeyRef.current = threadKey;
+  // The rows on screen and WHOSE they are. Rows held for another key (another
+  // member, another ad) are never drawn: until this key's own copy arrives,
+  // the box shows "Loading" over nothing.
+  const [thread, setThread] = useState<{ key: string; rows: AdComment[] } | null>(() => {
+    const cached = AD_THREAD_CACHE.get(viewerId, creativeId);
+    return cached ? { key: threadKey, rows: cached } : null;
+  });
   const [adminIds, setAdminIds] = useState<Set<string>>(() => new Set());
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const rows = useMemo(() => (thread?.key === threadKey ? thread.rows : []), [thread, threadKey]);
+  const loading = thread?.key !== threadKey;
 
   const load = useCallback(async () => {
-    setLoading(true);
+    const requestedFor = threadCacheKey(viewerId, creativeId);
+    const cached = AD_THREAD_CACHE.get(viewerId, creativeId);
+    if (cached) setThread((t) => (t?.key === requestedFor ? t : { key: requestedFor, rows: cached }));
     const [fetched, admins] = await Promise.all([fetchAdComments(creativeId), getAdminIds()]);
-    setRows(fetched);
+    AD_THREAD_CACHE.set(viewerId, creativeId, fetched);
+    // The ad, or the member, changed while this was in flight: not this screen's.
+    if (requestedFor !== threadKeyRef.current) return;
+    setThread({ key: requestedFor, rows: fetched });
     setAdminIds(admins);
-    setLoading(false);
-  }, [creativeId]);
+  }, [creativeId, viewerId]);
 
   useEffect(() => {
     load();
@@ -167,6 +202,7 @@ const AdComments = ({ creativeId, onCountChange }: Props) => {
 
   const remove = async (id: string) => {
     if (busy) return;
+    AD_THREAD_CACHE.forget(creativeId);
     setBusy(true);
     const { error } = await deleteAdComment(id);
     setBusy(false);
@@ -178,26 +214,28 @@ const AdComments = ({ creativeId, onCountChange }: Props) => {
     onCountChange?.();
   };
 
-  return (
-    <CommentThread
-      comments={comments}
-      loading={loading}
-      currentUserId={user?.id ?? null}
-      viewer={currentProfile}
-      isAdmin={isAdmin}
-      submitting={busy}
-      editSubmitting={busy}
-      /* ad_creative_comments_length CHECK (length(content) <= 2000) — the box
-         must not accept what the database will refuse. */
-      maxLength={2000}
-      emptyLabel="No comments yet."
-      features={{ reactions: false, pinning: false, reporting: false, sorting: false }}
-      maxReplyDepth={AD_MAX_REPLY_DEPTH}
-      onAdd={add}
-      onEdit={edit}
-      onDelete={remove}
-    />
-  );
+  const source: CommentsBoxSource = {
+    comments,
+    loading,
+    currentUserId: user?.id ?? null,
+    viewer: currentProfile,
+    isAdmin,
+    submitting: busy,
+    editSubmitting: busy,
+    /* ad_creative_comments_length CHECK (length(content) <= 2000) — the box
+       must not accept what the database will refuse. */
+    maxLength: 2000,
+    maxReplyDepth: AD_MAX_REPLY_DEPTH,
+    addComment: add,
+    editComment: edit,
+    deleteComment: remove,
+    // No toggleLike / setReaction / togglePin / reportComment: see the header.
+  };
+
+  // What the card's own header says — the advertiser, or the site — so the
+  // placeholder reads "Add a comment for …" exactly as it does on a post.
+  const subject = adThreadSubject(creativeId);
+  return <CommentsBox source={source} ownerHandle={subject?.owner} subjectLabel={subject?.headline} />;
 };
 
 export default AdComments;

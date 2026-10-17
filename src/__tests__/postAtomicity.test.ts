@@ -35,8 +35,11 @@ import { join } from "node:path";
 const MIGRATIONS = join(process.cwd(), "supabase/migrations");
 const MANDATE_FROM = "20260813000000";
 
+// Both version shapes: 14 digits (20260814234152_…) and the newer date + serial
+// (20261011_0002_…). Matching only the first silently left every newer
+// migration — including later detect_duplicate_post bodies — out of scope.
 const inScope = migrationsInSequence(MIGRATIONS)
-  .filter((f) => (f.match(/^(\d{14})/)?.[1] ?? "0") >= MANDATE_FROM);
+  .filter((f) => (f.match(/^(\d{14}|\d{8}_\d{4})/)?.[1].replace("_", "").padEnd(14, "0") ?? "0") >= MANDATE_FROM);
 
 const strip = (f: string) =>
   readFileSync(join(MIGRATIONS, f), "utf8")
@@ -102,6 +105,20 @@ describe("duplicate-post race (RACE-1, measured 2 rows before the fix)", () => {
         "the member and the content hash it is either too broad (every post " +
         "on the platform queues) or too narrow (the race reopens).",
     ).toBe(true);
+  });
+
+  it("VID-1: a media-only post (no text, no photos) skips the hash check", () => {
+    // Every video post is inserted with no text and no photos; hashed, they all
+    // collided and every second one in 10 minutes was refused (staging, 2026-10-11).
+    const earlyAt = fn.indexOf("NEW.content_hash := NULL");
+    expect(earlyAt, "the media-only early return is gone — every 2nd video post is a 'duplicate' again").toBeGreaterThan(-1);
+    expect(earlyAt < fn.indexOf("pg_advisory_xact_lock")).toBe(true);
+  });
+
+  it("VID-1: a replay (same idempotency key) is let through to the unique index, after the lock", () => {
+    const replayAt = fn.indexOf("AND idempotency_key = NEW.idempotency_key");
+    expect(replayAt, "a captioned retry is refused as a duplicate of itself again").toBeGreaterThan(-1);
+    expect(fn.indexOf("pg_advisory_xact_lock") < replayAt && replayAt < fn.indexOf("SELECT EXISTS")).toBe(true);
   });
 });
 

@@ -79,7 +79,7 @@ The schema is already built for this: `media_objects.visibility` exists with
 |---|---|
 | zone | `50mmretina.com` |
 | hostname | `cdn.50mmretina.com` — already an R2 **custom domain** on bucket `50mm` (account `a7810011a99de537a210130f86306785`) |
-| worker route | `cdn.50mmretina.com/*` |
+| worker route | `cdn.50mmretina.com/video/*` only — never `/*` (photos must not pass through the Worker; 2026-10-17, cloudflare/media-authz/README.md step 6) |
 | binding | `R2` → bucket `50mm`, binding name `MEDIA` |
 | secret | `MEDIA_TOKEN_KEY` — 32 random bytes, base64; the SAME value as the Supabase secret in §5 |
 | var | `RESTRICTED_PREFIX` = `private/` |

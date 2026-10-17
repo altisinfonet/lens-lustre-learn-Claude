@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/core/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { generateImagePath, uploadImage } from "@/lib/imageUpload";
+import { storageSafeExtension } from "@/lib/storageSafeName";
 import { toast } from "@/hooks/core/use-toast";
 import { motion } from "framer-motion";
 import { Plus, Send, MessageSquare, Clock, CheckCircle, XCircle, ChevronDown, ChevronUp, Paperclip, FileText, Image, Loader2, X, FileSpreadsheet } from "lucide-react";
@@ -92,7 +93,7 @@ const HelpSupport = () => {
   const uploadAttachment = async (file: File): Promise<{ url: string; name: string } | null> => {
     const safe = await scanFileWithToast(file, toast, { allowedTypes: "image+pdf+document", maxSize: 50 * 1024 * 1024 });
     if (!safe) return null;
-    const ext = file.name.split(".").pop() || "bin";
+    const ext = storageSafeExtension(file.name, "bin");
     const path = generateImagePath({ userId: user!.id, type: "support", ext });
     try {
       const result = await uploadImage({ bucket: "support-attachments", file, path, type: "support", fileName: file.name });

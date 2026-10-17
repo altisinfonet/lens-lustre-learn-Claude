@@ -1,0 +1,22 @@
+Tree: 111da47a Merge origin/staging into d2/L1-navigation-contract-20261013 — L1 fix merged with origin/staging b0e86165
+
+ RUN  v3.2.4 D:/50mm Retina World/work/D10
+
+ ✓ src/__tests__/instagramChrome.test.ts (27 tests) 30ms
+ ✓ src/hooks/core/__tests__/useScrollRestoreOnReturn.test.tsx (6 tests) 3832ms
+   ✓ what a restore must never do > it gives up at its deadline: late growth after that moves nothing, and the observer is released  3195ms
+ ✓ src/pages/__tests__/postDetailBackAndGonePost.test.tsx (3 tests) 872ms
+   ✓ a notification about a post that is gone > tapped at cold start: lands on the feed with a short notice, and Back then leaves the app  355ms
+ ✓ src/hooks/core/__tests__/androidBackNavigation.test.tsx (7 tests) 2324ms
+   ✓ comments on the feed, then Back, Back > first Back closes the sheet, second Back leaves the app — never a loop  593ms
+   ✓ comments on the feed, then Back, Back > opened and closed three times in a row: still one Back to leave  656ms
+   ✓ a notification tapped at cold start (no in-app history) > post → comments → Back ×2 → feed (the reported loop)  405ms
+ ✓ src/contexts/__tests__/CommentsOverlayHistory.test.tsx (11 tests) 3045ms
+   ✓ opened in-app, closed by every method > the X button: close adds no history step, and Back then lands on the page below  674ms
+   ✓ the watcher never re-opens a closed thread > browser Forward — a real navigation into our own entry — may open it again, and closing then still steps back  307ms
+
+ Test Files  5 passed (5)
+      Tests  54 passed (54)
+   Start at  22:14:01
+   Duration  10.47s (transform 4.09s, setup 1.29s, collect 16.03s, tests 10.10s, environment 6.30s, prepare 1.13s)
+

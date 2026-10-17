@@ -64,6 +64,9 @@ export const PRODUCTION_PROJECT_REF = "jtdtehuqtinjxropkkcn"; // isolation-allow
 export const PRODUCTION_BUCKET = "50mm";
 export const PRODUCTION_CDN_HOST = "cdn.50mmretina.com"; // isolation-allow: same — assertStorageLane compares against this to catch a non-production lane serving production media
 
+/** A plain bucket name: 3–63 of [a-z0-9-], starting and ending with [a-z0-9]. */
+export const BUCKET_NAME = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/;
+
 export interface StorageLaneSubject {
   bucket_name: string;
   endpoint?: string;
@@ -89,9 +92,32 @@ export function assertStorageLane(s3: StorageLaneSubject, supabaseUrl: unknown):
     );
   }
 
-  const bucket = (s3.bucket_name ?? "").trim();
-  if (bucket === "") {
+  const raw: unknown = s3.bucket_name;
+  if (raw === undefined || raw === null || (typeof raw === "string" && raw.trim() === "")) {
     throw new Error(`storage lane: bucket_name is empty for project ref "${ref}" — a bucketless S3 client signs requests at nothing.`);
+  }
+
+  // The bucket name goes into the host (virtual-host style) or the path (path
+  // style) of every request URL, so it must be a plain bucket name. Checked on
+  // the RAW value — never a trimmed or otherwise cleaned copy — and before any
+  // comparison below, so no lane rule ever compares a value that is not the one
+  // that will be signed. The value itself is not echoed.
+  if (typeof raw !== "string" || !BUCKET_NAME.test(raw)) {
+    throw new Error(
+      `storage lane: bucket_name for project ref "${ref}" is not a valid bucket name ` +
+        `(3–63 characters: lowercase letters, digits and "-", starting and ending with a letter or digit).`,
+    );
+  }
+  const bucket = raw;
+
+  // The video lane has its own bucket and its own functions. These settings
+  // drive the PHOTO storage functions only, so a bucket named for video is a
+  // configuration error on every project, refused before anything is signed.
+  if (/video/i.test(bucket)) {
+    throw new Error(
+      `storage lane: bucket_name "${bucket}" names a video bucket. The photo storage ` +
+        `functions never sign requests for the video lane's bucket.`,
+    );
   }
 
   if (ref === PRODUCTION_PROJECT_REF) {
@@ -127,6 +153,137 @@ export function assertStorageLane(s3: StorageLaneSubject, supabaseUrl: unknown):
   }
 }
 
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * STORAGE KEY VALIDATION
+ *
+ * A storage function checks a key (ownership, prefix rules) and then signs a
+ * request for it. Both steps must see the SAME key. A URL parser does not
+ * treat a path as an opaque string: it resolves dot-segments ("." and "..",
+ * including their percent-encoded spellings), reads "\" as "/" and ends the
+ * path at "?" or "#". A key containing any of those can therefore be checked
+ * as one string and signed as another.
+ *
+ * So the rule is an ALLOW-LIST, not a deny-list. Every key this app writes is
+ * built from uuids, millisecond timestamps, base-36 random segments, fixed
+ * folder names, setting slot names and file extensions: letters, digits, ".",
+ * "_" and "-", in segments joined by single "/". A caller-named key outside
+ * that grammar is refused (400) before any ownership check runs. The client
+ * reduces member-supplied file names to the same alphabet before they become
+ * part of a key (src/lib/storageSafeName.ts).
+ *
+ * The characters named in `KEY_FORBIDDEN` are already outside the allow-list;
+ * they are checked by name as well so that widening the allow-list later
+ * cannot quietly re-admit them.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export const MAX_STORAGE_KEY_LENGTH = 512;
+
+const KEY_SEGMENT = /^[A-Za-z0-9._-]+$/;
+const KEY_FORBIDDEN = /[\\%?#\s]/;
+
+function hasControlCharacter(s: string): boolean {
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c < 0x20 || c === 0x7f) return true;
+  }
+  return false;
+}
+
+/**
+ * Returns `path` unchanged when it is a valid storage key, otherwise null.
+ * Callers answer null with 400 and never sign anything for it.
+ */
+export function validateStorageKey(path: unknown, maxLength: number = MAX_STORAGE_KEY_LENGTH): string | null {
+  if (typeof path !== "string") return null;
+  if (path.length === 0 || path.length > maxLength) return null;
+  if (path.startsWith("/") || path.includes("://")) return null;
+  if (KEY_FORBIDDEN.test(path) || hasControlCharacter(path)) return null;
+  for (const segment of path.split("/")) {
+    if (segment === "" || segment === "." || segment === "..") return null;
+    if (!KEY_SEGMENT.test(segment)) return null;
+  }
+  return path;
+}
+
+/**
+ * The configured `path_prefix` without trailing slashes ("" when none is set),
+ * or null when it is set but is not itself a valid key. Admin-entered
+ * configuration is held to the caller's grammar because it ends up in the same
+ * signed path.
+ */
+export function normalisedPathPrefix(pathPrefix: unknown): string | null {
+  if (pathPrefix === undefined || pathPrefix === null) return "";
+  if (typeof pathPrefix !== "string") return null;
+  const trimmed = pathPrefix.replace(/\/+$/, "");
+  if (trimmed === "") return "";
+  return validateStorageKey(trimmed);
+}
+
+/**
+ * The full object key for a caller-relative path: the configured prefix joined
+ * to the path, the whole re-validated. Null when the path is not a valid key or
+ * the configured prefix is not a valid prefix — never a key that was not
+ * checked.
+ */
+export function storageKeyWithPrefix(pathPrefix: unknown, path: string): string | null {
+  const prefix = normalisedPathPrefix(pathPrefix);
+  if (prefix === null) return null;
+  const valid = validateStorageKey(path);
+  if (valid === null) return null;
+  // S3 allows keys up to 1024 bytes; the caller's part is already capped above.
+  return validateStorageKey(prefix ? `${prefix}/${valid}` : valid, 1024);
+}
+
+export interface StorageEndpointSubject {
+  bucket_name: string;
+  region: string;
+  endpoint?: string;
+}
+
+/** The path inside the request URL under which every object key sits. */
+function storageBucketPath(s3: StorageEndpointSubject): string {
+  // Virtual-host style names the bucket in the host, so keys start at "/".
+  if (!s3.endpoint) return "";
+  // Path style: the endpoint's own path (normally none), then the bucket.
+  const endpointPath = s3.endpoint.replace(/\/+$/, "").replace(/^https?:\/\/[^/]*/i, "");
+  return `${endpointPath}/${s3.bucket_name}`;
+}
+
+/**
+ * The request URL for one object, and proof that it addresses exactly that
+ * object. Each key segment is percent-encoded (a no-op for keys that passed
+ * validateStorageKey), the URL is parsed back, and its path must equal
+ * `<bucket path>/<key>` character for character. Anything else means the
+ * parser re-read the key, and the request would reach a different object from
+ * the one that was checked — so it throws instead of returning a URL.
+ *
+ * Every function that signs a request for a single object builds its URL here.
+ */
+export function storageObjectUrl(s3: StorageEndpointSubject, key: string): string {
+  if (typeof key !== "string" || key === "") {
+    throw new Error("storage key refused: empty key");
+  }
+  const { baseUrl } = s3Endpoint(s3);
+  const encodedKey = key.split("/").map(encodeURIComponent).join("/");
+  const url = `${baseUrl}/${encodedKey}`;
+  const expectedPath = `${storageBucketPath(s3)}/${encodedKey}`;
+  let actualPath: string | null = null;
+  try {
+    actualPath = new URL(url).pathname;
+  } catch {
+    actualPath = null;
+  }
+  if (actualPath !== expectedPath) {
+    // The key itself is deliberately not echoed: it carries a member's id.
+    throw new Error(
+      "storage key refused: the request URL does not address the checked key exactly " +
+        "(a URL parser would re-read part of it)",
+    );
+  }
+  return url;
+}
+
 function toHex(buffer: ArrayBuffer): string {
   return [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
@@ -153,7 +310,7 @@ async function getSignatureKey(key: string, dateStamp: string, region: string): 
   return hmacSha256(kService, "aws4_request");
 }
 
-export function s3Endpoint(s3: S3Settings) {
+export function s3Endpoint(s3: StorageEndpointSubject) {
   const host = s3.endpoint
     ? s3.endpoint.replace(/^https?:\/\//, "").replace(/\/+$/, "")
     : `${s3.bucket_name}.s3.${s3.region}.amazonaws.com`;
@@ -298,9 +455,12 @@ export async function getS3Settings(
  * is famous for, where the status lies and the XML tells the truth.
  */
 export async function copyS3Object(s3: S3Settings, fromKey: string, toKey: string): Promise<void> {
-  const { baseUrl } = s3Endpoint(s3);
+  // The source travels in a header rather than the URL, but it is held to the
+  // same check as the destination: a key a URL parser would re-read is refused
+  // on either side of the copy.
+  storageObjectUrl(s3, fromKey);
   const source = `/${s3.bucket_name}/${fromKey.split("/").map(encodeURIComponent).join("/")}`;
-  const res = await s3SignedFetch(s3, "PUT", `${baseUrl}/${toKey.split("/").map(encodeURIComponent).join("/")}`,
+  const res = await s3SignedFetch(s3, "PUT", storageObjectUrl(s3, toKey),
     new Uint8Array(0), { "x-amz-copy-source": source });
   const text = await res.text();
   if (!res.ok || /<Error>/.test(text)) {
@@ -312,8 +472,7 @@ export async function copyS3Object(s3: S3Settings, fromKey: string, toKey: strin
 export async function readS3ObjectHead(
   s3: S3Settings, key: string, bytes = 65536,
 ): Promise<Uint8Array | null> {
-  const { baseUrl } = s3Endpoint(s3);
-  const res = await s3SignedFetch(s3, "GET", `${baseUrl}/${key.split("/").map(encodeURIComponent).join("/")}`,
+  const res = await s3SignedFetch(s3, "GET", storageObjectUrl(s3, key),
     new Uint8Array(0), { Range: `bytes=0-${bytes - 1}` });
   if (res.status === 404) return null;
   if (!res.ok && res.status !== 206) {
@@ -331,10 +490,7 @@ export async function readS3ObjectHead(
  * the caller reports that as a skip rather than inventing a hash).
  */
 export async function readS3Object(s3: S3Settings, key: string): Promise<Uint8Array | null> {
-  const { baseUrl } = s3Endpoint(s3);
-  const res = await s3SignedFetch(
-    s3, "GET", `${baseUrl}/${key.split("/").map(encodeURIComponent).join("/")}`, new Uint8Array(0),
-  );
+  const res = await s3SignedFetch(s3, "GET", storageObjectUrl(s3, key), new Uint8Array(0));
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`S3 read of ${key} failed: ${res.status} ${await res.text()}`);

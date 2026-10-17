@@ -1,0 +1,118 @@
+{
+  "at": "2026-10-05T12:42:14.033Z",
+  "cases": [
+    {
+      "case": "landscape",
+      "ms": 3254,
+      "files": [
+        "240p.m3u8",
+        "240p.mp4",
+        "240p_0.m4s",
+        "480p.m3u8",
+        "480p.mp4",
+        "480p_0.m4s",
+        "720p.m3u8",
+        "720p.mp4",
+        "720p_0.m4s",
+        "audio.m3u8",
+        "audio.mp4",
+        "audio_0.m4s",
+        "master.m3u8",
+        "poster.jpg"
+      ],
+      "has_audio": true,
+      "duration_s": 3.01,
+      "totalBytes": 897491,
+      "problems": [],
+      "hashOk": true,
+      "ceilings": [
+        {
+          "rendition": "240p",
+          "bytesPerSecond": 29564,
+          "ceiling": 61440
+        },
+        {
+          "rendition": "480p",
+          "bytesPerSecond": 80728,
+          "ceiling": 163840
+        },
+        {
+          "rendition": "720p",
+          "bytesPerSecond": 161148,
+          "ceiling": 358400
+        },
+        {
+          "rendition": "audio",
+          "bytesPerSecond": 12517,
+          "ceiling": 16384
+        }
+      ],
+      "ffprobe": {
+        "available": true,
+        "streams": [
+          {
+            "codec_name": "opus",
+            "codec_type": "audio"
+          },
+          {
+            "codec_name": "vp9",
+            "codec_type": "video",
+            "width": 426,
+            "height": 240
+          },
+          {
+            "codec_name": "vp9",
+            "codec_type": "video",
+            "width": 854,
+            "height": 480
+          },
+          {
+            "codec_name": "vp9",
+            "codec_type": "video",
+            "width": 1280,
+            "height": 720
+          }
+        ],
+        "stderr": ""
+      },
+      "pass": true
+    },
+    {
+      "case": "portrait (remove sound)",
+      "ms": 3123,
+      "files": [
+        "240p.m3u8",
+        "240p.mp4",
+        "240p_0.m4s",
+        "master.m3u8",
+        "poster.jpg"
+      ],
+      "has_audio": false,
+      "duration_s": 3.01,
+      "totalBytes": 115953,
+      "problems": [],
+      "hashOk": true,
+      "ceilings": [
+        {
+          "rendition": "240p",
+          "bytesPerSecond": 31688,
+          "ceiling": 61440
+        }
+      ],
+      "ffprobe": {
+        "available": true,
+        "streams": [
+          {
+            "codec_name": "vp9",
+            "codec_type": "video",
+            "width": 240,
+            "height": 426
+          }
+        ],
+        "stderr": ""
+      },
+      "pass": true
+    }
+  ],
+  "verdict": "PASS"
+}

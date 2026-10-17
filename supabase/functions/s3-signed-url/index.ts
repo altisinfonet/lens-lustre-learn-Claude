@@ -17,7 +17,12 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecureHeaders } from "../_shared/secureHeaders.ts";
-import { assertStorageLane } from "../_shared/s3.ts";
+import {
+  assertStorageLane,
+  storageKeyWithPrefix,
+  storageObjectUrl,
+  validateStorageKey,
+} from "../_shared/s3.ts";
 
 // ------------------------------------------------------------------
 // Configuration
@@ -150,13 +155,14 @@ Deno.serve(async (req) => {
     } catch {
       return json(400, { error: "Invalid JSON body" });
     }
-    const filePath = typeof body.path === "string" ? body.path.trim() : "";
-    if (!filePath) return json(400, { error: "Missing path" });
+    const rawPath = typeof body.path === "string" ? body.path.trim() : "";
+    if (!rawPath) return json(400, { error: "Missing path" });
 
-    // Block path traversal & absolute URLs
-    if (filePath.includes("..") || /^https?:\/\//i.test(filePath) || filePath.startsWith("/")) {
-      return json(400, { error: "Invalid path" });
-    }
+    // Strict storage-key grammar (allow-list; replaces the old ".." / scheme /
+    // leading-slash deny-list). The bucket allow-list, the ownership check and
+    // the signed URL below all use this validated key and nothing else.
+    const filePath = validateStorageKey(rawPath);
+    if (!filePath) return json(400, { error: "Invalid path" });
 
     // Bucket allow-list — Step 17 hardening
     const isAllowedBucket = ALLOWED_PREFIXES.some((p) => filePath.startsWith(p));
@@ -202,24 +208,20 @@ Deno.serve(async (req) => {
     if (!s3.enabled) return json(400, { error: "S3 storage is disabled" });
 
     // --- 6. Build presigned URL (5-min TTL) ---------------------
-    const s3Key = s3.path_prefix
-      ? `${s3.path_prefix.replace(/\/+$/, "")}/${filePath}`
-      : filePath;
+    const s3Key = storageKeyWithPrefix(s3.path_prefix, filePath);
+    if (!s3Key) return json(500, { error: "Storage path prefix is misconfigured" });
 
-    const host = s3.endpoint
-      ? s3.endpoint.replace(/^https?:\/\//, "").replace(/\/+$/, "")
-      : `${s3.bucket_name}.s3.${s3.region}.amazonaws.com`;
-    const baseUrl = s3.endpoint
-      ? `${s3.endpoint.replace(/\/+$/, "")}/${s3.bucket_name}`
-      : `https://${host}`;
+    // Proven to address exactly "/<bucket>/<s3Key>" before it is signed.
+    const objectUrl = storageObjectUrl(s3, s3Key);
+    const target = new URL(objectUrl);
 
     const now = new Date();
     const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
     const dateStamp = amzDate.slice(0, 8);
     const scope = `${dateStamp}/${s3.region}/s3/aws4_request`;
 
-    const canonicalUri = new URL(`${baseUrl}/${s3Key}`).pathname;
-    const hostHeader = new URL(`${baseUrl}/${s3Key}`).host;
+    const canonicalUri = target.pathname;
+    const hostHeader = target.host;
 
     const queryParams = new URLSearchParams({
       "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
@@ -256,7 +258,7 @@ Deno.serve(async (req) => {
     const signingKey = await getSignatureKey(s3.secret_access_key, dateStamp, s3.region, "s3");
     const signature = toHex(await hmacSha256(signingKey, stringToSign));
 
-    const presignedUrl = `${baseUrl}/${s3Key}?${sortedParams}&X-Amz-Signature=${signature}`;
+    const presignedUrl = `${objectUrl}?${sortedParams}&X-Amz-Signature=${signature}`;
 
     // --- 7. Audit log (fire and forget) -------------------------
     adminClient

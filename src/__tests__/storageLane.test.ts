@@ -98,6 +98,82 @@ describe("assertStorageLane — each lane keeps its own objects", () => {
   it("an empty bucket name throws", () => {
     expect(() => assertStorageLane({ bucket_name: "" }, PROD_URL)).toThrow(/bucket_name is empty/);
   });
+
+  // The video lane has its own bucket and its own functions; these settings
+  // drive the PHOTO storage functions only. Refused on every project, so the
+  // photo functions can never be pointed at the video bucket. (Uppercase
+  // spellings never get this far: the bucket-name grammar below refuses them.)
+  it("a bucket named for video is refused on every lane", () => {
+    for (const bucket of ["50mm-staging-video", "50mm-video", "video", "photos-video-archive"]) {
+      expect(() => assertStorageLane({ bucket_name: bucket }, STAGING_URL), bucket).toThrow(/names a video bucket/);
+      expect(() => assertStorageLane({ bucket_name: bucket }, PROD_URL), bucket).toThrow(/names a video bucket/);
+    }
+  });
+
+  it("the photo buckets themselves are unaffected by the video rule", () => {
+    expect(() => assertStorageLane({ bucket_name: PRODUCTION_BUCKET }, PROD_URL)).not.toThrow();
+    expect(() => assertStorageLane({ bucket_name: "50mm-staging" }, STAGING_URL)).not.toThrow();
+  });
+});
+
+/**
+ * The bucket name is placed into every request URL (host or path), so it must
+ * be a plain bucket name — checked on the RAW value, before the lane rules and
+ * the video rule, so no rule above ever compares a value other than the one
+ * that is signed.
+ */
+describe("assertStorageLane — the bucket name itself must be a plain bucket name", () => {
+  it("the real buckets pass: 50mm on production, 50mm-staging on staging", () => {
+    expect(() => assertStorageLane({ bucket_name: "50mm" }, PROD_URL)).not.toThrow();
+    expect(() => assertStorageLane({ bucket_name: "50mm-staging" }, STAGING_URL)).not.toThrow();
+  });
+
+  const REFUSED: Array<[string, unknown]> = [
+    ["a path built from two bucket names", "50mm-staging/../50mm"],
+    ["a slash", "50mm/x"],
+    ["a dot-dot", "50mm..staging"],
+    ["a single dot", "50mm.staging"],
+    ["a percent sign", "%35%30mm"],
+    ["a percent-encoded slash", "50mm-staging%2f..%2f50mm"],
+    ["uppercase", "50MM"],
+    ["mixed case", "50mm-Staging"],
+    ["too short (2)", "ab"],
+    ["too short (1)", "a"],
+    ["too long (64)", "a".repeat(64)],
+    ["a leading hyphen", "-50mm"],
+    ["a trailing hyphen", "50mm-"],
+    ["an underscore", "50mm_staging"],
+    ["a leading space", " 50mm"],
+    ["a trailing space (no longer trimmed into a match)", "50mm "],
+    ["a non-string", 50],
+  ];
+
+  for (const [label, bucket] of REFUSED) {
+    it(`refuses ${label} — on staging and on production`, () => {
+      for (const url of [STAGING_URL, PROD_URL]) {
+        expect(() => assertStorageLane({ bucket_name: bucket as string }, url)).toThrow(/is not a valid bucket name/);
+      }
+    });
+  }
+
+  it("accepts the boundaries: exactly 3 and exactly 63 characters", () => {
+    expect(() => assertStorageLane({ bucket_name: "abc" }, STAGING_URL)).not.toThrow();
+    expect(() => assertStorageLane({ bucket_name: "a".repeat(63) }, STAGING_URL)).not.toThrow();
+  });
+
+  it("is checked before the video rule and the lane rules (the grammar error wins)", () => {
+    expect(() => assertStorageLane({ bucket_name: "50mm-Video" }, STAGING_URL)).toThrow(/is not a valid bucket name/);
+    expect(() => assertStorageLane({ bucket_name: "50mm/" }, PROD_URL)).toThrow(/is not a valid bucket name/);
+  });
+
+  it("never echoes a refused value", () => {
+    try {
+      assertStorageLane({ bucket_name: "50mm-staging/../50mm" }, STAGING_URL);
+      throw new Error("expected a refusal");
+    } catch (e) {
+      expect(String((e as Error).message)).not.toContain("50mm-staging/../50mm");
+    }
+  });
 });
 
 /**

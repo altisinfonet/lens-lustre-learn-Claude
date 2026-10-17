@@ -12,7 +12,12 @@
  *      put the departed member's data back after the wipe;
  *   2. the image service worker's caches (gallery-images-*);
  *   3. the OFF-1 device store (IndexedDB `retina-offline`);
- *   4. the feed's first-page cache (localStorage `feed_cache_v1`);
+ *   4. the feed's first-page cache (localStorage `feed_cache_v1`), and the
+ *      feed's in-memory session (lib/feedSessions: seed + exclude lists);
+ *      and every comment thread drawn this session (lib/comments/threadCache:
+ *      post AND ad threads), so the next viewer is never shown them;
+ *   6. VID-1 video upload jobs + their encoded files (IndexedDB
+ *      `retina-video-uploads`): an unposted video is the member's alone;
  *   5. the OFF-2 outbox (IndexedDB `retina-outbox`): unsent actions belong to
  *      the member who made them and are never sent under someone else.
  * NOT wiped, on purpose: device preferences that belong to the device, not the
@@ -24,23 +29,34 @@ import { purgeImageCache } from "@/lib/imageCachePurge";
 import { clearDeviceStore } from "./deviceStore";
 import { setPersistenceUser } from "./queryPersistence";
 import { clearFeedCache } from "@/lib/feedCache";
+import { clearFeedSessions } from "@/lib/feedSessions";
+import { clearCommentThreadCaches } from "@/lib/comments/threadCache";
 import { clearOutbox } from "./outbox";
+import { clearVideoUploads } from "@/lib/video/uploadJobs";
 
 export interface WipeResult {
   imageCaches: string[] | null;
   deviceStore: boolean;
   feedCache: boolean;
   outbox: boolean;
+  videoUploads: boolean;
 }
 
 export async function wipeMemberDataOnSignOut(): Promise<WipeResult> {
   setPersistenceUser(null);
   let feedCache = false;
   try { clearFeedCache(); feedCache = true; } catch { /* never block sign-out */ }
-  const [imageCaches, deviceStore, outbox] = await Promise.all([
+  // L1 · B1: the feed's session (seed, exclude lists) outlives the feed screen
+  // so Back can keep the deal on screen — it must not outlive the member.
+  clearFeedSessions();
+  // Review of #435: the comment threads this member opened (post and ad) are
+  // in memory too, and a sign-out does not reload the page.
+  clearCommentThreadCaches();
+  const [imageCaches, deviceStore, outbox, videoUploads] = await Promise.all([
     purgeImageCache().catch(() => null),
     clearDeviceStore().catch(() => false),
     clearOutbox().catch(() => false),
+    clearVideoUploads().catch(() => false),
   ]);
-  return { imageCaches, deviceStore, feedCache, outbox };
+  return { imageCaches, deviceStore, feedCache, outbox, videoUploads };
 }

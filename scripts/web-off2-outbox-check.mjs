@@ -73,7 +73,9 @@ export function checkContract(targets, contract) {
 export function findBypasses(file, src, tables) {
   const hits = [];
   for (const t of tables) {
-    const re = new RegExp(`\\.from\\(\\s*["'\`]${t}["'\`]\\s*\\)`, "g");
+    // A cast inside the call — `.from("feed_events" as any)`, the pre-L2 feed
+    // tracker's shape — is the same direct write; it used to slip past.
+    const re = new RegExp(`\\.from\\(\\s*["'\`]${t}["'\`]\\s*(?:as\\s+[\\w.]+\\s*)?\\)`, "g");
     for (const m of src.matchAll(re)) {
       const tail = src.slice(m.index + m[0].length, m.index + m[0].length + 400);
       const stmt = tail.split(/;|\n\s*\n/)[0];
@@ -145,6 +147,8 @@ export function selfTest() {
     ["select is fine", `await supabase.from("post_comments").select("id").eq("x", 1);`, 0],
     ["update is fine", `await supabase.from("post_comments").update({ is_pinned: true }).eq("id", id);`, 0],
     ["delete is fine", `await supabase.from("post_comments").delete().eq("id", id);`, 0],
+    ["insert through a type cast (the pre-L2 feed tracker)", `await supabase.from("reports" as any).insert(events as any);`, 1],
+    ["select through a type cast is fine", `await supabase.from("reports" as never).select("id");`, 0],
     ["select then insert elsewhere is not this chain", `await supabase.from("reports").select("id");\nawait supabase.from("other").insert({});`, 0],
   ];
   for (const [name, src, want] of bypass) {

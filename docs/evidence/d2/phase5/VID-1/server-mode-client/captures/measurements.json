@@ -1,0 +1,6282 @@
+[
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 686,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 46
+   },
+   "line": {
+    "top": 687,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": null,
+   "fab": {
+    "top": 634,
+    "bottom": 678,
+    "left": 292,
+    "right": 344,
+    "width": 52,
+    "height": 44
+   },
+   "banner": null,
+   "bar": {
+    "top": 751,
+    "bottom": 800,
+    "left": 0,
+    "right": 360,
+    "width": 360,
+    "height": 49
+   }
+  },
+  "barTopMost": 739.7,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 7.7,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card--phone-360x800--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card-consent",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 379,
+    "bottom": 425,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 46
+   },
+   "line": {
+    "top": 380,
+    "bottom": 424,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": null,
+   "fab": {
+    "top": 327,
+    "bottom": 371,
+    "left": 292,
+    "right": 344,
+    "width": 52,
+    "height": 44
+   },
+   "banner": {
+    "top": 432.6,
+    "bottom": 752,
+    "left": 16,
+    "right": 344,
+    "width": 328,
+    "height": 319.4
+   },
+   "bar": {
+    "top": 751,
+    "bottom": 800,
+    "left": 0,
+    "right": 360,
+    "width": 360,
+    "height": 49
+   }
+  },
+  "barTopMost": 740.8,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 315.8,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card-consent--phone-360x800--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card-consent-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 140.5,
+    "bottom": 425,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 284.5
+   },
+   "line": {
+    "top": 380,
+    "bottom": 424,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": {
+    "top": 141.5,
+    "bottom": 379,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 237.5
+   },
+   "fab": {
+    "top": 88,
+    "bottom": 132,
+    "left": 292,
+    "right": 344,
+    "width": 52,
+    "height": 44
+   },
+   "banner": {
+    "top": 432.6,
+    "bottom": 752,
+    "left": 16,
+    "right": 344,
+    "width": 328,
+    "height": 319.4
+   },
+   "bar": {
+    "top": 751,
+    "bottom": 800,
+    "left": 0,
+    "right": 360,
+    "width": 360,
+    "height": 49
+   }
+  },
+  "barTopMost": 741.7,
+  "lineText": "Show less",
+  "lineExpanded": "true",
+  "rowsDrawn": 3,
+  "listScrolls": {
+   "clientHeight": 238,
+   "scrollHeight": 238,
+   "maxHeight": "313px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 316.7,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card-consent-open--phone-360x800--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 645.8,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 646.8,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 84.3
+   },
+   "fab": {
+    "top": 594,
+    "bottom": 638,
+    "left": 292,
+    "right": 344,
+    "width": 52,
+    "height": 44
+   },
+   "banner": null,
+   "bar": {
+    "top": 751,
+    "bottom": 800,
+    "left": 0,
+    "right": 360,
+    "width": 360,
+    "height": 49
+   }
+  },
+  "barTopMost": 739.7,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "320px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 7.7,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card-single--phone-360x800--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "dark",
+  "scene": "video-server-jobs-progress",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 686,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 46
+   },
+   "line": {
+    "top": 687,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": null,
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-jobs-progress--phone-360x800--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "dark",
+  "scene": "video-server-jobs-ready-failed",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 686,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 46
+   },
+   "line": {
+    "top": 687,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": null,
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "2 videos · 1 needs attention",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-jobs-ready-failed--phone-360x800--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "dark",
+  "scene": "video-server-jobs-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 365,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 367
+   },
+   "line": {
+    "top": 687,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": {
+    "top": 366,
+    "bottom": 686,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 320
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "Show less",
+  "lineExpanded": "true",
+  "rowsDrawn": 5,
+  "listScrolls": {
+   "clientHeight": 320,
+   "scrollHeight": 460,
+   "maxHeight": "320px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-jobs-open--phone-360x800--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "dark",
+  "scene": "video-server-job-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 645.8,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 646.8,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 84.3
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "320px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-job-single--phone-360x800--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 686,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 46
+   },
+   "line": {
+    "top": 687,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": null,
+   "fab": {
+    "top": 634,
+    "bottom": 678,
+    "left": 292,
+    "right": 344,
+    "width": 52,
+    "height": 44
+   },
+   "banner": null,
+   "bar": {
+    "top": 751,
+    "bottom": 800,
+    "left": 0,
+    "right": 360,
+    "width": 360,
+    "height": 49
+   }
+  },
+  "barTopMost": 740.1,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 8.1,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card--phone-360x800--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card-consent",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 379,
+    "bottom": 425,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 46
+   },
+   "line": {
+    "top": 380,
+    "bottom": 424,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": null,
+   "fab": {
+    "top": 327,
+    "bottom": 371,
+    "left": 292,
+    "right": 344,
+    "width": 52,
+    "height": 44
+   },
+   "banner": {
+    "top": 432.6,
+    "bottom": 752,
+    "left": 16,
+    "right": 344,
+    "width": 328,
+    "height": 319.4
+   },
+   "bar": {
+    "top": 751,
+    "bottom": 800,
+    "left": 0,
+    "right": 360,
+    "width": 360,
+    "height": 49
+   }
+  },
+  "barTopMost": 743.4,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 318.4,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card-consent--phone-360x800--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card-consent-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 140.5,
+    "bottom": 425,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 284.5
+   },
+   "line": {
+    "top": 380,
+    "bottom": 424,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": {
+    "top": 141.5,
+    "bottom": 379,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 237.5
+   },
+   "fab": {
+    "top": 88,
+    "bottom": 132,
+    "left": 292,
+    "right": 344,
+    "width": 52,
+    "height": 44
+   },
+   "banner": {
+    "top": 432.6,
+    "bottom": 752,
+    "left": 16,
+    "right": 344,
+    "width": 328,
+    "height": 319.4
+   },
+   "bar": {
+    "top": 751,
+    "bottom": 800,
+    "left": 0,
+    "right": 360,
+    "width": 360,
+    "height": 49
+   }
+  },
+  "barTopMost": 742.7,
+  "lineText": "Show less",
+  "lineExpanded": "true",
+  "rowsDrawn": 3,
+  "listScrolls": {
+   "clientHeight": 238,
+   "scrollHeight": 238,
+   "maxHeight": "313px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 317.7,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card-consent-open--phone-360x800--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 645.8,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 646.8,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 84.3
+   },
+   "fab": {
+    "top": 594,
+    "bottom": 638,
+    "left": 292,
+    "right": 344,
+    "width": 52,
+    "height": 44
+   },
+   "banner": null,
+   "bar": {
+    "top": 751,
+    "bottom": 800,
+    "left": 0,
+    "right": 360,
+    "width": 360,
+    "height": 49
+   }
+  },
+  "barTopMost": 739.8,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "320px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 7.8,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card-single--phone-360x800--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "light",
+  "scene": "video-server-jobs-progress",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 686,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 46
+   },
+   "line": {
+    "top": 687,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": null,
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-jobs-progress--phone-360x800--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "light",
+  "scene": "video-server-jobs-ready-failed",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 686,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 46
+   },
+   "line": {
+    "top": 687,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": null,
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "2 videos · 1 needs attention",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-jobs-ready-failed--phone-360x800--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "light",
+  "scene": "video-server-jobs-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 365,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 367
+   },
+   "line": {
+    "top": 687,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": {
+    "top": 366,
+    "bottom": 686,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 320
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "Show less",
+  "lineExpanded": "true",
+  "rowsDrawn": 5,
+  "listScrolls": {
+   "clientHeight": 320,
+   "scrollHeight": 460,
+   "maxHeight": "320px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-jobs-open--phone-360x800--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "light",
+  "scene": "video-server-job-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 645.8,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 646.8,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 84.3
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "320px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-job-single--phone-360x800--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 730,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 46
+   },
+   "line": {
+    "top": 731,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": null,
+   "fab": {
+    "top": 678,
+    "bottom": 722,
+    "left": 322,
+    "right": 374,
+    "width": 52,
+    "height": 44
+   },
+   "banner": null,
+   "bar": {
+    "top": 795,
+    "bottom": 844,
+    "left": 0,
+    "right": 390,
+    "width": 390,
+    "height": 49
+   }
+  },
+  "barTopMost": 786.2,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 10.2,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card--phone-390x844--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card-consent",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 423,
+    "bottom": 469,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 46
+   },
+   "line": {
+    "top": 424,
+    "bottom": 468,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": null,
+   "fab": {
+    "top": 371,
+    "bottom": 415,
+    "left": 322,
+    "right": 374,
+    "width": 52,
+    "height": 44
+   },
+   "banner": {
+    "top": 476.6,
+    "bottom": 796,
+    "left": 16,
+    "right": 374,
+    "width": 358,
+    "height": 319.4
+   },
+   "bar": {
+    "top": 795,
+    "bottom": 844,
+    "left": 0,
+    "right": 390,
+    "width": 390,
+    "height": 49
+   }
+  },
+  "barTopMost": 787.7,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 318.7,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card-consent--phone-390x844--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card-consent-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 184.5,
+    "bottom": 469,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 284.5
+   },
+   "line": {
+    "top": 424,
+    "bottom": 468,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": {
+    "top": 185.5,
+    "bottom": 423,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 237.5
+   },
+   "fab": {
+    "top": 132,
+    "bottom": 176,
+    "left": 322,
+    "right": 374,
+    "width": 52,
+    "height": 44
+   },
+   "banner": {
+    "top": 476.6,
+    "bottom": 796,
+    "left": 16,
+    "right": 374,
+    "width": 358,
+    "height": 319.4
+   },
+   "bar": {
+    "top": 795,
+    "bottom": 844,
+    "left": 0,
+    "right": 390,
+    "width": 390,
+    "height": 49
+   }
+  },
+  "barTopMost": 787.9,
+  "lineText": "Show less",
+  "lineExpanded": "true",
+  "rowsDrawn": 3,
+  "listScrolls": {
+   "clientHeight": 238,
+   "scrollHeight": 238,
+   "maxHeight": "337.6px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 318.9,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card-consent-open--phone-390x844--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 689.8,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 690.8,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 84.3
+   },
+   "fab": {
+    "top": 638,
+    "bottom": 682,
+    "left": 322,
+    "right": 374,
+    "width": 52,
+    "height": 44
+   },
+   "banner": null,
+   "bar": {
+    "top": 795,
+    "bottom": 844,
+    "left": 0,
+    "right": 390,
+    "width": 390,
+    "height": 49
+   }
+  },
+  "barTopMost": 783.7,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "337.6px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 7.7,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card-single--phone-390x844--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "dark",
+  "scene": "video-server-jobs-progress",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 730,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 46
+   },
+   "line": {
+    "top": 731,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": null,
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-jobs-progress--phone-390x844--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "dark",
+  "scene": "video-server-jobs-ready-failed",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 730,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 46
+   },
+   "line": {
+    "top": 731,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": null,
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "2 videos · 1 needs attention",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-jobs-ready-failed--phone-390x844--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "dark",
+  "scene": "video-server-jobs-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 391.4,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 384.6
+   },
+   "line": {
+    "top": 731,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": {
+    "top": 392.4,
+    "bottom": 730,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 337.6
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "Show less",
+  "lineExpanded": "true",
+  "rowsDrawn": 5,
+  "listScrolls": {
+   "clientHeight": 338,
+   "scrollHeight": 405,
+   "maxHeight": "337.6px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-jobs-open--phone-390x844--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "dark",
+  "scene": "video-server-job-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 689.8,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 690.8,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 84.3
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "337.6px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-job-single--phone-390x844--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 730,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 46
+   },
+   "line": {
+    "top": 731,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": null,
+   "fab": {
+    "top": 678,
+    "bottom": 722,
+    "left": 322,
+    "right": 374,
+    "width": 52,
+    "height": 44
+   },
+   "banner": null,
+   "bar": {
+    "top": 795,
+    "bottom": 844,
+    "left": 0,
+    "right": 390,
+    "width": 390,
+    "height": 49
+   }
+  },
+  "barTopMost": 783.7,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 7.7,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card--phone-390x844--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card-consent",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 423,
+    "bottom": 469,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 46
+   },
+   "line": {
+    "top": 424,
+    "bottom": 468,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": null,
+   "fab": {
+    "top": 371,
+    "bottom": 415,
+    "left": 322,
+    "right": 374,
+    "width": 52,
+    "height": 44
+   },
+   "banner": {
+    "top": 476.6,
+    "bottom": 796,
+    "left": 16,
+    "right": 374,
+    "width": 358,
+    "height": 319.4
+   },
+   "bar": {
+    "top": 795,
+    "bottom": 844,
+    "left": 0,
+    "right": 390,
+    "width": 390,
+    "height": 49
+   }
+  },
+  "barTopMost": 787.4,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 318.4,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card-consent--phone-390x844--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card-consent-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 184.5,
+    "bottom": 469,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 284.5
+   },
+   "line": {
+    "top": 424,
+    "bottom": 468,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": {
+    "top": 185.5,
+    "bottom": 423,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 237.5
+   },
+   "fab": {
+    "top": 132,
+    "bottom": 176,
+    "left": 322,
+    "right": 374,
+    "width": 52,
+    "height": 44
+   },
+   "banner": {
+    "top": 476.6,
+    "bottom": 796,
+    "left": 16,
+    "right": 374,
+    "width": 358,
+    "height": 319.4
+   },
+   "bar": {
+    "top": 795,
+    "bottom": 844,
+    "left": 0,
+    "right": 390,
+    "width": 390,
+    "height": 49
+   }
+  },
+  "barTopMost": 785,
+  "lineText": "Show less",
+  "lineExpanded": "true",
+  "rowsDrawn": 3,
+  "listScrolls": {
+   "clientHeight": 238,
+   "scrollHeight": 238,
+   "maxHeight": "337.6px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 316,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card-consent-open--phone-390x844--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 689.8,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 690.8,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 84.3
+   },
+   "fab": {
+    "top": 638,
+    "bottom": 682,
+    "left": 322,
+    "right": 374,
+    "width": 52,
+    "height": 44
+   },
+   "banner": null,
+   "bar": {
+    "top": 795,
+    "bottom": 844,
+    "left": 0,
+    "right": 390,
+    "width": 390,
+    "height": 49
+   }
+  },
+  "barTopMost": 783.8,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "337.6px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 7.8,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card-single--phone-390x844--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "light",
+  "scene": "video-server-jobs-progress",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 730,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 46
+   },
+   "line": {
+    "top": 731,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": null,
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-jobs-progress--phone-390x844--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "light",
+  "scene": "video-server-jobs-ready-failed",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 730,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 46
+   },
+   "line": {
+    "top": 731,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": null,
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "2 videos · 1 needs attention",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-jobs-ready-failed--phone-390x844--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "light",
+  "scene": "video-server-jobs-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 391.4,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 384.6
+   },
+   "line": {
+    "top": 731,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": {
+    "top": 392.4,
+    "bottom": 730,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 337.6
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "Show less",
+  "lineExpanded": "true",
+  "rowsDrawn": 5,
+  "listScrolls": {
+   "clientHeight": 338,
+   "scrollHeight": 405,
+   "maxHeight": "337.6px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-jobs-open--phone-390x844--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "light",
+  "scene": "video-server-job-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 689.8,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 690.8,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 84.3
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "337.6px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-job-single--phone-390x844--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 695.3,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 180.8
+   },
+   "line": null,
+   "list": {
+    "top": 696.3,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 178.8
+   },
+   "fab": {
+    "top": 832,
+    "bottom": 876,
+    "left": 1110.3,
+    "right": 1256,
+    "width": 145.7,
+    "height": 44
+   },
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 2,
+  "listScrolls": {
+   "clientHeight": 179,
+   "scrollHeight": 179,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card--desktop-1280x900--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card-consent",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 489.3,
+    "bottom": 670,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 180.8
+   },
+   "line": null,
+   "list": {
+    "top": 490.3,
+    "bottom": 669,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 178.8
+   },
+   "fab": {
+    "top": 832,
+    "bottom": 876,
+    "left": 1110.3,
+    "right": 1256,
+    "width": 145.7,
+    "height": 44
+   },
+   "banner": {
+    "top": 677.8,
+    "bottom": 884,
+    "left": 16,
+    "right": 464,
+    "width": 448,
+    "height": 206.3
+   },
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 2,
+  "listScrolls": {
+   "clientHeight": 179,
+   "scrollHeight": 179,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card-consent--desktop-1280x900--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card-consent-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 430.5,
+    "bottom": 670,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 239.5
+   },
+   "line": null,
+   "list": {
+    "top": 431.5,
+    "bottom": 669,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 237.5
+   },
+   "fab": {
+    "top": 832,
+    "bottom": 876,
+    "left": 1110.3,
+    "right": 1256,
+    "width": 145.7,
+    "height": 44
+   },
+   "banner": {
+    "top": 677.8,
+    "bottom": 884,
+    "left": 16,
+    "right": 464,
+    "width": 448,
+    "height": 206.3
+   },
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 3,
+  "listScrolls": {
+   "clientHeight": 238,
+   "scrollHeight": 238,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card-consent-open--desktop-1280x900--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 789.8,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 790.8,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 84.3
+   },
+   "fab": {
+    "top": 832,
+    "bottom": 876,
+    "left": 1110.3,
+    "right": 1256,
+    "width": 145.7,
+    "height": 44
+   },
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card-single--desktop-1280x900--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "dark",
+  "scene": "video-server-jobs-progress",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 695.3,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 180.8
+   },
+   "line": null,
+   "list": {
+    "top": 696.3,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 178.8
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 2,
+  "listScrolls": {
+   "clientHeight": 179,
+   "scrollHeight": 179,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-jobs-progress--desktop-1280x900--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "dark",
+  "scene": "video-server-jobs-ready-failed",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 724.5,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 151.5
+   },
+   "line": null,
+   "list": {
+    "top": 725.5,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 149.5
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 2,
+  "listScrolls": {
+   "clientHeight": 150,
+   "scrollHeight": 150,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-jobs-ready-failed--desktop-1280x900--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "dark",
+  "scene": "video-server-jobs-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 514,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 362
+   },
+   "line": null,
+   "list": {
+    "top": 515,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 360
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 5,
+  "listScrolls": {
+   "clientHeight": 360,
+   "scrollHeight": 421,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-jobs-open--desktop-1280x900--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "dark",
+  "scene": "video-server-job-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 789.8,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 790.8,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 84.3
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-job-single--desktop-1280x900--dark.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 695.3,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 180.8
+   },
+   "line": null,
+   "list": {
+    "top": 696.3,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 178.8
+   },
+   "fab": {
+    "top": 832,
+    "bottom": 876,
+    "left": 1110.3,
+    "right": 1256,
+    "width": 145.7,
+    "height": 44
+   },
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 2,
+  "listScrolls": {
+   "clientHeight": 179,
+   "scrollHeight": 179,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card--desktop-1280x900--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card-consent",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 489.3,
+    "bottom": 670,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 180.8
+   },
+   "line": null,
+   "list": {
+    "top": 490.3,
+    "bottom": 669,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 178.8
+   },
+   "fab": {
+    "top": 832,
+    "bottom": 876,
+    "left": 1110.3,
+    "right": 1256,
+    "width": 145.7,
+    "height": 44
+   },
+   "banner": {
+    "top": 677.8,
+    "bottom": 884,
+    "left": 16,
+    "right": 464,
+    "width": 448,
+    "height": 206.3
+   },
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 2,
+  "listScrolls": {
+   "clientHeight": 179,
+   "scrollHeight": 179,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card-consent--desktop-1280x900--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card-consent-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 430.5,
+    "bottom": 670,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 239.5
+   },
+   "line": null,
+   "list": {
+    "top": 431.5,
+    "bottom": 669,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 237.5
+   },
+   "fab": {
+    "top": 832,
+    "bottom": 876,
+    "left": 1110.3,
+    "right": 1256,
+    "width": 145.7,
+    "height": 44
+   },
+   "banner": {
+    "top": 677.8,
+    "bottom": 884,
+    "left": 16,
+    "right": 464,
+    "width": 448,
+    "height": 206.3
+   },
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 3,
+  "listScrolls": {
+   "clientHeight": 238,
+   "scrollHeight": 238,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card-consent-open--desktop-1280x900--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 789.8,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 790.8,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 84.3
+   },
+   "fab": {
+    "top": 832,
+    "bottom": 876,
+    "left": 1110.3,
+    "right": 1256,
+    "width": 145.7,
+    "height": 44
+   },
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--screen-home-server-card-single--desktop-1280x900--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "light",
+  "scene": "video-server-jobs-progress",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 695.3,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 180.8
+   },
+   "line": null,
+   "list": {
+    "top": 696.3,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 178.8
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 2,
+  "listScrolls": {
+   "clientHeight": 179,
+   "scrollHeight": 179,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-jobs-progress--desktop-1280x900--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "light",
+  "scene": "video-server-jobs-ready-failed",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 724.5,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 151.5
+   },
+   "line": null,
+   "list": {
+    "top": 725.5,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 149.5
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 2,
+  "listScrolls": {
+   "clientHeight": 150,
+   "scrollHeight": 150,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-jobs-ready-failed--desktop-1280x900--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "light",
+  "scene": "video-server-jobs-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 514,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 362
+   },
+   "line": null,
+   "list": {
+    "top": 515,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 360
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 5,
+  "listScrolls": {
+   "clientHeight": 360,
+   "scrollHeight": 421,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-jobs-open--desktop-1280x900--light.png"
+ },
+ {
+  "browser": "chromium",
+  "version": "151.0.7922.34",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "light",
+  "scene": "video-server-job-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 789.8,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 790.8,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 84.3
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "chromium--video-server-job-single--desktop-1280x900--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 686,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 46
+   },
+   "line": {
+    "top": 687,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": null,
+   "fab": {
+    "top": 634,
+    "bottom": 678,
+    "left": 292,
+    "right": 344,
+    "width": 52,
+    "height": 44
+   },
+   "banner": null,
+   "bar": {
+    "top": 751,
+    "bottom": 800,
+    "left": 0,
+    "right": 360,
+    "width": 360,
+    "height": 49
+   }
+  },
+  "barTopMost": 743.7,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 11.7,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card--phone-360x800--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card-consent",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 379,
+    "bottom": 425,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 46
+   },
+   "line": {
+    "top": 380,
+    "bottom": 424,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": null,
+   "fab": {
+    "top": 327,
+    "bottom": 371,
+    "left": 292,
+    "right": 344,
+    "width": 52,
+    "height": 44
+   },
+   "banner": {
+    "top": 432.6,
+    "bottom": 752,
+    "left": 16,
+    "right": 344,
+    "width": 328,
+    "height": 319.4
+   },
+   "bar": {
+    "top": 751,
+    "bottom": 800,
+    "left": 0,
+    "right": 360,
+    "width": 360,
+    "height": 49
+   }
+  },
+  "barTopMost": 743.8,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 318.8,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card-consent--phone-360x800--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card-consent-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 140.5,
+    "bottom": 425,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 284.5
+   },
+   "line": {
+    "top": 380,
+    "bottom": 424,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": {
+    "top": 141.5,
+    "bottom": 379,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 237.5
+   },
+   "fab": {
+    "top": 88,
+    "bottom": 132,
+    "left": 292,
+    "right": 344,
+    "width": 52,
+    "height": 44
+   },
+   "banner": {
+    "top": 432.6,
+    "bottom": 752,
+    "left": 16,
+    "right": 344,
+    "width": 328,
+    "height": 319.4
+   },
+   "bar": {
+    "top": 751,
+    "bottom": 800,
+    "left": 0,
+    "right": 360,
+    "width": 360,
+    "height": 49
+   }
+  },
+  "barTopMost": 743.9,
+  "lineText": "Show less",
+  "lineExpanded": "true",
+  "rowsDrawn": 3,
+  "listScrolls": {
+   "clientHeight": 238,
+   "scrollHeight": 238,
+   "maxHeight": "313px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 318.9,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card-consent-open--phone-360x800--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 645.8,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 646.8,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 84.3
+   },
+   "fab": {
+    "top": 594,
+    "bottom": 638,
+    "left": 292,
+    "right": 344,
+    "width": 52,
+    "height": 44
+   },
+   "banner": null,
+   "bar": {
+    "top": 751,
+    "bottom": 800,
+    "left": 0,
+    "right": 360,
+    "width": 360,
+    "height": 49
+   }
+  },
+  "barTopMost": 740.7,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "320px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 8.7,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card-single--phone-360x800--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "dark",
+  "scene": "video-server-jobs-progress",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 686,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 46
+   },
+   "line": {
+    "top": 687,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": null,
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-jobs-progress--phone-360x800--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "dark",
+  "scene": "video-server-jobs-ready-failed",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 686,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 46
+   },
+   "line": {
+    "top": 687,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": null,
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "2 videos · 1 needs attention",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-jobs-ready-failed--phone-360x800--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "dark",
+  "scene": "video-server-jobs-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 365,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 367
+   },
+   "line": {
+    "top": 687,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": {
+    "top": 366,
+    "bottom": 686,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 320
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "Show less",
+  "lineExpanded": "true",
+  "rowsDrawn": 5,
+  "listScrolls": {
+   "clientHeight": 320,
+   "scrollHeight": 460,
+   "maxHeight": "320px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-jobs-open--phone-360x800--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "dark",
+  "scene": "video-server-job-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 645.8,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 646.8,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 84.3
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "320px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-job-single--phone-360x800--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 686,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 46
+   },
+   "line": {
+    "top": 687,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": null,
+   "fab": {
+    "top": 634,
+    "bottom": 678,
+    "left": 292,
+    "right": 344,
+    "width": 52,
+    "height": 44
+   },
+   "banner": null,
+   "bar": {
+    "top": 751,
+    "bottom": 800,
+    "left": 0,
+    "right": 360,
+    "width": 360,
+    "height": 49
+   }
+  },
+  "barTopMost": 739.7,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 7.7,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card--phone-360x800--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card-consent",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 379,
+    "bottom": 425,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 46
+   },
+   "line": {
+    "top": 380,
+    "bottom": 424,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": null,
+   "fab": {
+    "top": 327,
+    "bottom": 371,
+    "left": 292,
+    "right": 344,
+    "width": 52,
+    "height": 44
+   },
+   "banner": {
+    "top": 432.6,
+    "bottom": 752,
+    "left": 16,
+    "right": 344,
+    "width": 328,
+    "height": 319.4
+   },
+   "bar": {
+    "top": 751,
+    "bottom": 800,
+    "left": 0,
+    "right": 360,
+    "width": 360,
+    "height": 49
+   }
+  },
+  "barTopMost": 744,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 319,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card-consent--phone-360x800--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card-consent-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 140.5,
+    "bottom": 425,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 284.5
+   },
+   "line": {
+    "top": 380,
+    "bottom": 424,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": {
+    "top": 141.5,
+    "bottom": 379,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 237.5
+   },
+   "fab": {
+    "top": 88,
+    "bottom": 132,
+    "left": 292,
+    "right": 344,
+    "width": 52,
+    "height": 44
+   },
+   "banner": {
+    "top": 432.6,
+    "bottom": 752,
+    "left": 16,
+    "right": 344,
+    "width": 328,
+    "height": 319.4
+   },
+   "bar": {
+    "top": 751,
+    "bottom": 800,
+    "left": 0,
+    "right": 360,
+    "width": 360,
+    "height": 49
+   }
+  },
+  "barTopMost": 743.1,
+  "lineText": "Show less",
+  "lineExpanded": "true",
+  "rowsDrawn": 3,
+  "listScrolls": {
+   "clientHeight": 238,
+   "scrollHeight": 238,
+   "maxHeight": "313px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 318.1,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card-consent-open--phone-360x800--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 645.8,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 646.8,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 84.3
+   },
+   "fab": {
+    "top": 594,
+    "bottom": 638,
+    "left": 292,
+    "right": 344,
+    "width": 52,
+    "height": 44
+   },
+   "banner": null,
+   "bar": {
+    "top": 751,
+    "bottom": 800,
+    "left": 0,
+    "right": 360,
+    "width": 360,
+    "height": 49
+   }
+  },
+  "barTopMost": 739.7,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "320px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 7.7,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card-single--phone-360x800--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "light",
+  "scene": "video-server-jobs-progress",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 686,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 46
+   },
+   "line": {
+    "top": 687,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": null,
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-jobs-progress--phone-360x800--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "light",
+  "scene": "video-server-jobs-ready-failed",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 686,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 46
+   },
+   "line": {
+    "top": 687,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": null,
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "2 videos · 1 needs attention",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-jobs-ready-failed--phone-360x800--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "light",
+  "scene": "video-server-jobs-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 365,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 367
+   },
+   "line": {
+    "top": 687,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 44
+   },
+   "list": {
+    "top": 366,
+    "bottom": 686,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 320
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "Show less",
+  "lineExpanded": "true",
+  "rowsDrawn": 5,
+  "listScrolls": {
+   "clientHeight": 320,
+   "scrollHeight": 460,
+   "maxHeight": "320px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-jobs-open--phone-360x800--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 360,
+   "vh": 800
+  },
+  "theme": "light",
+  "scene": "video-server-job-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 645.8,
+    "bottom": 732,
+    "left": 12,
+    "right": 348,
+    "width": 336,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 646.8,
+    "bottom": 731,
+    "left": 13,
+    "right": 347,
+    "width": 334,
+    "height": 84.3
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "320px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-job-single--phone-360x800--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 730,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 46
+   },
+   "line": {
+    "top": 731,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": null,
+   "fab": {
+    "top": 678,
+    "bottom": 722,
+    "left": 322,
+    "right": 374,
+    "width": 52,
+    "height": 44
+   },
+   "banner": null,
+   "bar": {
+    "top": 795,
+    "bottom": 844,
+    "left": 0,
+    "right": 390,
+    "width": 390,
+    "height": 49
+   }
+  },
+  "barTopMost": 783.7,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 7.7,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card--phone-390x844--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card-consent",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 423,
+    "bottom": 469,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 46
+   },
+   "line": {
+    "top": 424,
+    "bottom": 468,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": null,
+   "fab": {
+    "top": 371,
+    "bottom": 415,
+    "left": 322,
+    "right": 374,
+    "width": 52,
+    "height": 44
+   },
+   "banner": {
+    "top": 476.6,
+    "bottom": 796,
+    "left": 16,
+    "right": 374,
+    "width": 358,
+    "height": 319.4
+   },
+   "bar": {
+    "top": 795,
+    "bottom": 844,
+    "left": 0,
+    "right": 390,
+    "width": 390,
+    "height": 49
+   }
+  },
+  "barTopMost": 783.7,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 314.7,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card-consent--phone-390x844--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card-consent-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 184.5,
+    "bottom": 469,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 284.5
+   },
+   "line": {
+    "top": 424,
+    "bottom": 468,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": {
+    "top": 185.5,
+    "bottom": 423,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 237.5
+   },
+   "fab": {
+    "top": 132,
+    "bottom": 176,
+    "left": 322,
+    "right": 374,
+    "width": 52,
+    "height": 44
+   },
+   "banner": {
+    "top": 476.6,
+    "bottom": 796,
+    "left": 16,
+    "right": 374,
+    "width": 358,
+    "height": 319.4
+   },
+   "bar": {
+    "top": 795,
+    "bottom": 844,
+    "left": 0,
+    "right": 390,
+    "width": 390,
+    "height": 49
+   }
+  },
+  "barTopMost": 786.1,
+  "lineText": "Show less",
+  "lineExpanded": "true",
+  "rowsDrawn": 3,
+  "listScrolls": {
+   "clientHeight": 238,
+   "scrollHeight": 238,
+   "maxHeight": "337.6px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 317.1,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card-consent-open--phone-390x844--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 689.8,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 690.8,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 84.3
+   },
+   "fab": {
+    "top": 638,
+    "bottom": 682,
+    "left": 322,
+    "right": 374,
+    "width": 52,
+    "height": 44
+   },
+   "banner": null,
+   "bar": {
+    "top": 795,
+    "bottom": 844,
+    "left": 0,
+    "right": 390,
+    "width": 390,
+    "height": 49
+   }
+  },
+  "barTopMost": 784.2,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "337.6px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 8.2,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card-single--phone-390x844--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "dark",
+  "scene": "video-server-jobs-progress",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 730,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 46
+   },
+   "line": {
+    "top": 731,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": null,
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-jobs-progress--phone-390x844--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "dark",
+  "scene": "video-server-jobs-ready-failed",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 730,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 46
+   },
+   "line": {
+    "top": 731,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": null,
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "2 videos · 1 needs attention",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-jobs-ready-failed--phone-390x844--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "dark",
+  "scene": "video-server-jobs-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 391.4,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 384.6
+   },
+   "line": {
+    "top": 731,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": {
+    "top": 392.4,
+    "bottom": 730,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 337.6
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "Show less",
+  "lineExpanded": "true",
+  "rowsDrawn": 5,
+  "listScrolls": {
+   "clientHeight": 338,
+   "scrollHeight": 405,
+   "maxHeight": "337.6px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-jobs-open--phone-390x844--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "dark",
+  "scene": "video-server-job-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 689.8,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 690.8,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 84.3
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "337.6px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-job-single--phone-390x844--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 730,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 46
+   },
+   "line": {
+    "top": 731,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": null,
+   "fab": {
+    "top": 678,
+    "bottom": 722,
+    "left": 322,
+    "right": 374,
+    "width": 52,
+    "height": 44
+   },
+   "banner": null,
+   "bar": {
+    "top": 795,
+    "bottom": 844,
+    "left": 0,
+    "right": 390,
+    "width": 390,
+    "height": 49
+   }
+  },
+  "barTopMost": 783.7,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 7.7,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card--phone-390x844--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card-consent",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 423,
+    "bottom": 469,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 46
+   },
+   "line": {
+    "top": 424,
+    "bottom": 468,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": null,
+   "fab": {
+    "top": 371,
+    "bottom": 415,
+    "left": 322,
+    "right": 374,
+    "width": 52,
+    "height": 44
+   },
+   "banner": {
+    "top": 476.6,
+    "bottom": 796,
+    "left": 16,
+    "right": 374,
+    "width": 358,
+    "height": 319.4
+   },
+   "bar": {
+    "top": 795,
+    "bottom": 844,
+    "left": 0,
+    "right": 390,
+    "width": 390,
+    "height": 49
+   }
+  },
+  "barTopMost": 788,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 319,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card-consent--phone-390x844--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card-consent-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 184.5,
+    "bottom": 469,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 284.5
+   },
+   "line": {
+    "top": 424,
+    "bottom": 468,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": {
+    "top": 185.5,
+    "bottom": 423,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 237.5
+   },
+   "fab": {
+    "top": 132,
+    "bottom": 176,
+    "left": 322,
+    "right": 374,
+    "width": 52,
+    "height": 44
+   },
+   "banner": {
+    "top": 476.6,
+    "bottom": 796,
+    "left": 16,
+    "right": 374,
+    "width": 358,
+    "height": 319.4
+   },
+   "bar": {
+    "top": 795,
+    "bottom": 844,
+    "left": 0,
+    "right": 390,
+    "width": 390,
+    "height": 49
+   }
+  },
+  "barTopMost": 787,
+  "lineText": "Show less",
+  "lineExpanded": "true",
+  "rowsDrawn": 3,
+  "listScrolls": {
+   "clientHeight": 238,
+   "scrollHeight": 238,
+   "maxHeight": "337.6px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 318,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": true,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card-consent-open--phone-390x844--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 689.8,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 690.8,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 84.3
+   },
+   "fab": {
+    "top": 638,
+    "bottom": 682,
+    "left": 322,
+    "right": 374,
+    "width": 52,
+    "height": 44
+   },
+   "banner": null,
+   "bar": {
+    "top": 795,
+    "bottom": 844,
+    "left": 0,
+    "right": 390,
+    "width": 390,
+    "height": 49
+   }
+  },
+  "barTopMost": 784,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "337.6px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": 8,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card-single--phone-390x844--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "light",
+  "scene": "video-server-jobs-progress",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 730,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 46
+   },
+   "line": {
+    "top": 731,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": null,
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "2 videos · uploading 42%",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-jobs-progress--phone-390x844--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "light",
+  "scene": "video-server-jobs-ready-failed",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 730,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 46
+   },
+   "line": {
+    "top": 731,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": null,
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "2 videos · 1 needs attention",
+  "lineExpanded": "false",
+  "rowsDrawn": 0,
+  "listScrolls": null,
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-jobs-ready-failed--phone-390x844--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "light",
+  "scene": "video-server-jobs-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 391.4,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 384.6
+   },
+   "line": {
+    "top": 731,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 44
+   },
+   "list": {
+    "top": 392.4,
+    "bottom": 730,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 337.6
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": "Show less",
+  "lineExpanded": "true",
+  "rowsDrawn": 5,
+  "listScrolls": {
+   "clientHeight": 338,
+   "scrollHeight": 405,
+   "maxHeight": "337.6px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": true,
+   "fabReachable": null,
+   "lineReachable": true,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-jobs-open--phone-390x844--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 390,
+   "vh": 844
+  },
+  "theme": "light",
+  "scene": "video-server-job-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 689.8,
+    "bottom": 776,
+    "left": 12,
+    "right": 378,
+    "width": 366,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 690.8,
+    "bottom": 775,
+    "left": 13,
+    "right": 377,
+    "width": 364,
+    "height": 84.3
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "337.6px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-job-single--phone-390x844--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 695.3,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 180.8
+   },
+   "line": null,
+   "list": {
+    "top": 696.3,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 178.8
+   },
+   "fab": {
+    "top": 832,
+    "bottom": 876,
+    "left": 1110.3,
+    "right": 1256,
+    "width": 145.7,
+    "height": 44
+   },
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 2,
+  "listScrolls": {
+   "clientHeight": 179,
+   "scrollHeight": 179,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card--desktop-1280x900--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card-consent",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 489.3,
+    "bottom": 670,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 180.8
+   },
+   "line": null,
+   "list": {
+    "top": 490.3,
+    "bottom": 669,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 178.8
+   },
+   "fab": {
+    "top": 832,
+    "bottom": 876,
+    "left": 1110.3,
+    "right": 1256,
+    "width": 145.7,
+    "height": 44
+   },
+   "banner": {
+    "top": 677.7,
+    "bottom": 884,
+    "left": 16,
+    "right": 464,
+    "width": 448,
+    "height": 206.3
+   },
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 2,
+  "listScrolls": {
+   "clientHeight": 179,
+   "scrollHeight": 179,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card-consent--desktop-1280x900--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card-consent-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 430.5,
+    "bottom": 670,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 239.5
+   },
+   "line": null,
+   "list": {
+    "top": 431.5,
+    "bottom": 669,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 237.5
+   },
+   "fab": {
+    "top": 832,
+    "bottom": 876,
+    "left": 1110.3,
+    "right": 1256,
+    "width": 145.7,
+    "height": 44
+   },
+   "banner": {
+    "top": 677.7,
+    "bottom": 884,
+    "left": 16,
+    "right": 464,
+    "width": 448,
+    "height": 206.3
+   },
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 3,
+  "listScrolls": {
+   "clientHeight": 238,
+   "scrollHeight": 238,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card-consent-open--desktop-1280x900--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "dark",
+  "scene": "screen-home-server-card-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 789.8,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 790.8,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 84.3
+   },
+   "fab": {
+    "top": 832,
+    "bottom": 876,
+    "left": 1110.3,
+    "right": 1256,
+    "width": 145.7,
+    "height": 44
+   },
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card-single--desktop-1280x900--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "dark",
+  "scene": "video-server-jobs-progress",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 695.3,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 180.8
+   },
+   "line": null,
+   "list": {
+    "top": 696.3,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 178.8
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 2,
+  "listScrolls": {
+   "clientHeight": 179,
+   "scrollHeight": 179,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-jobs-progress--desktop-1280x900--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "dark",
+  "scene": "video-server-jobs-ready-failed",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 724.5,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 151.5
+   },
+   "line": null,
+   "list": {
+    "top": 725.5,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 149.5
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 2,
+  "listScrolls": {
+   "clientHeight": 150,
+   "scrollHeight": 150,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-jobs-ready-failed--desktop-1280x900--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "dark",
+  "scene": "video-server-jobs-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 514,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 362
+   },
+   "line": null,
+   "list": {
+    "top": 515,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 360
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 5,
+  "listScrolls": {
+   "clientHeight": 360,
+   "scrollHeight": 421,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-jobs-open--desktop-1280x900--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "dark",
+  "scene": "video-server-job-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 789.8,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 790.8,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 84.3
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-job-single--desktop-1280x900--dark.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 695.3,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 180.8
+   },
+   "line": null,
+   "list": {
+    "top": 696.3,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 178.8
+   },
+   "fab": {
+    "top": 832,
+    "bottom": 876,
+    "left": 1110.3,
+    "right": 1256,
+    "width": 145.7,
+    "height": 44
+   },
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 2,
+  "listScrolls": {
+   "clientHeight": 179,
+   "scrollHeight": 179,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card--desktop-1280x900--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card-consent",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 489.3,
+    "bottom": 670,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 180.8
+   },
+   "line": null,
+   "list": {
+    "top": 490.3,
+    "bottom": 669,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 178.8
+   },
+   "fab": {
+    "top": 832,
+    "bottom": 876,
+    "left": 1110.3,
+    "right": 1256,
+    "width": 145.7,
+    "height": 44
+   },
+   "banner": {
+    "top": 677.7,
+    "bottom": 884,
+    "left": 16,
+    "right": 464,
+    "width": 448,
+    "height": 206.3
+   },
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 2,
+  "listScrolls": {
+   "clientHeight": 179,
+   "scrollHeight": 179,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card-consent--desktop-1280x900--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card-consent-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 430.5,
+    "bottom": 670,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 239.5
+   },
+   "line": null,
+   "list": {
+    "top": 431.5,
+    "bottom": 669,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 237.5
+   },
+   "fab": {
+    "top": 832,
+    "bottom": 876,
+    "left": 1110.3,
+    "right": 1256,
+    "width": 145.7,
+    "height": 44
+   },
+   "banner": {
+    "top": 677.7,
+    "bottom": 884,
+    "left": 16,
+    "right": 464,
+    "width": 448,
+    "height": 206.3
+   },
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 3,
+  "listScrolls": {
+   "clientHeight": 238,
+   "scrollHeight": 238,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card-consent-open--desktop-1280x900--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "light",
+  "scene": "screen-home-server-card-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 789.8,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 790.8,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 84.3
+   },
+   "fab": {
+    "top": 832,
+    "bottom": 876,
+    "left": 1110.3,
+    "right": 1256,
+    "width": 145.7,
+    "height": 44
+   },
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": true,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--screen-home-server-card-single--desktop-1280x900--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "light",
+  "scene": "video-server-jobs-progress",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 695.3,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 180.8
+   },
+   "line": null,
+   "list": {
+    "top": 696.3,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 178.8
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 2,
+  "listScrolls": {
+   "clientHeight": 179,
+   "scrollHeight": 179,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-jobs-progress--desktop-1280x900--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "light",
+  "scene": "video-server-jobs-ready-failed",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 724.5,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 151.5
+   },
+   "line": null,
+   "list": {
+    "top": 725.5,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 149.5
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 2,
+  "listScrolls": {
+   "clientHeight": 150,
+   "scrollHeight": 150,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-jobs-ready-failed--desktop-1280x900--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "light",
+  "scene": "video-server-jobs-open",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 514,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 362
+   },
+   "line": null,
+   "list": {
+    "top": 515,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 360
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 5,
+  "listScrolls": {
+   "clientHeight": 360,
+   "scrollHeight": 421,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-jobs-open--desktop-1280x900--light.png"
+ },
+ {
+  "browser": "firefox",
+  "version": "153.0",
+  "viewport": {
+   "vw": 1280,
+   "vh": 900
+  },
+  "theme": "light",
+  "scene": "video-server-job-single",
+  "ok": true,
+  "fail": [],
+  "rects": {
+   "panel": {
+    "top": 789.8,
+    "bottom": 876,
+    "left": 16,
+    "right": 368,
+    "width": 352,
+    "height": 86.3
+   },
+   "line": null,
+   "list": {
+    "top": 790.8,
+    "bottom": 875,
+    "left": 17,
+    "right": 367,
+    "width": 350,
+    "height": 84.3
+   },
+   "fab": null,
+   "banner": null,
+   "bar": null
+  },
+  "barTopMost": null,
+  "lineText": null,
+  "lineExpanded": null,
+  "rowsDrawn": 1,
+  "listScrolls": {
+   "clientHeight": 84,
+   "scrollHeight": 84,
+   "maxHeight": "360px"
+  },
+  "panelIsLastInBody": true,
+  "checks": {
+   "panelOverFab": false,
+   "panelOverBanner": false,
+   "fabOverBanner": false,
+   "panelOverBar": false,
+   "panelClearOfBarTopMostPx": null,
+   "panelInsideScreen": true,
+   "fabInsideScreen": true,
+   "lineAtLeast44": null,
+   "fabReachable": null,
+   "lineReachable": null,
+   "horizontalScroll": false
+  },
+  "file": "firefox--video-server-job-single--desktop-1280x900--light.png"
+ }
+]

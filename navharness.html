@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>L1 navigation harness (development only)</title>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!--
+      NATIVE MODE (`?native=1`), installed BEFORE the module script so the app
+      sees it — the same rule and the same reason as uiharness.html: ES module
+      imports are hoisted, so app code would read window.Capacitor before a
+      module-level assignment could run.
+
+      Unlike uiharness.html's stub, this one KEEPS the two listeners the app
+      registers, so a journey can deliver what the OS delivers:
+        window.__navNative.tap({ type, reference_id })  a notification tap
+        window.__navNative.pressBack()                  Android Back (button or gesture)
+        window.__navNative.exits                        how many times the app asked to exit
+      getToken answers with no token on purpose: nothing is sent anywhere.
+
+      IT IS A STUB, NOT A PHONE. It proves where a tap and a Back press ROUTE.
+      The gesture itself, and Vaul's swipe under a real thumb, need a device.
+    -->
+    <script>
+      (function () {
+        if (new URLSearchParams(location.search).get("native") !== "1") return;
+        var native = { back: null, tapped: null, exits: 0 };
+        native.pressBack = function () { if (!native.back) throw new Error("no backButton listener registered"); native.back({}); };
+        native.tap = function (data) { if (!native.tapped) throw new Error("no notification listener registered"); native.tapped({ notification: { data: data } }); };
+        var handle = { remove: function () {} };
+        window.__navNative = native;
+        window.Capacitor = {
+          isNativePlatform: function () { return true; },
+          getPlatform: function () { return "android"; },
+          Plugins: {
+            App: {
+              addListener: function (ev, cb) { if (ev === "backButton") native.back = cb; return Promise.resolve(handle); },
+              exitApp: function () { native.exits += 1; },
+            },
+            FirebaseMessaging: {
+              requestPermissions: function () { return Promise.resolve({ receive: "granted" }); },
+              getToken: function () { return Promise.resolve({}); },
+              addListener: function (ev, cb) { if (ev === "notificationActionPerformed") native.tapped = cb; return Promise.resolve(handle); },
+              removeAllListeners: function () { native.tapped = null; return Promise.resolve(); },
+            },
+          },
+        };
+      })();
+    </script>
+
+    <script type="module" src="/src/uiharness/nav/main.tsx"></script>
+  </body>
+</html>

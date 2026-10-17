@@ -1,7 +1,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchPostMediaMap, resolvePostImageUrls } from "@/lib/media/postMediaRead";
+import { fetchPostAttachments, attachmentsFor } from "@/lib/posts/postAttachments";
 import { fetchProfileMap } from "@/lib/profileMapCache";
 import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
 import type { UnifiedPost, TaggedPerson } from "@/types/post";
@@ -82,7 +82,7 @@ async function fetchAndEnrich(
   const postIds = postsData.map((p) => p.id);
 
   // Merge reaction queries into ONE — filter user reactions client-side
-  const [profileMap, adminIds, allReactionsRes, tagsRes, postMediaMap] = await Promise.all([
+  const [profileMap, adminIds, allReactionsRes, tagsRes, attachments] = await Promise.all([
     fetchProfileMap(authorIds),
     getAdminIds(),
     supabase.from("post_reactions").select("post_id, reaction_type, user_id").in("post_id", postIds),
@@ -95,12 +95,12 @@ async function fetchAndEnrich(
         .in("post_id", postIds)
         .in("status", ["pending", "approved"]),
     /**
-     * ITEM E — the same sanctioned media read path the feed uses, batched into
-     * this page's existing Promise.all. The wall and the feed must not disagree
-     * about the same post, so they must not resolve its photographs
-     * differently.
+     * ITEM E + VID-1 — photographs and video through the one module every
+     * surface uses (postAttachments.ts), batched into this page's Promise.all.
+     * The wall and the feed must not disagree about the same post; reading
+     * them separately is how a video post once showed here as an empty post.
      */
-    fetchPostMediaMap(postIds),
+    fetchPostAttachments(postIds),
   ]);
 
   /**
@@ -149,18 +149,19 @@ async function fetchAndEnrich(
     }
   });
 
-  const posts: UnifiedPost[] = postsData.map((p: any) => {
+  // A post whose video is not playable for this viewer (not ready, not visible)
+  // is left out (null), exactly as the feed does.
+  const attachedById = new Map(postsData.map((p: any) => [p.id, attachmentsFor(
+    attachments, p.id, p.image_urls?.length > 0 ? p.image_urls : p.image_url ? [p.image_url] : [],
+  )]));
+  const posts: UnifiedPost[] = postsData.filter((p: any) => attachedById.get(p.id) !== null).map((p: any) => {
     const userRx = userReactionMap.get(p.id) as ReactionType | undefined;
     const typeCounts = reactionTypeCounts[p.id] || {};
     const topReactions = Object.entries(typeCounts)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 3)
       .map(([type]) => type);
-    const imageUrls = resolvePostImageUrls(
-      postMediaMap,
-      p.id,
-      p.image_urls?.length > 0 ? p.image_urls : p.image_url ? [p.image_url] : [],
-    );
+    const { image_urls: imageUrls, video } = attachedById.get(p.id)!;
 
     return {
       id: p.id,
@@ -168,6 +169,7 @@ async function fetchAndEnrich(
       content: p.content || "",
       image_url: p.image_url || null,
       image_urls: imageUrls,
+      video,
       // Stored thumbnails (posts.thumbnail_urls) — the select("*") above
       // already fetches them; the card shows the small copy when they align.
       thumbnail_urls: p.thumbnail_urls ?? null,
