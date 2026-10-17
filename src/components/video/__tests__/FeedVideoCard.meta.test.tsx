@@ -140,6 +140,25 @@ describe("the app (Capacitor Android): autoplay WITH sound", () => {
   });
 });
 
+describe("review #449: a stopped card is never restarted by the AbortError retry", () => {
+  it("scrolled away while play() is pending, then AbortError → no second play(), no sound blip", async () => {
+    asApp();
+    let rejectFirst: (e: unknown) => void = () => {};
+    let n = 0;
+    playImpl = () => (n++ === 0 ? new Promise<void>((_, rej) => { rejectFirst = rej; }) : Promise.resolve());
+    render(<FeedVideoCard video={vid()} />);
+    fire(views()[0], 1); await flush();
+    expect(mutedAtPlay.length).toBe(1);
+    fire(views()[0], 0); await flush(); // scrolled past: the card pauses
+    await act(async () => { rejectFirst(new DOMException("interrupted by pause()", "AbortError")); });
+    await flush();
+    act(() => { videoEl().dispatchEvent(new Event("canplay")); });
+    await flush();
+    expect(mutedAtPlay.length).toBe(1);
+    expect(card().getAttribute("data-playing")).toBe("false");
+  });
+});
+
 describe("the web: the browser's autoplay rule", () => {
   it("in view → starts by itself, MUTED", async () => {
     render(<FeedVideoCard video={vid()} />);
@@ -214,6 +233,20 @@ describe("Meta-style controls", () => {
     expect(screen.getByTestId("video-progress").className).toMatch(/h-11/); // 44 px
     fireEvent.change(screen.getByRole("slider", { name: "Seek" }), { target: { value: "12.5" } });
     expect(videoEl().currentTime).toBe(12.5);
+  });
+
+  it("review #449: keyboard / screen-reader focus inside the controls keeps them up past the fade", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    render(<FeedVideoCard video={vid()} />);
+    fire(views()[0], 1); await flush();
+    act(() => { screen.getByRole("button", { name: "Pause" }).focus(); });
+    expect(controls().getAttribute("data-visible")).toBe("true");
+    act(() => { vi.advanceTimersByTime(5000); });
+    expect(controls().getAttribute("data-visible")).toBe("true");
+    expect(controls().className).toMatch(/focus-within:opacity-100/);
+    act(() => { (document.activeElement as HTMLElement).blur(); });
+    act(() => { vi.advanceTimersByTime(3000); });
+    expect(controls().getAttribute("data-visible")).toBe("false");
   });
 
   it("buttons keep their names and 44 px targets", async () => {

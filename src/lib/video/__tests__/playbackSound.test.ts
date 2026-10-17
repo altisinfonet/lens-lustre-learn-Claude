@@ -117,6 +117,19 @@ describe("startPlayback — never a broken card", () => {
   });
 });
 
+describe("review #449: no retry for a card that no longer wants to play", () => {
+  it("AbortError after the card was stopped (scrolled past / another card / paused) → no second play()", async () => {
+    const m = media(["AbortError", "ok"]);
+    let wanted = true;
+    const p = startPlayback(m, true, { abortRetryMs: 10_000, stillWanted: () => wanted } as Parameters<typeof startPlayback>[2]);
+    wanted = false; // paused while play() was pending
+    await Promise.resolve(); await Promise.resolve();
+    m.fire("canplay");
+    expect(await p).toEqual({ ok: false, error: "AbortError" });
+    expect(m.play).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("one video at a time", () => {
   it("a second card claiming playback pauses the first", () => {
     const a = vi.fn(), b = vi.fn();

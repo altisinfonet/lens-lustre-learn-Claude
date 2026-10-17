@@ -1,6 +1,6 @@
 {
   "journey": "app-video-cors",
-  "at": "2026-10-17T19:13:38.772Z",
+  "at": "2026-10-17T19:40:17.975Z",
   "emulation": "Android WebView (Capacitor autoplay policy, HLS 'maybe', WebView UA)",
   "pass": true,
   "checks": {
@@ -19,11 +19,11 @@
   },
   "afterTap": {
     "setting": "setting:\"served-by-the-edge\"",
-    "videoSrc": "blob:https://localhost/af27c9ff-4aae-4ea5-82eb-8510a24a5749",
+    "videoSrc": "blob:https://localhost/ddf6d254-96aa-4253-b88e-a960daf69887",
     "engine": "hlsjs",
     "videoMuted": false,
     "paused": false,
-    "currentTime": 2,
+    "currentTime": 1.5,
     "playButton": false,
     "playError": null,
     "controlsVisibleAttr": "true",
@@ -32,11 +32,11 @@
   },
   "later": {
     "setting": "setting:\"served-by-the-edge\"",
-    "videoSrc": "blob:https://localhost/af27c9ff-4aae-4ea5-82eb-8510a24a5749",
+    "videoSrc": "blob:https://localhost/ddf6d254-96aa-4253-b88e-a960daf69887",
     "engine": "hlsjs",
     "videoMuted": false,
     "paused": false,
-    "currentTime": 5.3,
+    "currentTime": 4.8,
     "playButton": false,
     "playError": null,
     "controlsVisibleAttr": "false",
@@ -81,7 +81,7 @@
   ],
   "state": {
     "setting": "setting:\"served-by-the-edge\"",
-    "videoSrc": "blob:https://localhost/af27c9ff-4aae-4ea5-82eb-8510a24a5749",
+    "videoSrc": "blob:https://localhost/ddf6d254-96aa-4253-b88e-a960daf69887",
     "engine": "hlsjs",
     "videoMuted": false,
     "paused": false,

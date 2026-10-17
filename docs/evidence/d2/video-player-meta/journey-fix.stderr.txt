@@ -18,45 +18,14 @@ Browserslist: browsers data (caniuse-lite) is 7 months old. Please run:
 - Using dynamic import() to code-split the application
 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
-[2mdist[22m/[94mavatars/fallback/f3.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
 [2mdist[22m/[94mavatars/fallback/f2.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
 [2mdist[22m/[94mavatars/fallback/f1.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
-[2mdist[22m/[94mavatars/fallback/f4.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
 [2mdist[22m/[94mavatars/fallback/f5.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
-[2mdist[22m/[94mavatars/fallback/m1.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
-[2mdist[22m/[94mavatars/fallback/m2.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
-[2mdist[22m/[94mavatars/fallback/m3.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
-[2mdist[22m/[94mavatars/fallback/m4.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
-[2mdist[22m/[94mavatars/fallback/m5.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
-[2mdist[22m/[94mplaceholder.svg[39m           [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
-Browserslist: browsers data (caniuse-lite) is 7 months old. Please run:
-  npx update-browserslist-db@latest
-  Why you should do it regularly: https://github.com/browserslist/update-db#readme
-
-[1m[33mwarn[39m[22m - The class `duration-[1.2s]` is ambiguous and matches multiple utilities.
-[1m[33mwarn[39m[22m - If this is content and not a class, replace it with `duration-&lsqb;1.2s&rsqb;` to silence this warning.
-
-[1m[33mwarn[39m[22m - The class `duration-[1.5s]` is ambiguous and matches multiple utilities.
-[1m[33mwarn[39m[22m - If this is content and not a class, replace it with `duration-&lsqb;1.5s&rsqb;` to silence this warning.
-
-[1m[33mwarn[39m[22m - The class `duration-[1s]` is ambiguous and matches multiple utilities.
-[1m[33mwarn[39m[22m - If this is content and not a class, replace it with `duration-&lsqb;1s&rsqb;` to silence this warning.
-
-[1m[33mwarn[39m[22m - The class `duration-[2s]` is ambiguous and matches multiple utilities.
-[1m[33mwarn[39m[22m - If this is content and not a class, replace it with `duration-&lsqb;2s&rsqb;` to silence this warning.
-[33m
-(!) Some chunks are larger than 500 kB after minification. Consider:
-- Using dynamic import() to code-split the application
-- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
-- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
-[2mdist[22m/[94mavatars/fallback/f1.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
-[2mdist[22m/[94mavatars/fallback/f2.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
 [2mdist[22m/[94mavatars/fallback/f3.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
-[2mdist[22m/[94mavatars/fallback/f4.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
-[2mdist[22m/[94mavatars/fallback/f5.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
 [2mdist[22m/[94mavatars/fallback/m1.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
+[2mdist[22m/[94mavatars/fallback/f4.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
+[2mdist[22m/[94mavatars/fallback/m5.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
+[2mdist[22m/[94mavatars/fallback/m4.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
 [2mdist[22m/[94mavatars/fallback/m2.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
 [2mdist[22m/[94mavatars/fallback/m3.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
-[2mdist[22m/[94mavatars/fallback/m4.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
-[2mdist[22m/[94mavatars/fallback/m5.svg[39m   [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m
 [2mdist[22m/[94mplaceholder.svg[39m           [31mCannot find package 'svgo' imported from D:\50mm Retina World\work\D21\node_modules\vite-plugin-image-optimizer\dist\index.js[39m

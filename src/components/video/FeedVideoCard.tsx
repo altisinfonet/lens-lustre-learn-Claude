@@ -122,10 +122,12 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
 
   /* ── the controls: hidden by default, shown by a tap, gone again ─────────── */
   const clearHide = () => { if (hideTimer.current) { clearTimeout(hideTimer.current); hideTimer.current = null; } };
+  /** Keyboard / screen-reader focus inside the controls: they stay up (review #449). */
+  const focusInside = useRef(false);
   const scheduleHide = useCallback(() => {
     clearHide();
-    if (!playing.current || scrubbing.current) return; // a paused video keeps its controls until the next tap
-    hideTimer.current = setTimeout(() => { hideTimer.current = null; setControlsShown(false); }, CONTROLS_HIDE_MS);
+    if (!playing.current || scrubbing.current || focusInside.current) return; // a paused video keeps its controls until the next tap
+    hideTimer.current = setTimeout(() => { hideTimer.current = null; if (!focusInside.current) setControlsShown(false); }, CONTROLS_HIDE_MS);
   }, []);
   const reveal = useCallback(() => { setControlsShown(true); scheduleHide(); }, [scheduleHide]);
   const hideNow = () => { clearHide(); setControlsShown(false); };
@@ -199,7 +201,7 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     if (!playing.current) return; // paused while the source was being fetched
     claimPlayback(cardId, pause, () => decideRef.current?.());
     const sound = autoplayWithSound({ native: isNativeApp(), pref: getSoundPref(), hasAudio: video.hasAudio, userActivated: userActivated() });
-    const r = await startPlayback(v, sound);
+    const r = await startPlayback(v, sound, { stillWanted: () => playing.current });
     setMuted(v.muted);
     if (!playing.current) { v.pause(); return; } // paused (scrolled away, another card) while it was starting
     if (r.ok) {
@@ -397,8 +399,13 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
         data-testid="video-controls"
         data-visible={controlsShown ? "true" : "false"}
         onClick={(e) => e.stopPropagation()}
-        onFocus={reveal}
-        className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/40 to-transparent pt-6 text-white transition-opacity duration-300 ${controlsShown ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        onFocus={() => { focusInside.current = true; reveal(); }}
+        onBlur={(e) => {
+          if (e.currentTarget.contains(e.relatedTarget as Node | null)) return; // focus moved within the controls
+          focusInside.current = false;
+          scheduleHide();
+        }}
+        className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/40 to-transparent pt-6 text-white transition-opacity duration-300 focus-within:pointer-events-auto focus-within:opacity-100 ${controlsShown ? "opacity-100" : "pointer-events-none opacity-0"}`}
       >
         <div className="flex items-center gap-1 px-1">
           <button type="button" aria-label={isPlaying ? "Pause" : "Play"} onClick={togglePlay}

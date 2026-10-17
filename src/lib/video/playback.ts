@@ -207,7 +207,13 @@ const waitCanPlay = (m: MediaLike, ms: number) => new Promise<void>((done) => {
   function fin() { clearTimeout(t); m.removeEventListener("canplay", fin); done(); }
   m.addEventListener("canplay", fin, { once: true });
 });
-export async function startPlayback(m: MediaLike, withSound: boolean, opts: { abortRetryMs?: number } = {}): Promise<StartResult> {
+/**
+ * `stillWanted` (review #449): asked before every retry — a card that was
+ * stopped meanwhile (scrolled past, taken over by another card, paused) is
+ * never started again by a retry (no sound blip, never two videos at once).
+ */
+export async function startPlayback(m: MediaLike, withSound: boolean, opts: { abortRetryMs?: number; stillWanted?: () => boolean } = {}): Promise<StartResult> {
+  const wanted = () => opts.stillWanted?.() !== false;
   let muted = !withSound;
   let abortRetried = false;
   for (;;) {
@@ -217,8 +223,14 @@ export async function startPlayback(m: MediaLike, withSound: boolean, opts: { ab
       return { ok: true, muted };
     } catch (e) {
       const name = errName(e);
+      if (!wanted()) return { ok: false, error: name };
       if (!muted && name !== "AbortError") { muted = true; continue; } // sound refused: start muted instead
-      if (name === "AbortError" && !abortRetried) { abortRetried = true; await waitCanPlay(m, opts.abortRetryMs ?? 4000); continue; }
+      if (name === "AbortError" && !abortRetried) {
+        abortRetried = true;
+        await waitCanPlay(m, opts.abortRetryMs ?? 4000);
+        if (!wanted()) return { ok: false, error: name };
+        continue;
+      }
       return { ok: false, error: name };
     }
   }
