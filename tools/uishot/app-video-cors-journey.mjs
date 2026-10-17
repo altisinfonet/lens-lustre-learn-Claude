@@ -27,10 +27,29 @@
  *      at exactly the URL the token answer named, and the <video> element is
  *      given that source (hls.js blob: MediaSource, or the URL itself where the
  *      browser plays HLS natively) — WITHOUT a tap (the in-view autoplay path);
- *      (the CDN stand-in has no files, so playback itself is not judged here);
  *   C  GET /config/site-settings reached the API origin (with ACAO) and the
  *      page shows the value the edge served;
- *   D  nothing was asked of https://localhost/api/ or /config/ (the 1.2.22 bug).
+ *   D  nothing was asked of https://localhost/api/ or /config/ (the 1.2.22 bug);
+ *   E  (app 1.2.23, Owner 2026-10-18: "autoplay does not happen in the app")
+ *      the video PLAYS by itself — time advances, nobody tapped — and, the
+ *      app's rule, WITH SOUND (muted === false);
+ *   F  the controls (Meta-style) are hidden by default, a tap on the picture
+ *      shows them, and they are gone again ~2.5 s later while it plays.
+ *
+ * For E/F the CDN stand-in serves a REAL stream (fMP4 HLS, VP9 — this
+ * Chromium has no H.264): it is encoded in this same browser at the start
+ * (WebCodecs + the app's own mp4-muxer) and split into init + one segment.
+ * The browser is made to look like the app's Android WebView in the two ways
+ * that matter here, both measured from source, not guessed:
+ *   · autoplay policy "no user gesture required" — what Capacitor 8.5's
+ *     Bridge.initWebView sets (setMediaPlaybackRequiresUserGesture(false));
+ *   · canPlayType("application/vnd.apple.mpegurl") === "maybe" and an Android
+ *     WebView user agent — Chromium registers the HLS types whenever its HLS
+ *     demuxer is built in (media/base/mime_util_internal.cc, ENABLE_HLS_DEMUXER
+ *     = proprietary_codecs, true for Chrome / WebView). This Chromium build
+ *     has no HLS player of its own, so the old card's "native" branch fails
+ *     here outright where the real WebView's is merely the untested path.
+ *   --plain   skip the WebView emulation (a plain desktop Chromium).
  *
  *   --json <file>   write the result (default: none)
  * Needs `openssl` on PATH (a throwaway self-signed certificate). Exit code =
@@ -52,6 +71,10 @@ const APP = "https://localhost";
 const VIDEO_ID = "33333333-3333-4333-8333-333333333333";
 const OWNER = "11111111-1111-4111-8111-111111111111";
 const work = mkdtempSync(join(tmpdir(), "app-video-cors-"));
+const plain = process.argv.includes("--plain");
+const ANDROID_WEBVIEW_UA = "Mozilla/5.0 (Linux; Android 14; SM-S918B Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/141.0.7390.122 Mobile Safari/537.36";
+/** The CDN stand-in's files (section 3a); null until encoded. */
+let stream = null;
 
 /* ── 1. the bundle, built for the staging lane ─────────────────────────────── */
 process.env.VITE_SITE_ORIGIN = SITE;
@@ -127,6 +150,7 @@ async function site(req, res, url) {
 function app(req, res, url) {
   // Capacitor's local server: the bundle's files, else the app's HTML.
   const p = decodeURIComponent(url.pathname);
+  if (p === "/__blank") { res.writeHead(200, { "content-type": "text/html" }); return void res.end("<!doctype html><title>encoder</title>"); }
   localAsks.push(p);
   const file = join(dist, p);
   const hit = p !== "/" && extname(p) && existsSync(file);
@@ -139,10 +163,12 @@ const server = createHttpsServer({ key: readFileSync(join(work, "k.pem")), cert:
   if (host === "staging.50mmretina.com") return void site(req, res, url);
   if (host === "localhost") return app(req, res, url);
   if (host === CDN) {
-    // The media-authz Worker allows https://localhost (measured live 2026-10-17); a stand-in answers like it, with no files.
     cdnAsks.push(url.href);
-    res.writeHead(404, { "access-control-allow-origin": APP, vary: "Origin" });
-    return res.end();
+    // The media-authz Worker allows https://localhost (measured live 2026-10-17); this stand-in answers like it.
+    const file = stream && Object.keys(stream).find((name) => url.pathname.endsWith(`/${name}`));
+    if (!file) { res.writeHead(404, { "access-control-allow-origin": APP, vary: "Origin" }); return res.end(); }
+    res.writeHead(200, { "access-control-allow-origin": APP, vary: "Origin", "content-type": stream[file].type });
+    return res.end(stream[file].body);
   }
   // Supabase (the page's own reads): unreachable here, as if offline.
   res.writeHead(503, { "access-control-allow-origin": "*" });
@@ -157,8 +183,63 @@ const browser = await chromium.launch({ args: [
   // The test resolves PUBLIC names to 127.0.0.1; Chromium's local-network
   // protection would refuse that on its own (a phone resolves the real site).
   "--disable-features=LocalNetworkAccessChecks,PrivateNetworkAccessSendPreflights,PrivateNetworkAccessRespectPreflightResults,BlockInsecurePrivateNetworkRequests",
+  // Capacitor 8.5 Bridge.initWebView: settings.setMediaPlaybackRequiresUserGesture(false).
+  ...(plain ? [] : ["--autoplay-policy=no-user-gesture-required"]),
 ] });
-const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 420, height: 900 } });
+const ctx = await browser.newContext({
+  ignoreHTTPSErrors: true, viewport: { width: 420, height: 900 },
+  ...(plain ? {} : { userAgent: ANDROID_WEBVIEW_UA }),
+});
+
+/* ── 3a. a real stream for the CDN stand-in, encoded here ──────────────────── */
+{
+  const enc = await ctx.newPage();
+  await enc.goto(`${APP}/__blank`);
+  await enc.addScriptTag({ path: resolve("node_modules/mp4-muxer/build/mp4-muxer.js") });
+  const b64 = await enc.evaluate(async () => {
+    const W = 360, H = 640, FPS = 15, SECONDS = 6;
+    const M = /** @type {any} */ (window).Mp4Muxer;
+    const muxer = new M.Muxer({ target: new M.ArrayBufferTarget(), video: { codec: "vp9", width: W, height: H, frameRate: FPS }, fastStart: "fragmented", minFragmentDuration: SECONDS + 1 });
+    const encoder = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: (e) => { throw e; } });
+    encoder.configure({ codec: "vp09.00.10.08", width: W, height: H, bitrate: 400_000, framerate: FPS });
+    const canvas = new OffscreenCanvas(W, H);
+    const g = canvas.getContext("2d");
+    for (let i = 0; i < FPS * SECONDS; i++) {
+      g.fillStyle = `hsl(${(i * 7) % 360} 60% 40%)`; g.fillRect(0, 0, W, H);
+      g.fillStyle = "#fff"; g.font = "48px sans-serif"; g.fillText(`frame ${i}`, 40, H / 2);
+      const f = new VideoFrame(canvas, { timestamp: Math.round((i * 1e6) / FPS), duration: Math.round(1e6 / FPS) });
+      encoder.encode(f, { keyFrame: i === 0 }); f.close();
+    }
+    await encoder.flush(); muxer.finalize();
+    const bytes = new Uint8Array(muxer.target.buffer);
+    let s = ""; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return btoa(s);
+  });
+  await enc.close();
+  // Top-level boxes: everything before the first moof is the init segment; moof+mdat up to mfra, the media.
+  const buf = Buffer.from(b64, "base64");
+  const boxes = [];
+  for (let at = 0; at + 8 <= buf.length;) { const size = buf.readUInt32BE(at); boxes.push({ at, size, type: buf.toString("latin1", at + 4, at + 8) }); if (size < 8) break; at += size; }
+  const firstMoof = boxes.find((b) => b.type === "moof");
+  const mfra = boxes.find((b) => b.type === "mfra");
+  if (!firstMoof) throw new Error(`no moof in the encoded stream: ${boxes.map((b) => b.type).join(",")}`);
+  stream = {
+    "master.m3u8": { type: "application/vnd.apple.mpegurl", body: `#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-STREAM-INF:BANDWIDTH=400000,RESOLUTION=360x640,CODECS="vp09.00.10.08"\n240p/index.m3u8\n` },
+    "index.m3u8": { type: "application/vnd.apple.mpegurl", body: `#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:6\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXT-X-MAP:URI="init.mp4"\n#EXTINF:6.0,\nseg0.m4s\n#EXT-X-ENDLIST\n` },
+    "init.mp4": { type: "video/mp4", body: buf.subarray(0, firstMoof.at) },
+    "seg0.m4s": { type: "video/iso.segment", body: buf.subarray(firstMoof.at, mfra ? mfra.at : buf.length) },
+  };
+}
+
+if (!plain) {
+  // The Android WebView answers "maybe" for HLS (Chromium mime_util_internal.cc, see the header).
+  await ctx.addInitScript(() => {
+    const real = HTMLMediaElement.prototype.canPlayType;
+    HTMLMediaElement.prototype.canPlayType = function (t) {
+      return /mpegurl/i.test(String(t)) ? "maybe" : real.call(this, t);
+    };
+  });
+}
 const page = await ctx.newPage();
 
 const netFails = [];
@@ -174,15 +255,37 @@ page.on("response", async (r) => {
 await page.goto(`${APP}/tools/uishot/app-video-cors/appvideoharness.html`);
 await page.waitForFunction(() => document.querySelector("[data-testid=site-setting]")?.textContent !== "loading", null, { timeout: 30_000 }).catch(() => {});
 await page.waitForFunction(() => (document.querySelector("video")?.currentSrc ?? "").startsWith("blob:"), null, { timeout: 30_000 }).catch(() => {});
-await page.waitForTimeout(1500);
-const state = await page.evaluate(() => ({
-  setting: document.querySelector("[data-testid=site-setting]")?.textContent ?? null,
-  videoSrc: document.querySelector("video")?.currentSrc ?? null,
-  videoMuted: document.querySelector("video")?.muted ?? null,
-  cantPlay: document.body.innerText.includes("This video can't play right now"),
-}));
+// E: nobody touches the page — does the video play by itself?
+await page.waitForFunction(() => (document.querySelector("video")?.currentTime ?? 0) > 1, null, { timeout: 20_000 }).catch(() => {});
+const snap = () => page.evaluate(() => {
+  const v = document.querySelector("video");
+  const c = document.querySelector("[data-testid=video-controls]");
+  const card = document.querySelector("[data-testid=feed-video-card]");
+  return {
+    setting: document.querySelector("[data-testid=site-setting]")?.textContent ?? null,
+    videoSrc: v?.currentSrc ?? null,
+    engine: v?.dataset.engine ?? null,
+    videoMuted: v?.muted ?? null,
+    paused: v?.paused ?? null,
+    currentTime: v ? Math.round(v.currentTime * 10) / 10 : null,
+    playButton: !!document.querySelector("[aria-label='Play video']"),
+    playError: card?.getAttribute("data-play-error") ?? null,
+    controlsVisibleAttr: c?.getAttribute("data-visible") ?? null,
+    controlsOpacity: c ? getComputedStyle(c).opacity : null,
+    cantPlay: document.body.innerText.includes("This video can't play right now"),
+  };
+});
+const state = await snap();
 const shot = out ? out.replace(/\.json$/, ".png") : null;
 if (shot) await page.screenshot({ path: shot, fullPage: true });
+// F: a tap on the picture (not on a button) shows the controls; they go again on their own.
+const box = await page.locator("video").boundingBox();
+if (box) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 3);
+await page.waitForTimeout(400); // the 300 ms fade
+const afterTap = await snap();
+if (shot) await page.screenshot({ path: shot.replace(/\.png$/, "-tapped.png"), fullPage: true });
+await page.waitForTimeout(3200);
+const later = await snap();
 await browser.close();
 server.close();
 await vite.close();
@@ -199,10 +302,16 @@ const checks = {
   C_site_settings_reached_api_with_acao: ss.some((e) => e.method === "GET" && e.origin === APP && e.status === 200 && e.acao === APP),
   C_page_shows_edge_value: state.setting === 'setting:"served-by-the-edge"',
   D_nothing_asked_of_localhost_api: !localAsks.some((p) => p.startsWith("/api/") || p.startsWith("/config/")),
+  E_autoplay_without_tap: state.paused === false && (state.currentTime ?? 0) > 0.5 && !state.playButton,
+  E_app_autoplays_with_sound: state.videoMuted === false,
+  F_controls_hidden_by_default: state.controlsVisibleAttr === "false" && Number(state.controlsOpacity) === 0,
+  F_tap_shows_controls: afterTap.controlsVisibleAttr === "true" && Number(afterTap.controlsOpacity) > 0.9 && afterTap.paused === false,
+  F_controls_fade_again: later.controlsVisibleAttr === "false" && Number(later.controlsOpacity) === 0 && later.paused === false,
 };
 const pass = Object.values(checks).every(Boolean);
 const result = {
-  journey: "app-video-cors", at: new Date().toISOString(), pass, checks,
+  journey: "app-video-cors", at: new Date().toISOString(), emulation: plain ? "plain desktop Chromium" : "Android WebView (Capacitor autoplay policy, HLS 'maybe', WebView UA)",
+  pass, checks, afterTap, later,
   netFails, apiLog, cdnAsks: cdnAsks.map((u) => u.replace(/t=[^&]+/, "t=<token>")),
   localAsks: localAsks.filter((p) => !/\.(js|css|svg|png|woff2)$/.test(p)),
   state: { ...state, videoSrc: state.videoSrc ? state.videoSrc.replace(/t=[^&]+/, "t=<token>") : null },

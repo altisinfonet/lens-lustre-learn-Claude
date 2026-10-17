@@ -1,0 +1,95 @@
+{
+  "journey": "app-video-cors",
+  "at": "2026-10-17T18:59:23.882Z",
+  "emulation": "Android WebView (Capacitor autoplay policy, HLS 'maybe', WebView UA)",
+  "pass": false,
+  "checks": {
+    "A_play_token_preflight_204": true,
+    "A_play_token_post_200_with_acao": true,
+    "B_hls_asked_cdn_for_granted_master": true,
+    "B_video_has_source_without_tap": true,
+    "C_site_settings_reached_api_with_acao": true,
+    "C_page_shows_edge_value": true,
+    "D_nothing_asked_of_localhost_api": true,
+    "E_autoplay_without_tap": true,
+    "E_app_autoplays_with_sound": false,
+    "F_controls_hidden_by_default": false,
+    "F_tap_shows_controls": false,
+    "F_controls_fade_again": false
+  },
+  "afterTap": {
+    "setting": "setting:\"served-by-the-edge\"",
+    "videoSrc": "https://cdn-staging.50mmretina.com/video/11111111-1111-4111-8111-111111111111/33333333-3333-4333-8333-333333333333/v1/master.m3u8?t=djEKcHJlZml4PXZpZGVvLzExMTExMTExLTExMTEtNDExMS04MTExLTExMTExMTExMTExMS8zMzMzMzMzMy0zMzMzLTQzMzMtODMzMy0zMzMzMzMzMzMzMzMvdjEvCmV4cD0xNzkyMjY0NDI5CnN1Yj1hbm9uCmF1ZD1jZG4tc3RhZ2luZy41MG1tcmV0aW5hLmNvbQ.LSwCeCWI-UgYK7nFOY3eozk7aPJPy838qUdZPi7lAHM",
+    "engine": null,
+    "videoMuted": true,
+    "paused": true,
+    "currentTime": 0.1,
+    "playButton": true,
+    "playError": null,
+    "controlsVisibleAttr": null,
+    "controlsOpacity": "1",
+    "cantPlay": false
+  },
+  "later": {
+    "setting": "setting:\"served-by-the-edge\"",
+    "videoSrc": "https://cdn-staging.50mmretina.com/video/11111111-1111-4111-8111-111111111111/33333333-3333-4333-8333-333333333333/v1/master.m3u8?t=djEKcHJlZml4PXZpZGVvLzExMTExMTExLTExMTEtNDExMS04MTExLTExMTExMTExMTExMS8zMzMzMzMzMy0zMzMzLTQzMzMtODMzMy0zMzMzMzMzMzMzMzMvdjEvCmV4cD0xNzkyMjY0NDI5CnN1Yj1hbm9uCmF1ZD1jZG4tc3RhZ2luZy41MG1tcmV0aW5hLmNvbQ.LSwCeCWI-UgYK7nFOY3eozk7aPJPy838qUdZPi7lAHM",
+    "engine": null,
+    "videoMuted": true,
+    "paused": true,
+    "currentTime": 0.1,
+    "playButton": true,
+    "playError": null,
+    "controlsVisibleAttr": null,
+    "controlsOpacity": "1",
+    "cantPlay": false
+  },
+  "netFails": [
+    "console: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "apiLog": [
+    {
+      "method": "GET",
+      "path": "/config/site-settings",
+      "origin": "https://localhost",
+      "status": 200,
+      "acao": "https://localhost"
+    },
+    {
+      "method": "OPTIONS",
+      "path": "/api/video/play-token",
+      "origin": "https://localhost",
+      "status": 204,
+      "acao": "https://localhost"
+    },
+    {
+      "method": "POST",
+      "path": "/api/video/play-token",
+      "origin": "https://localhost",
+      "status": 200,
+      "acao": "https://localhost"
+    }
+  ],
+  "cdnAsks": [
+    "https://cdn-staging.50mmretina.com/video/11111111-1111-4111-8111-111111111111/33333333-3333-4333-8333-333333333333/v1/poster.jpg?t=<token>",
+    "https://cdn-staging.50mmretina.com/video/11111111-1111-4111-8111-111111111111/33333333-3333-4333-8333-333333333333/v1/master.m3u8?t=<token>",
+    "https://cdn-staging.50mmretina.com/video/11111111-1111-4111-8111-111111111111/33333333-3333-4333-8333-333333333333/v1/240p/index.m3u8",
+    "https://cdn-staging.50mmretina.com/video/11111111-1111-4111-8111-111111111111/33333333-3333-4333-8333-333333333333/v1/240p/init.mp4",
+    "https://cdn-staging.50mmretina.com/video/11111111-1111-4111-8111-111111111111/33333333-3333-4333-8333-333333333333/v1/240p/seg0.m4s"
+  ],
+  "localAsks": [
+    "/tools/uishot/app-video-cors/appvideoharness.html"
+  ],
+  "state": {
+    "setting": "setting:\"served-by-the-edge\"",
+    "videoSrc": "https://cdn-staging.50mmretina.com/video/11111111-1111-4111-8111-111111111111/33333333-3333-4333-8333-333333333333/v1/master.m3u8?t=<token>",
+    "engine": null,
+    "videoMuted": true,
+    "paused": false,
+    "currentTime": 5.9,
+    "playButton": false,
+    "playError": null,
+    "controlsVisibleAttr": null,
+    "controlsOpacity": "1",
+    "cantPlay": false
+  }
+}

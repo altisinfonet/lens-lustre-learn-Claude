@@ -25,7 +25,8 @@ import "../../index.css";
   Plugins: {},
 };
 
-const VIDEO = { id: "33333333-3333-4333-8333-333333333333", width: 720, height: 1280, durationS: 5, hasAudio: false };
+// hasAudio: the app plays it WITH sound (Owner 2026-10-18) — the journey checks the element is unmuted.
+const VIDEO = { id: "33333333-3333-4333-8333-333333333333", width: 720, height: 1280, durationS: 6, hasAudio: true };
 /** The same path every real surface takes (sameMediaEverywhere.test.ts). */
 const media = postMedia({ video: VIDEO, image_urls: [], image_url: null });
 
