@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { profilesPublic } from "@/lib/profilesPublic";
 import { useGatedEntryStatus, resolveDisplayStatus } from "@/hooks/judging/useGatedEntryStatus";
 import { getR4AwardStages } from "@/lib/judging/stageCatalog";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -124,7 +125,8 @@ const ProfileActivityFeed = ({ userId }: Props) => {
         items.push({
           id: `cert-${c.id}`,
           icon: <Award className="h-3.5 w-3.5 text-amber-500" />,
-          text: `Earned "${c.title}"`,
+          // App Store review: no "earn" wording in the iOS app.
+          text: isNativeIOSApp() ? `Received "${c.title}"` : `Earned "${c.title}"`,
           time: c.issued_at,
         });
       });

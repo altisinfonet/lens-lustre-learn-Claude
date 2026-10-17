@@ -147,7 +147,7 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
       title: "Social",
       items: [
         { icon: Users, label: "Friends", to: "/friends", show: true, tooltip: "Manage connections" },
-        { icon: UserPlus, label: "Referrals", to: "/referrals", show: true, tooltip: "Invite & earn" },
+        { icon: UserPlus, label: "Referrals", to: "/referrals", show: !isNativeIOSApp(), tooltip: "Invite & earn" },
       ],
     },
     {

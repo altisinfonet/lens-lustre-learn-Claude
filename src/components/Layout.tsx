@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import GlobalComposer from "@/components/GlobalComposer";
 import { isNativeCapacitorApp } from "@/lib/native/authDeepLink";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import GiftCelebrationModal from "@/components/GiftCelebrationModal";
 import AnnouncementBar from "@/components/AnnouncementBar";
 import AskAnything from "@/components/AskAnything";
@@ -301,7 +302,8 @@ const LayoutInner = () => {
         </div>
       )}
 
-      {!showOnboarding && <GiftCelebrationModal />}
+      {/* App Store 3.1.1: gift credits are wallet money — not in the iOS app. */}
+      {!showOnboarding && !isNativeIOSApp() && <GiftCelebrationModal />}
 
       {/*
         THE ONE UPLOADER, REACHABLE FROM EVERY PAGE.
@@ -423,7 +425,8 @@ const LayoutInner = () => {
       {/* "Ask anything" — home page only, on BOTH app and web (owner, 2026-08-07).
           A support-chat bubble floating over every screen is clutter the feed,
           profile and journal pages do not need. */}
-      {isHome && !hideNav && <AskAnything />}
+      {/* App Store review: no "Ask Anything" in the iOS app. */}
+      {isHome && !hideNav && !isNativeIOSApp() && <AskAnything />}
     </>
   );
 };

@@ -10,6 +10,7 @@ import { motion } from "framer-motion";
 import { Trophy, Medal, Star, Award, Heart, Clock } from "lucide-react";
 import { useEntryPublicStatus } from "@/hooks/judging/useEntryPublicStatus";
 import { useT } from "@/i18n/I18nContext";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 
 interface Entry {
   id: string;
@@ -94,7 +95,7 @@ export default function PersonalResultBanner({ phase, userId, entries }: Props) 
       || runnerUp.publicPlacement === "runner_up_1"
         ? t("pres.ru1Title")
         : t("pres.ru2Title");
-    subtitle = t("pres.ruSub");
+    subtitle = isNativeIOSApp() ? t("pres.ruSubIos", "Your entry got a top placement. Be proud!") : t("pres.ruSub");
     bgClass = "bg-[hsl(var(--muted))]/80 border-foreground/10 text-foreground";
   } else if (specialJury) {
     icon = <Award className="h-6 w-6" />;
@@ -104,7 +105,7 @@ export default function PersonalResultBanner({ phase, userId, entries }: Props) 
   } else if (honorary) {
     icon = <Award className="h-6 w-6" />;
     title = t("pres.honTitle");
-    subtitle = t("pres.honSub");
+    subtitle = isNativeIOSApp() ? t("pres.honSubIos", "Your entry received an honorary mention from the judges.") : t("pres.honSub");
     bgClass = "bg-teal-500/10 border-teal-500/30 text-teal-600 dark:text-teal-400";
   } else if (finalist) {
     icon = <Star className="h-6 w-6" />;

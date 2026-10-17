@@ -8,6 +8,8 @@ import { useCompetitions, CompetitionListItem } from "@/hooks/competition/useCom
 import { useAuth } from "@/hooks/core/useAuth";
 import { phaseStatusColors, phaseDisplayLabels } from "@/lib/competitionPhase";
 import { useT } from "@/i18n/I18nContext";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
+import { hasMoneyText } from "@/lib/native/iosReview";
 
 
 type PhaseFilter = "all" | "submission_open" | "voting" | "judging" | "result";
@@ -170,7 +172,8 @@ const Competitions = () => {
 
 
                   {/* Footer: Grand Prize only */}
-                  {comp.prize_info && (
+                  {/* App Store 3.1.1: a prize line about money is not shown in the iOS app. */}
+                  {comp.prize_info && !(isNativeIOSApp() && hasMoneyText(comp.prize_info)) && (
                     <div className="px-8 md:px-12 py-6 md:py-8 border-t border-border bg-gradient-to-r from-primary/5 via-transparent to-primary/5">
                       <div className="flex items-center gap-3">
                         <span className="text-xs tracking-[0.3em] uppercase text-primary/70 font-semibold" style={{ fontFamily: "var(--font-heading)" }}>

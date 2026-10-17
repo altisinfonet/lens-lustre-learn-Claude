@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import { Gift } from "lucide-react";
 import RewardedAd from "./RewardedAd";
 import { fetchAdZones, fetchAdFrequency, fetchAdZonesEnabled } from "@/lib/ads/adZonesV2";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 
 const RewardedAdEntry = ({ onCredited }: { onCredited?: () => void }) => {
   const [eligible, setEligible] = useState(false);
@@ -48,7 +49,8 @@ const RewardedAdEntry = ({ onCredited }: { onCredited?: () => void }) => {
     };
   }, []);
 
-  if (!eligible) return null;
+  // App Store 3.1.1: a rewarded ad credits the wallet — not in the iOS app.
+  if (!eligible || isNativeIOSApp()) return null;
 
   return (
     <>
