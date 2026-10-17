@@ -14,8 +14,10 @@
  *   upload/…                            never served: 404, zero bytes (SEC-VID-1).
  *   anything else (photos, avatars …)   passed to the origin AS IS — the request
  *       object itself, untouched, and the origin's response returned untouched.
- *       Attaching this Worker to the CDN host changes NOTHING for photos, and a
- *       video misconfiguration can never take photos down. Photo privacy is
+ *       This branch is only a safety net: the Worker is routed on
+ *       `<cdn host>/video/*` ONLY (README step 6), so photos never reach it, and
+ *       neither a video misconfiguration nor the free plan's daily request cap
+ *       can take photos down. Photo privacy is
  *       D-003's other branch, not built here (D-002 / PrivacyGapNotice stays).
  *
  * video/ responses:
