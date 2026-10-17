@@ -26,9 +26,19 @@ Behaviour and reasons: header of `handler.ts`. Tests: `src/lib/video/__tests__/m
 7. Verify (all must hold, else remove the route — step 6 is the only reversible switch):
    - the same photo: same status, ETag and Content-Type as step 5 (it does not pass through the Worker at all);
    - `curl -sI https://<lane cdn host>/video/x` → `403`;
-   - `curl -sI https://<lane cdn host>/upload/x` → `404`;
+   - `curl -sI https://<lane cdn host>/%76ideo/x` → `403` or `404`, **never** `200` (an encoded `video` path skips a
+     `/video/*` route and reaches the photo bucket directly — safe only while that bucket holds no `video/` objects);
+   - `curl -sI https://<lane cdn host>/upload/x` → `404` (with a `/video/*` route this answer now comes from the photo
+     bucket, not the Worker — safe only while that bucket holds no `upload/` objects);
+   - **the photo bucket behind the CDN host holds no `video/` and no `upload/` objects** (R2 → that bucket → search the
+     prefixes `video/` and `upload/` → 0 objects). Video and uploads live only in the lane's separate video bucket.
    - the bucket's own `r2.dev` public URL is **disabled** (R2 → bucket → Settings → Public access).
 8. Only then the Pages variable `VIDEO_DELIVERY_PRIVATE=1` may be set on that lane (uploads stay 503 until it is).
+
+## Staging today
+Staging was first routed on `cdn-staging.50mmretina.com/*` (2026-10-12, `docs/evidence/d2/VID/media-authz/staging-live-proof.md`).
+Narrow it: Worker `media-authz-staging` → Settings → Domains & Routes → change the route to `cdn-staging.50mmretina.com/video/*`,
+then repeat step 7.
 
 ## Why the route is `/video/*` only
 The handler still passes non-video paths to the origin (`fetch(request)`) as a safety net, but with the route limited to
