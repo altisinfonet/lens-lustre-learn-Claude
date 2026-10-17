@@ -1,0 +1,26 @@
+    }
+
+    /**
+     * Initialize the WebView, setting required flags
+     */
+    @SuppressLint("SetJavaScriptEnabled")
+    private void initWebView() {
+        WebSettings settings = webView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setGeolocationEnabled(true);
+        settings.setMediaPlaybackRequiresUserGesture(false);
+        settings.setJavaScriptCanOpenWindowsAutomatically(true);
+        if (this.config.isMixedContentAllowed()) {
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        }
+
+        String appendUserAgent = this.config.getAppendedUserAgentString();
+        if (appendUserAgent != null) {
+            String defaultUserAgent = settings.getUserAgentString();
+            settings.setUserAgentString(defaultUserAgent + " " + appendUserAgent);
+        }
+        String overrideUserAgent = this.config.getOverriddenUserAgentString();
+        if (overrideUserAgent != null) {
+            settings.setUserAgentString(overrideUserAgent);
+        }
