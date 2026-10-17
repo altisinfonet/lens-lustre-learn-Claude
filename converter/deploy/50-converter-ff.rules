@@ -1,20 +1,29 @@
-// 50mm Retina World · the converter worker (user `converter`) may START or
-// STOP the sandboxed FFmpeg run of a job — units named exactly
-// converter-ff@<uuid>.service — and nothing else. Installed root-owned 0644 at
-// /etc/polkit-1/rules.d/50-converter-ff.rules.
+// 50mm Retina World · each converter worker may START or STOP the sandboxed
+// FFmpeg run of a job of ITS OWN LANE — and nothing else:
+//   user converter       (staging)  ->  converter-ff@<uuid>.service
+//   user converter-live  (live)     ->  converter-live-ff@<uuid>.service
+// Never the other lane's units (lane separation: a stolen staging worker cannot
+// stop, start or race a live member's run, nor the reverse), never another verb,
+// never another unit. Installed root-owned 0644 at
+// /etc/polkit-1/rules.d/50-converter-ff.rules. Tested: converter/test/polkit.test.ts
+// (every case) and deploy/sandbox-check.sh (on the machine, through polkitd).
 //
 // Why a template unit and not `systemd-run --uid=ffjob -p …`: starting a
 // TRANSIENT unit is manage-units with no unit name or properties a rule could
 // check, so allowing it would let a stolen worker start a unit as root with
 // any properties. Here the properties live in the root-owned
-// converter-ff@.service and this grant is one name pattern, two verbs.
+// converter-ff@.service / converter-live-ff@.service and this grant is one
+// name pattern per user, two verbs.
 polkit.addRule(function (action, subject) {
   if (action.id !== "org.freedesktop.systemd1.manage-units") return polkit.Result.NOT_HANDLED;
-  if (subject.user !== "converter") return polkit.Result.NOT_HANDLED;
+  var prefix;
+  if (subject.user === "converter") prefix = "converter-ff";
+  else if (subject.user === "converter-live") prefix = "converter-live-ff";
+  else return polkit.Result.NOT_HANDLED;
   var unit = action.lookup("unit") || "";
   var verb = action.lookup("verb") || "";
-  if (/^converter-ff@[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.service$/.test(unit) &&
-      (verb === "start" || verb === "stop")) {
+  var m = /^(converter-ff|converter-live-ff)@[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.service$/.exec(unit);
+  if (m && m[1] === prefix && (verb === "start" || verb === "stop")) {
     return polkit.Result.YES;
   }
   return polkit.Result.NOT_HANDLED;

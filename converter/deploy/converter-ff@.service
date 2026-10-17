@@ -3,7 +3,9 @@
 #
 # Started ONLY by the worker (user `converter`), which polkit allows to start
 # and stop units of exactly the name converter-ff@<uuid>.service and nothing
-# else (50-converter-ff.rules). Every sandbox property lives HERE, in a
+# else (50-converter-ff.rules). This file IS the staging lane; the live lane's
+# converter-live-ff@.service is rendered from it (lane-lib.sh: user ffjob-live,
+# /var/lib/converter-live/jobs/%i, and THIS lane hidden from it). Every sandbox property lives HERE, in a
 # root-owned file: the worker can choose WHAT runs (ffmpeg or ffprobe, and
 # their arguments, via <job>/.run/), never HOW it is confined.
 #
@@ -22,7 +24,7 @@ User=ffjob
 Group=ffjob
 SupplementaryGroups=convjob
 UMask=0007
-ExecStart=/usr/local/lib/converter/ffjob-run %i
+ExecStart=/usr/local/lib/converter/ffjob-run %i /var/lib/converter/jobs
 TimeoutStartSec=6h 10min
 Nice=10
 OOMScoreAdjust=500
@@ -44,6 +46,8 @@ LimitCORE=0
 ProtectSystem=strict
 ReadWritePaths=/var/lib/converter/jobs/%i
 InaccessiblePaths=-/var/lib/converter/secrets -/var/lib/converter/state -/etc/converter
+# ... and the OTHER lane altogether: its secrets, its state, its members' job files.
+InaccessiblePaths=-/var/lib/converter-live
 ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes
