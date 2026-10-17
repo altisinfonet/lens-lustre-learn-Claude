@@ -1,7 +1,8 @@
 import { Outlet, useLocation } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import GlobalComposer from "@/components/GlobalComposer";
-import { isNativeCapacitorApp, isNativeIOSApp } from "@/lib/native/authDeepLink";
+import { isNativeCapacitorApp } from "@/lib/native/authDeepLink";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import GiftCelebrationModal from "@/components/GiftCelebrationModal";
 import AnnouncementBar from "@/components/AnnouncementBar";
 import AskAnything from "@/components/AskAnything";
