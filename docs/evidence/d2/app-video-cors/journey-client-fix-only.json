@@ -1,0 +1,51 @@
+{
+  "journey": "app-video-cors",
+  "at": "2026-10-17T17:04:00.569Z",
+  "pass": false,
+  "checks": {
+    "A_play_token_preflight_204": false,
+    "A_play_token_post_200_with_acao": false,
+    "B_hls_asked_cdn_for_granted_master": false,
+    "B_video_has_source_without_tap": false,
+    "C_site_settings_reached_api_with_acao": false,
+    "C_page_shows_edge_value": false,
+    "D_nothing_asked_of_localhost_api": true
+  },
+  "netFails": [
+    "console: Access to fetch at 'https://staging.50mmretina.com/config/site-settings' from origin 'https://localhost' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requ",
+    "GET https://staging.50mmretina.com/config/site-settings net::ERR_FAILED",
+    "console: Failed to load resource: net::ERR_FAILED",
+    "console: Access to fetch at 'https://staging.50mmretina.com/api/video/play-token' from origin 'https://localhost' has been blocked by CORS policy: Response to preflight request doesn't pass access control chec",
+    "POST https://staging.50mmretina.com/api/video/play-token net::ERR_FAILED",
+    "console: Failed to load resource: net::ERR_FAILED",
+    "console: Access to fetch at 'https://testprojectref0000x.supabase.co/rest/v1/site_settings?select=key%2Cvalue&key=in.%28journey_marker%29' from origin 'https://localhost' has been blocked by CORS policy: Respo",
+    "GET https://testprojectref0000x.supabase.co/rest/v1/site_settings?select=key%2Cvalue&key=in.%28journey_marker%29 net::ERR_FAILED",
+    "console: Failed to load resource: net::ERR_FAILED"
+  ],
+  "apiLog": [
+    {
+      "method": "GET",
+      "path": "/config/site-settings",
+      "origin": "https://localhost",
+      "status": 200,
+      "acao": null
+    },
+    {
+      "method": "OPTIONS",
+      "path": "/api/video/play-token",
+      "origin": "https://localhost",
+      "status": 405,
+      "acao": null
+    }
+  ],
+  "cdnAsks": [],
+  "localAsks": [
+    "/tools/uishot/app-video-cors/appvideoharness.html"
+  ],
+  "state": {
+    "setting": "setting:null",
+    "videoSrc": null,
+    "videoMuted": true,
+    "cantPlay": true
+  }
+}

@@ -30,6 +30,7 @@ import { onlineManager } from "@tanstack/react-query";
 import { installFakeBackend } from "../fakeBackend";
 import { fixtureRoutes } from "../fixtureRoutes";
 import { createFakeTables, CONSTRAINTS, toResponse } from "../fakeTables";
+import { SITE_API } from "@/lib/net/siteApi";
 import "../../index.css";
 
 if (!import.meta.env.DEV) throw new Error("offline harness is development-only");
@@ -44,7 +45,7 @@ if (phase === "offline") {
   const fakeFetch = window.fetch;
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-    if (/supabase\.co/.test(url) || url.startsWith("/config/")) throw new TypeError("Failed to fetch");
+    if (/supabase\.co/.test(url) || url.endsWith(SITE_API.siteSettings)) throw new TypeError("Failed to fetch");
     return fakeFetch(input, init);
   };
   Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
