@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCookieConsent } from "@/hooks/core/useCookieConsent";
 import { Cookie } from "lucide-react";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 
 const bodyFont = { fontFamily: "var(--font-body)" };
 
@@ -43,7 +44,8 @@ const SiteFooter = () => {
 
         <span className="text-border hidden sm:inline">|</span>
 
-        {footerPages.map((page) => (
+        {/* App Store 3.1.1: no refund policy in the iOS app (nothing is sold there). */}
+        {footerPages.filter((page) => !(isNativeIOSApp() && page.slug === "refund-policy")).map((page) => (
           <Link
             key={page.id}
             to={`/page/${page.slug}`}

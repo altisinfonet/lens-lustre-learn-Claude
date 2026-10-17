@@ -11,6 +11,7 @@ import AnonymousSidebarFallback from "@/components/AnonymousSidebarFallback";
 import type { SidebarData } from "@/hooks/core/useDashboardInit";
 import { useCompetitionVoting } from "@/hooks/competition/useCompetitionVoting";
 import { useCompetitionVoteRealtime } from "@/hooks/competition/useCompetitionVoteRealtime";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import {
   buildCompetitionVotingPhotoKey,
   mapSidebarVotingEntriesToVotingPhotos,
@@ -124,12 +125,12 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
           <div className="px-4 py-3 border-b border-border">
             <span className="text-[9px] tracking-[0.3em] uppercase text-primary flex items-center gap-1.5" style={headingFont}>
               <Coins className="h-3 w-3" />
-              {t("sidebar.voteEarn")}
+              {isNativeIOSApp() ? t("sidebar.voteIos", "Vote") : t("sidebar.voteEarn")}
             </span>
           </div>
           <div className="p-4 space-y-3">
             <p className="text-xs text-muted-foreground leading-relaxed" style={bodyFont}>
-              {t("sidebar.voteEarnDesc")}
+              {isNativeIOSApp() ? t("sidebar.voteIosDesc", "Vote on competition entries.") : t("sidebar.voteEarnDesc")}
             </p>
             {visibleVotingEntries.length > 0 && (
               <div className="grid grid-cols-3 gap-1">

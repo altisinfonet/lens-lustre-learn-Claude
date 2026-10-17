@@ -95,7 +95,7 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
   // Android app (Capacitor injects window.Capacitor) — no point linking users
   // to the store from within the app itself. Shown everywhere else (mobile web).
   const isNativeApp = typeof window !== "undefined" && !!(window as any).Capacitor;
-  const showInstallAction = !isNativeApp;
+  const showInstallAction = !isNativeApp && !isNativeIOSApp();
 
   // Build quick-action grid
   const quickActions: QuickAction[] = isAdmin
@@ -135,7 +135,7 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
         { icon: BookOpen, label: "Courses", to: "/courses", show: true },
         { icon: Users, label: "Friends", to: "/friends", show: true },
         { icon: Award, label: "Certificates", to: "/certificates", show: true },
-        { icon: UserPlus, label: "Referrals", to: "/referrals", show: true },
+        { icon: UserPlus, label: "Referrals", to: "/referrals", show: !isNativeIOSApp() },
         {
           icon: Wallet, label: "Wallet", to: "/wallet", show: !isNativeIOSApp(),
           badge: walletBalance !== null ? (

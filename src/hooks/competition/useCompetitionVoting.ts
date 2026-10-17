@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/core/useAuth";
 import { toast } from "@/hooks/core/use-toast";
 import { formatUSDFixed } from "@/lib/currencyFormat";
 import { useNavigate } from "react-router-dom";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 
 interface VotingContext {
   competitionId: string;
@@ -105,7 +106,10 @@ export function useCompetitionVoting({ competitionId, userId }: VotingContext) {
       if (voteError) throw voteError;
       if (data?.error) throw new Error(data.error);
 
-      if (action === "unvote" && data?.rewards_applied) {
+      if (isNativeIOSApp()) {
+        // App Store 3.1.1: no wallet in the iOS app, so no amounts either.
+        toast({ title: action === "vote" ? "Vote recorded" : "Vote removed" });
+      } else if (action === "unvote" && data?.rewards_applied) {
         const penalty = Math.abs(Number(data.voter_reward || 0));
         if (penalty > 0) {
           toast({

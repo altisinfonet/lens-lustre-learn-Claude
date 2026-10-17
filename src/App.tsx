@@ -384,7 +384,7 @@ const App = () => {
             <Routes>
               <Route element={<Layout />}>
                 <Route path="/" element={<IndexGate />} />
-                <Route path="/__crop-test" element={<CropTest />} />
+                <Route path="/__crop-test" element={import.meta.env.DEV ? <CropTest /> : <NotFound />} />
                 <Route path="/home" element={<Index />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
@@ -428,11 +428,11 @@ const App = () => {
                 <Route path="/winners" element={<Winners />} />
                 <Route path="/wallet" element={isNativeIOSApp() ? <Navigate to="/dashboard" replace /> : <Wallet />} />
                 <Route path="/featured-artist/:slug" element={<FeaturedArtistPage />} />
-                <Route path="/referrals" element={<Referrals />} />
+                <Route path="/referrals" element={isNativeIOSApp() ? <Navigate to="/dashboard" replace /> : <Referrals />} />
                 <Route path="/help-support" element={<HelpSupport />} />
                 <Route path="/page/:slug" element={<ManagedPageView />} />
                 <Route path="/dashboard/submission/:competitionId" element={<SubmissionDetail />} />
-                <Route path="/dev/phase7-badges" element={<Phase7BadgesQA />} />
+                <Route path="/dev/phase7-badges" element={import.meta.env.DEV ? <Phase7BadgesQA /> : <NotFound />} />
                 <Route path="/dashboard/submission/:competitionId/entry/:entryId/photo/:photoIndex" element={<SubmissionDetail />} />
                 <Route path="/hashtag/:tag" element={<HashtagFeed />} />
                 <Route path="/post/:postId" element={<PostDetail />} />
@@ -444,7 +444,7 @@ const App = () => {
                 <Route path="/community-guidelines" element={<CommunityGuidelines />} />
                 <Route path="/terms-of-use" element={<CommunityGuidelines />} />
                 <Route path="/settings/notifications" element={<NotificationSettings />} />
-                <Route path="/qa/watermark-matrix" element={<WatermarkQAMatrix />} />
+                <Route path="/qa/watermark-matrix" element={import.meta.env.DEV ? <WatermarkQAMatrix /> : <NotFound />} />
                 <Route path="/scheduled-posts" element={<ScheduledPostsPage />} />
                 {/* Staff ID verification (public). The QR-code URL shape
                     /IDverification=<ID> is a single segment, handled by the

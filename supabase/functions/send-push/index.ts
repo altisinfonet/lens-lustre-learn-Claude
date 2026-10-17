@@ -8,6 +8,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 //   (Project settings -> Service accounts -> Generate new private key).
 // Optional secret: PUSH_INTERNAL_SECRET = shared secret for server-to-server calls.
 
+/** Money notification types — keep in step with src/lib/native/iosReview.ts. */
+const WALLET_TYPE_RE = /^(deposit_|withdrawal_|gift_|referral_|wallet_)|^vote_reward$/;
+const isWalletNotificationType = (type: unknown): boolean =>
+  typeof type === "string" && WALLET_TYPE_RE.test(type);
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-internal-secret",
@@ -96,8 +101,14 @@ Deno.serve(async (req) => {
     const sa = JSON.parse(saRaw);
 
     // Collect the user's device tokens
-    const { data: tokens } = await admin.from("push_tokens").select("token").eq("user_id", user_id);
-    if (!tokens || tokens.length === 0) {
+    const { data: allTokens } = await admin.from("push_tokens").select("token, platform").eq("user_id", user_id);
+    // App Store 3.1.1: the iOS app has no wallet, so an iPhone never gets a
+    // money notification (deposit, withdrawal, gift, referral, vote reward,
+    // wallet_*). Android and web still do. Same rule as
+    // src/lib/native/iosReview.ts isWalletNotificationType.
+    const walletType = isWalletNotificationType(data?.type);
+    const tokens = (allTokens ?? []).filter((t: { platform?: string }) => !(walletType && t.platform === "ios"));
+    if (tokens.length === 0) {
       return new Response(JSON.stringify({ success: true, sent: 0, note: "no devices registered" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 

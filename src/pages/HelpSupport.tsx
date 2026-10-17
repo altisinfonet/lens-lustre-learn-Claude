@@ -10,6 +10,7 @@ import { Plus, Send, MessageSquare, Clock, CheckCircle, XCircle, ChevronDown, Ch
 import { scanFileWithToast } from "@/lib/fileSecurityScanner";
 import FileUploadDropZone, { type UploadedFile } from "@/components/FileUploadDropZone";
 import { useT } from "@/i18n/I18nContext";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 
 interface Ticket {
   id: string;
@@ -473,10 +474,12 @@ const HelpSupport = () => {
                 <li>Tap <span className="text-foreground">Delete My Account</span> and type DELETE to confirm.</li>
               </ol>
               <p>
-                Deletion is immediate and permanent. It removes your profile, photos, posts,
+                {isNativeIOSApp()
+                  ? "Deletion is immediate and permanent. Deletion removes your profile, photos, posts, comments, competition entries and certificates, and frees your email address. Records that we are legally required to keep are retained only as required by law."
+                  : <>Deletion is immediate and permanent. It removes your profile, photos, posts,
                 stories, comments, likes, competition entries, certificates, wallet, and sign-in
                 credentials, and frees your email address. Records that we are legally required to
-                keep (for example financial payout ledgers) are retained only as required by law.
+                keep (for example financial payout ledgers) are retained only as required by law.</>}
               </p>
               <p>
                 Lost access to your account? Email{" "}

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useNavigate, useParams } from "react-router-dom";
 import { useCompetitionVoting } from "@/hooks/competition/useCompetitionVoting";
 import ZoomableImage from "@/components/media/ZoomableImage";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 
 interface VotingEntry {
   id: string; // entry_id (multiple photos can share the same entry id)
@@ -207,7 +208,7 @@ const VotingLightbox = ({ entries, startIndex, onClose, onVoted, onPhotoChange }
             <div className="mx-auto mb-3 max-w-xs rounded-lg border border-destructive/30 bg-card px-4 py-3 text-left text-white/90">
               <div className="flex gap-2">
                 <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-                <p className="text-[10px] text-white/70">Removing your vote deducts 2× the reward from your wallet.</p>
+                <p className="text-[10px] text-white/70">{isNativeIOSApp() ? "Tap again to remove your vote." : "Removing your vote deducts 2× the reward from your wallet."}</p>
               </div>
             </div>
           )}

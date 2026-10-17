@@ -12,6 +12,8 @@ import { useRowHandles } from "@/hooks/profile/useMemberHandles";
 import AnonymousSidebarFallback from "@/components/AnonymousSidebarFallback";
 import SidebarTopContributors from "@/components/sidebar/SidebarTopContributors";
 import type { SidebarData } from "@/hooks/core/useDashboardInit";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
+import { isPaidCourse } from "@/lib/native/iosReview";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -80,7 +82,8 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
    * literal), so the bridge is withdrawn rather than stacked on top of the fix.
    */
   const upcomingComps = sidebarData?.competitions ?? [];
-  const coursePreviews = sidebarData?.courses ?? [];
+  // App Store 3.1.1: no paid courses in the iOS app.
+  const coursePreviews = (sidebarData?.courses ?? []).filter((c: any) => !(isNativeIOSApp() && isPaidCourse(c)));
   const winners = sidebarData?.winners ?? [];
 
   // Admin profiles cannot receive friend requests (follow-only).

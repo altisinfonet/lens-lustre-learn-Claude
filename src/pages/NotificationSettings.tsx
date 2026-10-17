@@ -8,6 +8,7 @@ import { useNotificationPreferences, type NotificationPreferences } from "@/hook
 import { useNotificationSound } from "@/hooks/core/useNotificationSound";
 import PageSEO from "@/components/PageSEO";
 import { useT } from "@/i18n/I18nContext";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 
 interface ToggleRowProps {
   icon: React.ReactNode;
@@ -206,6 +207,7 @@ const NotificationSettings = () => {
                 checked={preferences.email_competition_updates}
                 onCheckedChange={toggle("email_competition_updates")}
               />
+              {!isNativeIOSApp() && (
               <ToggleRow
                 icon={<Gift className="w-4 h-4" />}
                 label={t("notif.giftCredits")}
@@ -213,6 +215,7 @@ const NotificationSettings = () => {
                 checked={preferences.email_gift_credits}
                 onCheckedChange={toggle("email_gift_credits")}
               />
+              )}
               <ToggleRow
                 icon={<Award className="w-4 h-4" />}
                 label={t("notif.certificates")}

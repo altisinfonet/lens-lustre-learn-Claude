@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { profilesPublic } from "@/lib/profilesPublic";
 import { queryKeys } from "@/lib/queryKeys";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
+import { isPaidCourse } from "@/lib/native/iosReview";
 
 export interface CourseListItem {
   id: string;
@@ -75,7 +77,9 @@ export const useCourses = () => {
         lessonCounts.set(l.course_id, (lessonCounts.get(l.course_id) || 0) + 1);
       });
 
-      return data.map((c: any) => ({
+      // App Store 3.1.1: the iOS app sells nothing — a paid course is not listed there.
+      const listed = isNativeIOSApp() ? data.filter((c: any) => !isPaidCourse(c)) : data;
+      return listed.map((c: any) => ({
         ...c,
         author_name: profileMap.get(c.author_id),
         author_handle: handleMap.get(c.author_id) ?? null,

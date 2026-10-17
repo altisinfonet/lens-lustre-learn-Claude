@@ -7,6 +7,7 @@ import { toast } from "@/hooks/core/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { declareSignOut } from "@/lib/sessionLossRecorder";
+import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
@@ -72,12 +73,16 @@ const DeleteAccountSection = () => {
       </span>
 
       <p className="text-xs text-muted-foreground leading-relaxed mb-1" style={{ fontFamily: "var(--font-body)" }}>
-        Permanently delete your account and everything in it — your profile, photos, posts,
-        stories, comments, competition entries, and wallet.
+        {isNativeIOSApp()
+          ? "Permanently delete your account. Deletion removes your profile, photos, posts, comments, competition entries and certificates."
+          : <>Permanently delete your account and everything in it — your profile, photos, posts,
+        stories, comments, competition entries, and wallet.</>}
       </p>
       <p className="text-[11px] text-destructive/80 leading-relaxed mb-4" style={{ fontFamily: "var(--font-body)" }}>
-        This cannot be undone. If you have an active wallet balance or an in-progress competition,
-        withdraw or resolve it first — deletion forfeits it.
+        {isNativeIOSApp()
+          ? "This cannot be undone."
+          : <>This cannot be undone. If you have an active wallet balance or an in-progress competition,
+        withdraw or resolve it first — deletion forfeits it.</>}
       </p>
 
       <button
@@ -96,7 +101,7 @@ const DeleteAccountSection = () => {
             </DialogTitle>
             <DialogDescription className="text-xs leading-relaxed pt-1" style={{ fontFamily: "var(--font-body)" }}>
               This will <strong>permanently erase</strong> your profile, all your photos and posts,
-              stories, comments, likes, competition entries, certificates and wallet. It cannot be
+              stories, comments, likes, competition entries{isNativeIOSApp() ? " and certificates" : ", certificates and wallet"}. It cannot be
               undone and support cannot recover it.
             </DialogDescription>
           </DialogHeader>
