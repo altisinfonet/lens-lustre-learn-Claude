@@ -13,7 +13,7 @@
  * the product requirement that Comments-as-a-modal must not load every
  * comment just because the container changed shape.
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfileMap } from "@/hooks/profile/useProfileMap";
 import { useAuth } from "@/hooks/core/useAuth";
@@ -23,6 +23,7 @@ import { toast } from "@/hooks/core/use-toast";
 import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
 import { useAddComment } from "@/hooks/feed/useAddComment";
 import type { ThreadComment } from "@/components/comments/CommentThread";
+import { createThreadCache, threadCacheKey } from "@/lib/comments/threadCache";
 
 /** One post_comments row as the thread reads it, its reactions embedded. */
 interface CommentRow {
@@ -101,18 +102,13 @@ function splitThreadRows(rows: CommentRow[], viewerId: string | undefined) {
 
 /**
  * The last read of each thread opened this session, so a second open draws at
- * once and refreshes behind the list. Small and in memory only: it holds what
- * this member has already been shown, and every open still re-reads.
+ * once and refreshes behind the list. In memory only, keyed by VIEWER and post,
+ * bounded, and emptied on every sign-out (src/lib/comments/threadCache.ts).
+ * Every open still re-reads, and that read always replaces the screen.
  */
-const THREAD_CACHE = new Map<string, CommentRow[]>();
-const THREAD_CACHE_MAX = 30;
-function rememberThread(postId: string, rows: CommentRow[]) {
-  THREAD_CACHE.delete(postId);
-  THREAD_CACHE.set(postId, rows);
-  if (THREAD_CACHE.size > THREAD_CACHE_MAX) THREAD_CACHE.delete(THREAD_CACHE.keys().next().value as string);
-}
+const THREAD_CACHE = createThreadCache<CommentRow[]>();
 /** A write on the thread makes the remembered copy wrong; the next open re-reads it fresh. */
-const forgetThread = (postId: string | null | undefined) => { if (postId) THREAD_CACHE.delete(postId); };
+const forgetThread = (postId: string | null | undefined) => THREAD_CACHE.forget(postId);
 /** Test seam: each test starts with no thread remembered. */
 export const __clearThreadCacheForTests = () => THREAD_CACHE.clear();
 
@@ -163,6 +159,17 @@ export function usePostComments(
 
   const { profileMap } = useProfileMap(commentUserIds);
 
+  // WHOSE thread the state on screen is: this viewer's copy of this post.
+  // A member change (A signs out, B signs in, the component never unmounted)
+  // makes the key differ, and until the reset below has run the hook hands out
+  // NOTHING rather than A's rows, not even for one frame. The ref lets an
+  // in-flight read check, after its await, that it is still for this key.
+  const viewerId = user?.id ?? null;
+  const threadKey = postId ? threadCacheKey(viewerId, postId) : "";
+  const threadKeyRef = useRef(threadKey);
+  threadKeyRef.current = threadKey;
+  const [shownKey, setShownKey] = useState(threadKey);
+
   /**
    * BUG 5 (Owner, 15 Oct 2026: "comments take very long to load").
    *
@@ -189,8 +196,13 @@ export function usePostComments(
   // must never let Post A's rows land under Post B. Reset on every id change,
   // and every async step below checks it is still the current id before it
   // writes state.
-  const applyRows = useCallback((rows: CommentRow[], viewerId: string | undefined) => {
-    const split = splitThreadRows(rows, viewerId);
+  const applyRows = useCallback((rows: CommentRow[], forViewer: string | null) => {
+    const split = splitThreadRows(rows, forViewer ?? undefined);
+    // The server always wins, an EMPTY answer included. The tree effect below
+    // does nothing for zero rows, so the list is emptied here; otherwise a
+    // thread whose comments were deleted or moderated elsewhere would keep
+    // showing the cached copy for the rest of the session.
+    if (split.comments.length === 0) setComments([]);
     setRawComments(split.comments);
     setRawReactions(split.reactions);
     setCommentUserIds(split.authorIds);
@@ -198,9 +210,10 @@ export function usePostComments(
 
   useEffect(() => {
     setComments([]);
-    const cached = postId ? THREAD_CACHE.get(postId) : undefined;
+    setShownKey(threadKey);
+    const cached = postId ? THREAD_CACHE.get(viewerId, postId) : undefined;
     if (cached) {
-      applyRows(cached, user?.id);
+      applyRows(cached, viewerId);
     } else {
       setRawComments([]);
       setRawReactions({ likeCountMap: new Map(), userLikedSet: new Set(), reactionCountsMap: new Map(), userReactionMap: new Map() });
@@ -208,28 +221,28 @@ export function usePostComments(
     }
     setLoaded(false);
     setLoading(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset per post only; `user` changing must not wipe the thread
-  }, [postId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset per post and per VIEWER id; a new `user` object for the same member (token refresh) must not wipe the thread
+  }, [postId, viewerId]);
 
   const loadComments = useCallback(async () => {
     if (!postId) return;
-    const requestedFor = postId;
+    const requestedFor = threadCacheKey(viewerId, postId);
     // Only a thread with nothing to show says "Loading comments…". A cached
     // one stays on screen while it refreshes.
-    if (!THREAD_CACHE.has(postId)) setLoading(true);
+    if (!THREAD_CACHE.has(viewerId, postId)) setLoading(true);
     const [rows] = await Promise.all([fetchThreadRows(postId), getAdminIds()]);
 
-    // The selected post moved on while this was in flight — the response is
-    // for a post nobody is looking at anymore. Discard it.
-    if (requestedFor !== postId) return;
+    // The selected post, or the member, moved on while this was in flight:
+    // the response is for a screen nobody is looking at anymore. Discard it.
+    if (requestedFor !== threadKeyRef.current) return;
 
     if (rows) {
-      rememberThread(postId, rows);
-      applyRows(rows, user?.id);
+      THREAD_CACHE.set(viewerId, postId, rows);
+      applyRows(rows, viewerId);
     }
     setLoading(false);
     setLoaded(true);
-  }, [postId, user, applyRows]);
+  }, [postId, viewerId, applyRows]);
 
   // Build comment tree reactively when rawComments or profileMap changes
   useEffect(() => {
@@ -407,7 +420,7 @@ export function usePostComments(
   };
 
   return {
-    comments,
+    comments: shownKey === threadKey ? comments : [],
     loading: loading && !loaded,
     loaded,
     currentUserId: user?.id ?? null,

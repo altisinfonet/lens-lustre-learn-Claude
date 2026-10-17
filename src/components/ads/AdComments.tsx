@@ -50,7 +50,8 @@
  * bump, and a number that says 4 above a list of 3 is worse than a number that
  * arrives a moment late.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createThreadCache, threadCacheKey } from "@/lib/comments/threadCache";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { useProfileMap } from "@/hooks/profile/useProfileMap";
@@ -84,26 +85,47 @@ const AD_MAX_REPLY_DEPTH = 1;
  * Bug 5: the last read of each ad thread opened this session, so a second open
  * draws at once and refreshes behind the list — the same rule as the post
  * thread's (usePostComments THREAD_CACHE). A write forgets it.
+ *
+ * Keyed by VIEWER and creative, bounded, and emptied on every sign-out
+ * (src/lib/comments/threadCache.ts): ad_creative_comments are readable by
+ * signed-in members only, so a signed-out viewer, or the next member on a
+ * shared phone, must never be drawn the previous member's copy. And the
+ * server always wins: whatever the fresh read returns, an empty thread
+ * included, replaces the screen.
  */
-const AD_THREAD_CACHE = new Map<string, AdComment[]>();
+const AD_THREAD_CACHE = createThreadCache<AdComment[]>();
 
 const AdComments = ({ creativeId, onCountChange }: Props) => {
   const { user } = useAuth();
   const { data: currentProfile } = useProfileCore(user?.id);
   const { isAdmin } = useIsAdmin();
-  const [rows, setRows] = useState<AdComment[]>(() => AD_THREAD_CACHE.get(creativeId) ?? []);
+  const viewerId = user?.id ?? null;
+  const threadKey = threadCacheKey(viewerId, creativeId);
+  const threadKeyRef = useRef(threadKey);
+  threadKeyRef.current = threadKey;
+  // The rows on screen and WHOSE they are. Rows held for another key (another
+  // member, another ad) are never drawn: until this key's own copy arrives,
+  // the box shows "Loading" over nothing.
+  const [thread, setThread] = useState<{ key: string; rows: AdComment[] } | null>(() => {
+    const cached = AD_THREAD_CACHE.get(viewerId, creativeId);
+    return cached ? { key: threadKey, rows: cached } : null;
+  });
   const [adminIds, setAdminIds] = useState<Set<string>>(() => new Set());
-  const [loading, setLoading] = useState(() => !AD_THREAD_CACHE.has(creativeId));
   const [busy, setBusy] = useState(false);
+  const rows = useMemo(() => (thread?.key === threadKey ? thread.rows : []), [thread, threadKey]);
+  const loading = thread?.key !== threadKey;
 
   const load = useCallback(async () => {
-    if (!AD_THREAD_CACHE.has(creativeId)) setLoading(true);
+    const requestedFor = threadCacheKey(viewerId, creativeId);
+    const cached = AD_THREAD_CACHE.get(viewerId, creativeId);
+    if (cached) setThread((t) => (t?.key === requestedFor ? t : { key: requestedFor, rows: cached }));
     const [fetched, admins] = await Promise.all([fetchAdComments(creativeId), getAdminIds()]);
-    AD_THREAD_CACHE.set(creativeId, fetched);
-    setRows(fetched);
+    AD_THREAD_CACHE.set(viewerId, creativeId, fetched);
+    // The ad, or the member, changed while this was in flight: not this screen's.
+    if (requestedFor !== threadKeyRef.current) return;
+    setThread({ key: requestedFor, rows: fetched });
     setAdminIds(admins);
-    setLoading(false);
-  }, [creativeId]);
+  }, [creativeId, viewerId]);
 
   useEffect(() => {
     load();
@@ -180,7 +202,7 @@ const AdComments = ({ creativeId, onCountChange }: Props) => {
 
   const remove = async (id: string) => {
     if (busy) return;
-    AD_THREAD_CACHE.delete(creativeId);
+    AD_THREAD_CACHE.forget(creativeId);
     setBusy(true);
     const { error } = await deleteAdComment(id);
     setBusy(false);
