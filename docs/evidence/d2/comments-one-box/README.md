@@ -70,3 +70,24 @@ draws the shared `CommentsBox` imported from the post adapter, which draws
 
 Entry chunk, same env, built locally: 1,704,848 B (origin/staging) →
 1,706,485 B (**+1,637 B**), ceiling 1,754,112 B.
+
+## Review fix round (17 Oct 2026) — the cache, the way Meta does it
+
+Review of #435 (comment 6228266626) found two BLOCKING cache faults. Fixed:
+
+1. **Server always wins, empty included.** `usePostComments.applyRows` empties
+   the list when the fresh read returns zero rows (the tree effect returned
+   early, so deleted/moderated comments stayed on screen). The ad thread
+   already replaced its rows; it is now held to the same rule by a test.
+2. **Privacy on a shared device.** Both caches now come from
+   `src/lib/comments/threadCache.ts`: keyed by viewer id + thread
+   (signed-out = `anon`), LRU-bounded at 50, and emptied by
+   `clearCommentThreadCaches()`, called from `signOutWipe` (every session end)
+   and `useAuth.signOut` (next to `clearFeedCache`). The hook and AdComments
+   also refuse to hand out rows held for another viewer/thread key, and an
+   in-flight read that lands after the member changed is discarded.
+
+Fail-first (`failfirst-review-fix.txt`): on 2dabb199 source with the new tests
+copied in, `threadCacheServerWins.test.tsx` 7 of 8 fail (the ad empty-refresh
+case passes on the base: AdComments already replaced its rows, kept as a
+guard) and `threadCache.test.ts` (4 tests) fails to load. After: 12/12 pass.
