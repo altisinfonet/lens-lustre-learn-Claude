@@ -2,6 +2,11 @@
 # 50mm Retina World · runs INSIDE converter-ff@<job>.service (user ffjob, the
 # sandbox). Installed root-owned 0755 at /usr/local/lib/converter/ffjob-run.
 #
+#   ffjob-run <job uuid> [<jobs root>]
+# The jobs root is the LANE's (/var/lib/converter/jobs for staging — the default —
+# or /var/lib/converter-live/jobs for live). It comes from the root-owned unit
+# file's ExecStart, never from the worker; only those two are accepted.
+#
 # The worker leaves in <job>/.run/:
 #   tool     "ffmpeg" or "ffprobe" (nothing else is ever run)
 #   args     the arguments, NUL-separated
@@ -21,7 +26,12 @@ if [[ ! "$inst" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
   echo "ffjob-run: the job id must be a uuid" >&2
   exit 64
 fi
-dir="/var/lib/converter/jobs/$inst"
+root="${2:-/var/lib/converter/jobs}"
+if [[ "$root" != /var/lib/converter/jobs && "$root" != /var/lib/converter-live/jobs ]]; then
+  echo "ffjob-run: the jobs root must be a lane's (/var/lib/converter/jobs or /var/lib/converter-live/jobs)" >&2
+  exit 64
+fi
+dir="$root/$inst"
 run="$dir/.run"
 if [[ ! -d "$run" || -L "$run" || -L "$dir" ]]; then
   echo "ffjob-run: no run directory for this job" >&2

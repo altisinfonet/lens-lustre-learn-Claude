@@ -27,7 +27,7 @@ export const VERSION = "1.1.0";
 
 function launcherFor(c: Config): Launcher {
   return c.launcher === "systemd"
-    ? new SystemdLauncher({ jobsRoot: c.jobsRoot })
+    ? new SystemdLauncher({ jobsRoot: c.jobsRoot, unitPrefix: c.unitPrefix })
     : new DirectLauncher({ ffmpeg: c.ffmpeg, ffprobe: c.ffprobe });
 }
 

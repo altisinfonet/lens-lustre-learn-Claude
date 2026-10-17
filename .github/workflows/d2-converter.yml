@@ -22,6 +22,10 @@ name: D2 · VID-1 converter worker (the pinned FFmpeg + the systemd sandbox, x86
 #      and the time cap ends it; the worker's self-test and network check under
 #      the REAL converter.service sandbox, with the positive control; and it
 #      refuses while converter.service runs;
+#   5b. S7 two lanes: setup.sh --lane live beside staging (its own users, dirs,
+#      job space, units); re-running either lane changes nothing; sandbox-check.sh
+#      for BOTH lanes, each proving it cannot reach the other (polkit, file modes,
+#      InaccessiblePaths in the sandbox run AND under the real worker unit);
 #   6. update-ffmpeg.sh: the real update path (self-test through the sandbox);
 #      a pin naming another URL is refused; a file whose sha256 is not the pin's
 #      is refused; a build that fails the self-test is rolled back.
@@ -130,21 +134,68 @@ jobs:
           sudo env JOBS_FS_SIZE=1G NODE_BIN="$(command -v node)" bash converter/deploy/setup.sh --worker converter/dist/worker.mjs
           test ! -e /etc/converter/ffmpeg-no-security-updates
           cmp converter/deploy/ffmpeg.pin /opt/converter/ffmpeg.pin
+      - name: S7 · setup.sh --lane live beside staging; re-running either lane changes nothing
+        run: |
+          set -euo pipefail
+          sudo env JOBS_FS_SIZE=1G NODE_BIN="$(command -v node)" bash converter/deploy/setup.sh --lane live --worker converter/dist/worker.mjs
+          snap() {
+            sudo find /etc/systemd/system -maxdepth 1 -name '*converter*' -type f -print0 | sudo xargs -0 sha256sum | sort
+            sudo sha256sum /usr/local/lib/converter/ffjob-run /etc/polkit-1/rules.d/50-converter-ff.rules /opt/converter/worker.mjs /opt/converter-live/worker.mjs /etc/converter/converter.env /etc/converter/converter-live.env
+            sudo stat -c '%n %U:%G %a' /var/lib/converter /var/lib/converter/secrets /var/lib/converter/state /var/lib/converter/jobs /var/lib/converter-live /var/lib/converter-live/secrets /var/lib/converter-live/state /var/lib/converter-live/jobs /etc/converter/converter.env /etc/converter/converter-live.env /opt/converter-live/worker.mjs
+            id converter; id ffjob; id converter-live; id ffjob-live
+          }
+          snap > /tmp/before.txt
+          cat /tmp/before.txt
+          sudo env JOBS_FS_SIZE=1G NODE_BIN="$(command -v node)" bash converter/deploy/setup.sh --worker converter/dist/worker.mjs > /tmp/rerun-staging.log 2>&1
+          sudo env JOBS_FS_SIZE=1G NODE_BIN="$(command -v node)" bash converter/deploy/setup.sh --lane live --worker converter/dist/worker.mjs > /tmp/rerun-live.log 2>&1
+          snap > /tmp/after.txt
+          diff /tmp/before.txt /tmp/after.txt
+          if grep -hE '^(installed:|directory:|wrote |fixed |job space root:)' /tmp/rerun-staging.log /tmp/rerun-live.log; then echo "a re-run changed something"; exit 1; fi
+          grep -c '^unchanged:' /tmp/rerun-live.log
+          # the lanes' users are apart: no user of one lane is in a group of the other
+          for u in converter ffjob; do if id -nG "$u" | tr ' ' '\n' | grep -qxE 'converter-live|ffjob-live|convjob-live'; then echo "$u is in a live group"; exit 1; fi; done
+          for u in converter-live ffjob-live; do if id -nG "$u" | tr ' ' '\n' | grep -qxE 'converter|ffjob|convjob'; then echo "$u is in a staging group"; exit 1; fi; done
+          test "$(sudo stat -c '%U:%G %a' /var/lib/converter-live/secrets)" = "converter-live:converter-live 700"
+          test "$(sudo stat -c '%U:%G %a' /var/lib/converter-live/jobs)" = "converter-live:convjob-live 2750"
+          test "$(sudo stat -c '%U:%G %a' /etc/converter/converter-live.env)" = "root:converter-live 640"
+          findmnt -no SOURCE,TARGET,OPTIONS /var/lib/converter-live/jobs
+          grep -qx 'User=converter-live' /etc/systemd/system/converter-live.service
+          grep -qx 'Environment=CONVERTER_UNIT_PREFIX=converter-live-ff' /etc/systemd/system/converter-live.service
+          grep -qx 'User=ffjob-live' /etc/systemd/system/converter-live-ff@.service
+          grep -qx 'InaccessiblePaths=-/var/lib/converter' /etc/systemd/system/converter-live-ff@.service
+          grep -qx 'InaccessiblePaths=-/var/lib/converter-live' /etc/systemd/system/converter-ff@.service
       - name: systemd-analyze verify (strict) and the security exposure
         run: |
           set -euo pipefail
           d="$(mktemp -d)"
           cp /etc/systemd/system/converter.service "$d/"
           cp /etc/systemd/system/converter-ff@.service "$d/converter-ff@00000000-0000-4000-8000-000000000000.service"
-          out="$(sudo systemd-analyze verify "$d/converter.service" "$d/converter-ff@00000000-0000-4000-8000-000000000000.service" 2>&1 || true)"
+          cp /etc/systemd/system/converter-live.service "$d/"
+          cp /etc/systemd/system/converter-live-ff@.service "$d/converter-live-ff@00000000-0000-4000-8000-000000000000.service"
+          out="$(sudo systemd-analyze verify "$d/converter.service" "$d/converter-ff@00000000-0000-4000-8000-000000000000.service" "$d/converter-live.service" "$d/converter-live-ff@00000000-0000-4000-8000-000000000000.service" 2>&1 || true)"
           echo "$out"
           if echo "$out" | grep -E "Unknown (key|section)|Failed to parse|Invalid|unknown lvalue" ; then exit 1; fi
           grep -qx 'OOMPolicy=kill' /etc/systemd/system/converter-ff@.service
           grep -qx 'RestartPreventExitStatus=4' /etc/systemd/system/converter.service
+          grep -qx 'OOMPolicy=kill' /etc/systemd/system/converter-live-ff@.service
+          grep -qx 'RestartPreventExitStatus=4' /etc/systemd/system/converter-live.service
+          sudo systemd-analyze security --no-pager converter-live-ff@00000000-0000-4000-8000-000000000000.service | tail -1
+          sudo systemd-analyze security --no-pager converter-live.service | tail -1
           sudo systemd-analyze security --no-pager converter-ff@00000000-0000-4000-8000-000000000000.service | tail -25
           sudo systemd-analyze security --no-pager converter.service | tail -3
-      - name: sandbox-check.sh --selftest
-        run: sudo bash converter/deploy/sandbox-check.sh --selftest
+      - name: sandbox-check.sh --selftest (staging lane, with the cross-lane checks against live)
+        run: |
+          set -euo pipefail
+          sudo bash converter/deploy/sandbox-check.sh --selftest | tee /tmp/sc-staging.log
+          grep -q 'PASS  under converter.service: the live lane' /tmp/sc-staging.log
+          if grep -q 'cross-lane checks (7) were not run' /tmp/sc-staging.log; then exit 1; fi
+      - name: S7 · sandbox-check.sh --lane live --selftest (live lane, with the cross-lane checks against staging)
+        run: |
+          set -euo pipefail
+          sudo bash converter/deploy/sandbox-check.sh --lane live --selftest | tee /tmp/sc-live.log
+          grep -q 'PASS  under converter-live.service: the staging lane' /tmp/sc-live.log
+          grep -q 'PASS  converter-live cannot start the staging lane' /tmp/sc-live.log
+          if grep -q 'cross-lane checks (7) were not run' /tmp/sc-live.log; then exit 1; fi
       - name: sandbox-check.sh, run as root, never writes through a link the worker planted (re-review N1)
         run: |
           set -euo pipefail

@@ -13,6 +13,8 @@ export interface Config {
   stateFile: string;
   jobsRoot: string;
   secretsDir: string;
+  /** this lane's sandbox template: converter-ff (staging) or converter-live-ff (live) — polkit lets each worker start only its own */
+  unitPrefix: string;
   launcher: "systemd" | "direct";
   ffmpeg: string;
   ffprobe: string;
@@ -28,6 +30,7 @@ export interface Config {
 }
 
 const R2_HOST = /^[0-9a-f]{32}\.r2\.cloudflarestorage\.com$/;
+const UNIT_PREFIX = /^converter(-[a-z]{1,16})?-ff$/;
 const BUCKET = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/;
 
 function url(name: string, v: string | undefined, required: boolean): string {
@@ -64,6 +67,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, opts: { require
   if (net && !R2_HOST.test(r2Host)) throw new Error("CONVERTER_R2_HOST must be this lane's <account id>.r2.cloudflarestorage.com");
   const r2Bucket = String(env.CONVERTER_R2_BUCKET ?? "").trim();
   if ((net || r2Bucket) && !BUCKET.test(r2Bucket)) throw new Error("CONVERTER_R2_BUCKET must be this lane's video bucket (presigned paths must start /<bucket>/upload/)");
+  const unitPrefix = env.CONVERTER_UNIT_PREFIX ?? "converter-ff";
+  if (!UNIT_PREFIX.test(unitPrefix)) throw new Error("CONVERTER_UNIT_PREFIX must be this lane's sandbox template (converter-ff or converter-live-ff)");
   return {
     apiBase: url("CONVERTER_API_BASE", env.CONVERTER_API_BASE, net),
     supabaseUrl: url("CONVERTER_SUPABASE_URL", env.CONVERTER_SUPABASE_URL, net),
@@ -72,6 +77,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, opts: { require
     stateFile: env.CONVERTER_STATE_FILE ?? "/var/lib/converter/state/claim.json",
     jobsRoot: env.CONVERTER_JOBS_DIR ?? "/var/lib/converter/jobs",
     secretsDir: env.CONVERTER_SECRETS_DIR ?? "/var/lib/converter/secrets",
+    unitPrefix,
     launcher,
     ffmpeg: env.CONVERTER_FFMPEG ?? "ffmpeg",
     ffprobe: env.CONVERTER_FFPROBE ?? "ffprobe",

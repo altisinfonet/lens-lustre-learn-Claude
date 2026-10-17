@@ -123,6 +123,26 @@ describe("converter · SystemdLauncher (production)", () => {
     expect(calls.slice(1)).toEqual([["--no-ask-password", "stop", `converter-ff@${JOB}.service`]]);
   });
 
+  it("S7 live lane: with unitPrefix converter-live-ff it runs, lists and stops ONLY live units — never staging's", async () => {
+    const { root, dir } = await jobDir();
+    const calls: string[][] = [];
+    const exec: Exec = async (_c, args) => {
+      calls.push(args);
+      if (args[0] === "list-units") {
+        return { code: 0, stderr: "", stdout: `converter-live-ff@${JOB}.service loaded active running x\nconverter-ff@${JOB}.service loaded active running staging\n` };
+      }
+      if (args[1] === "start") await fs.writeFile(path.join(dir, ".run", "exit"), "0\n");
+      return { code: 0, stderr: "" };
+    };
+    const l = new SystemdLauncher({ jobsRoot: root, unitPrefix: "converter-live-ff" }, exec);
+    expect(await l.stopStrayRuns()).toEqual([`converter-live-ff@${JOB}.service`]);
+    expect(calls[0]).toContain("converter-live-ff@*.service");
+    expect(calls.slice(1)).toEqual([["--no-ask-password", "stop", `converter-live-ff@${JOB}.service`]]);
+    calls.length = 0;
+    await l.run({ tool: "ffprobe", args: ["-version"], jobDir: dir, timeoutS: 10 });
+    expect(calls).toEqual([["--no-ask-password", "start", `converter-live-ff@${JOB}.service`]]);
+  });
+
   it("refuses a job directory that is not <jobs root>/<uuid>, and NUL inside an argument", async () => {
     const { root, dir } = await jobDir();
     const l = new SystemdLauncher({ jobsRoot: root }, async () => ({ code: 0, stderr: "" }));

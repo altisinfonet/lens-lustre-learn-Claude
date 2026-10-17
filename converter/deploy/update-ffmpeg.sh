@@ -9,14 +9,17 @@
 #    FFMPEG_TARBALL — and refuses it unless its sha256 is exactly the pin's;
 # 2. installs ffmpeg + ffprobe root-owned under /opt/converter/ffmpeg/<version>-<arch>/
 #    and checks they have zscale, tonemap, limiter, libx264, libx265;
-# 3. stops converter.service if it runs, points /opt/converter/ffmpeg/current at
+# 3. stops the worker(s) — converter.service and, where the live lane is installed,
+#    converter-live.service — if they run, points /opt/converter/ffmpeg/current at
 #    the new build ATOMICALLY (the old one becomes `previous`);
 # 4. runs the worker's self-test through the real sandbox (user converter →
-#    converter-ff@<uuid>.service → ffjob-run → the new FFmpeg). If it fails, the
+#    converter-ff@<uuid>.service → ffjob-run → the new FFmpeg) — and, where the live
+#    lane is installed, through ITS sandbox too (converter-live → converter-live-ff@,
+#    the build is shared by both lanes). If either fails, the
 #    previous build is put back (current AND previous links as they were), the
 #    failed build is removed, the worker restarted, and the script exits 1;
 # 5. records the pin in /opt/converter/ffmpeg.pin, removes builds other than
-#    current/previous, and starts converter.service again if it was running.
+#    current/previous, and starts the worker(s) again that were running.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -50,20 +53,36 @@ if [[ $selftest -eq 0 ]]; then
   exit 0
 fi
 
-# Stop the worker for the swap — also when systemd is about to restart it.
-was_active=0
-case "$(systemctl show -p ActiveState --value converter.service 2>/dev/null)" in
-  active|activating|reloading)
-    was_active=1
-    echo "stopping converter.service for the swap (its current job is requeued)"
-    systemctl stop converter.service ;;
-esac
-restore_service() { if [[ $was_active -eq 1 ]]; then systemctl start converter.service || true; fi; }
+# The live lane, where it is installed (setup.sh --lane live): its sandbox runs the same build.
+live_lane=0
+if [[ -f /etc/systemd/system/converter-live.service && -f /opt/converter-live/worker.mjs ]] && id -u converter-live >/dev/null 2>&1; then
+  live_lane=1
+fi
+
+# Stop the worker(s) for the swap — also when systemd is about to restart them.
+was_active=()
+for svc in converter.service converter-live.service; do
+  case "$(systemctl show -p ActiveState --value "$svc" 2>/dev/null)" in
+    active|activating|reloading)
+      was_active+=("$svc")
+      echo "stopping $svc for the swap (its current job is requeued)"
+      systemctl stop "$svc" ;;
+  esac
+done
+restore_service() { local s; for s in "${was_active[@]}"; do systemctl start "$s" || true; done; }
+# selftest_lanes: the staging lane's sandbox, then the live lane's (where installed).
+selftest_lanes() {
+  runuser -u converter -- env CONVERTER_LAUNCHER=systemd "$node_bin" /opt/converter/worker.mjs --selftest || return 1
+  [[ $live_lane -eq 1 ]] || return 0
+  echo "self-test through the LIVE lane's sandbox …"
+  runuser -u converter-live -- env CONVERTER_LAUNCHER=systemd CONVERTER_JOBS_DIR=/var/lib/converter-live/jobs \
+    CONVERTER_UNIT_PREFIX=converter-live-ff "$node_bin" /opt/converter-live/worker.mjs --selftest
+}
 
 ffmpeg_activate "$dest"
 
 echo "self-test through the sandbox with the new FFmpeg …"
-if runuser -u converter -- env CONVERTER_LAUNCHER=systemd "$node_bin" /opt/converter/worker.mjs --selftest; then
+if selftest_lanes; then
   record_pin
   # Keep only current and previous.
   keep_prev="$(readlink "$FFMPEG_ROOT/previous" 2>/dev/null || true)"
