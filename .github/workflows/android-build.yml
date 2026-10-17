@@ -767,6 +767,9 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
+          # 2026-10-17: bumped 1.2.21 -> 1.2.22. 1.2.21 is spent (run 34956566930, on members' phones).
+          # 1.2.22 carries the 2026-10-17 promotion (feed refresh, Back, one comments box, ads,
+          # Apple consent, video client) for Android testers via Play Internal testing (draft).
           # 2026-09-15: bumped 1.2.20 -> 1.2.21. Checked before firing, not
           # assumed: the Actions run list for this workflow was read and
           # Android Build #122 on 59ff7f5 (the commit that made this exact
@@ -811,8 +814,8 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
-          sed -i 's/versionName "1.0"/versionName "1.2.21"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.21 (1.2.20 is spent - build 1122 succeeded carrying it)"
+          sed -i 's/versionName "1.0"/versionName "1.2.22"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.22 (1.2.21 is spent - build of 2026-09-15 run 34956566930 carried it)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
