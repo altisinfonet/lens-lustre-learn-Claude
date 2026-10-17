@@ -26,7 +26,7 @@
  */
 import { PLAY_TOKEN_TTL_S, playPrefix, signPlayToken } from "../../../src/lib/video/shared/playToken";
 import { supabaseUrl, supabaseAnon } from "../../_seo";
-import { HttpError, asMember, handleError, json, needEnv, readJson, requirePrivateDelivery, type VideoEnv } from "./_lib";
+import { HttpError, asMember, handleError, withCors, json, needEnv, readJson, requirePrivateDelivery, type VideoEnv } from "./_lib";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const HOST_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
@@ -60,7 +60,12 @@ async function viewer(request: Request, env: VideoEnv, fetchImpl: typeof fetch):
 
 const notFound = () => new HttpError(404, "VID-PLAY-404", "no such video");
 
-export async function handlePlayToken(request: Request, env: VideoEnv, now: Date = new Date(), fetchImpl: typeof fetch = fetch): Promise<Response> {
+/** The route, with CORS for the native app (functions/_cors.ts): OPTIONS 204, every answer carries the headers. */
+export function handlePlayToken(request: Request, env: VideoEnv, now: Date = new Date(), fetchImpl: typeof fetch = fetch): Promise<Response> {
+  return withCors(request, env, () => playToken(request, env, now, fetchImpl));
+}
+
+async function playToken(request: Request, env: VideoEnv, now: Date, fetchImpl: typeof fetch): Promise<Response> {
   try {
     if (request.method !== "POST") throw new HttpError(405, "VID-REQ-000", "POST only");
     requirePrivateDelivery(env);

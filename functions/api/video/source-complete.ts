@@ -12,10 +12,15 @@
  * 409 VID-SRC-006 (nothing uploaded yet) · 409 VID-SRC-010 (wrong size — the
  * object is deleted, ask /source-url again) · 401/404 as /source-url.
  */
-import { HttpError, asMember, handleError, json, member, needEnv, readJson, requirePrivateDelivery, sourceKey, type VideoEnv } from "./_lib";
+import { HttpError, asMember, handleError, withCors, json, member, needEnv, readJson, requirePrivateDelivery, sourceKey, type VideoEnv } from "./_lib";
 import { loadOwnSource } from "./source-url";
 
-export async function handleSourceComplete(request: Request, env: VideoEnv, fetchImpl: typeof fetch = fetch): Promise<Response> {
+/** The route, with CORS for the native app (functions/_cors.ts): OPTIONS 204, every answer carries the headers. */
+export function handleSourceComplete(request: Request, env: VideoEnv, fetchImpl: typeof fetch = fetch): Promise<Response> {
+  return withCors(request, env, () => sourceComplete(request, env, fetchImpl));
+}
+
+async function sourceComplete(request: Request, env: VideoEnv, fetchImpl: typeof fetch): Promise<Response> {
   try {
     if (request.method !== "POST") throw new HttpError(405, "VID-REQ-000", "POST only");
     requirePrivateDelivery(env);

@@ -66,7 +66,18 @@ export interface VideoEnv {
   /** play-token.ts only: the D-003 key (base64, 32 bytes) and the lane's CDN host (also the token's aud). */
   MEDIA_TOKEN_KEY?: string;
   MEDIA_CDN_HOST?: string;
+  /** This lane's site origin — the one web origin, besides the app's, that CORS echoes (functions/_cors.ts). */
+  SITE_ORIGIN?: string;
 }
+
+/**
+ * CORS for the routes the native app calls (play-token, upload-urls, complete,
+ * source-url, source-complete, source-cancel). ONE helper, shared with
+ * /config/site-settings; see functions/_cors.ts for the allow-list rules.
+ * convert/claim and convert/finish are NOT wrapped: only the converter VM calls
+ * them, server to server, so no browser origin is ever given their answers.
+ */
+export { withCors } from "../../_cors";
 
 /**
  * F-D3-18 (curl, 2026-10-05 12:16 UTC): cdn-staging / cdn hosts answer an

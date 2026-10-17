@@ -6,6 +6,7 @@
 import { onlineManager } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getNetState } from "@/lib/offline/networkQuality";
+import { siteFetch } from "@/lib/net/siteApi";
 import type { JobDeps } from "./uploadJobs";
 
 type Err = { message: string; code?: string } | null;
@@ -117,7 +118,7 @@ export const realJobDeps: JobDeps = {
   },
   api: async (path, body) => {
     const token = await bearer();
-    const res = await fetch(path, {
+    const res = await siteFetch(path, {
       method: "POST",
       headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify(body),

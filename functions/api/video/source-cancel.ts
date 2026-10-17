@@ -6,10 +6,15 @@
  * original from the bucket at once. If the member reaches the RPC some other
  * way, the bucket's 2-day lifecycle rule on upload/ removes the original.
  */
-import { HttpError, asMember, handleError, json, member, needEnv, readJson, requirePrivateDelivery, sourceKey, type VideoEnv } from "./_lib";
+import { HttpError, asMember, handleError, withCors, json, member, needEnv, readJson, requirePrivateDelivery, sourceKey, type VideoEnv } from "./_lib";
 import { loadOwnSource } from "./source-url";
 
-export async function handleSourceCancel(request: Request, env: VideoEnv, fetchImpl: typeof fetch = fetch): Promise<Response> {
+/** The route, with CORS for the native app (functions/_cors.ts): OPTIONS 204, every answer carries the headers. */
+export function handleSourceCancel(request: Request, env: VideoEnv, fetchImpl: typeof fetch = fetch): Promise<Response> {
+  return withCors(request, env, () => sourceCancel(request, env, fetchImpl));
+}
+
+async function sourceCancel(request: Request, env: VideoEnv, fetchImpl: typeof fetch): Promise<Response> {
   try {
     if (request.method !== "POST") throw new HttpError(405, "VID-REQ-000", "POST only");
     requirePrivateDelivery(env);
