@@ -38,6 +38,28 @@ const CREATIVES = [
   creative("vid-link", GOOD, true),
   creative("vid-text", PLAIN, true),
 ];
+/**
+ * Review fix round (17 Oct 2026), the Meta rule: http:// counts, a bare
+ * "www.site.com" opens https://www.site.com/, and the shapes a link can hide
+ * in (javascript:, user@host, "//host", a hidden zero-width character) are
+ * no link. Appended AFTER the four above, so their slots are unchanged.
+ */
+const HTTP = "http://www.hideaway-resort.com/";
+const META_CASES: { id: string; click_url: string; video: boolean; opens: string | null }[] = [
+  { id: "pic-http", click_url: HTTP, video: false, opens: HTTP },
+  { id: "vid-http", click_url: HTTP, video: true, opens: HTTP },
+  { id: "pic-bare", click_url: "www.hideaway-resort.com", video: false, opens: GOOD },
+  { id: "vid-bare", click_url: "hideaway-resort.com", video: true, opens: "https://hideaway-resort.com/" },
+  { id: "pic-js", click_url: "javascript:alert(1)", video: false, opens: null },
+  { id: "vid-userinfo", click_url: "https://www.hideaway-resort.com@evil.example/", video: true, opens: null },
+  { id: "pic-protocol-relative", click_url: "//evil.example/", video: false, opens: null },
+  { id: "vid-zero-width", click_url: "https://www.hideaway-resort.com​/", video: true, opens: null },
+];
+/** What the card's library fetch returns: the four above, then the Meta cases. */
+const ALL_CREATIVES = [
+  ...CREATIVES,
+  ...META_CASES.map((m) => ({ ...creative(m.id, m.click_url, m.video), headline: m.opens ? "Stay by the lake" : "" })),
+];
 
 vi.mock("@/lib/ads/adZonesV2", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/ads/adZonesV2")>();
@@ -47,7 +69,7 @@ vi.mock("@/lib/ads/adZonesV2", async (importOriginal) => {
 });
 vi.mock("@/lib/ads/adCreatives", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/ads/adCreatives")>()),
-  fetchAdCreatives: async () => CREATIVES,
+  fetchAdCreatives: async () => ALL_CREATIVES,
 }));
 vi.mock("@/lib/ads/adTrackV2", () => ({ trackZoneEvent: () => {}, detectDevice: () => "desktop" }));
 vi.mock("@/components/video/FeedVideoCard", () => ({ default: () => <div data-testid="feed-video">video</div> }));
@@ -160,6 +182,20 @@ describe("bug 7 — every ad card looks alike and says Sponsored once", () => {
     const shape = (l: ReturnType<typeof layoutOf>) => ({ captionBar: l.captionBar, captionText: l.captionText, cta: l.cta, links: l.opensOnly.length > 0 });
     expect(shape(layouts["vid-link"])).toEqual(shape(layouts["pic-link"]));
     expect(shape(layouts["vid-text"])).toEqual(shape(layouts["pic-text"]));
+  });
+});
+
+describe("bug 7 — the link rule is Meta's: http, https and a bare site.com work; nothing else opens", () => {
+  it.each(META_CASES.map((m) => [m.id, m] as const))("%s", async (id, m) => {
+    const slot = ALL_CREATIVES.findIndex((c) => c.id === id);
+    const card = await drawAd(slot);
+    const l = layoutOf(card);
+    expect(l.sponsored, `${id} prints "Sponsored" ${l.sponsored} times`).toBe(1);
+    expect(l.opensOnly, `${id} opens ${JSON.stringify(l.opensOnly)}`).toEqual(m.opens ? l.opensOnly.map(() => m.opens) : []);
+    expect(l.opensOnly.length > 0, `${id}: a link is drawn ↔ the address is valid`).toBe(m.opens !== null);
+    expect(l.cta > 0, `${id}: CTA shown ↔ the address is valid`).toBe(m.opens !== null);
+    // A new tab never hands the advertiser this page.
+    card.querySelectorAll('a[target="_blank"]').forEach((a) => expect(a.getAttribute("rel")).toBe("noopener noreferrer"));
   });
 });
 

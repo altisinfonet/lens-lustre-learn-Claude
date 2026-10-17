@@ -25,8 +25,8 @@ import { compressImageToFiles } from "@/lib/imageCompression";
 import { generateImagePath, uploadImage } from "@/lib/imageUpload";
 import { feedAdPositionsLabel } from "@/lib/ads/feedAdPlacement";
 import AdCreativeLibrary from "./AdCreativeLibrary";
-import { AdLinkProblem } from "./AdLinkInput";
-import { adLinkProblem } from "@/lib/ads/adLink";
+import { AdLinkProblem, AdStoredLinkWarning } from "./AdLinkInput";
+import { adLinkProblem, adLinkToSave } from "@/lib/ads/adLink";
 
 /**
  * The one line under each slot name telling the admin EXACTLY where and how
@@ -187,6 +187,8 @@ const AdminAdsV2 = () => {
   });
   const [freq, setFreq] = useState<AdFrequencyConfig>(defaultFrequencyConfig());
   const [publisherId, setPublisherId] = useState("");
+  /** Each zone's link AS SAVED, so a saved link that fails the rule is flagged on its form. */
+  const [savedLinks, setSavedLinks] = useState<Partial<Record<AdZoneId, string>>>({});
 
   useEffect(() => {
     (async () => {
@@ -198,6 +200,7 @@ const AdminAdsV2 = () => {
         const z = {} as Record<AdZoneId, AdZoneConfig>;
         for (const zone of ALL_ZONES) z[zone] = normalizeZone(storedZones[zone], zone);
         setZones(z);
+        setSavedLinks(Object.fromEntries(ALL_ZONES.map((zone) => [zone, z[zone].own.click_url])) as Partial<Record<AdZoneId, string>>);
         setFreq(normalizeFrequency(byKey.get(AD_FREQUENCY_KEY)));
         setEnabled(byKey.get(AD_ZONES_FLAG_KEY) === true);
         setPublisherId(((byKey.get("adsense_config") as any)?.publisher_id) || "");
@@ -220,14 +223,22 @@ const AdminAdsV2 = () => {
   };
 
   const saveZones = () => {
-    // Bug 4: a zone whose link box holds something that is not an https://
-    // address is not saved — the box already says why, under it.
+    // Bug 4: a zone whose link box holds something that is not a web address
+    // is not saved; the box already says why, under it. A bare "site.com" is
+    // saved as the parsed https://site.com/.
     const bad = Object.values(zones).find((z) => z.mode === "own" && adLinkProblem(z.own.click_url) !== null);
     if (bad) {
       toast({ title: "Not saved — check the website box", description: adLinkProblem(bad.own.click_url)!, variant: "destructive" });
       return;
     }
-    return doSave("zones", () => saveSetting(AD_ZONES_KEY, zones));
+    const next = Object.fromEntries(
+      Object.entries(zones).map(([id, z]) => [id, { ...z, own: { ...z.own, click_url: adLinkToSave(z.own.click_url) } }]),
+    ) as Record<AdZoneId, AdZoneConfig>;
+    setZones(next);
+    return doSave("zones", async () => {
+      await saveSetting(AD_ZONES_KEY, next);
+      setSavedLinks(Object.fromEntries(ALL_ZONES.map((zone) => [zone, next[zone].own.click_url])) as Partial<Record<AdZoneId, string>>);
+    });
   };
   const saveFreq = () => doSave("freq", () => saveSetting(AD_FREQUENCY_KEY, freq));
   const saveNetworks = () => doSave("net", async () => {
@@ -347,8 +358,9 @@ const AdminAdsV2 = () => {
                       onChange={(url) => patchOwn(zone, { image_url: url, image_source: "upload" })} />
                     <div>
                       <label className={label}>Website to open when clicked (optional)</label>
-                      <input className={input} style={bFont} value={c.own.click_url} onChange={(e) => patchOwn(zone, { click_url: e.target.value })} placeholder="https://your-website.com" aria-invalid={adLinkProblem(c.own.click_url) !== null} />
+                      <input className={input} style={bFont} value={c.own.click_url} onChange={(e) => patchOwn(zone, { click_url: e.target.value })} placeholder="www.your-website.com" aria-invalid={adLinkProblem(c.own.click_url) !== null} />
                       <AdLinkProblem value={c.own.click_url} />
+                      <AdStoredLinkWarning stored={savedLinks[zone]} />
                     </div>
 
                     <details className="group">

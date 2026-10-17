@@ -274,7 +274,9 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
                 {zone === "story-card" && (
                   <AdVideoButton creativeId={r.id} videoState={videoStates.get(r.id) ?? null} onChanged={() => void load()} />
                 )}
-                {/* Bug 4: https:// only, with the reason under the box. */}
+                {/* Bug 4: a web address only (https://, http:// or a bare site.com),
+                    with the reason under the box, and a warning when the SAVED
+                    link fails the rule (no button shows on the feed). */}
                 <AdLinkInput
                   className={input}
                   style={bFont}

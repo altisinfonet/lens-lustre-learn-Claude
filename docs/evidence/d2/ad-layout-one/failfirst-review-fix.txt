@@ -1,0 +1,617 @@
+# Fail-first, review fix round (17 Oct 2026). BEFORE = source at dccf4ad6 (+ #435 merge), new/extended tests copied in
+
+ RUN  v3.2.4 D:/50mm Retina World/work/D21
+
+ ❯ src/lib/ads/__tests__/adLink.test.ts (44 tests | 16 failed) 60ms
+   ✓ adLink > accepts a full https address 6ms
+   × adLink > Meta rule: http://hideaway.com opens http://hideaway.com/ 16ms
+     → expected null to be 'http://hideaway.com/' // Object.is equality
+   × adLink > Meta rule: HTTP://Hideaway.com/rooms opens http://hideaway.com/rooms 2ms
+     → expected null to be 'http://hideaway.com/rooms' // Object.is equality
+   × adLink > Meta rule: hideaway.com opens https://hideaway.com/ 1ms
+     → expected null to be 'https://hideaway.com/' // Object.is equality
+   × adLink > Meta rule: www.hideaway-resort.com opens https://www.hideaway-resort.com/ 1ms
+     → expected null to be 'https://www.hideaway-resort.com/' // Object.is equality
+   × adLink > Meta rule: www.hideaway-resort.com/rooms?x=1#top opens https://www.hideaway-resort.com/rooms?x=1#top 1ms
+     → expected null to be 'https://www.hideaway-resort.com/rooms…' // Object.is equality
+   × adLink > Meta rule: hideaway.com:8443/book opens https://hideaway.com:8443/book 1ms
+     → expected null to be 'https://hideaway.com:8443/book' // Object.is equality
+   ✓ adLink > Meta rule:  https://hideaway.com﻿ opens https://hideaway.com/ 1ms
+   ✓ adLink > Meta rule: https://аpple.com opens https://xn--pple-43d.com/ 2ms
+   ✓ adLink > refuses Hideaway Resort and Hotel 0ms
+   ✓ adLink > refuses hideaway 0ms
+   ✓ adLink > refuses javascript:alert(1) 0ms
+   ✓ adLink > refuses https://localhost 1ms
+   ✓ adLink > refuses https://Hideaway Resort 1ms
+   ✓ adLink > refuses  0ms
+   ✓ adLink > refuses null 0ms
+   ✓ adLink > refuses undefined 0ms
+   ✓ adLink > refuses Hideaway Resort.com 0ms
+   ✓ adLink > refuses www.hideaway .com 0ms
+   ✓ adLink > refuses user@hideaway.com 0ms
+   × adLink > refuses https://hideaway.com@evil.com 2ms
+     → expected 'https://hideaway.com@evil.com/' to be null
+   × adLink > refuses https://user:pw@hideaway.com 2ms
+     → expected 'https://user:pw@hideaway.com/' to be null
+   ✓ adLink > refuses JavaScript:alert(1) 0ms
+   ✓ adLink > refuses  javascript:alert(1) 0ms
+   ✓ adLink > refuses data:text/html,<script>alert(1)</script> 0ms
+   ✓ adLink > refuses mailto:a@hideaway.com 0ms
+   ✓ adLink > refuses ftp://hideaway.com 0ms
+   ✓ adLink > refuses //evil.com 0ms
+   ✓ adLink > refuses ///evil.com 0ms
+   ✓ adLink > refuses ​javascript:alert(1) 0ms
+   × adLink > refuses https://hideaway.com​/ 2ms
+     → expected 'https://hideaway.com/' to be null
+   ✓ adLink > refuses https://hide‮away.com 1ms
+   × adLink > refuses https://hideaway.com/	path 2ms
+     → expected 'https://hideaway.com/path' to be null
+   × adLink > refuses https://hide
+away.com 2ms
+     → expected 'https://hideaway.com/' to be null
+   ✓ adLink > refuses https:\evil.com 0ms
+   ✓ adLink > refuses https:/evil.com 0ms
+   ✓ adLink > refuses hideaway.com@evil.com 0ms
+   ✓ adLink > refuses https://.com 0ms
+   × adLink > refuses https://a..com 1ms
+     → expected 'https://a..com/' to be null
+   ✓ adLink > refuses https://hideaway. 1ms
+   × adLink > the href is built from the parsed URL, never the raw string 2ms
+     → expected null to be 'https://hideaway.com/%22%3E%3Cscript%…' // Object.is equality
+   × adLink > the admin box: empty or valid saves, anything else says why 2ms
+     → expected 'Enter a full web address starting wit…' to be null
+   × adLink > the admin saves the parsed address: a bare site.com is stored as https://site.com/ 1ms
+     → (0 , adLinkToSave) is not a function
+   × adLink > an ad saved with a bad link is told so, in the Owner's words 1ms
+     → expected undefined to be 'This ad has no valid website, so no b…' // Object.is equality
+ ❯ src/components/admin/ads/__tests__/AdLinkInput.test.tsx (7 tests | 4 failed) 357ms
+   × AdLinkInput > an existing ad saved with plain text shows the warning on its row 127ms
+     → Unable to find an element with the text: This ad has no valid website, so no button shows — add a link. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div>
+      <input
+        aria-invalid="true"
+        inputmode="url"
+        placeholder="Website to open when clicked (optional)"
+        value="Hideaway Resort and Hotel"
+      />
+      <p
+        class="mt-1 text-xs text-destructive"
+        data-testid="ad-link-problem"
+        role="alert"
+      >
+        Enter a full web address starting with https:// — for example https://www.hideaway-resort.com. Leave it empty for no link.
+      </p>
+    </div>
+  </div>
+</body>
+   ✓ AdLinkInput > no warning for a valid saved link, or for no link at all 25ms
+   × AdLinkInput > accepts www.hideaway.com and saves https://www.hideaway.com/ 103ms
+     → expected <p role="alert" …(2)></p> to be null
+   × AdLinkInput > accepts hideaway.com and saves https://hideaway.com/ 19ms
+     → expected <p role="alert" …(2)></p> to be null
+   × AdLinkInput > accepts http://hideaway.com and saves http://hideaway.com/ 21ms
+     → expected <p role="alert" …(2)></p> to be null
+   ✓ AdLinkInput > accepts https://hideaway.com/rooms and saves https://hideaway.com/rooms 13ms
+   ✓ AdLinkInput > refuses plain text with a clear message and does not save it 35ms
+stderr | src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx > bug 7 — every ad card looks alike and says Sponsored once > pic-link: one Sponsored; links only to https; CTA only with one
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ❯ src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx (17 tests | 6 failed) 2355ms
+   ✓ bug 7 — every ad card looks alike and says Sponsored once > pic-link: one Sponsored; links only to https; CTA only with one 156ms
+   ✓ bug 7 — every ad card looks alike and says Sponsored once > pic-text: one Sponsored; links only to https; CTA only with one 72ms
+   ✓ bug 7 — every ad card looks alike and says Sponsored once > vid-link: one Sponsored; links only to https; CTA only with one 25ms
+   ✓ bug 7 — every ad card looks alike and says Sponsored once > vid-text: one Sponsored; links only to https; CTA only with one 23ms
+   ✓ bug 7 — every ad card looks alike and says Sponsored once > a picture ad and a video ad with the same link have the same layout 1ms
+   × bug 7 — the link rule is Meta's: http, https and a bare site.com work; nothing else opens > pic-http 37ms
+     → pic-http: a link is drawn ↔ the address is valid: expected false to be true // Object.is equality
+   × bug 7 — the link rule is Meta's: http, https and a bare site.com work; nothing else opens > vid-http 25ms
+     → vid-http: a link is drawn ↔ the address is valid: expected false to be true // Object.is equality
+   × bug 7 — the link rule is Meta's: http, https and a bare site.com work; nothing else opens > pic-bare 29ms
+     → pic-bare: a link is drawn ↔ the address is valid: expected false to be true // Object.is equality
+   × bug 7 — the link rule is Meta's: http, https and a bare site.com work; nothing else opens > vid-bare 20ms
+     → vid-bare: a link is drawn ↔ the address is valid: expected false to be true // Object.is equality
+   ✓ bug 7 — the link rule is Meta's: http, https and a bare site.com work; nothing else opens > pic-js 37ms
+   × bug 7 — the link rule is Meta's: http, https and a bare site.com work; nothing else opens > vid-userinfo 24ms
+     → vid-userinfo opens ["https://www.hideaway-resort.com@evil.example/"]: expected [ Array(1) ] to deeply equal []
+   ✓ bug 7 — the link rule is Meta's: http, https and a bare site.com work; nothing else opens > pic-protocol-relative 24ms
+   × bug 7 — the link rule is Meta's: http, https and a bare site.com work; nothing else opens > vid-zero-width 23ms
+     → vid-zero-width opens ["https://www.hideaway-resort.com/"]: expected [ 'https://www.hideaway-resort.com/' ] to deeply equal []
+   ✓ bug 7 — the comments box on a post and on every ad is one box > pic-link opens the post's box  436ms
+   ✓ bug 7 — the comments box on a post and on every ad is one box > pic-text opens the post's box  340ms
+   ✓ bug 7 — the comments box on a post and on every ad is one box > vid-link opens the post's box  612ms
+   ✓ bug 7 — the comments box on a post and on every ad is one box > vid-text opens the post's box  466ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 26 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx > bug 7 — the link rule is Meta's: http, https and a bare site.com work; nothing else opens > pic-http
+AssertionError: pic-http: a link is drawn ↔ the address is valid: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx:195:85
+    193|     expect(l.sponsored, `${id} prints "Sponsored" ${l.sponsored} times…
+    194|     expect(l.opensOnly, `${id} opens ${JSON.stringify(l.opensOnly)}`).…
+    195|     expect(l.opensOnly.length > 0, `${id}: a link is drawn ↔ the addre…
+       |                                                                                     ^
+    196|     expect(l.cta > 0, `${id}: CTA shown ↔ the address is valid`).toBe(…
+    197|     // A new tab never hands the advertiser this page.
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/26]⎯
+
+ FAIL  src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx > bug 7 — the link rule is Meta's: http, https and a bare site.com work; nothing else opens > vid-http
+AssertionError: vid-http: a link is drawn ↔ the address is valid: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx:195:85
+    193|     expect(l.sponsored, `${id} prints "Sponsored" ${l.sponsored} times…
+    194|     expect(l.opensOnly, `${id} opens ${JSON.stringify(l.opensOnly)}`).…
+    195|     expect(l.opensOnly.length > 0, `${id}: a link is drawn ↔ the addre…
+       |                                                                                     ^
+    196|     expect(l.cta > 0, `${id}: CTA shown ↔ the address is valid`).toBe(…
+    197|     // A new tab never hands the advertiser this page.
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/26]⎯
+
+ FAIL  src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx > bug 7 — the link rule is Meta's: http, https and a bare site.com work; nothing else opens > pic-bare
+AssertionError: pic-bare: a link is drawn ↔ the address is valid: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx:195:85
+    193|     expect(l.sponsored, `${id} prints "Sponsored" ${l.sponsored} times…
+    194|     expect(l.opensOnly, `${id} opens ${JSON.stringify(l.opensOnly)}`).…
+    195|     expect(l.opensOnly.length > 0, `${id}: a link is drawn ↔ the addre…
+       |                                                                                     ^
+    196|     expect(l.cta > 0, `${id}: CTA shown ↔ the address is valid`).toBe(…
+    197|     // A new tab never hands the advertiser this page.
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/26]⎯
+
+ FAIL  src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx > bug 7 — the link rule is Meta's: http, https and a bare site.com work; nothing else opens > vid-bare
+AssertionError: vid-bare: a link is drawn ↔ the address is valid: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx:195:85
+    193|     expect(l.sponsored, `${id} prints "Sponsored" ${l.sponsored} times…
+    194|     expect(l.opensOnly, `${id} opens ${JSON.stringify(l.opensOnly)}`).…
+    195|     expect(l.opensOnly.length > 0, `${id}: a link is drawn ↔ the addre…
+       |                                                                                     ^
+    196|     expect(l.cta > 0, `${id}: CTA shown ↔ the address is valid`).toBe(…
+    197|     // A new tab never hands the advertiser this page.
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/26]⎯
+
+ FAIL  src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx > bug 7 — the link rule is Meta's: http, https and a bare site.com work; nothing else opens > vid-userinfo
+AssertionError: vid-userinfo opens ["https://www.hideaway-resort.com@evil.example/"]: expected [ Array(1) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "https://www.hideaway-resort.com@evil.example/",
++ ]
+
+ ❯ src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx:194:71
+    192|     const l = layoutOf(card);
+    193|     expect(l.sponsored, `${id} prints "Sponsored" ${l.sponsored} times…
+    194|     expect(l.opensOnly, `${id} opens ${JSON.stringify(l.opensOnly)}`).…
+       |                                                                       ^
+    195|     expect(l.opensOnly.length > 0, `${id}: a link is drawn ↔ the addre…
+    196|     expect(l.cta > 0, `${id}: CTA shown ↔ the address is valid`).toBe(…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/26]⎯
+
+ FAIL  src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx > bug 7 — the link rule is Meta's: http, https and a bare site.com work; nothing else opens > vid-zero-width
+AssertionError: vid-zero-width opens ["https://www.hideaway-resort.com/"]: expected [ 'https://www.hideaway-resort.com/' ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "https://www.hideaway-resort.com/",
++ ]
+
+ ❯ src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx:194:71
+    192|     const l = layoutOf(card);
+    193|     expect(l.sponsored, `${id} prints "Sponsored" ${l.sponsored} times…
+    194|     expect(l.opensOnly, `${id} opens ${JSON.stringify(l.opensOnly)}`).…
+       |                                                                       ^
+    195|     expect(l.opensOnly.length > 0, `${id}: a link is drawn ↔ the addre…
+    196|     expect(l.cta > 0, `${id}: CTA shown ↔ the address is valid`).toBe(…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/26]⎯
+
+ FAIL  src/lib/ads/__tests__/adLink.test.ts > adLink > Meta rule: http://hideaway.com opens http://hideaway.com/
+AssertionError: expected null to be 'http://hideaway.com/' // Object.is equality
+
+- Expected: 
+"http://hideaway.com/"
+
++ Received: 
+null
+
+ ❯ src/lib/ads/__tests__/adLink.test.ts:28:67
+     26|     [" https://hideaway.com﻿", "https://hideaway.com/"],
+     27|     ["https://аpple.com", "https://xn--pple-43d.com/"],
+     28|   ])("Meta rule: %s opens %s", (raw, href) => expect(adLink(raw)).toBe…
+       |                                                                   ^
+     29|   it.each([
+     30|     "Hideaway Resort and Hotel", "hideaway", "javascript:alert(1)", "h…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/26]⎯
+
+ FAIL  src/lib/ads/__tests__/adLink.test.ts > adLink > Meta rule: HTTP://Hideaway.com/rooms opens http://hideaway.com/rooms
+AssertionError: expected null to be 'http://hideaway.com/rooms' // Object.is equality
+
+- Expected: 
+"http://hideaway.com/rooms"
+
++ Received: 
+null
+
+ ❯ src/lib/ads/__tests__/adLink.test.ts:28:67
+     26|     [" https://hideaway.com﻿", "https://hideaway.com/"],
+     27|     ["https://аpple.com", "https://xn--pple-43d.com/"],
+     28|   ])("Meta rule: %s opens %s", (raw, href) => expect(adLink(raw)).toBe…
+       |                                                                   ^
+     29|   it.each([
+     30|     "Hideaway Resort and Hotel", "hideaway", "javascript:alert(1)", "h…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/26]⎯
+
+ FAIL  src/lib/ads/__tests__/adLink.test.ts > adLink > Meta rule: hideaway.com opens https://hideaway.com/
+AssertionError: expected null to be 'https://hideaway.com/' // Object.is equality
+
+- Expected: 
+"https://hideaway.com/"
+
++ Received: 
+null
+
+ ❯ src/lib/ads/__tests__/adLink.test.ts:28:67
+     26|     [" https://hideaway.com﻿", "https://hideaway.com/"],
+     27|     ["https://аpple.com", "https://xn--pple-43d.com/"],
+     28|   ])("Meta rule: %s opens %s", (raw, href) => expect(adLink(raw)).toBe…
+       |                                                                   ^
+     29|   it.each([
+     30|     "Hideaway Resort and Hotel", "hideaway", "javascript:alert(1)", "h…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/26]⎯
+
+ FAIL  src/lib/ads/__tests__/adLink.test.ts > adLink > Meta rule: www.hideaway-resort.com opens https://www.hideaway-resort.com/
+AssertionError: expected null to be 'https://www.hideaway-resort.com/' // Object.is equality
+
+- Expected: 
+"https://www.hideaway-resort.com/"
+
++ Received: 
+null
+
+ ❯ src/lib/ads/__tests__/adLink.test.ts:28:67
+     26|     [" https://hideaway.com﻿", "https://hideaway.com/"],
+     27|     ["https://аpple.com", "https://xn--pple-43d.com/"],
+     28|   ])("Meta rule: %s opens %s", (raw, href) => expect(adLink(raw)).toBe…
+       |                                                                   ^
+     29|   it.each([
+     30|     "Hideaway Resort and Hotel", "hideaway", "javascript:alert(1)", "h…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/26]⎯
+
+ FAIL  src/lib/ads/__tests__/adLink.test.ts > adLink > Meta rule: www.hideaway-resort.com/rooms?x=1#top opens https://www.hideaway-resort.com/rooms?x=1#top
+AssertionError: expected null to be 'https://www.hideaway-resort.com/rooms…' // Object.is equality
+
+- Expected: 
+"https://www.hideaway-resort.com/rooms?x=1#top"
+
++ Received: 
+null
+
+ ❯ src/lib/ads/__tests__/adLink.test.ts:28:67
+     26|     [" https://hideaway.com﻿", "https://hideaway.com/"],
+     27|     ["https://аpple.com", "https://xn--pple-43d.com/"],
+     28|   ])("Meta rule: %s opens %s", (raw, href) => expect(adLink(raw)).toBe…
+       |                                                                   ^
+     29|   it.each([
+     30|     "Hideaway Resort and Hotel", "hideaway", "javascript:alert(1)", "h…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/26]⎯
+
+ FAIL  src/lib/ads/__tests__/adLink.test.ts > adLink > Meta rule: hideaway.com:8443/book opens https://hideaway.com:8443/book
+AssertionError: expected null to be 'https://hideaway.com:8443/book' // Object.is equality
+
+- Expected: 
+"https://hideaway.com:8443/book"
+
++ Received: 
+null
+
+ ❯ src/lib/ads/__tests__/adLink.test.ts:28:67
+     26|     [" https://hideaway.com﻿", "https://hideaway.com/"],
+     27|     ["https://аpple.com", "https://xn--pple-43d.com/"],
+     28|   ])("Meta rule: %s opens %s", (raw, href) => expect(adLink(raw)).toBe…
+       |                                                                   ^
+     29|   it.each([
+     30|     "Hideaway Resort and Hotel", "hideaway", "javascript:alert(1)", "h…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/26]⎯
+
+ FAIL  src/lib/ads/__tests__/adLink.test.ts > adLink > refuses https://hideaway.com@evil.com
+AssertionError: expected 'https://hideaway.com@evil.com/' to be null
+
+- Expected: 
+null
+
++ Received: 
+"https://hideaway.com@evil.com/"
+
+ ❯ src/lib/ads/__tests__/adLink.test.ts:41:55
+     39|     // no real host
+     40|     "https://.com", "https://a..com", "https://hideaway.",
+     41|   ])("refuses %s", (v) => expect(adLink(v as string)).toBeNull());
+       |                                                       ^
+     42|   it("the href is built from the parsed URL, never the raw string", ()…
+     43|     expect(adLink('hideaway.com/"><script>')).toBe("https://hideaway.c…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/26]⎯
+
+ FAIL  src/lib/ads/__tests__/adLink.test.ts > adLink > refuses https://user:pw@hideaway.com
+AssertionError: expected 'https://user:pw@hideaway.com/' to be null
+
+- Expected: 
+null
+
++ Received: 
+"https://user:pw@hideaway.com/"
+
+ ❯ src/lib/ads/__tests__/adLink.test.ts:41:55
+     39|     // no real host
+     40|     "https://.com", "https://a..com", "https://hideaway.",
+     41|   ])("refuses %s", (v) => expect(adLink(v as string)).toBeNull());
+       |                                                       ^
+     42|   it("the href is built from the parsed URL, never the raw string", ()…
+     43|     expect(adLink('hideaway.com/"><script>')).toBe("https://hideaway.c…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/26]⎯
+
+ FAIL  src/lib/ads/__tests__/adLink.test.ts > adLink > refuses https://hideaway.com​/
+ FAIL  src/lib/ads/__tests__/adLink.test.ts > adLink > refuses https://hide
+away.com
+AssertionError: expected 'https://hideaway.com/' to be null
+
+- Expected: 
+null
+
++ Received: 
+"https://hideaway.com/"
+
+ ❯ src/lib/ads/__tests__/adLink.test.ts:41:55
+     39|     // no real host
+     40|     "https://.com", "https://a..com", "https://hideaway.",
+     41|   ])("refuses %s", (v) => expect(adLink(v as string)).toBeNull());
+       |                                                       ^
+     42|   it("the href is built from the parsed URL, never the raw string", ()…
+     43|     expect(adLink('hideaway.com/"><script>')).toBe("https://hideaway.c…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/26]⎯
+
+ FAIL  src/lib/ads/__tests__/adLink.test.ts > adLink > refuses https://hideaway.com/	path
+AssertionError: expected 'https://hideaway.com/path' to be null
+
+- Expected: 
+null
+
++ Received: 
+"https://hideaway.com/path"
+
+ ❯ src/lib/ads/__tests__/adLink.test.ts:41:55
+     39|     // no real host
+     40|     "https://.com", "https://a..com", "https://hideaway.",
+     41|   ])("refuses %s", (v) => expect(adLink(v as string)).toBeNull());
+       |                                                       ^
+     42|   it("the href is built from the parsed URL, never the raw string", ()…
+     43|     expect(adLink('hideaway.com/"><script>')).toBe("https://hideaway.c…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/26]⎯
+
+ FAIL  src/lib/ads/__tests__/adLink.test.ts > adLink > refuses https://a..com
+AssertionError: expected 'https://a..com/' to be null
+
+- Expected: 
+null
+
++ Received: 
+"https://a..com/"
+
+ ❯ src/lib/ads/__tests__/adLink.test.ts:41:55
+     39|     // no real host
+     40|     "https://.com", "https://a..com", "https://hideaway.",
+     41|   ])("refuses %s", (v) => expect(adLink(v as string)).toBeNull());
+       |                                                       ^
+     42|   it("the href is built from the parsed URL, never the raw string", ()…
+     43|     expect(adLink('hideaway.com/"><script>')).toBe("https://hideaway.c…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/26]⎯
+
+ FAIL  src/lib/ads/__tests__/adLink.test.ts > adLink > the href is built from the parsed URL, never the raw string
+AssertionError: expected null to be 'https://hideaway.com/%22%3E%3Cscript%…' // Object.is equality
+
+- Expected: 
+"https://hideaway.com/%22%3E%3Cscript%3E"
+
++ Received: 
+null
+
+ ❯ src/lib/ads/__tests__/adLink.test.ts:43:47
+     41|   ])("refuses %s", (v) => expect(adLink(v as string)).toBeNull());
+     42|   it("the href is built from the parsed URL, never the raw string", ()…
+     43|     expect(adLink('hideaway.com/"><script>')).toBe("https://hideaway.c…
+       |                                               ^
+     44|   });
+     45|   it("the admin box: empty or valid saves, anything else says why", ()…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/26]⎯
+
+ FAIL  src/lib/ads/__tests__/adLink.test.ts > adLink > the admin box: empty or valid saves, anything else says why
+AssertionError: expected 'Enter a full web address starting wit…' to be null
+
+- Expected: 
+null
+
++ Received: 
+"Enter a full web address starting with https:// — for example https://www.hideaway-resort.com. Leave it empty for no link."
+
+ ❯ src/lib/ads/__tests__/adLink.test.ts:48:50
+     46|     expect(adLinkProblem("")).toBeNull();
+     47|     expect(adLinkProblem("https://hideaway.com")).toBeNull();
+     48|     expect(adLinkProblem("http://hideaway.com")).toBeNull();
+       |                                                  ^
+     49|     expect(adLinkProblem("www.hideaway.com")).toBeNull();
+     50|     expect(adLinkProblem("Hideaway Resort and Hotel")).toBe(AD_LINK_ME…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/26]⎯
+
+ FAIL  src/lib/ads/__tests__/adLink.test.ts > adLink > the admin saves the parsed address: a bare site.com is stored as https://site.com/
+TypeError: (0 , adLinkToSave) is not a function
+ ❯ src/lib/ads/__tests__/adLink.test.ts:55:12
+     53|   });
+     54|   it("the admin saves the parsed address: a bare site.com is stored as…
+     55|     expect(adLinkToSave("  www.hideaway.com ")).toBe("https://www.hide…
+       |            ^
+     56|     expect(adLinkToSave("http://hideaway.com")).toBe("http://hideaway.…
+     57|     expect(adLinkToSave("   ")).toBe("");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/26]⎯
+
+ FAIL  src/lib/ads/__tests__/adLink.test.ts > adLink > an ad saved with a bad link is told so, in the Owner's words
+AssertionError: expected undefined to be 'This ad has no valid website, so no b…' // Object.is equality
+
+- Expected: 
+"This ad has no valid website, so no button shows — add a link"
+
++ Received: 
+undefined
+
+ ❯ src/lib/ads/__tests__/adLink.test.ts:60:36
+     58|   });
+     59|   it("an ad saved with a bad link is told so, in the Owner's words", (…
+     60|     expect(AD_LINK_STORED_WARNING).toBe("This ad has no valid website,…
+       |                                    ^
+     61|   });
+     62| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/26]⎯
+
+ FAIL  src/components/admin/ads/__tests__/AdLinkInput.test.tsx > AdLinkInput > an existing ad saved with plain text shows the warning on its row
+TestingLibraryElementError: Unable to find an element with the text: This ad has no valid website, so no button shows — add a link. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div>
+      <input
+        aria-invalid="true"
+        inputmode="url"
+        placeholder="Website to open when clicked (optional)"
+        value="Hideaway Resort and Hotel"
+      />
+      <p
+        class="mt-1 text-xs text-destructive"
+        data-testid="ad-link-problem"
+        role="alert"
+      >
+        Enter a full web address starting with https:// — for example https://www.hideaway-resort.com. Leave it empty for no link.
+      </p>
+    </div>
+  </div>
+</body>
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ getByText node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/admin/ads/__tests__/AdLinkInput.test.tsx:21:19
+     19|   it("an existing ad saved with plain text shows the warning on its ro…
+     20|     render(<AdLinkInput value="Hideaway Resort and Hotel" onSave={() =…
+     21|     expect(screen.getByText(WARNING)).toBeTruthy();
+       |                   ^
+     22|   });
+     23| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/26]⎯
+
+ FAIL  src/components/admin/ads/__tests__/AdLinkInput.test.tsx > AdLinkInput > accepts www.hideaway.com and saves https://www.hideaway.com/
+ FAIL  src/components/admin/ads/__tests__/AdLinkInput.test.tsx > AdLinkInput > accepts hideaway.com and saves https://hideaway.com/
+ FAIL  src/components/admin/ads/__tests__/AdLinkInput.test.tsx > AdLinkInput > accepts http://hideaway.com and saves http://hideaway.com/
+AssertionError: expected <p role="alert" …(2)></p> to be null
+
+- Expected: 
+null
+
++ Received: 
+<p
+  class="mt-1 text-xs text-destructive"
+  data-testid="ad-link-problem"
+  role="alert"
+>
+  Enter a full web address starting with https:// — for example https://www.hideaway-resort.com. Leave it empty for no link.
+</p>
+
+ ❯ src/components/admin/ads/__tests__/AdLinkInput.test.tsx:39:41
+     37|     render(<AdLinkInput value="" onSave={onSave} />);
+     38|     fireEvent.change(box(), { target: { value: typed } });
+     39|     expect(screen.queryByRole("alert")).toBeNull();
+       |                                         ^
+     40|     fireEvent.blur(box());
+     41|     expect(onSave).toHaveBeenCalledWith(saved);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/26]⎯
+
+
+ Test Files  3 failed (3)
+      Tests  26 failed | 42 passed (68)
+   Start at  08:14:38
+   Duration  9.28s (transform 1.05s, setup 720ms, collect 4.68s, tests 2.77s, environment 3.94s, prepare 800ms)
+
+
+# AFTER = fixed source
+
+ RUN  v3.2.4 D:/50mm Retina World/work/D21
+
+ ✓ src/lib/ads/__tests__/adLink.test.ts (44 tests) 22ms
+ ✓ src/components/admin/ads/__tests__/AdLinkInput.test.tsx (7 tests) 163ms
+stderr | src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx > bug 7 — every ad card looks alike and says Sponsored once > pic-link: one Sponsored; links only to https; CTA only with one
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/components/ads/__tests__/OneAdLayoutUiCheck.test.tsx (17 tests) 1400ms
+   ✓ bug 7 — the comments box on a post and on every ad is one box > pic-link opens the post's box  329ms
+
+ Test Files  3 passed (3)
+      Tests  68 passed (68)
+   Start at  08:15:00
+   Duration  5.45s (transform 747ms, setup 608ms, collect 2.58s, tests 1.58s, environment 3.47s, prepare 584ms)
+
