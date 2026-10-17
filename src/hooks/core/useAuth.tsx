@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
 import { resetDashboardBootstrap } from "@/hooks/core/useDashboardInit";
 import { clearFeedCache } from "@/lib/feedCache";
+import { clearCommentThreadCaches } from "@/lib/comments/threadCache";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { getStoredReferralCode, clearStoredReferralCode } from "@/hooks/notifications/useReferral";
@@ -534,6 +535,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (user) logAuthEvent(user.id, "logout");
     resetDashboardBootstrap();
     clearFeedCache();
+    clearCommentThreadCaches();
     // Stop this device receiving the departing user's pushes (matters on a
     // shared phone). No-op on web; never allowed to block sign-out.
     try {

@@ -14,6 +14,8 @@
  *   3. the OFF-1 device store (IndexedDB `retina-offline`);
  *   4. the feed's first-page cache (localStorage `feed_cache_v1`), and the
  *      feed's in-memory session (lib/feedSessions: seed + exclude lists);
+ *      and every comment thread drawn this session (lib/comments/threadCache:
+ *      post AND ad threads), so the next viewer is never shown them;
  *   6. VID-1 video upload jobs + their encoded files (IndexedDB
  *      `retina-video-uploads`): an unposted video is the member's alone;
  *   5. the OFF-2 outbox (IndexedDB `retina-outbox`): unsent actions belong to
@@ -28,6 +30,7 @@ import { clearDeviceStore } from "./deviceStore";
 import { setPersistenceUser } from "./queryPersistence";
 import { clearFeedCache } from "@/lib/feedCache";
 import { clearFeedSessions } from "@/lib/feedSessions";
+import { clearCommentThreadCaches } from "@/lib/comments/threadCache";
 import { clearOutbox } from "./outbox";
 import { clearVideoUploads } from "@/lib/video/uploadJobs";
 
@@ -46,6 +49,9 @@ export async function wipeMemberDataOnSignOut(): Promise<WipeResult> {
   // L1 · B1: the feed's session (seed, exclude lists) outlives the feed screen
   // so Back can keep the deal on screen — it must not outlive the member.
   clearFeedSessions();
+  // Review of #435: the comment threads this member opened (post and ad) are
+  // in memory too, and a sign-out does not reload the page.
+  clearCommentThreadCaches();
   const [imageCaches, deviceStore, outbox, videoUploads] = await Promise.all([
     purgeImageCache().catch(() => null),
     clearDeviceStore().catch(() => false),
