@@ -5,7 +5,7 @@ a Node 22 worker on the free Oracle Always Free VM (Ubuntu 24.04 aarch64) that c
 member's uploaded original, converts it with FFmpeg into the same HLS package the browser
 makes, and sends it through the same gates (`upload-urls` → `complete` → `finish`).
 
-**This folder is reviewed in a pull request first. Nothing here has been run on the VM.**
+**This folder is reviewed in a pull request first.** The VM runs two lanes, staging and live — see [Two lanes on one VM](#two-lanes-on-one-vm-staging-and-live-s7).
 
 ## What runs where
 
@@ -37,7 +37,8 @@ is `ffjob-run`'s `timeout` (RuntimeMaxSec has no effect on `Type=oneshot`), capp
 | File | Installed at |
 |---|---|
 | `setup.sh` | run once (idempotent) |
-| `sandbox-check.sh` | run after setup: proves the sandbox on this machine |
+| `sandbox-check.sh` | run after setup: proves the sandbox on this machine (`--lane live` for the live lane; both lanes against each other) |
+| `lane-lib.sh` | the two lanes' names; renders the live lane's units from the staging files |
 | `ffmpeg.pin` | the ONE FFmpeg build: release tag, exact URL and sha256 per architecture (x86_64 + aarch64), source commits → `/opt/converter/ffmpeg.pin` |
 | `ffmpeg-lib.sh`, `update-ffmpeg.sh` | install / update that build → `/opt/converter/ffmpeg/<version>-<arch>/` (`bin/`, `LICENSE.txt`, `SOURCE`), `current` + `previous` links |
 | `converter.service` | `/etc/systemd/system/` (`@NODE_BIN@` filled in) |
@@ -46,6 +47,7 @@ is `ffjob-run`'s `timeout` (RuntimeMaxSec has no effect on `Type=oneshot`), capp
 | `ffjob-run` | `/usr/local/lib/converter/ffjob-run` (root, 0755) |
 | `50-converter-ff.rules` | `/etc/polkit-1/rules.d/` |
 | `converter.env.example` | `/etc/converter/converter.env` (root:converter 0640) — no secrets |
+| `converter-live.env.example` | `/etc/converter/converter-live.env` (root:converter-live 0640) — no secrets |
 
 ## Deploy (after the PR is reviewed)
 
@@ -103,6 +105,78 @@ If a presigned URL ever names another host or bucket than `CONVERTER_R2_HOST` /
 keeps systemd from restarting it: either the env file is wrong or the lane is handing out
 unexpected URLs, and a person must look (`journalctl -u converter.service | grep ALERT`) before
 `sudo systemctl start converter.service`.
+
+## Two lanes on one VM: staging and live (S7)
+
+The VM runs **two converter instances side by side**, one per lane. Lane separation is a
+security control: neither lane's worker, nor any FFmpeg run of either lane, can read the other
+lane's credentials, claim state or members' job files, or start/stop the other lane's runs.
+`lane-lib.sh` holds the names; the repository's unit files ARE the staging lane, and
+`setup.sh --lane live` renders the live lane's from them (a fixed list of substitutions, tested
+by `converter/test/lane.test.ts`).
+
+| | staging (default) | live (`--lane live`) |
+|---|---|---|
+| worker user / FFmpeg user / job group | `converter` / `ffjob` / `convjob` | `converter-live` / `ffjob-live` / `convjob-live` |
+| secrets, state (0700, the worker's) | `/var/lib/converter/{secrets,state}` | `/var/lib/converter-live/{secrets,state}` |
+| job space (own ext4 image, `loop,nodev,nosuid,noexec`) | `/var/lib/converter/jobs` (`var-lib-converter-jobs.mount`) | `/var/lib/converter-live/jobs` (`var-lib-converter\x2dlive-jobs.mount`) |
+| worker unit / sandbox template | `converter.service` / `converter-ff@.service` | `converter-live.service` / `converter-live-ff@.service` |
+| env file (root:\<worker\> 0640, no secrets) | `/etc/converter/converter.env` | `/etc/converter/converter-live.env` |
+| worker bundle | `/opt/converter/worker.mjs` | `/opt/converter-live/worker.mjs` |
+| API / Supabase / bucket | staging.50mmretina.com / staging ref / `50mm-staging-video` | www.50mmretina.com / `jtdtehuqtinjxropkkcn` / `50mm-video` |
+
+Shared, root-owned, read-only to both: the pinned FFmpeg (`/opt/converter/ffmpeg/current`),
+`ffjob-run`, the polkit rule, Node. **What each lane can read:**
+
+- **A worker** reads its own credentials, writes its own state and job space. The other lane's
+  directories are 0700 / 2750 to another user and group (file modes), AND its unit has
+  `InaccessiblePaths=-<other lane's base>` (staging hides `/var/lib/converter-live`, live hides
+  `/var/lib/converter`), so they are invisible even if a mode is ever wrong.
+- **An FFmpeg run** (`ffjob` / `ffjob-live`) writes only its own job directory; both lanes'
+  secrets and state, `/etc/converter` and the other lane altogether are `InaccessiblePaths`.
+- **polkit**: `converter` may start/stop only `converter-ff@<uuid>.service`, `converter-live` only
+  `converter-live-ff@<uuid>.service` — never the other lane's (a stolen staging worker cannot
+  stop, start or race a live member's run). Each lane's job space is its own mount because the
+  worker sweeps its whole jobs root at start-up and stops every stray run of its own prefix: a
+  shared one would let one lane wipe the other's jobs.
+- `sandbox-check.sh --lane <lane> --selftest` proves all of it on the machine, with positive
+  controls (the other lane's probe files are made readable by mode for a moment; outside the
+  sandbox they CAN be read, inside they cannot).
+
+Resources: each lane's FFmpeg run keeps its own caps (12 GB, 3.5 CPU); two runs at once can
+exceed the VM's 24 GB, so the staging runs carry the higher `OOMScoreAdjust` (500 vs live's 300):
+under memory pressure the kernel ends a staging run first (it is requeued).
+`update-ffmpeg.sh` stops both workers for the swap and self-tests the new build through BOTH
+lanes' sandboxes before keeping it.
+
+### Installing the live lane (after the PR is merged; staging must already be installed)
+
+Needs ~4 GB free disk for the live job space (`df -h /var/lib`). From the copied `deploy/` folder
+(with this PR's `worker.mjs` beside it, as in "Deploy" above):
+
+```
+cd ~/converter-deploy/deploy
+# 1. staging first: the new polkit rule, ffjob-run and staging units (the live lane hidden from it)
+sudo bash setup.sh --worker ../worker.mjs
+# 2. the live lane: users, dirs, its own 4 GB job space, units, env file from the example
+sudo bash setup.sh --lane live --worker ../worker.mjs
+# 3. fill in the live env file's two REPLACE values (the live anon key, the R2 account host)
+sudoedit /etc/converter/converter-live.env
+# 4. prove both lanes, each against the other (both workers stopped while their --selftest runs)
+sudo systemctl stop converter.service
+sudo bash sandbox-check.sh --selftest
+sudo bash sandbox-check.sh --lane live --selftest
+sudo systemctl start converter.service
+# 5. the Owner-run credentials step for the live account (video-converter@50mmretina.com,
+#    registered on production by migration 20261013_0007) writes
+#    /var/lib/converter-live/secrets/credentials.json  converter-live:converter-live 0600
+# 6. start the live worker
+sudo systemctl enable --now converter-live.service
+journalctl -u converter-live.service -f
+```
+
+Re-running `setup.sh` (either lane) changes nothing; it prints `unchanged:` for every file.
+Updating the live worker: `sudo bash setup.sh --lane live --worker ../worker.mjs && sudo systemctl restart converter-live.service`.
 
 ## FFmpeg: pinned, and how it is kept up to date
 
