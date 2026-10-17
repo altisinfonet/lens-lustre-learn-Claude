@@ -11,7 +11,7 @@
  * learns nothing) · the source is past waiting for its upload (409).
  */
 import {
-  HttpError, amzDateOf, asMember, handleError, json, member, needEnv, presign, readJson, requirePrivateDelivery, sourceKey, UUID_RE,
+  HttpError, amzDateOf, asMember, handleError, withCors, json, member, needEnv, presign, readJson, requirePrivateDelivery, sourceKey, UUID_RE,
   type VideoEnv,
 } from "./_lib";
 
@@ -29,7 +29,12 @@ export async function loadOwnSource(env: VideoEnv, who: { uid: string; jwt: stri
   return s;
 }
 
-export async function handleSourceUrl(request: Request, env: VideoEnv, now: Date = new Date(), fetchImpl: typeof fetch = fetch): Promise<Response> {
+/** The route, with CORS for the native app (functions/_cors.ts): OPTIONS 204, every answer carries the headers. */
+export function handleSourceUrl(request: Request, env: VideoEnv, now: Date = new Date(), fetchImpl: typeof fetch = fetch): Promise<Response> {
+  return withCors(request, env, () => sourceUrl(request, env, now, fetchImpl));
+}
+
+async function sourceUrl(request: Request, env: VideoEnv, now: Date, fetchImpl: typeof fetch): Promise<Response> {
   try {
     if (request.method !== "POST") throw new HttpError(405, "VID-REQ-000", "POST only");
     requirePrivateDelivery(env);

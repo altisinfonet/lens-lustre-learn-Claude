@@ -50,6 +50,7 @@ import { isNetworkError } from "@/lib/offline/retryPolicy";
 /** Postgres says "try again", not "no": statement/lock timeout, serialisation, deadlock. */
 const RETRYABLE_DB_CODES = new Set(["57014", "55P03", "40001", "40P01"]);
 import { safeRandomUUID } from "@/lib/safeUuid";
+import { SITE_API, type SiteApiPath } from "@/lib/net/siteApi";
 import { renditionBytes, totalBytes, uploadOrder, type VideoManifest, type VideoPurpose } from "./shared/rules";
 
 export const VIDEO_DB = "retina-video-uploads";
@@ -171,7 +172,7 @@ export interface JobDeps {
   /** VID-5 · put a ready ad video on its creative (ad_videos, admin + video_ads only — RLS + link guard). */
   linkAdVideo(creativeId: string, videoId: string, categories: string[]): Promise<{ error: { message: string; code?: string } | null }>;
   /** POST to /api/video/* with the member's JWT */
-  api(path: string, body: unknown): Promise<{ status: number; body: Record<string, unknown> }>;
+  api(path: SiteApiPath, body: unknown): Promise<{ status: number; body: Record<string, unknown> }>;
   /** the PUT itself */
   put(url: string, headers: Record<string, string>, data: Blob): Promise<number>;
   /** Server conversion: the original's PUT, with upload progress; the signal stops it (Cancel). */
@@ -289,7 +290,7 @@ export async function advanceJob(job: VideoJob, d: JobDeps, opts: { beginOnly?: 
     }
     if (j.step === "begun") {
       for (let round = 0; round < 3; round++) {
-        const urls = await d.api("/api/video/upload-urls", { video_id: j.videoId, version_no: j.versionNo, manifest: j.manifest });
+        const urls = await d.api(SITE_API.videoUploadUrls, { video_id: j.videoId, version_no: j.versionNo, manifest: j.manifest });
         if (urls.status >= 400) {
           if (urls.status >= 500 || urls.status === 408 || urls.status === 429) throw new Error(`upload-urls ${urls.status}`);
           throw new Refused(String(urls.body.message ?? `upload-urls refused (${urls.status})`), String(urls.body.error ?? ""));
@@ -311,7 +312,7 @@ export async function advanceJob(job: VideoJob, d: JobDeps, opts: { beginOnly?: 
           j = { ...j, uploaded: [...done] };
           await commit(j);
         }
-        let c = await d.api("/api/video/complete", { video_id: j.videoId, version_no: j.versionNo });
+        let c = await d.api(SITE_API.videoComplete, { video_id: j.videoId, version_no: j.versionNo });
         // A long video is finished in rounds (Cloudflare's per-request limit): 202 = "more
         // to copy" — ask again at once; each round only moves forward, nothing is redone.
         for (let more = 0; c.status === 202 && more < 1000; more++) {
@@ -321,7 +322,7 @@ export async function advanceJob(job: VideoJob, d: JobDeps, opts: { beginOnly?: 
           j = { ...j, serverProgress: { copied, total: Number(c.body.total) || 0 } };
           await commit(j);
           if (!d.online()) return j;
-          c = await d.api("/api/video/complete", { video_id: j.videoId, version_no: j.versionNo });
+          c = await d.api(SITE_API.videoComplete, { video_id: j.videoId, version_no: j.versionNo });
         }
         if (c.status === 202) throw new Error("complete: 1000 rounds");
         if (c.status === 200) {
@@ -565,7 +566,7 @@ async function uploadSource(job: VideoJob, d: JobDeps, commit: Commit): Promise<
   let j = job;
   const sourceId = j.source!.id!;
   for (let round = 0; round < 3; round++) {
-    const u = await d.api("/api/video/source-url", { source_id: sourceId });
+    const u = await d.api(SITE_API.videoSourceUrl, { source_id: sourceId });
     // Already past its upload (an answer lost after complete): the poll reads where it is.
     if (u.status === 409 && u.body.error === "VID-SRC-008") {
       j = { ...j, step: "converting" };
@@ -603,7 +604,7 @@ async function uploadSource(job: VideoJob, d: JobDeps, commit: Commit): Promise<
     if (status === 403) { clearProgress(j.id); continue; } // the hour ran out or was refused: a fresh URL
     if (status < 200 || status >= 300) throw new Error(`PUT source ${status}`);
     report(total);
-    const c = await d.api("/api/video/source-complete", { source_id: sourceId });
+    const c = await d.api(SITE_API.videoSourceComplete, { source_id: sourceId });
     if (c.status === 200) {
       clearProgress(j.id);
       // The device's copy goes FIRST: closed between the two, the job retries,
@@ -701,7 +702,7 @@ const SOURCE_OVER: ReadonlySet<string> = new Set(["VID-SRC-FAILED", "VID-SRC-CAN
  */
 async function cancelSource(sourceId: string, d: JobDeps): Promise<string | null> {
   try {
-    const r = await d.api("/api/video/source-cancel", { source_id: sourceId });
+    const r = await d.api(SITE_API.videoSourceCancel, { source_id: sourceId });
     if (r.status === 200) return String(r.body.status ?? "cancelled");
     if (r.status === 404) return "gone";
   } catch { /* the link dropped: the RPC is asked next */ }

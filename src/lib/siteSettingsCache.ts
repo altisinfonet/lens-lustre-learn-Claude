@@ -43,6 +43,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 import { logger } from "@/lib/logger";
+import { SITE_API, siteFetch } from "@/lib/net/siteApi";
 
 const FILE = "src/lib/siteSettingsCache.ts";
 
@@ -85,8 +86,9 @@ function enqueue(keys: string[]): Promise<void> {
 
 /* ── The edge read ────────────────────────────────────────────────────────── */
 
-/** Where the Pages Function lives. Same origin: no CORS, no key in the client. */
-const EDGE_PATH = "/config/site-settings";
+/** Where the Pages Function lives. Relative on the web; the lane's site origin
+ *  inside the native app (siteFetch), which the Function answers with CORS. */
+const EDGE_PATH = SITE_API.siteSettings;
 
 /** The content-addressed version the edge last gave us, for diagnostics and so
  *  a caller can tell "unchanged" from "never loaded". */
@@ -124,7 +126,7 @@ async function loadFromEdge(): Promise<boolean> {
   if (import.meta.env.DEV) return false;
   if (edgeUnavailable || typeof fetch !== "function") return false;
   try {
-    const r = await fetch(EDGE_PATH, { headers: { accept: "application/json" } });
+    const r = await siteFetch(EDGE_PATH, { headers: { accept: "application/json" } });
     if (r.status === 404 || r.status === 405) {
       edgeUnavailable = true;
       return false;

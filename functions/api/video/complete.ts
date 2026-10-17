@@ -50,7 +50,7 @@ import {
 import { playlistUris } from "../../../src/lib/video/shared/playlist";
 import { judgeUploadContent } from "../../../src/lib/video/shared/judge";
 import {
-  HttpError, requirePrivateDelivery, asMember, handleError, json, loadConverterVersion, loadUploadingVersion, member, needEnv, readJson,
+  HttpError, requirePrivateDelivery, asMember, handleError, withCors, json, loadConverterVersion, loadUploadingVersion, member, needEnv, readJson,
   type VideoEnv,
 } from "./_lib";
 import { ATTEST_DB_CODES, attestMessage, checkAttestEnv, signAttest, type AttestEnv } from "./attest";
@@ -65,9 +65,17 @@ export const COMPLETE_TIME_BUDGET_MS = 20_000;
 const COPY_PARALLEL = 6;
 const isSmall = (name: string) => name.endsWith(".m3u8") || name.endsWith(".mp4") || name === "poster.jpg";
 
-export async function handleComplete(
+/** The route, with CORS for the native app (functions/_cors.ts): OPTIONS 204, every answer carries the headers. */
+export function handleComplete(
   request: Request, env: VideoEnv & AttestEnv, fetchImpl: typeof fetch = fetch, nowMs: () => number = Date.now,
   budget: { calls: number; ms: number } = { calls: COMPLETE_CALL_BUDGET, ms: COMPLETE_TIME_BUDGET_MS },
+): Promise<Response> {
+  return withCors(request, env, () => complete(request, env, fetchImpl, nowMs, budget));
+}
+
+async function complete(
+  request: Request, env: VideoEnv & AttestEnv, fetchImpl: typeof fetch, nowMs: () => number,
+  budget: { calls: number; ms: number },
 ): Promise<Response> {
   try {
     if (request.method !== "POST") throw new HttpError(405, "VID-REQ-000", "POST only");

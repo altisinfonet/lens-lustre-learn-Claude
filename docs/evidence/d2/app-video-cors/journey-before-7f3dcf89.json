@@ -1,0 +1,32 @@
+{
+  "journey": "app-video-cors",
+  "at": "2026-10-17T17:02:44.806Z",
+  "pass": false,
+  "checks": {
+    "A_play_token_preflight_204": false,
+    "A_play_token_post_200_with_acao": false,
+    "B_hls_asked_cdn_for_granted_master": false,
+    "B_video_has_source_without_tap": false,
+    "C_site_settings_reached_api_with_acao": false,
+    "C_page_shows_edge_value": false,
+    "D_nothing_asked_of_localhost_api": false
+  },
+  "netFails": [
+    "console: Access to fetch at 'https://testprojectref0000x.supabase.co/rest/v1/site_settings?select=key%2Cvalue&key=in.%28journey_marker%29' from origin 'https://localhost' has been blocked by CORS policy: Respo",
+    "GET https://testprojectref0000x.supabase.co/rest/v1/site_settings?select=key%2Cvalue&key=in.%28journey_marker%29 net::ERR_FAILED",
+    "console: Failed to load resource: net::ERR_FAILED"
+  ],
+  "apiLog": [],
+  "cdnAsks": [],
+  "localAsks": [
+    "/tools/uishot/app-video-cors/appvideoharness.html",
+    "/config/site-settings",
+    "/api/video/play-token"
+  ],
+  "state": {
+    "setting": "setting:null",
+    "videoSrc": null,
+    "videoMuted": true,
+    "cantPlay": true
+  }
+}
