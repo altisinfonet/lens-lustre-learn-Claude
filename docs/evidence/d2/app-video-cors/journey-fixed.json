@@ -1,6 +1,6 @@
 {
   "journey": "app-video-cors",
-  "at": "2026-10-17T17:05:20.588Z",
+  "at": "2026-10-17T17:20:38.970Z",
   "pass": true,
   "checks": {
     "A_play_token_preflight_204": true,

@@ -14,6 +14,7 @@
 import { createRoot } from "react-dom/client";
 import FeedVideoCard from "@/components/video/FeedVideoCard";
 import { getSiteSetting } from "@/lib/siteSettingsCache";
+import { postMedia } from "@/lib/posts/subjectMedia";
 import "../../index.css";
 
 // The bridge Capacitor injects before any app code runs (deliberately minimal,
@@ -25,12 +26,14 @@ import "../../index.css";
 };
 
 const VIDEO = { id: "33333333-3333-4333-8333-333333333333", width: 720, height: 1280, durationS: 5, hasAudio: false };
+/** The same path every real surface takes (sameMediaEverywhere.test.ts). */
+const media = postMedia({ video: VIDEO, image_urls: [], image_url: null });
 
 function Page() {
   return (
     <main style={{ maxWidth: 420, margin: "0 auto", padding: 16 }}>
       <p data-testid="site-setting">loading</p>
-      <FeedVideoCard video={VIDEO} />
+      {media.video && <FeedVideoCard video={media.video} />}
     </main>
   );
 }
