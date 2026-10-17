@@ -20,42 +20,47 @@ const CookieConsentBanner = () => {
             <div className="max-w-2xl lg:max-w-md mx-auto lg:mx-0 rounded-2xl border border-border/60 bg-card/95 backdrop-blur-xl shadow-[0_-8px_40px_-12px_hsl(var(--primary)/0.15)] overflow-hidden pointer-events-auto">
               <div className="h-1 bg-gradient-to-r from-primary via-primary/60 to-transparent" />
 
-              <div className="p-5 md:p-6">
+              <div className="p-4 sm:p-5 md:p-6">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-primary/10">
                     <Cookie className="w-[18px] h-[18px] text-primary" />
                   </div>
                   <h3 className="text-sm font-semibold tracking-tight text-foreground">
-                    We Value Your Privacy
+                    Your privacy
                   </h3>
                 </div>
 
-                <p className="text-[13px] leading-relaxed text-muted-foreground mb-5">
-                  We use cookies to enhance your experience, analyze traffic, and personalize content.{" "}
+                <p className="text-[13px] leading-relaxed text-muted-foreground mb-4 sm:mb-5">
+                  We use essential cookies to keep you signed in. With your permission, we also use
+                  Google Analytics to understand how the app is used and improve it. We do not track
+                  you across other apps or websites, and we do not use your data for advertising.{" "}
                   <a href="/cookie-policy" className="text-primary hover:underline font-medium">
                     Learn more
                   </a>
                 </p>
 
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                {/* On a phone: "Allow analytics" full width, the other two side by side
+                    underneath, so the longer privacy text does not make the banner
+                    taller than the bottom dock has room for (ui:gate, 360 × 800). */}
+                <div className="grid grid-cols-2 gap-2.5 sm:flex sm:flex-row sm:items-center">
                   <button
                     onClick={acceptAll}
-                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:brightness-110 active:scale-[0.98] transition-all duration-150"
+                    className="col-span-2 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:brightness-110 active:scale-[0.98] transition-all duration-150"
                   >
                     <Shield className="w-3.5 h-3.5" />
-                    Accept All
+                    Allow analytics
                   </button>
 
                   <button
                     onClick={rejectNonEssential}
-                    className="flex-1 sm:flex-none inline-flex items-center justify-center px-5 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm font-medium hover:bg-muted/30 active:scale-[0.98] transition-all duration-150"
+                    className="sm:flex-none inline-flex items-center justify-center px-3 sm:px-5 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm font-medium hover:bg-muted/30 active:scale-[0.98] transition-all duration-150"
                   >
-                    Essential Only
+                    Essential only
                   </button>
 
                   <button
                     onClick={() => setShowPreferences(true)}
-                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 active:scale-[0.98] transition-all duration-150"
+                    className="sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 sm:px-5 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 active:scale-[0.98] transition-all duration-150"
                   >
                     Manage
                     <ChevronRight className="w-3.5 h-3.5" />
