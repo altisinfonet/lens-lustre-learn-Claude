@@ -9,7 +9,7 @@
  * admin, refuses copyright_music_check On without the music-API key, writes one
  * audit row); a page that hides a control is never the enforcement.
  */
-export type FeatureKey = "video_posts" | "video_ads" | "copyright_music_check";
+export type FeatureKey = "video_posts" | "video_ads" | "copyright_music_check" | "personal_feed";
 export type FeatureMode = "off" | "selected" | "everyone";
 
 export const FEATURE_MODES: ReadonlyArray<{ mode: FeatureMode; label: string }> = [
@@ -24,6 +24,10 @@ export const FEATURE_INFO: Record<FeatureKey, { title: string; blurb: string }> 
   copyright_music_check: {
     title: "Copyright music check",
     blurb: "Checks the sound of every video before it can be posted. Cannot be switched on until the music-API key is set.",
+  },
+  personal_feed: {
+    title: "Personal feed",
+    blurb: "Who gets the new personal feed: friends and follows first, then posts matched to their interests and fair-share posts from less-seen photographers, with \"You're all caught up\". Everyone else keeps today's feed.",
   },
 };
 
@@ -47,7 +51,7 @@ export interface FeatureState {
   history: FeatureHistoryRow[];
 }
 
-const FEATURES = new Set<string>(["video_posts", "video_ads", "copyright_music_check"]);
+const FEATURES = new Set<string>(["video_posts", "video_ads", "copyright_music_check", "personal_feed"]);
 const MODES = new Set<string>(["off", "selected", "everyone"]);
 
 /** feature_admin_state() → cards. Unknown features / modes are dropped, never guessed. */

@@ -10,6 +10,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import type { ReactionType } from "@/components/ReactionPicker";
 
 import { logger } from "@/lib/logger";
+import { fetchFeatureAllowed } from "@/hooks/core/useFeatureAllowed";
 
 const FILE = "src/hooks/feed/useFeedQuery.ts";
 
@@ -17,7 +18,16 @@ const PAGE_SIZE = 10;
 
 import type { UnifiedPost, TaggedPerson } from "@/types/post";
 
-export type FeedPost = UnifiedPost & { is_suggested: boolean };
+/** S12-F3: which part of the personal mix a post came from. */
+export type FeedSource = "circle" | "suggested" | "fair";
+
+export type FeedPost = UnifiedPost & {
+  is_suggested: boolean;
+  /** S12-F3 (personal feed only): the mix source. */
+  feed_source?: FeedSource;
+  /** S12-F3 (personal feed only): "You're all caught up" goes after this post. */
+  caught_up_after?: boolean;
+};
 
 /* ── Helpers ── */
 
@@ -108,6 +118,46 @@ interface BroadcastPage {
   rows: any[];
   /** Served by the DB-3004 chronological fallback, not the feed RPC: show it as stale. */
   degraded: boolean;
+  /** S12-F3: served by get_personal_feed (server order and variety are final). */
+  personal?: boolean;
+}
+
+/**
+ * S12-F3 · the personal feed (20261018_0003), for a member whose
+ * `personal_feed` switch is on. Same arguments as the session overload of
+ * get_broadcast_feed — the viewer is the JWT's, never an argument. Any error
+ * (a lane without the function, a timeout) returns null and the caller serves
+ * that page from get_broadcast_feed exactly as for everyone else.
+ */
+async function fetchPersonalPage(
+  excludeIds: string[],
+  newestFirst: number,
+  categories: string[] | null,
+  sessionSeed: string | null,
+): Promise<any[] | null> {
+  try {
+    const { data, error } = await supabase.rpc("get_personal_feed" as any, {
+      _exclude_ids: excludeIds,
+      _limit: PAGE_SIZE,
+      _newest_first: newestFirst,
+      _categories: categories,
+      _session_seed: sessionSeed,
+    } as any);
+    if (error || !Array.isArray(data)) {
+      logger.warn({
+        code: "DB-3008",
+        event: "FEED_PERSONAL_RPC_FELL_BACK",
+        fn: "fetchPersonalPage",
+        file: FILE,
+        message: "get_personal_feed failed; this page was served by get_broadcast_feed.",
+        reason: error ? (error.message ?? error.code ?? String(error)) : "The RPC returned no array",
+      });
+      return null;
+    }
+    return data as any[];
+  } catch {
+    return null;
+  }
 }
 
 async function fetchBroadcastPage(
@@ -115,7 +165,12 @@ async function fetchBroadcastPage(
   newestFirst: number,
   categories: string[] | null,
   sessionSeed: string | null,
+  personal = false,
 ): Promise<BroadcastPage> {
+  if (personal) {
+    const rows = await fetchPersonalPage(excludeIds, newestFirst, categories, sessionSeed);
+    if (rows) return { rows, degraded: false, personal: true };
+  }
   /**
    * `_categories: null` is "All" — the RPC then applies no category predicate
    * at all, which is exactly what keeps posts created before this feature
@@ -430,6 +485,11 @@ async function enrichPosts(
     const { image_urls: imageUrls, video } = attachedById.get(p.id)!;
     return {
       ...p,
+      // S12-F3: only rows from get_personal_feed carry these; get_broadcast_feed
+      // rows are left exactly as they were.
+      ...(typeof p.caught_up_after === "boolean"
+        ? { feed_source: p.source as FeedSource, caught_up_after: p.caught_up_after as boolean }
+        : {}),
       image_urls: imageUrls,
       video,
       thumbnail_urls: p.thumbnail_urls ?? thumbsMap.get(p.id) ?? null,
@@ -597,6 +657,8 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
   // "new posts" pill must not stop working for exactly the member who has been
   // reading longest.
   const sessionWatermarkRef = session.watermark;
+  // S12-F3: this session is served by get_personal_feed (switch on at page 0).
+  const personalRef = session.personal;
 
   // Build placeholderData from localStorage cache for instant render
   const placeholderData = useMemo(() => {
@@ -722,8 +784,8 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
        * rides the same round trip, and is read BEFORE the page is dealt.
        */
       const fresh = isFirstPage
-        ? await Promise.all([fetchRelevantUsers(userId!), fetchWatermark(userId!, cats)])
-            .then(([ids, wm]) => ({ networkIds: ids, watermark: wm, seed: newFeedSessionSeed() }))
+        ? await Promise.all([fetchRelevantUsers(userId!), fetchWatermark(userId!, cats), fetchFeatureAllowed("personal_feed")])
+            .then(([ids, wm, personal]) => ({ networkIds: ids, watermark: wm, seed: newFeedSessionSeed(), personal }))
         : null;
       const commitSession = () => {
         if (!fresh) return;
@@ -732,18 +794,23 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
         sessionSeedRef.current = fresh.seed;
         excludeByPageRef.current = new Map([[0, []]]);
         lastAuthorByPageRef.current = new Map([[0, null]]);
+        personalRef.current = fresh.personal;
       };
 
       const networkIds = fresh ? fresh.networkIds : networkIdsRef.current;
       const excludeIds = fresh ? [] : excludeByPageRef.current.get(pageIndex) ?? [];
       const sessionSeed = fresh ? fresh.seed : sessionSeedRef.current ?? (sessionSeedRef.current = newFeedSessionSeed());
       const watermark = fresh ? fresh.watermark : sessionWatermarkRef.current;
+      // S12-F3: decided once per session (page 0), so every page of one deal
+      // comes from the same function.
+      const personal = fresh ? fresh.personal : personalRef.current;
 
-      const { rows: rawPosts, degraded } = await fetchBroadcastPage(
+      const { rows: rawPosts, degraded, personal: servedPersonal } = await fetchBroadcastPage(
         excludeIds,
         isFirstPage ? NEWEST_PINNED_ON_FIRST_PAGE : 0,
         cats,
         sessionSeed,
+        personal,
       );
 
       if (rawPosts.length === 0) {
@@ -760,7 +827,9 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
       // Keep server order (tier + fairness), then apply the one client-side
       // rule: no same author back-to-back.
       const prevAuthor = lastAuthorByPageRef.current.get(pageIndex) ?? null;
-      const ordered = reorderNoBackToBack(enriched, prevAuthor);
+      // S12-F3: the personal feed already applied max 2 per author and max 3
+      // per category in a row (and placed "caught up"); its order is final.
+      const ordered = servedPersonal ? enriched : reorderNoBackToBack(enriched, prevAuthor);
 
       // Record state snapshots for the NEXT page.
       excludeByPageRef.current.set(
