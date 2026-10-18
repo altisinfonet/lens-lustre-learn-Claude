@@ -16,6 +16,7 @@ import ContributorScore from "@/components/ContributorScore";
 import TaggedPeople from "@/components/post/TaggedPeople";
 import PostMedia from "@/components/post/PostMedia";
 import FeedVideoCard from "@/components/video/FeedVideoCard";
+import { useFeedSignals } from "@/hooks/feed/FeedSignalsContext";
 import { postMedia } from "@/lib/posts/subjectMedia";
 import Caption from "@/components/post/Caption";
 import HashtagSuggestions from "@/components/post/HashtagSuggestions";
@@ -71,6 +72,7 @@ const PostCard = ({
   onContentChange,
 }: PostCardProps) => {
   const t = useT();
+  const signals = useFeedSignals();
   /* P1 §4: the dot is live presence, not a five-minute-old timestamp.
    * `post.author_last_active` still feeds "last seen" strings elsewhere. */
   const authorOnline = useOnline(post.user_id);
@@ -253,6 +255,8 @@ const PostCard = ({
   };
 
   const copyLink = () => {
+    // S12-F1 · a share click is a signal (a no-op outside the feed; own post never recorded).
+    signals.shareClick(post.id, post.user_id);
     navigator.clipboard.writeText(publicUrl(`/post/${post.id}`));
     toast({ title: "Link copied to clipboard!" });
   };
@@ -555,7 +559,7 @@ const PostCard = ({
       {media.video && (
         // VID-1 / R-105: a video post is ONE 9:16 card; it replaces the photo frame, never sits beside it.
         <div className="px-0" data-testid="post-video">
-          <FeedVideoCard video={media.video} />
+          <FeedVideoCard video={media.video} onWatchPct={(pct) => signals.watch(post.id, post.user_id, pct)} />
         </div>
       )}
       {imageUrls.length > 0 && (

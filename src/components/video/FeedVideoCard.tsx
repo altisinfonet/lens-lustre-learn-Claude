@@ -54,6 +54,7 @@ import {
 import { grantDue, requestGrant, type PlayGrant } from "@/lib/video/playGrant";
 import { VIDEO_FRAME_ASPECT } from "@/lib/video/videoFrame";
 import type { FeedVideo } from "@/lib/video/postVideoRead";
+import { playedStep, watchPercent } from "@/lib/feed/feedSignals";
 
 // When a token is "due" (90 s before its 15 minutes end, on the device's
 // monotonic clock — review #411 C6): grantDue in src/lib/video/playGrant.ts.
@@ -87,7 +88,13 @@ const hasMse = (): boolean => {
  * an ad zone, whose own frame (story card, banner …) sets the shape. The video
  * is still fitted whole over its blurred poster.
  */
-export default function FeedVideoCard({ video, className = "", fillParent = false }: { video: FeedVideo; className?: string; fillParent?: boolean }) {
+export default function FeedVideoCard({ video, className = "", fillParent = false, onWatchPct }: {
+  video: FeedVideo;
+  className?: string;
+  fillParent?: boolean;
+  /** S12-F1 · the % of the video played so far, called when it grows (the feed records it as a signal). */
+  onWatchPct?: (pct: number) => void;
+}) {
   const cardId = useId();
   const box = useRef<HTMLDivElement>(null);
   const el = useRef<HTMLVideoElement>(null);
@@ -315,6 +322,36 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     v.addEventListener("timeupdate", onTime);
     return () => v.removeEventListener("timeupdate", onTime);
   }, [renew]);
+
+  // S12-F1 · video watch %: seconds actually PLAYED ÷ length, reported only when
+  // the whole-number % grows — on the element's own timeupdate, no timer.
+  const onWatchRef = useRef(onWatchPct);
+  onWatchRef.current = onWatchPct;
+  useEffect(() => {
+    const v = el.current;
+    if (!v) return;
+    let lastT = v.currentTime;
+    let played = 0;
+    let reported = -1;
+    const onTime = () => {
+      const now = v.currentTime;
+      if (!v.paused && !v.seeking) played += playedStep(lastT, now);
+      lastT = now;
+      const d = Number.isFinite(v.duration) && v.duration > 0 ? v.duration : video.durationS || 0;
+      const pct = watchPercent(played, d);
+      if (pct > reported && onWatchRef.current) {
+        reported = pct;
+        onWatchRef.current(pct);
+      }
+    };
+    const onSeeked = () => { lastT = v.currentTime; };
+    v.addEventListener("timeupdate", onTime);
+    v.addEventListener("seeked", onSeeked);
+    return () => {
+      v.removeEventListener("timeupdate", onTime);
+      v.removeEventListener("seeked", onSeeked);
+    };
+  }, [video.durationS]);
 
   // Time, length and sound, from the element itself (the stream knows its real length).
   useEffect(() => {
