@@ -36,7 +36,9 @@
  *     dropped and the failure is announced, never retried and never hidden.
  *   • Stage L2: feed_events (what the member has seen) is UNORDERED — it never
  *     stops the drain and nothing waits for it (UNORDERED_KINDS); OutboxBridge
- *     does not announce its failures (telemetry, logged instead).
+ *     does not announce its failures (telemetry, logged instead). S12-F1:
+ *     feed_signals (time on post, skips, watch %, share clicks, profile visits)
+ *     is the same kind of telemetry and is treated the same way.
  *
  * This file talks to no server. The sender (outboxSender.ts) does; tests and
  * the offline harness give it their own.
@@ -64,12 +66,42 @@ export interface FeedEventPayload {
   event_type: "view" | "like" | "share" | "comment" | "click";
   dwell_ms: number;
 }
+/**
+ * S12-F1 · one signal as the outbox carries it: the member's OWN attention,
+ * folded server-side into per-viewer aggregates (feed_post_signals,
+ * feed_author_signals) for the personal feed (F2+). Same exactly-once rule as a
+ * feed event: `id` is the row's primary key, made ONCE when the signal is
+ * recorded, so a resend is the same row and the server's AFTER INSERT fold
+ * never runs for it twice.
+ *   dwell          value = ms on screen (1 … 600,000 per signal), post_id set
+ *   watch          value = highest % of the video played (0 … 100), post_id set
+ *   skip           value = 0, post_id set (on screen ≥ 300 ms and < 1 s)
+ *   share_click    value = 0, post_id set ("Copy link")
+ *   profile_visit  value = 0, post_id NULL, subject_id = the profile
+ * subject_id is the post's author for the post kinds; the server overwrites it
+ * from posts, and skips a row about a post the member may not see.
+ */
+export type HideReason = "not_interested" | "hide";
+export type FeedSignalKind = "dwell" | "watch" | "skip" | "share_click" | "profile_visit";
+export interface FeedSignalPayload {
+  id: string;
+  kind: FeedSignalKind;
+  post_id: string | null;
+  subject_id: string;
+  value: number;
+}
 export type OutboxAction =
   | { kind: "react"; postId: string; reactionType: string; replace: boolean }
   | { kind: "unreact"; postId: string }
   | { kind: "comment"; postId: string; content: string; parentId: string | null }
   | { kind: "report"; targetType: ReportTarget; targetId: string; reason: string }
-  | { kind: "feed_events"; events: FeedEventPayload[] };
+  | { kind: "feed_events"; events: FeedEventPayload[] }
+  | { kind: "feed_signals"; signals: FeedSignalPayload[] }
+  /** S12-F1 Extra A · "Not interested" / "Hide post" (natural key: user_id, post_id). */
+  | { kind: "hide_post"; postId: string; reason: HideReason }
+  /** S12-F1 Extra D · mute / unmute an account (natural key: user_id, author_id). */
+  | { kind: "mute"; authorId: string }
+  | { kind: "unmute"; authorId: string };
 export type OutboxKind = OutboxAction["kind"];
 
 /**
@@ -82,10 +114,11 @@ export type OutboxKind = OutboxAction["kind"];
  * comment must not wait for it. Such an item is skipped while it waits and
  * re-scheduled on a retryable failure, instead of stopping the drain.
  */
-export const UNORDERED_KINDS: ReadonlySet<OutboxKind> = new Set<OutboxKind>(["feed_events"]);
+export const UNORDERED_KINDS: ReadonlySet<OutboxKind> = new Set<OutboxKind>(["feed_events", "feed_signals"]);
 
 /**
- * At most this many unsent feed_events items per member (≤ 25 events each).
+ * At most this many unsent items per member PER TELEMETRY KIND (feed_events,
+ * feed_signals; ≤ 25 rows each).
  * Past it the OLDEST is dropped: a member scrolling a saved feed offline for
  * hours must not grow the device store without bound for ranking telemetry.
  */
@@ -102,6 +135,10 @@ export const OUTBOX_TARGETS: Record<OutboxKind, { table: string; kind: "key" | "
   comment: { table: "post_comments", kind: "key", owner: "user_id", onConflict: "user_id,idempotency_key" },
   report: { table: "reports", kind: "key", owner: "reporter_id", onConflict: "reporter_id,idempotency_key" },
   feed_events: { table: "feed_events", kind: "natural", onConflict: "id" },
+  feed_signals: { table: "feed_signal_events", kind: "natural", onConflict: "id" },
+  hide_post: { table: "feed_hidden_posts", kind: "natural", onConflict: "user_id,post_id" },
+  mute: { table: "feed_muted_authors", kind: "natural", onConflict: "user_id,author_id" },
+  unmute: { table: "feed_muted_authors", kind: "natural", onConflict: "user_id,author_id" },
 };
 
 export interface OutboxItem {
@@ -225,7 +262,11 @@ function makeKey(): string {
   return c.randomUUID();
 }
 
-const togglePost = (a: OutboxAction) => (a.kind === "react" || a.kind === "unreact" ? a.postId : null);
+/** Actions that toggle one thing; an unsent earlier toggle of the same thing is replaced (last intent wins, R5). */
+const togglePost = (a: OutboxAction) =>
+  a.kind === "react" || a.kind === "unreact" ? `post:${a.postId}`
+  : a.kind === "mute" || a.kind === "unmute" ? `author:${a.authorId}`
+  : null;
 
 /**
  * Put one action on the device. The idempotency key is made HERE, once.
@@ -241,9 +282,9 @@ export async function enqueue(userId: string, action: OutboxAction, now = Date.n
       if (i.userId === userId && i.key !== inflight && togglePost(i.action) === post) await s.delete(i.key);
     }
   }
-  if (action.kind === "feed_events") {
+  if (UNORDERED_KINDS.has(action.kind)) {
     const waiting = (await s.getAll())
-      .filter((i) => i.userId === userId && i.key !== inflight && i.action.kind === "feed_events")
+      .filter((i) => i.userId === userId && i.key !== inflight && i.action.kind === action.kind)
       .sort((a, b) => a.createdAt - b.createdAt || a.seq - b.seq);
     for (const i of waiting.slice(0, Math.max(0, waiting.length - MAX_FEED_EVENT_ITEMS + 1))) await s.delete(i.key);
   }

@@ -27,6 +27,7 @@ import ProfileSkeleton from "@/components/ProfileSkeleton";
 import PageSEO from "@/components/PageSEO";
 import { useEntryPublicStatus } from "@/hooks/judging/useEntryPublicStatus";
 import { startVisibilityInterval } from "@/lib/timers/visibilityInterval";
+import { recordProfileVisit } from "@/lib/feed/feedSignals";
 
 /* ── Privacy Indicator (shown to owner only) ── */
 const PRIVACY_ICONS: Record<PrivacyLevel, { icon: typeof Globe; label: string }> = {
@@ -473,6 +474,10 @@ export const PublicProfileInner = ({ userId }: { userId: string }) => {
     if (currentUser && currentUser.id !== userId) {
       supabase.from("profile_views" as any).insert({ profile_id: userId, viewer_id: currentUser.id } as any).then(() => {});
     }
+    // S12-F1 · the visit as the VIEWER's own signal (feed closeness), through the
+    // outbox, once per profile per 30 min, never their own, never a hidden tab.
+    // profile_views above is a different thing: the profile owner's view count.
+    recordProfileVisit(currentUser?.id, userId);
   }, [entries, userId, currentUser?.id]);
 
   // Loading: show Facebook-style skeleton
