@@ -17,6 +17,8 @@
 -- supabase/migrations/20261018_0001_s12_f1_feed_signals.sql is NOT yet applied,
 -- this probe FAILS ("table missing") — expected until that migration is applied
 -- there; apply it (then its own PROBE) before reading a red here as a regression.
+-- ⚠ S12-F5 (2026-10-18) added feed_favourite_authors: likewise FAILS on a lane
+-- until supabase/migrations/20261018_0004_s12_f5f6_favourites_admin.sql is applied.
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN READ ONLY;
 DO $probe$
@@ -40,7 +42,8 @@ BEGIN
       ('feed_events',        'natural',     NULL,          NULL,                                  NULL,  ARRAY['id']),
       ('feed_signal_events', 'natural',     NULL,          NULL,                                  NULL,  ARRAY['id']),
       ('feed_hidden_posts',  'natural',     NULL,          NULL,                                  NULL,  ARRAY['user_id', 'post_id']),
-      ('feed_muted_authors', 'natural',     NULL,          NULL,                                  NULL,  ARRAY['user_id', 'author_id'])
+      ('feed_muted_authors', 'natural',     NULL,          NULL,                                  NULL,  ARRAY['user_id', 'author_id']),
+      ('feed_favourite_authors', 'natural', NULL,          NULL,                                  NULL,  ARRAY['user_id', 'author_id'])
     ) AS c(tbl, kind, owner, uniq, partial, cols)
   LOOP
     rel := to_regclass('public.' || r.tbl);
