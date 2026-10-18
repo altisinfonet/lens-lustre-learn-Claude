@@ -844,7 +844,7 @@ jobs:
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
           sed -i 's/versionName "1.0"/versionName "1.2.25"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.24 (1.2.23 is spent - versionCode 1126, Owner phone test 2026-10-18)"
+          echo "versionCode=${VC} versionName=1.2.25 (1.2.24 is spent - versionCode 1127, Play production 2026-10-18)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
