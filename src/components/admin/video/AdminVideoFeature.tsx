@@ -15,7 +15,7 @@
  * bulk remove); the history last, folded.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Clapperboard, Film, KeyRound, Loader2, Music2, Trash2 } from "lucide-react";
+import { Clapperboard, Film, KeyRound, Loader2, Music2, Sparkles, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import {
@@ -28,7 +28,7 @@ import { MemberAvatar, StatusPill } from "./memberBits";
 type Rpc = (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message?: string } | null }>;
 const rpc: Rpc = (fn, args) => (supabase.rpc as unknown as Rpc)(fn, args);
 
-const ICON: Record<FeatureKey, typeof Film> = { video_posts: Film, video_ads: Clapperboard, copyright_music_check: Music2 };
+const ICON: Record<FeatureKey, typeof Film> = { video_posts: Film, video_ads: Clapperboard, copyright_music_check: Music2, personal_feed: Sparkles };
 const MEMBERS_PAGE = 25;
 
 /** A few live numbers for the page (admins read videos/post_videos/ad_videos through RLS). Silent on any error. */
@@ -50,7 +50,9 @@ function useNumbers(feature: FeatureKey): Array<{ label: string; value: number }
            ["Being prepared", count("videos", (q) => q.eq("purpose", "post").in("state", ["uploading", "checking"]))]]
         : feature === "video_ads"
           ? [["Ads with a video", count("ad_videos")], ["Ready ad videos", count("videos", (q) => q.eq("purpose", "ad").eq("state", "ready"))]]
-          : [["Music checks run", count("video_music_checks")]];
+          : feature === "copyright_music_check"
+            ? [["Music checks run", count("video_music_checks")]]
+            : [];
       const values = await Promise.all(rows.map(([, p]) => p));
       if (!live) return;
       const out = rows.map(([label], i) => ({ label, value: values[i] })).filter((r): r is { label: string; value: number } => r.value !== null);

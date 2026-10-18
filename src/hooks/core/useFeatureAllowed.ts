@@ -13,12 +13,30 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
 
-export type FeatureName = "video_posts" | "video_ads" | "copyright_music_check";
+export type FeatureName = "video_posts" | "video_ads" | "copyright_music_check" | "personal_feed";
 
 export const FEATURE_REFRESH_MS = 60_000;
 
 export function featureAllowedKey(feature: FeatureName, userId: string | null) {
   return ["feature_allowed_me", feature, userId] as const;
+}
+
+/**
+ * One ask of `feature_allowed_me`. Any error (offline, a lane without the
+ * switch, an older database): false. Shared by the hook below and by the feed
+ * (S12-F3), which asks once when a session's first page is dealt.
+ */
+export async function fetchFeatureAllowed(feature: FeatureName): Promise<boolean> {
+  try {
+    // Call position (supabase-js keeps `rpc` on its prototype).
+    const { data, error } = await (supabase.rpc as unknown as (fn: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>)(
+      "feature_allowed_me", { _feature: feature },
+    );
+    if (error) return false;
+    return data === true;
+  } catch {
+    return false;
+  }
 }
 
 export function useFeatureAllowed(feature: FeatureName): boolean {
@@ -34,14 +52,7 @@ export function useFeatureAllowed(feature: FeatureName): boolean {
     refetchInterval: FEATURE_REFRESH_MS,
     refetchOnWindowFocus: true,
     retry: false,
-    queryFn: async () => {
-      // Call position (supabase-js keeps `rpc` on its prototype).
-      const { data, error } = await (supabase.rpc as unknown as (fn: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>)(
-        "feature_allowed_me", { _feature: feature },
-      );
-      if (error) return false;
-      return data === true;
-    },
+    queryFn: () => fetchFeatureAllowed(feature),
   });
   return q.data === true;
 }

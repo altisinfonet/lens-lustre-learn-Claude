@@ -20,7 +20,7 @@ import {
   Heart, FileText, Globe, BarChart3, Megaphone, Zap, Bell, HeartPulse,
   UserPlus, HelpCircle, Mail, ClipboardList, Database, LogIn,
   ExternalLink, Tag, Gavel, Search, Shield, BookMarked, Wallet, Gift, ShieldCheck,
-  Bug, Film, Clapperboard, Music2, Server,
+  Bug, Film, Clapperboard, Music2, Server, Sparkles,
 } from "lucide-react";
 
 // ─── Lazy-loaded modules ────────────────────────────────────
@@ -93,7 +93,7 @@ const VALID_ROUTES = new Set([
   "comments", "keyword_blocklist", "reports", "post_reports",
   "wallet", "gifts", "transactions", "orders",
   "seo", "advertisements", "features", "push_notification", "performance", "announcements", "newsletter_faq", "analytics",
-  "video_posts", "video_ads", "video_music_check", "video_conversion",
+  "video_posts", "video_ads", "video_music_check", "video_conversion", "personal_feed",
   "page_management", "menu_builder", "redirects",
   "settings", "auth_pages", "email_templates", "database",
   "health", "app_events", "activity_logs", "admin_notifications", "notifications_health", "test_agent",
@@ -179,6 +179,10 @@ const tabGroups = [
     ["video_ads", "Video Ads", Clapperboard],
     ["video_music_check", "Copyright Music Check", Music2],
     ["video_conversion", "Video Conversion", Server],
+  ] as const },
+  /* S12-F3: the personal feed's switch (Off / Selected members / All members). */
+  { label: "Feed", items: [
+    ["personal_feed", "Personal Feed", Sparkles],
   ] as const },
   { label: "Pages & Navigation", items: [
     ["page_management", "Page Management", FileText],
@@ -304,6 +308,7 @@ const AdminPanel = () => {
       {currentRoute === "video_ads" && <LazyTab><AdminVideoFeature feature="video_ads" /></LazyTab>}
       {currentRoute === "video_music_check" && <LazyTab><AdminVideoFeature feature="copyright_music_check" /></LazyTab>}
       {currentRoute === "video_conversion" && <LazyTab><AdminVideoConversion /></LazyTab>}
+      {currentRoute === "personal_feed" && <LazyTab><AdminVideoFeature feature="personal_feed" /></LazyTab>}
       {currentRoute === "push_notification" && <LazyTab><AdminPushBroadcast /></LazyTab>}
       {currentRoute === "performance" && <LazyTab><AdminPerformance user={user} /></LazyTab>}
       {currentRoute === "announcements" && <LazyTab><AdminAnnouncements user={user} /></LazyTab>}
