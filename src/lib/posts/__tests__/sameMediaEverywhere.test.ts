@@ -48,6 +48,9 @@ const VIDEO_SURFACES: Record<string, RegExp> = {
   "src/pages/AdDetail.tsx": /<FeedVideoCard video=\{media\.video\}/,
   "src/components/comments/CommentsOverlay.tsx": /<FeedVideoCard video=\{media\.video\} fillParent \/>/,
   "src/components/profile/ProfilePostGrid.tsx": /<VideoPoster video=\{video\}/,
+  // BUG-VID-HOME (2026-10-18): the home page's "Share Your Story" preview, and a notification's post thumbnail.
+  "src/pages/Index.tsx": /<FeedVideoCard video=\{media\.video\} fillParent \/>/,
+  "src/pages/Notifications.tsx": /<VideoPoster video=\{media\.video\} \/>/,
   // Server conversion (CONVERTER-DESIGN.md v2 §3.9): what the post / ad WILL show, watched before Post.
   "src/components/video/ServerVideoReview.tsx": /<FeedVideoCard video=\{media\.video\} fillParent \/>/,
   // Test page only: the app-video CORS journey (tools/uishot/app-video-cors-journey.mjs) draws a post's video as the feed does.
