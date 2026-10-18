@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { submit as outboxSubmit, type FeedEventPayload } from "@/lib/offline/outbox";
+import { submit as outboxSubmit, type FeedEventPayload, type FeedSignalPayload } from "@/lib/offline/outbox";
 import { startVisibilityInterval } from "@/lib/timers/visibilityInterval";
+import { makeEventId, submitSignalsToOutbox, type SubmitSignals } from "@/lib/feed/feedSignals";
+
+export type { SubmitSignals } from "@/lib/feed/feedSignals";
 
 /**
  * STAGE L2 (F-REV4-8) — WHAT THE MEMBER HAS SEEN, RECORDED.
@@ -34,6 +37,23 @@ import { startVisibilityInterval } from "@/lib/timers/visibilityInterval";
  *     anything recorded just before the app was frozen.
  *   · Nothing about the member's OWN posts is recorded, views or actions: see
  *     SeenTracker.report and SeenTracker.action.
+ *
+ * S12-F1 · SIGNALS, FROM THE SAME ENGINE (no second tracker, no second clock)
+ *   · TIME ON POST. While a card is visible enough and the page is on screen, a
+ *     stopwatch runs — timestamps only, no timer. It stops on scroll-away and
+ *     on pause (tab hidden, app backgrounded), so hidden time is never counted.
+ *     A visit that reached VIEW_DWELL_MS is dwell; each flush checkpoints a card
+ *     still on screen, so a long look is not held back until the scroll.
+ *   · SKIP. A visit of SKIP_MIN_MS … VIEW_DWELL_MS that ends by scrolling away,
+ *     on a post not seen this session: one per post per session. A fling under
+ *     SKIP_MIN_MS is nothing; the tab going hidden is not a skip.
+ *   · VIDEO WATCH %. The highest % played (FeedVideoCard reports it), sent when
+ *     it grows — never one request per timeupdate.
+ *   · SHARE CLICK ("Copy link"): one per post per session.
+ *   · Batched with the seen-events: the same FLUSH_INTERVAL_MS / MAX_BATCH and
+ *     the same flush points; sent through the outbox as kind "feed_signals".
+ *     Each signal's id is made here, once (exactly once on the wire).
+ *   · Never about the member's own post; never while the page is hidden.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -49,6 +69,10 @@ export const FLUSH_INTERVAL_MS = 15_000;
 export const MAX_BATCH = 25;
 /** How long a refresh waits for the seen-flush before dealing anyway (the events stay in the outbox). */
 export const REFRESH_FLUSH_TIMEOUT_MS = 1500;
+/** S12-F1 · a visit at least this long (and under VIEW_DWELL_MS) that ends by scrolling away is a skip; shorter is a fling. */
+export const SKIP_MIN_MS = 300;
+/** S12-F1 · one dwell signal never claims more than this (feed_signal_events' CHECK bound). */
+export const MAX_DWELL_EVENT_MS = 600_000;
 
 export type FeedAction = "like" | "share" | "comment" | "click";
 export type SubmitEvents = (userId: string, events: FeedEventPayload[]) => Promise<unknown>;
@@ -56,22 +80,20 @@ export type SubmitEvents = (userId: string, events: FeedEventPayload[]) => Promi
 interface Clock {
   setTimeout: (fn: () => void, ms: number) => unknown;
   clearTimeout: (handle: unknown) => void;
+  /** Milliseconds; the dwell stopwatch reads it (no timer). Defaults to Date.now. */
+  now?: () => number;
 }
 const realClock: Clock = {
   setTimeout: (fn, ms) => globalThis.setTimeout(fn, ms),
   clearTimeout: (h) => globalThis.clearTimeout(h as ReturnType<typeof setTimeout>),
 };
 
-function makeEventId(): string {
-  const c = (globalThis as { crypto?: Crypto }).crypto;
-  if (c && typeof c.randomUUID === "function") return c.randomUUID();
-  // Old WebView without randomUUID: still a v4 UUID from the CSPRNG.
-  const b = new Uint8Array(16);
-  c?.getRandomValues?.(b);
-  b[6] = (b[6] & 0x0f) | 0x40;
-  b[8] = (b[8] & 0x3f) | 0x80;
-  const h = [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
-  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+/** S12-F1 · one continuous on-screen visit of a card. */
+interface Visit {
+  authorId: string;
+  start: number;
+  /** Already reached VIEW_DWELL_MS (or was checkpointed): what remains is dwell, never a skip. */
+  counted: boolean;
 }
 
 /**
@@ -91,12 +113,31 @@ export class SeenTracker {
   private readonly seen = new Set<string>();
   private batch: FeedEventPayload[] = [];
   private paused = false;
+  /* ── S12-F1 signals ── */
+  private readonly sendSignals: SubmitSignals;
+  /** Running visits (postId → visit). */
+  private readonly visits = new Map<string, Visit>();
+  /** Dwell measured and not yet turned into a signal (postId → author, ms). */
+  private readonly dwell = new Map<string, { authorId: string; ms: number }>();
+  /** Posts skipped / share-clicked in this feed session. */
+  private readonly skipped = new Set<string>();
+  private readonly shared = new Set<string>();
+  /** Highest watch % per post, and the highest already sent. */
+  private readonly watched = new Map<string, { authorId: string; pct: number; sent: number }>();
+  private signals: FeedSignalPayload[] = [];
 
-  constructor(opts: { userId: string; send: SubmitEvents; clock?: Clock; makeId?: () => string }) {
+  constructor(opts: { userId: string; send: SubmitEvents; sendSignals?: SubmitSignals; clock?: Clock; makeId?: () => string }) {
     this.userId = opts.userId;
     this.send = opts.send;
+    // The hook always passes the outbox sender; a bare engine (tests of the
+    // seen-events alone) measures signals and sends them nowhere.
+    this.sendSignals = opts.sendSignals ?? (async () => undefined);
     this.clock = opts.clock ?? realClock;
     this.makeId = opts.makeId ?? makeEventId;
+  }
+
+  private now(): number {
+    return this.clock.now ? this.clock.now() : Date.now();
   }
 
   /**
@@ -111,11 +152,31 @@ export class SeenTracker {
     if (authorId === this.userId) return;
     if (visibleEnough) {
       this.visible.set(postId, authorId);
-      if (!this.paused) this.arm(postId, authorId);
+      if (!this.paused) { this.arm(postId, authorId); this.startVisit(postId, authorId); }
     } else {
       this.visible.delete(postId);
       this.disarm(postId);
+      this.endVisit(postId, true);
     }
+  }
+
+  /**
+   * S12-F1 · FeedVideoCard reports the % of the video played so far. The
+   * highest value is kept and sent at the next flush, only if it grew.
+   */
+  watch(postId: string, authorId: string, pct: number): void {
+    if (authorId === this.userId || this.paused || !Number.isFinite(pct)) return;
+    const v = Math.max(0, Math.min(100, Math.floor(pct)));
+    const w = this.watched.get(postId);
+    if (!w) this.watched.set(postId, { authorId, pct: v, sent: -1 });
+    else if (v > w.pct) w.pct = v;
+  }
+
+  /** S12-F1 · "Copy link" on a post: one per post per feed session. */
+  shareClick(postId: string, authorId: string): void {
+    if (authorId === this.userId || this.shared.has(postId)) return;
+    this.shared.add(postId);
+    this.pushSignal({ id: this.makeId(), kind: "share_click", post_id: postId, subject_id: authorId, value: 0 });
   }
 
   /**
@@ -139,32 +200,102 @@ export class SeenTracker {
   pause(): void {
     this.paused = true;
     for (const id of [...this.timers.keys()]) this.disarm(id);
+    for (const id of [...this.visits.keys()]) this.endVisit(id, false);
   }
 
   /** Back on screen: the cards still visible start their second again. */
   resume(): void {
     this.paused = false;
-    for (const [id, author] of this.visible) this.arm(id, author);
+    for (const [id, author] of this.visible) { this.arm(id, author); this.startVisit(id, author); }
   }
 
   /** A refresh is a new feed session: every post may be recorded again. */
   newSession(): void {
     for (const id of [...this.timers.keys()]) this.disarm(id);
+    for (const id of [...this.visits.keys()]) this.endVisit(id, false);
     this.seen.clear();
-    if (!this.paused) for (const [id, author] of this.visible) this.arm(id, author);
+    this.skipped.clear();
+    this.shared.clear();
+    if (!this.paused) for (const [id, author] of this.visible) { this.arm(id, author); this.startVisit(id, author); }
   }
 
   /** Hand everything recorded so far to the outbox. Never throws. */
   flush(): Promise<void> {
-    if (this.batch.length === 0) return Promise.resolve();
-    const chunks: FeedEventPayload[][] = [];
-    while (this.batch.length) chunks.push(this.batch.splice(0, MAX_BATCH));
-    return Promise.all(chunks.map((c) => Promise.resolve().then(() => this.send(this.userId, c)).catch(() => undefined))).then(() => undefined);
+    this.collectSignals();
+    const sends: Promise<unknown>[] = [];
+    while (this.batch.length) {
+      const c = this.batch.splice(0, MAX_BATCH);
+      sends.push(Promise.resolve().then(() => this.send(this.userId, c)).catch(() => undefined));
+    }
+    while (this.signals.length) {
+      const c = this.signals.splice(0, MAX_BATCH);
+      sends.push(Promise.resolve().then(() => this.sendSignals(this.userId, c)).catch(() => undefined));
+    }
+    if (sends.length === 0) return Promise.resolve();
+    return Promise.all(sends).then(() => undefined);
   }
 
   /** Recorded and not yet handed to the outbox (tests, diagnostics). */
   get unsent(): readonly FeedEventPayload[] {
     return this.batch;
+  }
+
+  /** S12-F1 · signals recorded and not yet handed to the outbox (tests, diagnostics). */
+  get unsentSignals(): readonly FeedSignalPayload[] {
+    return this.signals;
+  }
+
+  private startVisit(postId: string, authorId: string): void {
+    if (!this.visits.has(postId)) this.visits.set(postId, { authorId, start: this.now(), counted: false });
+  }
+
+  /** `scrolledAway`: the card left the screen (a skip is possible); false = the page was hidden or the session ended. */
+  private endVisit(postId: string, scrolledAway: boolean): void {
+    const v = this.visits.get(postId);
+    if (!v) return;
+    this.visits.delete(postId);
+    const ms = Math.max(0, this.now() - v.start);
+    if (v.counted || ms >= VIEW_DWELL_MS) {
+      this.addDwell(postId, v.authorId, ms);
+    } else if (scrolledAway && ms >= SKIP_MIN_MS && !this.seen.has(postId) && !this.skipped.has(postId)) {
+      this.skipped.add(postId);
+      this.pushSignal({ id: this.makeId(), kind: "skip", post_id: postId, subject_id: v.authorId, value: 0 });
+    }
+  }
+
+  private addDwell(postId: string, authorId: string, ms: number): void {
+    if (ms <= 0) return;
+    const d = this.dwell.get(postId);
+    if (d) d.ms += ms;
+    else this.dwell.set(postId, { authorId, ms });
+  }
+
+  /** Turn measured dwell (checkpointing visits still running) and grown watch % into signals. */
+  private collectSignals(): void {
+    const now = this.now();
+    for (const [id, v] of this.visits) {
+      const ms = now - v.start;
+      if (v.counted || ms >= VIEW_DWELL_MS) {
+        this.addDwell(id, v.authorId, ms);
+        v.start = now;
+        v.counted = true;
+      }
+    }
+    for (const [id, d] of this.dwell) {
+      this.signals.push({ id: this.makeId(), kind: "dwell", post_id: id, subject_id: d.authorId, value: Math.min(Math.round(d.ms), MAX_DWELL_EVENT_MS) });
+    }
+    this.dwell.clear();
+    for (const [id, w] of this.watched) {
+      if (w.pct > w.sent) {
+        this.signals.push({ id: this.makeId(), kind: "watch", post_id: id, subject_id: w.authorId, value: w.pct });
+        w.sent = w.pct;
+      }
+    }
+  }
+
+  private pushSignal(s: FeedSignalPayload): void {
+    this.signals.push(s);
+    if (this.signals.length >= MAX_BATCH) void this.flush();
   }
 
   private arm(postId: string, authorId: string): void {
@@ -203,16 +334,24 @@ export interface FeedEventTracker {
   /** For usePostSeenObserver: is this card visible enough right now? */
   reportVisibility: (postId: string, authorId: string, visibleEnough: boolean) => void;
   trackAction: (postId: string, authorId: string, action: FeedAction) => void;
+  /** S12-F1 · the % of a video played so far (FeedVideoCard). */
+  trackWatch: (postId: string, authorId: string, pct: number) => void;
+  /** S12-F1 · "Copy link" on a post. */
+  trackShareClick: (postId: string, authorId: string) => void;
   /** Send what is recorded now; resolves when sent or after `timeoutMs`, whichever is first. */
   flushNow: (timeoutMs?: number) => Promise<void>;
   /** Start a new feed session (call when a refresh has dealt a new hand). */
   newSession: () => void;
 }
 
-export function useFeedEventTracker(userId: string | undefined, send: SubmitEvents = submitToOutbox): FeedEventTracker {
+export function useFeedEventTracker(
+  userId: string | undefined,
+  send: SubmitEvents = submitToOutbox,
+  sendSignals: SubmitSignals = submitSignalsToOutbox,
+): FeedEventTracker {
   const trackerRef = useRef<SeenTracker | null>(null);
   if (userId && trackerRef.current?.userId !== userId) {
-    trackerRef.current = new SeenTracker({ userId, send });
+    trackerRef.current = new SeenTracker({ userId, send, sendSignals });
   } else if (!userId) {
     trackerRef.current = null;
   }
@@ -274,6 +413,15 @@ export function useFeedEventTracker(userId: string | undefined, send: SubmitEven
     return Promise.race([t.flush(), cap]).finally(() => { if (timer !== undefined) clearTimeout(timer); });
   }, []);
   const newSession = useCallback(() => { trackerRef.current?.newSession(); }, []);
+  const trackWatch = useCallback((postId: string, authorId: string, pct: number) => {
+    trackerRef.current?.watch(postId, authorId, pct);
+  }, []);
+  const trackShareClick = useCallback((postId: string, authorId: string) => {
+    trackerRef.current?.shareClick(postId, authorId);
+  }, []);
 
-  return useMemo(() => ({ reportVisibility, trackAction, flushNow, newSession }), [reportVisibility, trackAction, flushNow, newSession]);
+  return useMemo(
+    () => ({ reportVisibility, trackAction, flushNow, newSession, trackWatch, trackShareClick }),
+    [reportVisibility, trackAction, flushNow, newSession, trackWatch, trackShareClick],
+  );
 }

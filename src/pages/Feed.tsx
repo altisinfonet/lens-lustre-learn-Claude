@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useFeedRealtime } from "@/hooks/feed/useRealtimeFeed";
 import { useNewPostsBanner } from "@/hooks/feed/useNewPostsBanner";
 import { useFeedEventTracker } from "@/hooks/feed/useFeedEventTracker";
+import { FeedSignalsContext } from "@/hooks/feed/FeedSignalsContext";
 import { useNewPostsCount } from "@/hooks/feed/useNewPostsCount";
 import FeedSeenObserver from "@/components/feed/FeedSeenObserver";
 import NewPostsPill from "@/components/feed/NewPostsPill";
@@ -62,7 +63,9 @@ const Feed = () => {
    * FeedSeenObserver below; the tracker sends through the OFF-2 outbox.
    */
   const tracker = useFeedEventTracker(user?.id);
-  const { trackAction } = tracker;
+  const { trackAction, trackWatch, trackShareClick } = tracker;
+  /** S12-F1 · video watch % and "Copy link" reach the same tracker from inside PostCard. */
+  const feedSignals = useMemo(() => ({ watch: trackWatch, shareClick: trackShareClick }), [trackWatch, trackShareClick]);
   /**
    * Stage D — the selected category strip chip.
    *
@@ -577,6 +580,7 @@ const Feed = () => {
                       as the feed reloading itself. Inside, the motion.div stays
                       mounted for the life of the post and only its contents
                       come and go. */}
+                  <FeedSignalsContext.Provider value={feedSignals}>
                   <FeedSeenObserver postId={post.id} authorId={post.user_id} onVisibility={tracker.reportVisibility}>
                   <FeedCardWindow eager={i < EAGER_CARDS}>
                     <PostCard
@@ -592,6 +596,7 @@ const Feed = () => {
                     />
                   </FeedCardWindow>
                   </FeedSeenObserver>
+                  </FeedSignalsContext.Provider>
                   </motion.div>
 
                   {/*

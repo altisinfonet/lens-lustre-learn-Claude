@@ -1,0 +1,46 @@
+S12-F1 PGlite proof — 2026-10-18T05:50:39.704Z — PGlite (Postgres 16.4)
+PASS · PROBE FAILS before the migration (G1: tables do not exist)  [PROBE FAIL 20261018_0001 G1: the signals / hide / mute tables do not exist — the migration is not applied]
+PASS · lane guard: p32.lane unset → refused  [APPLY REFUSED — p32.lane is not asserted as staging or production (read: ). Dispatch apply-migration.yml (it sets p32.lane from target).]
+PASS · PROBE lane guard: p32.lane unset → refused  [PROBE REFUSED 20261018_0001 — p32.lane reads ; dispatch apply-migration.yml with target=staging or production.]
+PASS · 20261018_0001 applies with p32.lane = 'staging' (PRE + POST pass)
+PASS · PROBE PASSES after the migration (static + cross-member + exactly-once + anon + deleted account)
+PASS · re-apply refused (PRE-001)  [S12F1-0001-PRE-001: an S12-F1 object already exists — 20261018_0001 is applied (or half-applied by hand)]
+PASS · a batch keeps its good rows: own / private / friends-only (not friends) / deleted-post rows are skipped, not refused  [[{"id":"20000000-0000-4000-8000-000000000000"},{"id":"20000000-0000-4000-8000-000000000005"}]]
+PASS · a friend's friends-only post is recorded (can_view_post), author set server-side  [[{"author_id":"00000000-0000-4000-8000-00000000000d","dwell_ms":2000}]]
+PASS · six sends of the same two signals → dwell 2000, watch 55 (counted once)  [[{"dwell_ms":2000,"watch_pct":55}]]
+PASS · distinct signals fold: dwell sums (2500), watch keeps its maximum (55)  [[{"dwell_ms":2500,"watch_pct":55}]]
+PASS · B reads only B's own rows (ledger 1, post 1, A's 0)  [[{"l":1,"p":1,"pa":0}]]
+PASS · the post's AUTHOR reads none of the viewers' signals about it  [[{"p":0,"l":0}]]
+PASS · rate bound: 310 signals in one go → 300 recorded, 10 skipped, no error  [[{"n":300}]]
+PASS · the aggregate counted exactly the 300 recorded rows  [[{"share_clicks":300}]]
+PASS · created_at sent by the client is overwritten with now()  [[{"fresh":true}]]
+PASS · purge (Owner: 90 days): 91-day ledger rows and post aggregates removed; an 89-day row kept  [{"feed_post_signals":1,"feed_signal_events":300,"feed_author_signals":0}]
+PASS · purge is idempotent (second run deletes nothing)  [{"feed_post_signals":0,"feed_signal_events":0,"feed_author_signals":0}]
+PASS · deleting the account deletes the member's signals (FK cascade)  [[{"n":0}]]
+PASS · hide x3 and mute x3 (resends) → one row each (natural primary keys)  [[{"h":1,"m":1}]]
+PASS · hiding an own / private / non-existent post is skipped (no FK error that would reveal the post exists)  [[{"n":1}]]
+PASS · feed-RPC exclusion shape plans (PKs are the exclusion indexes; tiny fixture, so no index choice is claimed)  [Hash Anti Join |   Hash Cond: (p.user_id = m.author_id) |   ->  Merge Anti Join |         Merge Cond: (p.id = h.post_id) |         ->  Index Scan using posts_pkey on posts p |         ->  Sort |               Sort Key: h.post_id |               ->  Bitmap Heap Scan on feed_hidden_posts h |                     Recheck Cond: (user_id = '00000000-0000-4000-8000-00000000000a'::uuid) |                 ]
+PASS · the exclusion shape removes A's hidden post and muted author's posts from A's list  [[{"id":"10000000-0000-4000-8000-000000000003"},{"id":"10000000-0000-4000-8000-000000000004"}]]
+PASS · B reads none of A's hides or mutes  [[{"h":0,"m":0}]]
+PASS · the MUTED author cannot see that they were muted  [[{"m":0}]]
+PASS · B's bare DELETE removes none of A's hides / mutes  [[{"h":1,"m":1}]]
+PASS · unmute (sent twice) removes the mute; the repeat changes nothing  [[{"m":0}]]
+PASS · muting oneself is refused by the CHECK  [new row for relation "feed_muted_authors" violates check constraint "feed_muted_authors_not_self"]
+PASS · deleting the post removes its hides (FK cascade)  [[{"n":0}]]
+PASS · C-34 · PROBE FAILS on a loosened copy: B1 · feed_signal_events_before WITHOUT the auth.uid() guard (a row in B's name is judged — rate / visibility — before RLS)  [PROBE FAIL 20261018_0001: |   G2f (B1) a signal in B's name about a private post was not refused by RLS — the trigger judged it first |   G2n (B1) a row in B's name while B is past the rate bound was not refused by RLS — A can read B's activity from the outcome]
+PASS · C-34 · PROBE FAILS on a loosened copy: B1 · feed_hidden_posts_before WITHOUT the auth.uid() guard (a hide in B's name of a private post is skipped, not refused)  [PROBE FAIL 20261018_0001: |   G2f (B1) a hide in B's name of a private post was not refused by RLS — the trigger judged it first]
+PASS · C-34 · PROBE FAILS on a loosened copy: a SELECT USING (true) policy on feed_post_signals  [PROBE FAIL 20261018_0001: |   G1 the policy set on the S12-F1 tables is not the intended one]
+PASS · C-34 · PROBE FAILS on a loosened copy: SELECT granted to anon on feed_post_signals  [PROBE FAIL 20261018_0001: |   G1 anon has SELECT on feed_post_signals]
+PASS · C-34 · PROBE FAILS on a loosened copy: the fold moved to a BEFORE trigger (counts resends too)  [PROBE FAIL 20261018_0001: |   G1 the S12-F1 triggers are not all present and enabled]
+PASS · C-34 · PROBE FAILS on a loosened copy: the SAME-NAMED read policy loosened to USING (true) (only G2i can see it)  [PROBE FAIL 20261018_0001: |   G2i B reads other members' rows: ledger 0, post 1, author 0, hidden 0, muted 0 (want all 0)]
+PASS · C-34 · PROBE FAILS on a loosened copy: the BEFORE trigger also folds (fires on a resend too; only G2c can see it)  [PROBE FAIL 20261018_0001: |   G2c feed_post_signals after a resend: {"dwell_ms":3000,"watch_pct":40,"skips":1,"share_clicks":1,"author_id":"00000000-0000-4000-8000-00000000000c"} from dwell 0 / skips 0 / shares 0 (want +1500 dwell, watch >= 40, +1 skip, +1 share click, author C) — not exactly once |   G2d a signal about a private post A may not see was recorded]
+PASS · C-34 · PROBE FAILS on a loosened copy: the SAME-NAMED unmute policy loosened to USING (true) (only G2j can see it)  [PROBE FAIL 20261018_0001: |   G2j a bare DELETE by B removed A's hide (0) / mute (1)]
+PASS · C-34 · PROBE FAILS on a loosened copy: the SAME-NAMED hidden-posts read policy loosened to USING (true) (only G2i can see it)  [PROBE FAIL 20261018_0001: |   G2i B reads other members' rows: ledger 0, post 0, author 0, hidden 1, muted 0 (want all 0)]
+PASS · PROBE passes again once each loosening is undone
+PASS · ROLLBACK applies (RB-PRE + RB-POST pass)
+PASS · after ROLLBACK: tables and purge job gone  [[{"t":null,"j":0}]]
+PASS · PROBE FAILS again after the rollback  [PROBE FAIL 20261018_0001 G1: the signals / hide / mute tables do not exist — the migration is not applied]
+PASS · ROLLBACK twice refused (RB-PRE-001)  [S12F1-0001-RB-PRE-001: 20261018_0001's objects are not all present — nothing to roll back, or it was changed by hand]
+PASS · re-apply after rollback
+PASS · PROBE passes after re-apply
+ALL PASS (44 checks)
