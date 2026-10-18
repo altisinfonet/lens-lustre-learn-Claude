@@ -372,6 +372,13 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     resolution:
       "Ranking telemetry only — nothing the member did is lost. 'Rate limit exceeded' (500 events per member per hour, rate_limit_feed_events) and 'Invalid post_id' (the post was deleted) are expected; anything else (RLS, a missing column) means the client and the database disagree about feed_events.",
   },
+  {
+    code: "DB-3009",
+    severity: "warn",
+    description: "A batch of feed signals (time on post, skip, watch %, share click, profile visit) was refused by the server and dropped.",
+    resolution:
+      "Personal-feed telemetry only — nothing the member did is lost. Rows the server will not record (a post the member may not see, their own post, over the rate bound) are skipped by its BEFORE trigger, not refused, so a refusal means the client and the database disagree about feed_signal_events: the table is missing on this lane (apply supabase/migrations/20261018_0001_s12_f1_feed_signals.sql, then its PROBE), a value is outside its CHECK, or RLS refused the user_id.",
+  },
 
   // ── API ───────────────────────────────────────────────────────────────────
   {

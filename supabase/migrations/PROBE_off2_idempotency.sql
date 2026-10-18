@@ -31,7 +31,10 @@ BEGIN
       ('friendships',        'natural',     NULL,          NULL,                                  NULL,  ARRAY['requester_id', 'addressee_id']),
       ('post_reports',       'natural',     NULL,          NULL,                                  NULL,  ARRAY['post_id', 'reporter_id']),
       ('user_notifications', 'update-only', NULL,          NULL,                                  NULL,  NULL),
-      ('feed_events',        'natural',     NULL,          NULL,                                  NULL,  ARRAY['id'])
+      ('feed_events',        'natural',     NULL,          NULL,                                  NULL,  ARRAY['id']),
+      ('feed_signal_events', 'natural',     NULL,          NULL,                                  NULL,  ARRAY['id']),
+      ('feed_hidden_posts',  'natural',     NULL,          NULL,                                  NULL,  ARRAY['user_id', 'post_id']),
+      ('feed_muted_authors', 'natural',     NULL,          NULL,                                  NULL,  ARRAY['user_id', 'author_id'])
     ) AS c(tbl, kind, owner, uniq, partial, cols)
   LOOP
     rel := to_regclass('public.' || r.tbl);

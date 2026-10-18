@@ -11,6 +11,7 @@
  *   unlike   delete by (post_id, user_id): repeating it changes nothing.
  *   seen     (Stage L2) upsert feed_events on the primary key the tracker made
  *            once per event, ignoreDuplicates: a resend is the same row.
+ *   signals  (S12-F1) upsert feed_signal_events the same way.
  * Any 23505 is "delivered": the only way to get one is that the row exists.
  *
  * Classification, for outbox.ts: status 0 (fetch threw, our timeout), 408, 429
@@ -87,6 +88,39 @@ export function supabaseSender(client: SupabaseClient): Sender {
         if (a.events.length === 0) return { ok: true };
         return classify(await call(db.from(t.table).upsert(
           a.events.map((e) => ({ id: e.id, user_id: item.userId, post_id: e.post_id, author_id: e.author_id, event_type: e.event_type, dwell_ms: e.dwell_ms })),
+          { onConflict: t.onConflict, ignoreDuplicates: true },
+        )));
+      }
+      case "hide_post":
+        // S12-F1 Extra A. The pair IS the fact: ON CONFLICT (user_id, post_id)
+        // DO NOTHING, so a resend is the same row. A post the member may not
+        // see (or their own) is skipped by the BEFORE trigger, not refused.
+        return classify(await call(db.from(t.table).upsert(
+          { user_id: item.userId, post_id: a.postId, reason: a.reason },
+          { onConflict: t.onConflict, ignoreDuplicates: true },
+        )));
+      case "mute":
+        // S12-F1 Extra D. Same: one row per (member, author) however often sent.
+        return classify(await call(db.from(t.table).upsert(
+          { user_id: item.userId, author_id: a.authorId },
+          { onConflict: t.onConflict, ignoreDuplicates: true },
+        )));
+      case "unmute":
+        // Deleting by the pair: repeating it changes nothing.
+        return classify(await call(db.from(t.table).delete().eq("user_id", item.userId).eq("author_id", a.authorId)));
+      case "feed_signals": {
+        // S12-F1. Same rule as feed_events: each signal's id was made once,
+        // when it was recorded; ON CONFLICT (id) DO NOTHING makes a resend
+        // harmless, and the database's AFTER INSERT fold runs only for a row
+        // that was really inserted, so a resend never counts twice. user_id is
+        // the item's member (RLS: own rows only); subject_id is overwritten
+        // server-side for the post kinds. A row the server will not record (a
+        // post the member may not see, their own post, over the rate bound) is
+        // skipped by its BEFORE trigger, not refused, so it never takes the
+        // rest of the batch with it.
+        if (a.signals.length === 0) return { ok: true };
+        return classify(await call(db.from(t.table).upsert(
+          a.signals.map((x) => ({ id: x.id, user_id: item.userId, kind: x.kind, post_id: x.post_id, subject_id: x.subject_id, value: x.value })),
           { onConflict: t.onConflict, ignoreDuplicates: true },
         )));
       }

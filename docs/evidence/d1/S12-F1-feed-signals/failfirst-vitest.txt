@@ -1,0 +1,28 @@
+# Fail-first (before the client code existed), 2026-10-18, local vitest
+## signals (feedSignals.test.ts + outboxFeedSignals.test.ts)
+ ❯ src/lib/offline/__tests__/outboxFeedSignals.test.ts (5 tests | 5 failed) 30ms
+ FAIL  src/hooks/feed/__tests__/feedSignals.test.ts [ src/hooks/feed/__tests__/feedSignals.test.ts ]
+Error: Failed to resolve import "@/lib/feed/feedSignals" from "src/hooks/feed/__tests__/feedSignals.test.ts". Does the file exist?
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/lib/offline/__tests__/outboxFeedSignals.test.ts > exactly once > a batch is written once, with the member as user_id and the columns the table has
+AssertionError: expected 'queued' to be 'delivered' // Object.is equality
+ FAIL  src/lib/offline/__tests__/outboxFeedSignals.test.ts > exactly once > the answer is lost twice: resent with the SAME ids, still three rows (ON CONFLICT (id) DO NOTHING)
+AssertionError: expected [] to deeply equal [ …(3) ]
+ FAIL  src/lib/offline/__tests__/outboxFeedSignals.test.ts > telemetry, not a member's action > feed_signals is unordered (never holds a comment behind it)
+AssertionError: expected false to be true // Object.is equality
+ FAIL  src/lib/offline/__tests__/outboxFeedSignals.test.ts > telemetry, not a member's action > the device keeps at most MAX_FEED_EVENT_ITEMS unsent signal batches (oldest dropped)
+AssertionError: expected [ { …(7) }, { …(7) }, { …(7) }, …(42) ] to have a length of 40 but got 45
+ FAIL  src/lib/offline/__tests__/outboxFeedSignals.test.ts > telemetry, not a member's action > the target is in D1's contract with the same natural key
+AssertionError: expected undefined to deeply equal { table: 'feed_signal_events', …(2) }
+ Test Files  2 failed (2)
+      Tests  5 failed (5)
+
+## hide + mute (outboxFeedSignals.test.ts, after the Owner's Extra A / D)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/lib/offline/__tests__/outboxFeedSignals.test.ts > hide a post / mute an account — exactly once through the outbox > hide: delivered once, and a resend after two lost answers is still ONE row (natural key user_id, post_id)
+TypeError: (0 , hidePost) is not a function
+ FAIL  src/lib/offline/__tests__/outboxFeedSignals.test.ts > hide a post / mute an account — exactly once through the outbox > mute: one row per (member, author) however often it is sent; unmute removes it
+TypeError: (0 , muteAuthor) is not a function
+ FAIL  src/lib/offline/__tests__/outboxFeedSignals.test.ts > hide a post / mute an account — exactly once through the outbox > mute then unmute while offline collapses to the last intent (nothing sent for the first)
+AssertionError: expected [ 'mute', 'unmute' ] to deeply equal [ 'unmute' ]
+ FAIL  src/lib/offline/__tests__/outboxFeedSignals.test.ts > hide a post / mute an account — exactly once through the outbox > never the member themselves; nothing without a member

@@ -39,7 +39,24 @@ export default function OutboxBridge() {
        * list under the member's thumb every time a seen-batch lands — and its
        * refusal (the hourly rate limit, a deleted post) is not something the
        * member did or can fix, so it is logged, never toasted.
+       * S12-F1 · feed_signals (time on post, skips, watch %, share clicks,
+       * profile visits) is the same kind of telemetry: same treatment.
        */
+      if (e.type !== "changed" && e.item.action.kind === "feed_signals") {
+        if (e.type === "failed") {
+          logger.warn({
+            code: "DB-3009",
+            event: "FEED_SIGNALS_DROPPED",
+            fn: "OutboxBridge",
+            file: "src/components/OutboxBridge.tsx",
+            message: "A batch of feed signals was refused by the server and dropped.",
+            reason: describeError(e.error),
+            userId,
+            detail: { signals: e.item.action.signals.length, attempts: e.item.attempts },
+          });
+        }
+        return;
+      }
       if (e.type !== "changed" && e.item.action.kind === "feed_events") {
         if (e.type === "failed") {
           logger.warn({
