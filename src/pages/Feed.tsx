@@ -599,6 +599,18 @@ const Feed = () => {
                   </FeedSignalsContext.Provider>
                   </motion.div>
 
+                  {/* S12-F3 · personal feed only: the server marks the post after
+                      which this session has no unseen friends/follows post left. */}
+                  {post.caught_up_after && (
+                    <div className="flex items-center gap-3 my-4" role="separator" data-testid="feed-caught-up">
+                      <span className="h-px flex-1 bg-border" />
+                      <span className="text-xs text-muted-foreground" style={bodyFont}>
+                        {t("feed.caughtUp", "You're all caught up")}
+                      </span>
+                      <span className="h-px flex-1 bg-border" />
+                    </div>
+                  )}
+
                   {/*
                     FRIEND SUGGESTIONS AFTER THE 10th POST — app only.
                     Owner, 2026-08-04: "after 10 feed post show this kind of
