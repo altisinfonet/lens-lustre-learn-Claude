@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import { favouriteAuthor, unfavouriteAuthor, unmuteAuthor } from "@/lib/feed/feedSignals";
 import { forgetMute, mutedThisSession } from "@/hooks/feed/useHideAndMute";
+import { useFeatureAllowed } from "@/hooks/core/useFeatureAllowed";
 
 interface Prefs { favourite: boolean; muted: boolean }
 
@@ -46,7 +47,10 @@ function refusalMessage(e: unknown): string {
 export default function FavouriteMuteButtons({ viewerId, authorId, authorName }: { viewerId: string | null | undefined; authorId: string; authorName?: string | null }) {
   const qc = useQueryClient();
   const key = authorPrefsKey(viewerId, authorId);
-  const enabled = !!viewerId && viewerId !== authorId;
+  // Shown only to members the personal_feed switch includes (review #466 B1):
+  // with the switch Off a ★ would feed a tab the member cannot open.
+  const allowed = useFeatureAllowed("personal_feed");
+  const enabled = allowed && !!viewerId && viewerId !== authorId;
   const { data } = useQuery({ queryKey: key, enabled, queryFn: () => readPrefs(viewerId!, authorId), staleTime: 60_000 });
   if (!enabled) return null;
   const prefs: Prefs = data ?? { favourite: false, muted: mutedThisSession(authorId) };

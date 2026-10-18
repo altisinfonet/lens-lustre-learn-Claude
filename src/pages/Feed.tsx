@@ -618,8 +618,8 @@ const Feed = () => {
                       onCommentCountChange={handleCommentCountChange}
                       onShareCountChange={handleShareCountChange}
                       onContentChange={handleContentChange}
-                      onNotInterested={notInterested}
-                      onMuteAuthor={mute}
+                      onNotInterested={showTabs ? notInterested : undefined}
+                      onMuteAuthor={showTabs ? mute : undefined}
                     />
                   </FeedCardWindow>
                   </FeedSeenObserver>

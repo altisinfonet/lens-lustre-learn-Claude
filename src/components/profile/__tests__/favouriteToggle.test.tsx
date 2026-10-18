@@ -23,6 +23,11 @@ const h = vi.hoisted(() => ({
   unmuteAuthor: vi.fn((): Promise<unknown> => Promise.resolve({ status: "delivered" })),
 }));
 vi.mock("@/hooks/core/use-toast", () => ({ toast: h.toast }));
+const sw = vi.hoisted(() => ({ allowed: true }));
+vi.mock("@/hooks/core/useFeatureAllowed", async (orig) => ({
+  ...(await orig<typeof import("@/hooks/core/useFeatureAllowed")>()),
+  useFeatureAllowed: () => sw.allowed,
+}));
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     from: (table: string) => ({
@@ -55,10 +60,20 @@ function mount(viewer = ME) {
 
 beforeEach(() => {
   h.rows = { feed_favourite_authors: false, feed_muted_authors: false };
+  sw.allowed = true;
   vi.clearAllMocks();
 });
 
 describe("S12-F5 ★ favourite toggle", () => {
+  it("personal_feed switch Off for the viewer → no ★ and no Unmute at all (review #466 B1)", async () => {
+    sw.allowed = false;
+    h.rows.feed_muted_authors = true;
+    const { container } = mount();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByTestId("profile-favourite-button")).toBeNull();
+    expect(container.textContent ?? "").not.toMatch(/Unmute|Favourite/i);
+  });
+
   it("not a favourite → tap adds (outbox), tap again removes", async () => {
     mount();
     const btn = await screen.findByTestId("profile-favourite-button");
