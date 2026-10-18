@@ -1,9 +1,12 @@
 # 50mm Retina World · the video converter worker (CONVERTER-DESIGN.md v2 §6).
 # Installed by setup.sh at /etc/systemd/system/converter.service
-# (@NODE_BIN@ is replaced with the Node 22 binary's path).
+# (@NODE_BIN@ is replaced with the Node 22 binary's path). This file IS the
+# staging lane; `setup.sh --lane live` renders converter-live.service from it
+# (lane-lib.sh: user converter-live, /var/lib/converter-live, its own env file,
+# job space and sandbox-unit prefix, and this lane's directories hidden from it).
 #
 # Its own unprivileged user `converter`; outbound HTTPS only; it may write
-# only its claim file and the job space. FFmpeg never runs in here: every
+# only its state (claim file, session file) and the job space. FFmpeg never runs in here: every
 # ffprobe/ffmpeg is a converter-ff@<job>.service (user ffjob, no network).
 
 [Unit]
@@ -23,6 +26,14 @@ SupplementaryGroups=convjob
 EnvironmentFile=/etc/converter/converter.env
 Environment=NODE_ENV=production
 Environment=CONVERTER_LAUNCHER=systemd
+# This lane's own files and sandbox units (converter-live.service names the live lane's).
+Environment=CONVERTER_CREDENTIALS_FILE=/var/lib/converter/secrets/credentials.json
+Environment=CONVERTER_SECRETS_DIR=/var/lib/converter/secrets
+Environment=CONVERTER_STATE_FILE=/var/lib/converter/state/claim.json
+# the persisted Supabase session (refresh token, 0600): state/ is hidden from FFmpeg runs and the other lane
+Environment=CONVERTER_SESSION_FILE=/var/lib/converter/state/session.json
+Environment=CONVERTER_JOBS_DIR=/var/lib/converter/jobs
+Environment=CONVERTER_UNIT_PREFIX=converter-ff
 ExecStart=@NODE_BIN@ /opt/converter/worker.mjs
 WorkingDirectory=/var/lib/converter
 Restart=always
@@ -44,6 +55,9 @@ LimitCORE=0
 NoNewPrivileges=yes
 ProtectSystem=strict
 ReadWritePaths=/var/lib/converter/state /var/lib/converter/jobs
+# The OTHER lane's secrets, state and job space: invisible, whatever the file modes say
+# (lane separation; sandbox-check.sh --selftest proves it under the real unit).
+InaccessiblePaths=-/var/lib/converter-live
 ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes

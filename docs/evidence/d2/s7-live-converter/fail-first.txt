@@ -1,0 +1,25 @@
+S7 live server converter — fail-first, 2026-10-18 (D2).
+The NEW tests (converter/test/{polkit,lane,config}.test.ts) run against origin/staging's converter/deploy + converter/src (e5bf9eb4), i.e. before this PR's changes (git stash of converter/deploy):
+  polkit.test.ts  × converter-live may start/stop converter-live-ff@<uuid> (the old rule knows only user converter)
+  config.test.ts  × the env overrides route to the live lane incl. CONVERTER_UNIT_PREFIX; × CONVERTER_UNIT_PREFIX validated (no such setting)
+  lane.test.ts    file fails to load: deploy/lane-lib.sh does not exist (no way to render the live lane)
+After this PR: npx vitest run converter -> 14 files passed, 140 tests passed, 19 skipped (the ffmpeg e2e tests, which need ffmpeg; CI runs them).
+
+--- vitest --reporter=verbose, before ---
+ ✓ converter/test/polkit.test.ts > converter · polkit rule: each lane's worker, its own sandbox units only > staging: converter may start and stop converter-ff@<uuid>.service 3ms
+ × converter/test/polkit.test.ts > converter · polkit rule: each lane's worker, its own sandbox units only > live: converter-live may start and stop converter-live-ff@<uuid>.service 16ms
+ ✓ converter/test/polkit.test.ts > converter · polkit rule: each lane's worker, its own sandbox units only > neither lane may touch the OTHER lane's sandbox units 1ms
+ ✓ converter/test/polkit.test.ts > converter · polkit rule: each lane's worker, its own sandbox units only > no other verb (restart, reload, kill, enable…) 1ms
+ ✓ converter/test/polkit.test.ts > converter · polkit rule: each lane's worker, its own sandbox units only > no other unit: the workers themselves, the template, system units, look-alike names 2ms
+ ✓ converter/test/polkit.test.ts > converter · polkit rule: each lane's worker, its own sandbox units only > no other user: the FFmpeg users, root, look-alikes 1ms
+ ✓ converter/test/polkit.test.ts > converter · polkit rule: each lane's worker, its own sandbox units only > no other action (transient units, unit files, reload of the daemon) 1ms
+ ✓ converter/test/config.test.ts > converter · configuration > a complete env loads; the bucket is kept 6ms
+ ✓ converter/test/config.test.ts > converter · configuration > re-review N4: CONVERTER_R2_BUCKET is required with the network config, and must be a bucket name 3ms
+ ✓ converter/test/config.test.ts > converter · configuration > CONVERTER_R2_HOST is required and must be an R2 account host 1ms
+ ✓ converter/test/config.test.ts > converter · configuration > the self-test alone (no network) needs neither 1ms
+ × converter/test/config.test.ts > converter · configuration > S7 live lane: the env overrides route credentials, secrets, state, jobs and the sandbox units to the live lane 20ms
+ × converter/test/config.test.ts > converter · configuration > S7: CONVERTER_UNIT_PREFIX names a lane's sandbox template only 2ms
+ ✓ converter/test/config.test.ts > converter · configuration > there is no security-updates marker setting any more (owner ruling R-VM-1: the pinned build) 2ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  3 failed (3)
+      Tests  3 failed | 11 passed (14)
