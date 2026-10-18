@@ -99,9 +99,14 @@ export type OutboxAction =
   | { kind: "feed_signals"; signals: FeedSignalPayload[] }
   /** S12-F1 Extra A · "Not interested" / "Hide post" (natural key: user_id, post_id). */
   | { kind: "hide_post"; postId: string; reason: HideReason }
+  /** S12-F5 · Undo of "Not interested" (deletes by the natural key). */
+  | { kind: "unhide_post"; postId: string }
   /** S12-F1 Extra D · mute / unmute an account (natural key: user_id, author_id). */
   | { kind: "mute"; authorId: string }
-  | { kind: "unmute"; authorId: string };
+  | { kind: "unmute"; authorId: string }
+  /** S12-F5 · ★ Add to / Remove from Favourites (natural key: user_id, author_id). */
+  | { kind: "favourite"; authorId: string }
+  | { kind: "unfavourite"; authorId: string };
 export type OutboxKind = OutboxAction["kind"];
 
 /**
@@ -139,6 +144,9 @@ export const OUTBOX_TARGETS: Record<OutboxKind, { table: string; kind: "key" | "
   hide_post: { table: "feed_hidden_posts", kind: "natural", onConflict: "user_id,post_id" },
   mute: { table: "feed_muted_authors", kind: "natural", onConflict: "user_id,author_id" },
   unmute: { table: "feed_muted_authors", kind: "natural", onConflict: "user_id,author_id" },
+  unhide_post: { table: "feed_hidden_posts", kind: "natural", onConflict: "user_id,post_id" },
+  favourite: { table: "feed_favourite_authors", kind: "natural", onConflict: "user_id,author_id" },
+  unfavourite: { table: "feed_favourite_authors", kind: "natural", onConflict: "user_id,author_id" },
 };
 
 export interface OutboxItem {
@@ -266,6 +274,8 @@ function makeKey(): string {
 const togglePost = (a: OutboxAction) =>
   a.kind === "react" || a.kind === "unreact" ? `post:${a.postId}`
   : a.kind === "mute" || a.kind === "unmute" ? `author:${a.authorId}`
+  : a.kind === "hide_post" || a.kind === "unhide_post" ? `hide:${a.postId}`
+  : a.kind === "favourite" || a.kind === "unfavourite" ? `favourite:${a.authorId}`
   : null;
 
 /**

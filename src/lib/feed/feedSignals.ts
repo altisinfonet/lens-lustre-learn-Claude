@@ -92,6 +92,23 @@ export function unmuteAuthor(userId: string | null | undefined, authorId: string
   return submit(userId, { kind: "unmute", authorId });
 }
 
+/** S12-F5 · Undo of "Not interested". An unsent hide of the same post is replaced (last intent wins). */
+export function unhidePost(userId: string | null | undefined, postId: string, submit: OutboxSubmit = outboxSubmit) {
+  if (!userId || !postId) return Promise.resolve(null);
+  return submit(userId, { kind: "unhide_post", postId });
+}
+
+/** S12-F5 · ★ Add to / Remove from Favourites. Same outbox discipline as mute. */
+export function favouriteAuthor(userId: string | null | undefined, authorId: string, submit: OutboxSubmit = outboxSubmit) {
+  if (!userId || !authorId || userId === authorId) return Promise.resolve(null);
+  return submit(userId, { kind: "favourite", authorId });
+}
+
+export function unfavouriteAuthor(userId: string | null | undefined, authorId: string, submit: OutboxSubmit = outboxSubmit) {
+  if (!userId || !authorId || userId === authorId) return Promise.resolve(null);
+  return submit(userId, { kind: "unfavourite", authorId });
+}
+
 const lastVisit = new Map<string, number>();
 
 /** Tests only. */

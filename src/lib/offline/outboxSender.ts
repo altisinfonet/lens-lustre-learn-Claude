@@ -108,6 +108,18 @@ export function supabaseSender(client: SupabaseClient): Sender {
       case "unmute":
         // Deleting by the pair: repeating it changes nothing.
         return classify(await call(db.from(t.table).delete().eq("user_id", item.userId).eq("author_id", a.authorId)));
+      case "unhide_post":
+        // S12-F5 · Undo of "Not interested": delete by the pair, repeatable.
+        return classify(await call(db.from(t.table).delete().eq("user_id", item.userId).eq("post_id", a.postId)));
+      case "favourite":
+        // S12-F5 · ★ one row per (member, author) however often sent. The cap
+        // (FAVOURITES-001, HTTP 400) is a refusal and is never retried.
+        return classify(await call(db.from(t.table).upsert(
+          { user_id: item.userId, author_id: a.authorId },
+          { onConflict: t.onConflict, ignoreDuplicates: true },
+        )));
+      case "unfavourite":
+        return classify(await call(db.from(t.table).delete().eq("user_id", item.userId).eq("author_id", a.authorId)));
       case "feed_signals": {
         // S12-F1. Same rule as feed_events: each signal's id was made once,
         // when it was recorded; ON CONFLICT (id) DO NOTHING makes a resend
