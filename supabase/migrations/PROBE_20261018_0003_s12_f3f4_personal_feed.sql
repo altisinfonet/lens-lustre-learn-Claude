@@ -177,12 +177,12 @@ BEGIN
   -- The newest 40 X1/X2 circle posts (pages 1-2 need 12) get rotating test slugs c1..c4, so no
   -- real category on this lane can form a 3-in-a-row run with them and bend page 2's 6/2/2
   -- (review #463 L1b; makes G2 independent of the lane's real categories).
-  UPDATE public.posts po SET categories = ARRAY['s12f34-c' || (1 + (r.rn % 4))::text]
+  UPDATE public.posts po SET categories = ARRAY['s12f34-c' || (1 + (rot.rn % 4))::text]
     FROM (SELECT x.pid, row_number() OVER (ORDER BY x.ord) AS rn
             FROM unnest(circle) WITH ORDINALITY x(pid, ord)
             JOIN public.posts p2 ON p2.id = x.pid
-           WHERE p2.user_id IN (x1, x2)) r
-   WHERE po.id = r.pid AND r.rn <= 40;
+           WHERE p2.user_id IN (x1, x2)) rot
+   WHERE po.id = rot.pid AND rot.rn <= 40;
   -- six recent public posts outside A's circle → the test interest category
   SELECT array_agg(q.id) INTO sugg FROM (
     SELECT po.id FROM public.posts po
