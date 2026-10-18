@@ -48,6 +48,30 @@ describe("converter · failure codes", () => {
     expect(s).toContain("Bearer [redacted]");
   });
 
+  it("scrub (session persistence, 2026-10-18): refresh tokens quoted or not, the seed step's token hashes, sb_secret_ keys", () => {
+    // fixtures assembled at run time, low-entropy (the repo's secret scan must not see a key literal)
+    const key = ["sb", "secret", "aaaabbbbccccdddd"].join("_");
+    const s = scrub([
+      `{"refresh_token":"tokaaaa1111"}`, `refresh_token=tokbbbb2222&x=1`, `refresh_token: tokcccc3333`,
+      `{"hashed_token":"hashdddd4444","token_hash":"hasheeee5555"}`, `token_hash=hashffff6666`, `apikey ${key}`,
+      `{"provider_refresh_token":"provgggg7777"}`,
+    ].join(" "));
+    expect(s).not.toMatch(/tokaaaa1111|tokbbbb2222|tokcccc3333|hashdddd4444|hasheeee5555|hashffff6666|aaaabbbbccccdddd|provgggg7777/);
+    // the worker's own messages keep their meaning
+    expect(scrub("sign-in (refresh_token) refused: HTTP 400 refresh_token_already_used")).toBe("sign-in (refresh_token) refused: HTTP 400 refresh_token_already_used");
+    expect(scrub("sign-in (password) refused: HTTP 400 captcha_failed")).toBe("sign-in (password) refused: HTTP 400 captcha_failed");
+  });
+
+  it("an auth.reseed_required line carries no token, password or key — even if one were passed in", () => {
+    const lines: string[] = [];
+    jsonLogger((l) => lines.push(l))("auth.reseed_required", {
+      level: "ALERT", status: 400, code: "captcha_failed", retry_in_ms: 60_000,
+      error: `refused {"refresh_token":"tokhhhh8888","password":"pwiiii9999"} refresh_token=tokjjjj0000`,
+    });
+    expect(lines[0]).not.toMatch(/tokhhhh8888|pwiiii9999|tokjjjj0000/);
+    expect(JSON.parse(lines[0])).toMatchObject({ event: "auth.reseed_required", code: "captcha_failed", retry_in_ms: 60_000 });
+  });
+
   it("the logger scrubs every string field", () => {
     const lines: string[] = [];
     jsonLogger((l) => lines.push(l))("x", { error: "PUT https://h/p?X-Amz-Signature=deadbeef failed", n: 3 });

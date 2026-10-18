@@ -64,8 +64,12 @@ export function scrub(s: string): string {
     // bearer tokens / JWTs
     .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [redacted]")
     .replace(/eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, "[jwt]")
-    // "password":"…", "refresh_token":"…", "access_token":"…"
-    .replace(/("?(?:password|refresh_token|access_token|claim_token)"?\s*[:=]\s*)"[^"]*"/gi, '$1"[redacted]"')
+    // Supabase secret API keys (sb_secret_…) — never on the VM, but never in a line either
+    .replace(/sb_secret_[A-Za-z0-9_-]+/g, "sb_secret_[redacted]")
+    // "password":"…", "refresh_token":"…", "access_token":"…", the seed step's token_hash / hashed_token
+    .replace(/("?(?:password|refresh_token|access_token|claim_token|token_hash|hashed_token|provider_token|provider_refresh_token)"?\s*[:=]\s*)"[^"]*"/gi, '$1"[redacted]"')
+    // … and the same unquoted (refresh_token=abc, refresh_token: abc)
+    .replace(/\b((?:password|refresh_token|access_token|claim_token|token_hash|hashed_token)\s*[:=]\s*)(?!"|\[redacted\])[^\s"',&;}]+/gi, "$1[redacted]")
     .slice(0, 2000);
 }
 

@@ -16,11 +16,17 @@
  *     N6e); any other ending (done, or a final code about the file) resets it;
  *   • a presigned URL outside this lane's R2 pin (StorageUrlRefused) ends that
  *     job and STOPS the loop with an ALERT — main exits 4, which converter.service
- *     does not restart (re-review N4): a misconfiguration must not fail every job.
+ *     does not restart (re-review N4): a misconfiguration must not fail every job;
+ *   • a sign-in that needs a person (ReseedRequired: live CAPTCHA, no usable
+ *     refresh token) keeps the worker ALIVE — no crash loop, nothing claimed: the
+ *     session backs its network sign-ins off up to 1 h, and the loop only looks
+ *     at the session file every minute for a seeded token (logged when a network
+ *     try was made, not on every look).
  */
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { ApiError, type Api } from "./api";
+import { ReseedRequired, SessionPersistError } from "./auth";
 import { scrub, vidCode } from "./failures";
 import { runJob, type Fatal, type JobDeps, type JobOutcome } from "./job";
 import { UUID_RE } from "./launcher";
@@ -75,6 +81,12 @@ export async function recoverStaleClaim(d: Pick<WorkerDeps, "api" | "state" | "l
     const status = await d.api.finish(saved.source_id, saved.claim_token, { code: "internal", detail: "the converter restarted during this job" });
     d.log("worker.recovered", { source_id: saved.source_id, status });
   } catch (e) {
+    // Waiting for a seeded session (or for the session file to be writable) is not "the claim is gone":
+    // keep it on disk and end it once signed in. Neither makes a network call while it waits.
+    if (e instanceof ReseedRequired || e instanceof SessionPersistError) {
+      if (!(e instanceof ReseedRequired) || e.attempted) d.log("worker.recover_retry", { source_id: saved.source_id, error: scrub(e.message) });
+      return false;
+    }
     if (e instanceof ApiError && e.transient) {
       d.log("worker.recover_retry", { source_id: saved.source_id, error: scrub(e.message) });
       return false;
@@ -88,6 +100,9 @@ export async function recoverStaleClaim(d: Pick<WorkerDeps, "api" | "state" | "l
 
 /** How long to wait after /convert/claim said no. */
 export function claimErrorDelay(e: unknown, idleMs: number, d: Pick<WorkerDeps, "pollMs" | "pollMaxMs">): number {
+  // Waiting for a seeded session: look again at most every pollMaxMs, never sooner than pollMs (the
+  // session itself makes no network sign-in before its back-off ends).
+  if (e instanceof ReseedRequired) return Math.min(Math.max(e.retryInMs, d.pollMs), d.pollMaxMs);
   if (!(e instanceof ApiError)) return d.pollMaxMs;
   const inner = vidCode(String(e.body.message ?? e.message)) ?? e.code;
   if (inner === "VID-SRC-007") return 0;                     // that original was unusable; the job is failed — next one
@@ -124,7 +139,7 @@ export async function workerLoop(d: WorkerDeps, stop?: AbortSignal): Promise<{ j
       claim = await d.api.claim();
     } catch (e) {
       const delay = claimErrorDelay(e, idle, d);
-      d.log("worker.claim_error", { error: scrub((e as Error)?.message ?? String(e)), retry_in_ms: delay });
+      if (!(e instanceof ReseedRequired) || e.attempted) d.log("worker.claim_error", { error: scrub((e as Error)?.message ?? String(e)), retry_in_ms: delay });
       if (delay > 0) idle = Math.max(idle, Math.min(delay, d.pollMaxMs));
       await wait(delay);
       continue;
