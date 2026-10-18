@@ -23,7 +23,7 @@ import { selfTest } from "./selftest";
 import { ClaimStateStore } from "./state";
 import { sweepJobsRoot, workerLoop } from "./worker";
 
-export const VERSION = "1.1.0";
+export const VERSION = "1.2.0";
 
 function launcherFor(c: Config): Launcher {
   return c.launcher === "systemd"
@@ -108,10 +108,16 @@ async function main(argv: string[]): Promise<number> {
   }
   const session = new Session({
     supabaseUrl: c.supabaseUrl, anonKey: c.anonKey, credentials: () => readCredentialsFile(c.credentialsFile),
+    sessionFile: c.sessionFile,
     onRefreshRefused: (status, message) => log("auth.refresh_refused", {
       level: "WARNING", status, error: scrub(message),
       note: "the refresh token was refused (revoked, expired, or reused — possible theft); signing in with the password",
     }),
+    onReseedRequired: (r) => log("auth.reseed_required", {
+      level: "ALERT", status: r.status, code: r.code, attempt: r.attempt, retry_in_ms: r.retryInMs, session_file: c.sessionFile,
+      note: "the refresh token is gone and this project wants a CAPTCHA for the password: seed a session (converter/deploy/README.md, 'Seeding the session'); the worker keeps running and picks a seeded token up within a minute",
+    }),
+    onSessionFileProblem: (message) => log("auth.session_file_problem", { level: "WARNING", error: scrub(message), session_file: c.sessionFile }),
   });
   const api = new Api({ apiBase: c.apiBase, supabaseUrl: c.supabaseUrl, anonKey: c.anonKey, session });
   const state = new ClaimStateStore(c.stateFile);

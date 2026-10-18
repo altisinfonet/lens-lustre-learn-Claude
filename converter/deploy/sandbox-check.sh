@@ -159,6 +159,17 @@ for d in secrets state; do
   fi
   as_worker rm -f "$probe"; as_worker chmod 0700 "$BASE/$d"
 done
+# 3b. the persisted session (CONVERTER_SESSION_FILE = state/session.json, the refresh token): in state/,
+#     so the checks above (and 7) already prove no run of either lane and no other lane's worker can read
+#     it; here, that the file itself is the worker's alone. Its content is never read.
+sess="$BASE/state/session.json"
+if [[ -L "$sess" ]]; then
+  bad "$sess is a symbolic link"
+elif [[ -e "$sess" ]]; then
+  if [[ -f "$sess" && "$(stat -c '%U:%G %a' -- "$sess")" == "$WORKER_USER:$WORKER_USER 600" ]]; then ok "the session file is $WORKER_USER:$WORKER_USER 0600 (in state/: hidden from every run and from the other lane)"; else bad "the session file is $(stat -c '%F %U:%G %a' -- "$sess")"; fi
+else
+  echo "NOTE  no $sess yet (written at the worker's first sign-in, or by install-session.sh)"
+fi
 
 # 4. no network
 run "$J" ffprobe 20 -hide_banner -v error -rw_timeout 5000000 -i http://1.1.1.1/x.mp4 || true

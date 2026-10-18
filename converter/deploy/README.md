@@ -14,10 +14,13 @@ makes, and sends it through the same gates (`upload-urls` → `complete` → `fi
 | `converter.service` — the worker (`/opt/converter/worker.mjs`) | user `converter` | outbound HTTPS to Supabase / Pages / R2; read its credentials; write its claim file and the job space; **start/stop `converter-ff@<uuid>.service` only** (polkit) |
 | `converter-ff@<job>.service` — every ffprobe / ffmpeg run | user `ffjob` | read/write **that job's directory only**; no network, no secrets, no capabilities, syscall filter, 12 GB / 3.5 CPU / 256 tasks, time cap |
 
-The VM holds no R2 key, no attestation key and no service role (design §2). The only secret on
-it is the converter account's email + password, in
+The VM holds no R2 key, no attestation key and no service role (design §2). Its secrets are the
+converter account's email + password, in
 `/var/lib/converter/secrets/credentials.json` (`converter:converter`, `0600`), written by a
-separate Owner-run step. The worker refuses to start if that file is readable by anyone else.
+separate Owner-run step, and that account's current **refresh token**, in the session file
+`/var/lib/converter/state/session.json` (`converter:converter`, `0600`), which the worker keeps
+up to date itself ([The persisted session](#the-persisted-session-and-seeding-it-live-captcha)).
+The worker refuses either file if it is readable by anyone else.
 
 ### Why a template unit, not `systemd-run` (design amendment A1, §10.3)
 
@@ -48,6 +51,7 @@ is `ffjob-run`'s `timeout` (RuntimeMaxSec has no effect on `Type=oneshot`), capp
 | `50-converter-ff.rules` | `/etc/polkit-1/rules.d/` |
 | `converter.env.example` | `/etc/converter/converter.env` (root:converter 0640) — no secrets |
 | `converter-live.env.example` | `/etc/converter/converter-live.env` (root:converter-live 0640) — no secrets |
+| `install-session.sh` | run from here, as root, only to SEED a lane's session (stdin from `converter/tools/seed-session.mjs`) |
 
 ## Deploy (after the PR is reviewed)
 
@@ -173,10 +177,77 @@ sudo systemctl start converter.service
 # 6. start the live worker
 sudo systemctl enable --now converter-live.service
 journalctl -u converter-live.service -f
+# 7. the live project wants a CAPTCHA for password sign-in: if the log shows auth.reseed_required,
+#    seed the session from the Owner's PC (see "The persisted session, and seeding it" below):
+#    node converter/tools/seed-session.mjs --url https://jtdtehuqtinjxropkkcn.supabase.co | ssh … sudo bash converter-deploy/deploy/install-session.sh --lane live
 ```
 
 Re-running `setup.sh` (either lane) changes nothing; it prints `unchanged:` for every file.
 Updating the live worker: `sudo bash setup.sh --lane live --worker ../worker.mjs && sudo systemctl restart converter-live.service`.
+
+## The persisted session, and seeding it (live CAPTCHA)
+
+**Why.** The LIVE Supabase project enforces a CAPTCHA (Turnstile) on password sign-in; staging does
+not. Nobody can solve a CAPTCHA on the VM, so a live worker that signs in with its password gets
+`HTTP 400 captcha_failed` (measured 2026-10-18 01:58Z, `converter-live`). Refresh grants are never
+CAPTCHA-gated (supabase/auth `internal/api/middleware.go` `isIgnoreCaptchaRoute`: `/token` with
+`grant_type` `refresh_token`, `pkce` or `id_token` skips it), so the worker keeps its refresh token
+across restarts instead of signing in again.
+
+**How the worker keeps it** (`converter/src/auth.ts`):
+
+- The file is `CONVERTER_SESSION_FILE` (set in the unit: `<base>/state/session.json`), `0600`, owned
+  by the lane's worker, in its `0700` state directory — which is `InaccessiblePaths` for every
+  FFmpeg run of both lanes and for the other lane's worker (`lane.test.ts`, `sandbox-check.sh` 3, 3b, 7).
+- At start the saved refresh token is tried first; the password is only the fallback.
+- Every grant rotates the refresh token. The new one is written (temp file, fsync, rename, fsync the
+  directory) **before** the access token is used. A crash can leave the file at most one rotation
+  behind, which Supabase accepts on purpose (supabase/auth `internal/tokens/service.go`: the parent
+  of the active token, "the client was not able to store the result", gets the active one back).
+  If the write fails, nothing is used and no further grant is made until it succeeds: two behind
+  would count as reuse and end the session. One process per lane, one grant at a time (single-flight).
+- A refused refresh token is cleared from the file (`{"refused_at": …}`) and the password is tried.
+  If the password answers CAPTCHA, the worker logs **`auth.reseed_required`** (level `ALERT`), stays
+  up (no crash loop, nothing claimed) and makes no further network sign-in for 1, 2, 4 … minutes, at
+  most 1 h. It looks at the session file every minute: a newly seeded token is used at once.
+- Staging signs in with its password exactly as before; the file just saves a password grant per restart.
+
+**When to seed:** once for the live lane (now), and again only if `journalctl -u converter-live.service | grep reseed_required`
+shows the session was lost (revoked, the account's sessions signed out, unused for longer than the
+project's session limits, or a refused reuse).
+
+**How to seed** (Owner's PC → VM; Claude writes the click file). The tool needs Node, nothing installed:
+
+```
+set SUPABASE_SERVICE_ROLE_KEY=<the LIVE service-role key, read from the Owner's key file>
+node converter/tools/seed-session.mjs --url https://jtdtehuqtinjxropkkcn.supabase.co ^
+  | ssh -i %USERPROFILE%\.ssh\oracle_50mm_ed25519 ubuntu@<vm> sudo bash converter-deploy/deploy/install-session.sh --lane live
+```
+
+- `seed-session.mjs` checks that the key is that project's `service_role` key, that the account
+  `video-converter@50mmretina.com` already exists (it never signs one up), then
+  `POST /auth/v1/admin/generate_link {type:"magiclink"}` (no e-mail is sent) and
+  `POST /auth/v1/verify {type:"magiclink", token_hash}` — neither route carries the CAPTCHA
+  middleware (supabase/auth `internal/api/api.go`). It prints **only** `{"refresh_token":"…"}` to
+  stdout, refuses if stdout is a terminal, refuses a key on the command line, and never prints or
+  stores the key. It changes no password and no other user; the `/verify` call starts one new
+  session for the converter account (and marks its e-mail confirmed if it was not).
+- `install-session.sh --lane live` (root) accepts only that exact JSON on stdin, stops the lane's
+  worker, has the worker user write `state/session.json` `0600` (temp file, sync, rename), checks
+  owner and mode, and starts the worker again. The token never appears on a command line or in a log.
+- Then: `journalctl -u converter-live.service -n 30` shows `worker.start` and no `auth.reseed_required`.
+
+**If a session file is stolen** it gives a session as the converter account — the same rights as
+its password: claim/finish converter jobs on that lane, nothing more (no R2 key, no service role) —
+until that session is revoked. Do not count on Supabase's reuse detection to catch it: a token one
+rotation behind is accepted by design (the crash-safety case above), so a copy can keep up beside the
+worker; only a copy two or more rotations behind is refused and ends the session
+(`auth.refresh_refused` in the log). To **revoke** (verified in supabase/auth `internal/api/logout.go`,
+`scope=others`): run the seed step with `--revoke-others` — it makes a new session, signs out every
+OTHER session of the converter account (the stolen one included) with that new session's own token,
+and installs the new one on the VM. Access tokens already issued stay valid until they expire (at
+most 1 h). Then find how the file left the VM: only root and the lane's worker user can read it.
+
 
 ## FFmpeg: pinned, and how it is kept up to date
 

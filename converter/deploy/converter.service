@@ -6,7 +6,7 @@
 # job space and sandbox-unit prefix, and this lane's directories hidden from it).
 #
 # Its own unprivileged user `converter`; outbound HTTPS only; it may write
-# only its claim file and the job space. FFmpeg never runs in here: every
+# only its state (claim file, session file) and the job space. FFmpeg never runs in here: every
 # ffprobe/ffmpeg is a converter-ff@<job>.service (user ffjob, no network).
 
 [Unit]
@@ -30,6 +30,8 @@ Environment=CONVERTER_LAUNCHER=systemd
 Environment=CONVERTER_CREDENTIALS_FILE=/var/lib/converter/secrets/credentials.json
 Environment=CONVERTER_SECRETS_DIR=/var/lib/converter/secrets
 Environment=CONVERTER_STATE_FILE=/var/lib/converter/state/claim.json
+# the persisted Supabase session (refresh token, 0600): state/ is hidden from FFmpeg runs and the other lane
+Environment=CONVERTER_SESSION_FILE=/var/lib/converter/state/session.json
 Environment=CONVERTER_JOBS_DIR=/var/lib/converter/jobs
 Environment=CONVERTER_UNIT_PREFIX=converter-ff
 ExecStart=@NODE_BIN@ /opt/converter/worker.mjs

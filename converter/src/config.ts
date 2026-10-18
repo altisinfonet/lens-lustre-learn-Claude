@@ -1,7 +1,8 @@
 /**
  * The worker's configuration, from its environment (deploy/converter.env —
  * nothing secret in it: the Supabase URL and anon key are public; the
- * converter's password lives only in the 0600 credentials file).
+ * converter's password lives only in the 0600 credentials file, its refresh
+ * token only in the 0600 session file in the lane's state directory).
  */
 import { X264_PRESETS, type X264Preset } from "./encode";
 
@@ -10,6 +11,8 @@ export interface Config {
   supabaseUrl: string;
   anonKey: string;
   credentialsFile: string;
+  /** the persisted Supabase session (refresh token, 0600) — in this lane's own state dir, hidden from the other lane and from FFmpeg */
+  sessionFile: string;
   stateFile: string;
   jobsRoot: string;
   secretsDir: string;
@@ -74,6 +77,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, opts: { require
     supabaseUrl: url("CONVERTER_SUPABASE_URL", env.CONVERTER_SUPABASE_URL, net),
     anonKey,
     credentialsFile: env.CONVERTER_CREDENTIALS_FILE ?? "/var/lib/converter/secrets/credentials.json",
+    sessionFile: env.CONVERTER_SESSION_FILE ?? "/var/lib/converter/state/session.json",
     stateFile: env.CONVERTER_STATE_FILE ?? "/var/lib/converter/state/claim.json",
     jobsRoot: env.CONVERTER_JOBS_DIR ?? "/var/lib/converter/jobs",
     secretsDir: env.CONVERTER_SECRETS_DIR ?? "/var/lib/converter/secrets",

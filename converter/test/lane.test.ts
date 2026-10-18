@@ -88,4 +88,28 @@ describe("converter · the live lane's rendered units", () => {
     ]));
     expect(directives(liveMount).filter((l) => STAGING.test(l))).toEqual([]);
   });
+
+  it("each lane's session file (its refresh token) is in its own writable state dir, and hidden from the OTHER lane's worker and from BOTH lanes' FFmpeg runs", () => {
+    const staging = readFileSync(path.join(DEPLOY, "converter.service"), "utf8");
+    const stagingFf = readFileSync(path.join(DEPLOY, "converter-ff@.service"), "utf8");
+    const sessionOf = (unit: string) => loadConfig({ ...unitEnv(unit), CONVERTER_LAUNCHER: "direct" }, { requireNetwork: false }).sessionFile;
+    const hidden = (unit: string) => directives(unit).filter((l) => l.startsWith("InaccessiblePaths="))
+      .flatMap((l) => l.slice("InaccessiblePaths=".length).split(/\s+/)).map((p) => p.replace(/^-/, ""));
+    const writable = (unit: string) => directives(unit).filter((l) => l.startsWith("ReadWritePaths=")).flatMap((l) => l.slice("ReadWritePaths=".length).split(/\s+/));
+    const under = (file: string, dirs: string[]) => dirs.some((d) => file === d || file.startsWith(`${d}/`));
+    const s = sessionOf(staging), l = sessionOf(live);
+    expect(s).toBe("/var/lib/converter/state/session.json");
+    expect(l).toBe("/var/lib/converter-live/state/session.json");
+    // its own worker may write it
+    expect(under(s, writable(staging))).toBe(true);
+    expect(under(l, writable(live))).toBe(true);
+    // the other lane's worker cannot even see it
+    expect(under(s, hidden(live))).toBe(true);
+    expect(under(l, hidden(staging))).toBe(true);
+    // no FFmpeg run of either lane can see either lane's session
+    for (const ff of [stagingFf, liveFf]) {
+      expect(under(s, hidden(ff))).toBe(true);
+      expect(under(l, hidden(ff))).toBe(true);
+    }
+  });
 });
