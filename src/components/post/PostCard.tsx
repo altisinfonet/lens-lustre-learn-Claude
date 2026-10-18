@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import ProfileLink from "@/components/ProfileLink";
 import { publicUrl } from "@/lib/publicUrl";
 import { Link } from "react-router-dom";
-import { Share2, Copy, MoreHorizontal, Trash2, Flag, Ban, Eye, Pencil, UserPlus, UserCheck, UserMinus, Users } from "lucide-react";
+import { Share2, Copy, MoreHorizontal, Trash2, Flag, Ban, Eye, EyeOff, VolumeX, Pencil, UserPlus, UserCheck, UserMinus, Users } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,6 +57,10 @@ interface PostCardProps {
   onShareCountChange?: (postId: string, delta: number) => void;
   /** Callback for optimistic caption updates after edit */
   onContentChange?: (postId: string, newContent: string) => void;
+  /** S12-F5 · feed only: ⋯ → "Not interested" (the card goes, with Undo). */
+  onNotInterested?: (post: UnifiedPost) => void;
+  /** S12-F5 · feed only: ⋯ → "Mute <name>" (their posts go; Unmute on their profile). */
+  onMuteAuthor?: (post: UnifiedPost) => void;
 }
 
 const PostCard = ({
@@ -70,6 +74,8 @@ const PostCard = ({
   onCommentCountChange,
   onShareCountChange,
   onContentChange,
+  onNotInterested,
+  onMuteAuthor,
 }: PostCardProps) => {
   const t = useT();
   const signals = useFeedSignals();
@@ -489,6 +495,16 @@ const PostCard = ({
                       className="text-destructive focus:text-destructive py-2.5"
                     >
                       <Trash2 className="h-4 w-4 mr-2.5" /> Remove from my wall
+                    </DropdownMenuItem>
+                  )}
+                  {onNotInterested && (
+                    <DropdownMenuItem onClick={() => onNotInterested(post)} className="py-2.5" data-testid="post-not-interested">
+                      <EyeOff className="h-4 w-4 mr-2.5" /> Not interested
+                    </DropdownMenuItem>
+                  )}
+                  {onMuteAuthor && (
+                    <DropdownMenuItem onClick={() => onMuteAuthor(post)} className="py-2.5" data-testid="post-mute-author">
+                      <VolumeX className="h-4 w-4 mr-2.5" /> Mute {post.author_name?.trim() || "member"}
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem onClick={() => { setReportingOpen(true); setReportReason(""); }} className="py-2.5">

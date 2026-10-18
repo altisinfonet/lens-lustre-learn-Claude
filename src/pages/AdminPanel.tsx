@@ -53,6 +53,7 @@ const AdminAnalytics = lazy(() => import("@/components/admin/AdminAnalytics"));
 const AdminAdvertisements = lazy(() => import("@/components/admin/AdminAdvertisements"));
 const AdminVideoFeature = lazy(() => import("@/components/admin/video/AdminVideoFeature"));
 const AdminVideoConversion = lazy(() => import("@/components/admin/video/AdminVideoConversion"));
+const AdminFeedMix = lazy(() => import("@/components/admin/feed/AdminFeedMix"));
 const AdminPushBroadcast = lazy(() => import("@/components/admin/AdminPushBroadcast"));
 const AdminPerformance = lazy(() => import("@/components/admin/AdminPerformance"));
 const AdminAnnouncements = lazy(() => import("@/components/admin/AdminAnnouncements"));
@@ -308,7 +309,7 @@ const AdminPanel = () => {
       {currentRoute === "video_ads" && <LazyTab><AdminVideoFeature feature="video_ads" /></LazyTab>}
       {currentRoute === "video_music_check" && <LazyTab><AdminVideoFeature feature="copyright_music_check" /></LazyTab>}
       {currentRoute === "video_conversion" && <LazyTab><AdminVideoConversion /></LazyTab>}
-      {currentRoute === "personal_feed" && <LazyTab><AdminVideoFeature feature="personal_feed" /></LazyTab>}
+      {currentRoute === "personal_feed" && <LazyTab><div className="space-y-4"><AdminVideoFeature feature="personal_feed" /><AdminFeedMix /></div></LazyTab>}
       {currentRoute === "push_notification" && <LazyTab><AdminPushBroadcast /></LazyTab>}
       {currentRoute === "performance" && <LazyTab><AdminPerformance user={user} /></LazyTab>}
       {currentRoute === "announcements" && <LazyTab><AdminAnnouncements user={user} /></LazyTab>}

@@ -82,8 +82,12 @@ export const queryKeys = {
    * WRITES (`setQueryData`) are the ones that had to change; see
    * useFeedCacheUpdaters.ts.
    */
-  feed: (categories?: string[] | null) =>
-    ["feed", categories && categories.length ? [...categories].sort() : null] as const,
+  feed: (categories?: string[] | null, tab?: "following" | "favourites" | null) =>
+    // S12-F5: "For you" keeps the exact key it always had (no cache migration);
+    // Following / Favourites add a third element, so the prefix still matches.
+    (tab
+      ? ["feed", categories && categories.length ? [...categories].sort() : null, tab]
+      : ["feed", categories && categories.length ? [...categories].sort() : null]) as readonly unknown[],
 
   /** Prefix for every feed cache entry, whatever the category. */
   feedAll: () => ["feed"] as const,

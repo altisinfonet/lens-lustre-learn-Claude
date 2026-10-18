@@ -64,12 +64,13 @@ export function useFeedCacheUpdaters() {
   const enqueue = useCallback(
     (
       updater: (old: InfiniteData) => InfiniteData,
-      only?: (categories: string[] | null) => boolean,
+      only?: (categories: string[] | null, tab: string | null) => boolean,
     ) => {
       const entries = queryClient.getQueryCache().findAll({ queryKey: feedPrefix });
       for (const entry of entries) {
         const cats = (entry.queryKey[1] ?? null) as string[] | null;
-        if (only && !only(cats)) continue;
+        const tab = (entry.queryKey[2] ?? null) as string | null;
+        if (only && !only(cats, tab)) continue;
         queueCacheUpdate<InfiniteData>(queryClient, entry.queryKey, updater);
       }
     },
@@ -108,7 +109,9 @@ export function useFeedCacheUpdaters() {
       // filed under — nowhere else. Without this guard a Landscape post would
       // pop into the Portrait feed, which is exactly the confusion the whole
       // feature is meant to remove.
-      (cats) => belongsIn(post, cats));
+      // S12-F5: never into Following / Favourites (third key element) — those
+      // tabs list only chosen authors, in time order; a refresh brings new ones.
+      (cats, tab) => !tab && belongsIn(post, cats));
     },
     [enqueue],
   );
