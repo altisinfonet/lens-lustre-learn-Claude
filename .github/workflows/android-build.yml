@@ -784,6 +784,10 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
+          # 2026-10-18 (later): bumped 1.2.24 -> 1.2.25. 1.2.24 is spent (versionCode 1127, on Play
+          # production, Owner 2026-10-18). 1.2.25 carries BUG-VID-HOME (video in the home preview and
+          # notification thumbnails) and S12 personal feed client (signals, For you / Following /
+          # Favourites tabs, Not interested / Mute, behind the personal_feed switch).
           # 2026-10-18: bumped 1.2.23 -> 1.2.24. 1.2.23 is spent (versionCode 1126, on the
           # Owner's phone). 1.2.24 carries the Meta-style video player: autoplay with sound
           # in the app (hls.js instead of the WebView's own HLS player), controls hidden
@@ -839,8 +843,8 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
-          sed -i 's/versionName "1.0"/versionName "1.2.24"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.24 (1.2.23 is spent - versionCode 1126, Owner phone test 2026-10-18)"
+          sed -i 's/versionName "1.0"/versionName "1.2.25"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.25 (1.2.24 is spent - versionCode 1127, Play production 2026-10-18)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
