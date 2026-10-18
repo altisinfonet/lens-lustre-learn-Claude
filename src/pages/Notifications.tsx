@@ -16,7 +16,7 @@ import ActorPhrase from "@/components/notifications/ActorPhrase";
 import { useMemberHandles } from "@/hooks/profile/useMemberHandles";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Bell, X } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useT } from "@/i18n/I18nContext";
 import { useToggleFollow } from "@/hooks/social/useFriendshipMutations";
@@ -42,6 +42,9 @@ import { subjectFromGroup } from "@/lib/notifications/adapters";
 import { useAdminIds } from "@/hooks/core/useAdminIds";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { isWalletNotificationType } from "@/lib/native/iosReview";
+import VideoPoster from "@/components/video/VideoPoster";
+import { postMedia } from "@/lib/posts/subjectMedia";
+import { fetchPostVideoMap, type FeedVideo } from "@/lib/video/postVideoRead";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -76,8 +79,11 @@ function NotificationRow({
   onDelete,
   followPending,
   adminIds,
+  video,
 }: {
   group: NotificationGroup;
+  /** BUG-VID-HOME: the post's playable video when the notification is about a video post (one batched read for the list). */
+  video: FeedVideo | null;
   isFollowing: boolean;
   followReady: boolean;
   onOpen: (g: NotificationGroup) => void;
@@ -92,6 +98,7 @@ function NotificationRow({
   const actorId = group.actor_ids?.[0];
   const subject = subjectFromGroup(group, adminIds);
   const described = describeNotification(subject);
+  const media = postMedia({ video, image_url: group.thumbnail_url });
 
   // Only offer Follow back when we KNOW they are not already followed.
   // Unknown state must disable the action, never enable it (§0).
@@ -137,16 +144,22 @@ function NotificationRow({
         </button>
       )}
 
-      {group.thumbnail_url && (
-        <button onClick={() => onOpen(group)} className="shrink-0">
-          <img
-            src={group.thumbnail_url}
-            alt=""
-            referrerPolicy="no-referrer"
-            loading="lazy"
-            decoding="async"
-            className="w-11 h-14 object-cover rounded-sm"
-          />
+      {/* The post's picture: its video's poster for a video post, else its
+          photograph — decided by subjectMedia.ts, as on every other surface. */}
+      {(media.video || media.imageUrls[0]) && (
+        <button onClick={() => onOpen(group)} className="shrink-0 relative w-11 h-14 overflow-hidden rounded-sm">
+          {media.video ? (
+            <VideoPoster video={media.video} />
+          ) : (
+            <img
+              src={media.imageUrls[0]}
+              alt=""
+              referrerPolicy="no-referrer"
+              loading="lazy"
+              decoding="async"
+              className="w-11 h-14 object-cover rounded-sm"
+            />
+          )}
         </button>
       )}
 
@@ -200,6 +213,29 @@ const Notifications = () => {
       .filter((g) => g.type === "new_follower" || g.type === "friend_accepted")
       .map((g) => g.reference_id),
   );
+
+  /*
+   * BUG-VID-HOME — a notification about a VIDEO post had no thumbnail: the
+   * server's thumbnail_url is the post's photograph, and a video post has
+   * none. ONE batched read (the sanctioned post_videos read, through RLS) for
+   * the rows that have a reference but no photograph; a reference that is not
+   * a post simply finds nothing. A video this viewer may not play ("hidden")
+   * shows no thumbnail.
+   */
+  const videoRefIds = useMemo(
+    () => [...new Set(groups.filter((g) => g.reference_id && !g.thumbnail_url).map((g) => g.reference_id as string))].sort(),
+    [groups],
+  );
+  const { data: postVideos } = useQuery({
+    queryKey: ["notification-post-videos", videoRefIds.join(",")],
+    queryFn: () => fetchPostVideoMap(videoRefIds),
+    enabled: videoRefIds.length > 0,
+    staleTime: 5 * 60_000,
+  });
+  const videoFor = (g: NotificationGroup): FeedVideo | null => {
+    const v = g.reference_id ? postVideos?.get(g.reference_id) : undefined;
+    return v && v !== "hidden" ? v : null;
+  };
 
   const { following, ready: followReady } = useFollowingSet(
     useMemo(
@@ -336,6 +372,7 @@ const Notifications = () => {
                 onFollowBack={followBack}
                 onDelete={removeGroup}
                 adminIds={adminIds}
+                video={videoFor(group)}
               />
             ))}
           </section>

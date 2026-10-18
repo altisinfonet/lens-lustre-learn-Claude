@@ -15,6 +15,9 @@ const GalleryMagazine = lazy(() => import("@/components/gallery/GalleryMagazine"
 const GalleryBento = lazy(() => import("@/components/gallery/GalleryBento"));
 const GalleryClassic = lazy(() => import("@/components/gallery/GalleryClassic"));
 const GalleryMasonry = lazy(() => import("@/components/gallery/GalleryMasonry"));
+// BUG-VID-HOME: the ONE video player (src/components/video/FeedVideoCard.tsx),
+// lazy so the home page's first load carries none of it until a video post is previewed.
+const FeedVideoCard = lazy(() => import("@/components/video/FeedVideoCard"));
 import { useAuth } from "@/hooks/core/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
  import { useSiteSetting } from "@/hooks/core/useSiteSetting";
@@ -26,6 +29,9 @@ import { toast } from "@/hooks/core/use-toast";
 import { fireConversion } from "@/lib/adConversionContext";
 import { useT } from "@/i18n/I18nContext";
 import { logger } from "@/lib/logger";
+import { fetchPostAttachments, attachmentsFor } from "@/lib/posts/postAttachments";
+import { postMedia } from "@/lib/posts/subjectMedia";
+import type { FeedVideo } from "@/lib/video/postVideoRead";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 
 const FILE = "src/pages/Index.tsx";
@@ -240,7 +246,7 @@ const Index = () => {
   const [heroSlides, setHeroSlides] = useState<{src: string; title: string; category: string}[]>([]);
   const [heroReady, setHeroReady] = useState(false);
   const [galleryWorks, setGalleryWorks] = useState<PortfolioImage[]>([]);
-  const [latestPost, setLatestPost] = useState<{ user_id: string; user_name: string; user_handle: string | null; avatar_url: string | null; content: string; image_url: string | null; created_at: string; badges: string[] } | null>(null);
+  const [latestPost, setLatestPost] = useState<{ user_id: string; user_name: string; user_handle: string | null; avatar_url: string | null; content: string; image_url: string | null; image_urls: string[]; video: FeedVideo | null; created_at: string; badges: string[] } | null>(null);
   const [recentMembers, setRecentMembers] = useState<{ id: string; full_name: string | null; avatar_url: string | null }[]>([]);
   const [communityStats, setCommunityStats] = useState({ users: 0, followers: 0, posts: 0 });
   // topContributors now comes from useTopContributors hook (newTop)
@@ -437,7 +443,7 @@ const Index = () => {
     const fetchData = async () => {
       try {
         const results = await Promise.allSettled([
-          supabase.from("posts").select("id, user_id, content, image_url, created_at").eq("privacy", "public").order("created_at", { ascending: false }).limit(1),
+          supabase.from("posts").select("id, user_id, content, image_url, image_urls, created_at").eq("privacy", "public").order("created_at", { ascending: false }).limit(3),
           (supabase.from("profiles_public_data" as any) as any).select("id, full_name, avatar_url, custom_url").eq("is_suspended", false).order("created_at", { ascending: false }).limit(5),
           (supabase.from("profiles_public_data" as any) as any).select("id", { count: "exact", head: true }).eq("is_suspended", false),
           supabase.from("follows").select("id", { count: "exact", head: true }),
@@ -446,8 +452,25 @@ const Index = () => {
 
         const [postRes, membersRes, totalUsersRes, totalFollowsRes, totalPostsRes] = results;
 
-        if (postRes.status === "fulfilled" && postRes.value.data?.[0]) {
-          const post = postRes.value.data[0] as any;
+        /*
+         * BUG-VID-HOME (Owner, live 2026-10-18): a video post previewed here as
+         * an empty box, because this page read `posts.image_url` itself and a
+         * video post has none. Its photographs AND video now come from the one
+         * attachments reader every post surface uses (postAttachments.ts); a
+         * post whose video this visitor may not play is skipped, as the feed
+         * skips it, and the newest one they may see is previewed instead.
+         */
+        const rows = (postRes.status === "fulfilled" ? postRes.value.data ?? [] : []) as any[];
+        const attachments = rows.length ? await fetchPostAttachments(rows.map((r) => r.id)) : null;
+        let post: any = null;
+        let attached: { image_urls: string[]; video: FeedVideo | null } | null = null;
+        for (const r of rows) {
+          const legacy = r.image_urls?.length ? r.image_urls : r.image_url ? [r.image_url] : [];
+          const a = attachments ? attachmentsFor(attachments, r.id, legacy) : null;
+          if (a) { post = r; attached = a; break; }
+        }
+
+        if (post && attached) {
           try {
             const authorProfileMap = await (await import("@/lib/profileMapCache")).fetchProfileMap([post.user_id]);
             const authorEntry = authorProfileMap.get(post.user_id);
@@ -459,6 +482,8 @@ const Index = () => {
               avatar_url: authorEntry?.avatar_url || null,
               content: post.content || "",
               image_url: post.image_url || null,
+              image_urls: attached.image_urls,
+              video: attached.video,
               created_at: post.created_at,
               badges: authorEntry?.badges || [],
             });
@@ -843,11 +868,21 @@ const Index = () => {
                       {latestPost.content && (
                         <p className="text-xs text-muted-foreground mb-2.5 leading-relaxed line-clamp-2" style={{ fontFamily: "var(--font-body)" }}>{latestPost.content}</p>
                       )}
-                      {latestPost.image_url && (
-                        <div className="h-36 md:h-44 rounded-md overflow-hidden bg-muted mb-2.5">
-                          <img loading="lazy" decoding="async" src={latestPost.image_url} alt="" className="w-full h-full object-cover" />
-                        </div>
-                      )}
+                      {(() => {
+                        // What a post shows is decided once, in subjectMedia.ts: its video, else its photographs.
+                        const media = postMedia(latestPost);
+                        if (media.video) return (
+                          <div data-testid="home-preview-video" className="relative h-64 md:h-72 rounded-md overflow-hidden bg-black mb-2.5">
+                            <Suspense fallback={null}><FeedVideoCard video={media.video} fillParent /></Suspense>
+                          </div>
+                        );
+                        if (!media.imageUrls[0]) return null;
+                        return (
+                          <div className="h-36 md:h-44 rounded-md overflow-hidden bg-muted mb-2.5">
+                            <img loading="lazy" decoding="async" src={media.imageUrls[0]} alt="" className="w-full h-full object-cover" />
+                          </div>
+                        );
+                      })()}
                     </>
                   ) : (
                     <div className="py-8 text-center">
