@@ -167,6 +167,22 @@ BEGIN
   SELECT count(*) INTO n FROM unnest(circle) x(pid) JOIN public.posts po ON po.id = x.pid
    WHERE po.user_id IN (x1, x2) AND NOT EXISTS (SELECT 1 FROM public.feed_events fe WHERE fe.user_id = a AND fe.post_id = po.id);
   IF n < 14 THEN RAISE EXCEPTION 'PROBE CAST: X1 + X2 have % unseen visible posts for A (need 14)', n; END IF;
+  -- Test category slugs. enforce_post_categories (trg_validate_post_categories) refuses any slug
+  -- that is not an active row in public.categories (POST-CAT-001), so the PROBE adds its own,
+  -- inside this transaction; the final ROLLBACK removes them (review #463 B1).
+  INSERT INTO public.categories (slug, name, icon_name, sort_order)
+  SELECT v.slug, v.slug, 'tag', (SELECT coalesce(max(sort_order), 0) FROM public.categories) + v.o
+    FROM (VALUES ('s12f34-s', 1), ('s12f34-k', 2), ('s12f34-c1', 3), ('s12f34-c2', 4),
+                 ('s12f34-c3', 5), ('s12f34-c4', 6)) v(slug, o);
+  -- The newest 40 X1/X2 circle posts (pages 1-2 need 12) get rotating test slugs c1..c4, so no
+  -- real category on this lane can form a 3-in-a-row run with them and bend page 2's 6/2/2
+  -- (review #463 L1b; makes G2 independent of the lane's real categories).
+  UPDATE public.posts po SET categories = ARRAY['s12f34-c' || (1 + (r.rn % 4))::text]
+    FROM (SELECT x.pid, row_number() OVER (ORDER BY x.ord) AS rn
+            FROM unnest(circle) WITH ORDINALITY x(pid, ord)
+            JOIN public.posts p2 ON p2.id = x.pid
+           WHERE p2.user_id IN (x1, x2)) r
+   WHERE po.id = r.pid AND r.rn <= 40;
   -- six recent public posts outside A's circle → the test interest category
   SELECT array_agg(q.id) INTO sugg FROM (
     SELECT po.id FROM public.posts po
