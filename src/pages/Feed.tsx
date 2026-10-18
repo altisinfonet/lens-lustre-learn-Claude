@@ -36,6 +36,8 @@ import WallPosts from "@/components/WallPosts";
 import { isNativeCapacitorApp } from "@/lib/native/authDeepLink";
 import { useBlockedUsers } from "@/hooks/core/useBlockedUsers";
 import CategoryStrip from "@/components/feed/CategoryStrip";
+import FeedTabs, { useFeedTab } from "@/components/feed/FeedTabs";
+import { useHideAndMute } from "@/hooks/feed/useHideAndMute";
 import FeedCardWindow, { EAGER_CARDS } from "@/components/feed/FeedCardWindow";
 import { ALL_FILTER } from "@/lib/categories";
 import { mapServerCounts, applyReactionDelta } from "@/lib/feed/realtimeCounts";
@@ -75,6 +77,10 @@ const Feed = () => {
    * nothing. The distinction is the whole reason old posts still appear.
    */
   const [activeCategory, setActiveCategory] = useState<string>(ALL_FILTER);
+  /** S12-F5 · For you / Following / Favourites — shown only while personal_feed is on for this member. */
+  const { tab: feedTab, setTab: setFeedTab, showTabs } = useFeedTab();
+  /** S12-F5 · ⋯ → Not interested / Mute: the card goes at once, with Undo. */
+  const { notInterested, mute, isHidden } = useHideAndMute(user?.id);
   const feedCategories = useMemo(() => (activeCategory === ALL_FILTER ? null : [activeCategory]), [activeCategory]);
 
   const {
@@ -87,8 +93,8 @@ const Feed = () => {
     // possible — see the error branch below.
     isError,
     isFetching,
-  } = useFeedQuery(user?.id, feedCategories, navigationType);
-  const refreshFeed = useFeedRefresh(feedCategories);
+  } = useFeedQuery(user?.id, feedCategories, navigationType, feedTab);
+  const refreshFeed = useFeedRefresh(feedCategories, feedTab);
 
   /**
    * Stage L2 · ONE way to deal a new hand: pull-to-refresh, the "new posts"
@@ -129,8 +135,9 @@ const Feed = () => {
   const { blockedIds } = useBlockedUsers();
   const posts = useMemo(() => {
     const all = flattenFeedPages(data?.pages);
-    return blockedIds.size === 0 ? all : all.filter((p) => !blockedIds.has(p.user_id));
-  }, [data?.pages, blockedIds]);
+    // S12-F5: and the posts hidden / authors muted from the ⋯ menu (Undo brings them back).
+    return all.filter((p) => !blockedIds.has(p.user_id) && !isHidden(p));
+  }, [data?.pages, blockedIds, isHidden]);
   const relevantUserIds = useMemo(() => getNetworkIds(data?.pages), [data?.pages]);
 
   /**
@@ -150,8 +157,10 @@ const Feed = () => {
     const inFeed = new Set(posts.map((p) => p.id));
     // A blocked member's new post is not "new for you": a refresh would not show it.
     const polledIds = polledNew.filter((p) => !blockedIds.has(p.user_id)).map((p) => p.id);
+    // S12-F5: the count is For you's; Following / Favourites refresh by pull.
+    if (feedTab !== "for_you") return 0;
     return new Set([...bufferedIds, ...polledIds].filter((id) => !inFeed.has(id))).size;
-  }, [bufferedIds, polledNew, posts, blockedIds]);
+  }, [bufferedIds, polledNew, posts, blockedIds, feedTab]);
   /** A page on screen came from the DB-3004 chronological fallback: it is not the feed, so say so. */
   const servedStale = data?.pages?.some((p) => p.degraded === true) ?? false;
 
@@ -384,6 +393,7 @@ const Feed = () => {
             the default and applies no predicate, which is what keeps the posts
             created before categories existed visible. */}
         <div className="sticky top-0 z-20 -mx-4 mb-3">
+          {showTabs && <FeedTabs value={feedTab} onChange={setFeedTab} />}
           <CategoryStrip value={activeCategory} onChange={setActiveCategory} />
           {/* Stage L2 — floats just below the strip (absolute; the sticky strip
               is its containing block), so it never moves the list. It still
@@ -493,6 +503,21 @@ const Feed = () => {
               {isFetching ? t("common.loading", "Loading…") : t("common.tryAgain", "Try again")}
             </button>
           </div>
+        ) : posts.length === 0 && feedTab !== "for_you" ? (
+          <div className="border border-dashed border-border p-12 text-center" data-testid={`feed-empty-${feedTab}`}>
+            <Rss className="h-8 w-8 text-muted-foreground/20 mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground mb-2" style={bodyFont}>
+              {feedTab === "following" ? "No posts from people you follow yet" : "No favourites yet"}
+            </p>
+            <p className="text-xs text-muted-foreground" style={bodyFont}>
+              {feedTab === "following"
+                ? "Follow photographers to see their newest posts here."
+                : "Open a member's profile and tap ★ Add to Favourites to see their posts here, newest first."}
+            </p>
+            <Link to="/discover" className="inline-block mt-4 text-[10px] tracking-[0.15em] uppercase text-primary hover:underline" style={headingFont}>
+              Discover photographers
+            </Link>
+          </div>
         ) : posts.length === 0 ? (
           <div className="border border-dashed border-border p-12 text-center">
             <Rss className="h-8 w-8 text-muted-foreground/20 mx-auto mb-3" />
@@ -593,6 +618,8 @@ const Feed = () => {
                       onCommentCountChange={handleCommentCountChange}
                       onShareCountChange={handleShareCountChange}
                       onContentChange={handleContentChange}
+                      onNotInterested={notInterested}
+                      onMuteAuthor={mute}
                     />
                   </FeedCardWindow>
                   </FeedSeenObserver>

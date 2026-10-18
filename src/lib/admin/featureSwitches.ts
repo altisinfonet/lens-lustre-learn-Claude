@@ -39,7 +39,7 @@ export function modeLabel(mode: string | null | undefined): string {
 }
 
 export interface FeatureMember { user_id: string; full_name: string | null; username: string | null; avatar_url: string | null; added_at: string; note: string | null }
-export interface FeatureHistoryRow { at: string; actor: string | null; action: "mode" | "add" | "remove"; old: string | null; new: string | null; user_id: string | null; note: string | null }
+export interface FeatureHistoryRow { at: string; actor: string | null; action: "mode" | "add" | "remove" | "mix"; old: string | null; new: string | null; user_id: string | null; note: string | null }
 export interface FeatureState {
   feature: FeatureKey;
   mode: FeatureMode;
@@ -99,6 +99,8 @@ export function describeHistory(h: FeatureHistoryRow, who: (id: string | null) =
   const actor = who(h.actor);
   if (h.action === "mode") return `${actor} changed it from ${modeLabel(h.old)} to ${modeLabel(h.new)}`;
   if (h.action === "add") return `${actor} added ${who(h.user_id)}`;
+  // S12-F6: the feed mix (feed_mix_set) — "circle 6 / suggested 2 / fair 2".
+  if (h.action === "mix") return `${actor} changed the feed mix from ${h.old ?? "—"} to ${h.new ?? "—"}`;
   return `${actor} removed ${who(h.user_id)}`;
 }
 

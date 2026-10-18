@@ -379,6 +379,13 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     resolution:
       "Personal-feed telemetry only — nothing the member did is lost. Rows the server will not record (a post the member may not see, their own post, over the rate bound) are skipped by its BEFORE trigger, not refused, so a refusal means the client and the database disagree about feed_signal_events: the table is missing on this lane (apply supabase/migrations/20261018_0001_s12_f1_feed_signals.sql, then its PROBE), a value is outside its CHECK, or RLS refused the user_id.",
   },
+  {
+    code: "DB-3010",
+    severity: "warn",
+    description: "The Following or Favourites feed tab could not be loaded (get_following_feed / get_favourites_feed failed).",
+    resolution:
+      "S12-F5: the tab shows its error state with Retry; For you is unaffected. 'function does not exist' means supabase/migrations/20261018_0004_s12_f5f6_favourites_admin.sql is not applied on this lane (apply it, then its PROBE); anything else is a timeout or the database disagreeing with the client about the row shape.",
+  },
 
   // ── API ───────────────────────────────────────────────────────────────────
   {

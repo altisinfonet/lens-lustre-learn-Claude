@@ -124,7 +124,8 @@ describe("the client asks again every time it mounts", () => {
     expect(body).toMatch(/await tracker\.flushNow\(\);\s+const dealt = await refreshFeed\(\);\s+setRefreshFailed\(!dealt\);\s+if \(dealt\) \{\s+flushBuffer\(\);\s+tracker\.newSession\(\);/);
     // and a refresh that did not arrive is said on screen, beside the two older reasons
     expect(feed).toMatch(/\{\(isError \|\| servedStale \|\| refreshFailed\) && \(/);
-    expect(feed).toMatch(/const refreshFeed = useFeedRefresh\(feedCategories\);/);
+    // S12-F5: the refresh is per tab (For you / Following / Favourites).
+    expect(feed).toMatch(/const refreshFeed = useFeedRefresh\(feedCategories, feedTab\);/);
   });
 
   it("a refresh restarts from the first page, so it always deals page 0 with a new seed (Stage L2)", () => {
