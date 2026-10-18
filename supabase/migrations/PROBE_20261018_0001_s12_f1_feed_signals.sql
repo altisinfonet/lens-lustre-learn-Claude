@@ -20,12 +20,16 @@
 --             five ledger rows; subject_id is overwritten with P's real author;
 --          b. visiting A's OWN profile is skipped (own-member data only);
 --          c. EXACTLY ONCE: the same ids resent → still five rows, and the
---             aggregates still read dwell 1,500, watch 40, 1 skip, 1 share
---             click, 1 visit;
+--             aggregates moved by exactly dwell +1,500, +1 skip, +1 share
+--             click, +1 visit, watch ≥ 40 — DELTAS against what A already had
+--             (A is a real account on a real lane);
 --          d. a post A may not see (private, not A's) is skipped — signal and
 --             hide — if one exists;
 --          e. dwell 600,001 ms → refused by the CHECK;
---          f. a row in B's name → refused by RLS (ledger, hide, mute);
+--          f. a row in B's name → refused by RLS (ledger, hide, mute) — and
+--             refused the SAME way when it is about a post B may not see
+--             (review B1: a BEFORE trigger that skipped it first would tell A
+--             something about B);
 --          g. UPDATE of an aggregate → refused (no grant);
 --          h. HIDE P twice → one row; MUTE C twice → one row (exactly once);
 --             muting oneself → refused by the CHECK.
@@ -33,11 +37,15 @@
 --          i. reads 0 of A's rows in each of the five tables;
 --          j. a bare DELETE on hide / mute removes nothing of A's; a DELETE on
 --             the ledger is refused (no grant).
+--        n. B past the rate bound (300 rows in 10 min, inside this
+--           transaction): a row in B's name by A is still refused by RLS, not
+--           skipped (B1).
 --        A again: k. unmute removes A's mute.
 --        anon: l. cannot read or insert (signals, hide, mute).
 --        a deleted account (valid JWT, no auth.users row): m. insert refused.
 --   G3 · the purge runs (as the probe's own role, inside the rollback).
---   G4 · NOTICE only: ledger inflow (last hour / 24 h), table sizes — the
+--   G4 · NOTICE only: ledger inflow (last hour / 24 h — reads only the last
+--        24 h, BRIN on created_at; no full scan), table sizes — the
 --        partitioning trigger point named in the migration header.
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN;
@@ -67,6 +75,10 @@ DECLARE
   ps      record;
   _h      bigint;
   _d      bigint;
+  d0      bigint;
+  s0      bigint;
+  sh0     bigint;
+  v0      bigint;
 BEGIN
   -- G0 · lane guard.
   IF coalesce(current_setting('p32.lane', true), '') NOT IN ('staging', 'production') THEN
@@ -172,6 +184,11 @@ BEGIN
   SELECT po.id INTO q FROM public.posts po
    WHERE po.privacy = 'private' AND po.user_id <> a ORDER BY po.created_at DESC LIMIT 1;
 
+  -- L1 · what A already has (a real account): every check below is a DELTA.
+  SELECT coalesce(max(dwell_ms), 0), coalesce(max(skips), 0), coalesce(max(share_clicks), 0)
+    INTO d0, s0, sh0 FROM public.feed_post_signals WHERE user_id = a AND post_id = p;
+  SELECT coalesce(max(profile_visits), 0) INTO v0 FROM public.feed_author_signals WHERE user_id = a AND author_id = c;
+
   -- as A
   PERFORM set_config('request.jwt.claims', json_build_object('sub', a, 'role', 'authenticated')::text, true);
   PERFORM set_config('request.jwt.claim.sub', a::text, true);
@@ -194,12 +211,16 @@ BEGIN
   SELECT count(*) INTO n FROM public.feed_signal_events WHERE id IN (x1, x2, x3, x4, x5, x6);
   IF n <> 5 THEN _bad := _bad || E'\n  G2c a resend added rows: ' || n || ' (want 5)'; END IF;
   SELECT dwell_ms, watch_pct, skips, share_clicks, author_id INTO ps FROM public.feed_post_signals WHERE user_id = a AND post_id = p;
-  IF ps IS NULL OR ps.dwell_ms <> 1500 OR ps.watch_pct <> 40 OR ps.skips <> 1 OR ps.share_clicks <> 1 OR ps.author_id <> c THEN
+  IF ps IS NULL OR ps.dwell_ms - d0 <> LEAST(1500, 86400000 - d0) OR ps.watch_pct < 40
+     OR ps.skips - s0 <> LEAST(1, 32767 - s0) OR ps.share_clicks - sh0 <> LEAST(1, 32767 - sh0) OR ps.author_id <> c THEN
     _bad := _bad || E'\n  G2c feed_post_signals after a resend: ' || coalesce(row_to_json(ps)::text, 'no row')
-            || ' (want dwell 1500, watch 40, 1 skip, 1 share click, author C) — not exactly once';
+            || ' from dwell ' || d0 || ' / skips ' || s0 || ' / shares ' || sh0
+            || ' (want +1500 dwell, watch >= 40, +1 skip, +1 share click, author C) — not exactly once';
   END IF;
   SELECT profile_visits INTO n FROM public.feed_author_signals WHERE user_id = a AND author_id = c;
-  IF n IS DISTINCT FROM 1 THEN _bad := _bad || E'\n  G2c profile visits after a resend: ' || coalesce(n::text, 'no row') || ' (want 1)'; END IF;
+  IF n IS DISTINCT FROM LEAST(v0 + 1, 1000000) THEN
+    _bad := _bad || E'\n  G2c profile visits after a resend: ' || coalesce(n::text, 'no row') || ' from ' || v0 || ' (want +1)';
+  END IF;
   IF EXISTS (SELECT 1 FROM public.feed_author_signals WHERE user_id = a AND author_id = a) THEN
     _bad := _bad || E'\n  G2b A''s visit to their own profile was recorded';
   END IF;
@@ -228,6 +249,21 @@ BEGIN
   EXCEPTION WHEN insufficient_privilege THEN failed := (SQLERRM LIKE '%row-level security%');
   END;
   IF NOT failed THEN _bad := _bad || E'\n  G2f A could insert a signal with user_id = B'; END IF;
+  IF q IS NOT NULL THEN
+    -- B1 · about a post B may not see: the SAME RLS refusal, never a silent skip
+    failed := false;
+    BEGIN
+      INSERT INTO public.feed_signal_events (id, user_id, kind, post_id, subject_id, value) VALUES (gen_random_uuid(), b, 'dwell', q, c, 1000);
+    EXCEPTION WHEN insufficient_privilege THEN failed := (SQLERRM LIKE '%row-level security%');
+    END;
+    IF NOT failed THEN _bad := _bad || E'\n  G2f (B1) a signal in B''s name about a private post was not refused by RLS — the trigger judged it first'; END IF;
+    failed := false;
+    BEGIN
+      INSERT INTO public.feed_hidden_posts (user_id, post_id) VALUES (b, q);
+    EXCEPTION WHEN insufficient_privilege THEN failed := (SQLERRM LIKE '%row-level security%');
+    END;
+    IF NOT failed THEN _bad := _bad || E'\n  G2f (B1) a hide in B''s name of a private post was not refused by RLS — the trigger judged it first'; END IF;
+  END IF;
   failed := false;
   BEGIN
     INSERT INTO public.feed_hidden_posts (user_id, post_id) VALUES (b, p);
@@ -289,6 +325,24 @@ BEGIN
   SELECT count(*) INTO n FROM public.feed_hidden_posts WHERE user_id = a AND post_id = p;
   SELECT count(*) INTO n2 FROM public.feed_muted_authors WHERE user_id = a AND author_id = c;
   IF n <> 1 OR n2 <> 1 THEN _bad := _bad || E'\n  G2j a bare DELETE by B removed A''s hide (' || (1 - n) || ') / mute (' || (1 - n2) || ')'; END IF;
+
+  -- n (B1): B past the rate bound — 300 rows by B inside this transaction, then A writes in B's name
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', b, 'role', 'authenticated')::text, true);
+  PERFORM set_config('request.jwt.claim.sub', b::text, true);
+  SET LOCAL ROLE authenticated;
+  INSERT INTO public.feed_signal_events (id, user_id, kind, post_id, subject_id, value)
+  SELECT gen_random_uuid(), b, 'dwell', p, c, 1000 FROM generate_series(1, 300);
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', a, 'role', 'authenticated')::text, true);
+  PERFORM set_config('request.jwt.claim.sub', a::text, true);
+  SET LOCAL ROLE authenticated;
+  failed := false;
+  BEGIN
+    INSERT INTO public.feed_signal_events (id, user_id, kind, post_id, subject_id, value) VALUES (gen_random_uuid(), b, 'dwell', p, c, 1000);
+  EXCEPTION WHEN insufficient_privilege THEN failed := (SQLERRM LIKE '%row-level security%');
+  END;
+  RESET ROLE;
+  IF NOT failed THEN _bad := _bad || E'\n  G2n (B1) a row in B''s name while B is past the rate bound was not refused by RLS — A can read B''s activity from the outcome'; END IF;
 
   -- k: A unmutes
   PERFORM set_config('request.jwt.claims', json_build_object('sub', a, 'role', 'authenticated')::text, true);
@@ -358,10 +412,9 @@ BEGIN
   END IF;
 
   -- G4 · NOTICE: volume (the test rows above are counted here and then rolled back).
-  SELECT count(*) FILTER (WHERE created_at > now() - interval '1 hour'),
-         count(*) FILTER (WHERE created_at > now() - interval '24 hours')
-    INTO _h, _d FROM public.feed_signal_events;
-  RAISE NOTICE 'PROBE PASS 20261018_0001 (lane %): RLS own-rows-only on 5 tables (B read 0 of A''s rows; B''s DELETE removed nothing of A''s; anon refused; deleted account refused); exactly once (signals resend → same 5 rows, dwell 1500 / watch 40 / 1 skip / 1 share / 1 visit; hide x2 → 1; mute x2 → 1); own profile skipped; private post %; CHECK bounds held. Ledger: % last hour, % last 24 h (purge capacity 2.4 M/day); total size: ledger %, post %, author %, hidden %, muted %',
+  SELECT count(*) FILTER (WHERE created_at > now() - interval '1 hour'), count(*)
+    INTO _h, _d FROM public.feed_signal_events WHERE created_at > now() - interval '24 hours';
+  RAISE NOTICE 'PROBE PASS 20261018_0001 (lane %): RLS own-rows-only on 5 tables (B read 0 of A''s rows; B''s DELETE removed nothing of A''s; anon refused; deleted account refused; rows in B''s name refused by RLS alike for a public post, a private post and past B''s rate bound); exactly once (signals resend → same 5 rows, deltas +1500 dwell / +1 skip / +1 share / +1 visit, watch >= 40; hide x2 → 1; mute x2 → 1); own profile skipped; private post %; CHECK bounds held. Ledger: % last hour, % last 24 h (purge capacity 2.4 M/day); total size: ledger %, post %, author %, hidden %, muted %',
     current_setting('p32.lane'), CASE WHEN q IS NULL THEN 'not tested (none on this lane)' ELSE 'skipped' END, _h, _d,
     pg_size_pretty(pg_total_relation_size('public.feed_signal_events')),
     pg_size_pretty(pg_total_relation_size('public.feed_post_signals')),

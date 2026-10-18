@@ -207,7 +207,28 @@ ok(r.rows[0].n === 0, "deleting the post removes its hides (FK cascade)", JSON.s
 await db.exec(`INSERT INTO public.posts (id, user_id, privacy, created_at) VALUES ('${P_PUBLIC}', '${C}', 'public', now())`);
 
 // 5 · C-34: loosened copies must make the PROBE fail
+// B1 (review of PR #457): the BEFORE triggers WITHOUT the auth.uid() guard —
+// the exact pre-fix bodies, cut from the migration itself.
+const fnBlock = (name) => {
+  const m = MIG.replace(/\r\n/g, "\n");
+  const start = m.indexOf(`CREATE FUNCTION public.${name}()`);
+  const end = m.indexOf("$fn$;", m.indexOf("AS $fn$", start)) + 5;
+  if (start < 0 || end < 5) throw new Error("function block not found: " + name);
+  return m.slice(start, end).replace("CREATE FUNCTION", "CREATE OR REPLACE FUNCTION");
+};
+const unguard = (block) => {
+  const g = block.replace(/  -- A row in ANOTHER member's name[\s\S]*?  IF NEW\.user_id IS DISTINCT FROM \(SELECT auth\.uid\(\)\) THEN\n    RETURN NEW;\n  END IF;\n/, "");
+  if (g === block) throw new Error("guard not found");
+  return g;
+};
+const SIG_BEFORE = fnBlock("feed_signal_events_before");
+const HID_BEFORE = fnBlock("feed_hidden_posts_before");
+
 const loosened = [
+  ["B1 · feed_signal_events_before WITHOUT the auth.uid() guard (a row in B's name is judged — rate / visibility — before RLS)",
+   unguard(SIG_BEFORE), SIG_BEFORE],
+  ["B1 · feed_hidden_posts_before WITHOUT the auth.uid() guard (a hide in B's name of a private post is skipped, not refused)",
+   unguard(HID_BEFORE), HID_BEFORE],
   ["a SELECT USING (true) policy on feed_post_signals", `CREATE POLICY leak ON public.feed_post_signals FOR SELECT TO authenticated USING (true);`, `DROP POLICY leak ON public.feed_post_signals;`],
   ["SELECT granted to anon on feed_post_signals", `GRANT SELECT ON public.feed_post_signals TO anon;`, `REVOKE SELECT ON public.feed_post_signals FROM anon;`],
   ["the fold moved to a BEFORE trigger (counts resends too)",

@@ -11,6 +11,12 @@
 --   natural      a VALID unique index covers exactly the natural columns
 --                (friendships: the least/greatest pair index counts);
 --   update-only  the table exists (the action is an UPDATE to a fixed value).
+--
+-- ⚠ S12-F1 (2026-10-18) added feed_signal_events, feed_hidden_posts and
+-- feed_muted_authors to the list. On a lane where
+-- supabase/migrations/20261018_0001_s12_f1_feed_signals.sql is NOT yet applied,
+-- this probe FAILS ("table missing") — expected until that migration is applied
+-- there; apply it (then its own PROBE) before reading a red here as a regression.
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN READ ONLY;
 DO $probe$

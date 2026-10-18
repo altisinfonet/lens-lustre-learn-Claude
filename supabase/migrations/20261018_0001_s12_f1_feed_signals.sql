@@ -53,7 +53,9 @@
 --      (id) where id is a UUID made ONCE on the device when the signal is
 --      recorded; the sender upserts ON CONFLICT (id) DO NOTHING.
 --   2. BEFORE INSERT (feed_signal_events_before, SECURITY DEFINER) —
---      normalises and filters. It SKIPS a row (RETURN NULL: not an error, so
+--      normalises and filters the caller's OWN rows only: a row whose user_id
+--      is not auth.uid() is passed through untouched for RLS to refuse, so
+--      "skipped" vs "refused" never reveals another member's activity. It SKIPS a row (RETURN NULL: not an error, so
 --      one bad row never takes the rest of its batch with it) when:
 --        · the post does not exist, or the member may not see it
 --          (public.can_view_post — the same rule as posts' own SELECT policy);
@@ -319,6 +321,14 @@ DECLARE
   _privacy text;
   _recent  integer;
 BEGIN
+  -- A row in ANOTHER member's name is passed through untouched, so the RLS
+  -- WITH CHECK refuses it uniformly. Filtering it here first (visibility, rate)
+  -- would let the caller tell "skipped" from "refused" and so learn about that
+  -- member's activity (review B1, PR #457). service_role (auth.uid() NULL) is
+  -- trusted and bypasses RLS: its rows are not normalised here.
+  IF NEW.user_id IS DISTINCT FROM (SELECT auth.uid()) THEN
+    RETURN NEW;
+  END IF;
   IF NEW.kind = 'profile_visit' THEN
     -- own profile, or no such profile: not recorded
     IF NEW.subject_id IS NULL OR NEW.subject_id = NEW.user_id
@@ -360,6 +370,14 @@ DECLARE
   _author  uuid;
   _privacy text;
 BEGIN
+  -- A row in ANOTHER member's name is passed through untouched, so the RLS
+  -- WITH CHECK refuses it uniformly. Filtering it here first (visibility, rate)
+  -- would let the caller tell "skipped" from "refused" and so learn about that
+  -- member's activity (review B1, PR #457). service_role (auth.uid() NULL) is
+  -- trusted and bypasses RLS: its rows are not normalised here.
+  IF NEW.user_id IS DISTINCT FROM (SELECT auth.uid()) THEN
+    RETURN NEW;
+  END IF;
   SELECT p.user_id, p.privacy INTO _author, _privacy FROM public.posts p WHERE p.id = NEW.post_id;
   -- deleted post, own post, or a post this member may not see: not recorded
   -- (and the FK error that would say "this post exists" never happens)
