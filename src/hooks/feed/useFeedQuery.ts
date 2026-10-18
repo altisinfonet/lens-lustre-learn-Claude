@@ -160,6 +160,38 @@ async function fetchPersonalPage(
   }
 }
 
+/**
+ * S12-F5 · the feed tabs. "For you" is the feed above (personal when the switch
+ * is on, else today's); Following and Favourites are time-ordered server lists
+ * (20261018_0004) with the same arguments and row shape as get_personal_feed.
+ */
+export type FeedTab = "for_you" | "following" | "favourites";
+type TimelineTab = Exclude<FeedTab, "for_you">;
+const TIMELINE_RPC: Record<TimelineTab, string> = { following: "get_following_feed", favourites: "get_favourites_feed" };
+
+/** A time-ordered page. Any error throws: the feed shows "couldn't load" with Retry (never another tab's posts). */
+async function fetchTimelinePage(tab: TimelineTab, excludeIds: string[], categories: string[] | null): Promise<any[]> {
+  const { data, error } = await supabase.rpc(TIMELINE_RPC[tab] as any, {
+    _exclude_ids: excludeIds,
+    _limit: PAGE_SIZE,
+    _newest_first: 0,
+    _categories: categories,
+    _session_seed: null,
+  } as any);
+  if (error || !Array.isArray(data)) {
+    logger.warn({
+      code: "DB-3010",
+      event: "FEED_TAB_RPC_FAILED",
+      fn: "fetchTimelinePage",
+      file: FILE,
+      message: `${TIMELINE_RPC[tab]} failed; the ${tab} tab shows its error state.`,
+      reason: error ? (error.message ?? error.code ?? String(error)) : "The RPC returned no array",
+    });
+    throw new Error(`${TIMELINE_RPC[tab]} failed`);
+  }
+  return data as any[];
+}
+
 async function fetchBroadcastPage(
   excludeIds: string[],
   newestFirst: number,
@@ -614,10 +646,13 @@ export interface FeedPage {
  *                    Forward — returns to the deal on screen; anything else, or
  *                    nothing, is a fresh visit and deals a new hand (B1, below).
  */
-export function useFeedQuery(userId: string | undefined, categories?: string[] | null, navigationType?: string) {
+export function useFeedQuery(userId: string | undefined, categories?: string[] | null, navigationType?: string, tab: FeedTab = "for_you") {
   // Normalised once: sorted, empty treated as null, so the key and the RPC
   // argument can never disagree about what "no filter" means.
   const cats = categories && categories.length ? [...categories].sort() : null;
+  // S12-F5: Following / Favourites — their own cache entry and their own session.
+  const timeline: TimelineTab | null = tab === "following" || tab === "favourites" ? tab : null;
+  const feedKey = queryKeys.feed(cats, timeline);
   /**
    * L1 · B1 — the session lives in feedSessions.ts, not in this component's
    * refs: Back from a post REMOUNTS the feed (sibling routes), and a session
@@ -625,7 +660,7 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
    * with an empty exclude list. Same objects, same `.current` shape as the refs
    * they replace, so every line below reads exactly as it did.
    */
-  const session = feedSessionFor(userId, cats ? cats.join(",") : "");
+  const session = feedSessionFor(userId, (cats ? cats.join(",") : "") + (timeline ? `|${timeline}` : ""));
   /**
    * Decided ONCE, when this screen mounts: is it a return (Back/Forward) to the
    * deal still in the cache? Anything else is a fresh visit, and a fresh visit
@@ -637,7 +672,7 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
    */
   const qc = useQueryClient();
   const [returning] = useState(() => {
-    const back = isReturnToTheDealOnScreen(navigationType, qc.getQueryState(queryKeys.feed(cats)) ?? { status: "pending" }, session.seed.current);
+    const back = isReturnToTheDealOnScreen(navigationType, qc.getQueryState(feedKey) ?? { status: "pending" }, session.seed.current);
     if (!back) startFeedSessionOver(session);
     return back;
   });
@@ -662,7 +697,8 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
 
   // Build placeholderData from localStorage cache for instant render
   const placeholderData = useMemo(() => {
-    if (!userId) return undefined;
+    // The device copy is the For you feed only.
+    if (!userId || timeline) return undefined;
     const cached = getCachedFeed(userId);
     if (!cached) return undefined;
     return {
@@ -673,10 +709,10 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
       }],
       pageParams: [0],
     };
-  }, [userId]);
+  }, [userId, timeline]);
 
   return useInfiniteQuery<FeedPage, Error>({
-    queryKey: queryKeys.feed(cats),
+    queryKey: feedKey,
     enabled: !!userId,
     placeholderData,
 
@@ -784,7 +820,7 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
        * rides the same round trip, and is read BEFORE the page is dealt.
        */
       const fresh = isFirstPage
-        ? await Promise.all([fetchRelevantUsers(userId!), fetchWatermark(userId!, cats), fetchFeatureAllowed("personal_feed")])
+        ? await Promise.all([fetchRelevantUsers(userId!), fetchWatermark(userId!, cats), timeline ? Promise.resolve(false) : fetchFeatureAllowed("personal_feed")])
             .then(([ids, wm, personal]) => ({ networkIds: ids, watermark: wm, seed: newFeedSessionSeed(), personal }))
         : null;
       const commitSession = () => {
@@ -805,13 +841,15 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
       // comes from the same function.
       const personal = fresh ? fresh.personal : personalRef.current;
 
-      const { rows: rawPosts, degraded, personal: servedPersonal } = await fetchBroadcastPage(
-        excludeIds,
-        isFirstPage ? NEWEST_PINNED_ON_FIRST_PAGE : 0,
-        cats,
-        sessionSeed,
-        personal,
-      );
+      const { rows: rawPosts, degraded, personal: servedPersonal } = timeline
+        ? { rows: await fetchTimelinePage(timeline, excludeIds, cats), degraded: false, personal: false }
+        : await fetchBroadcastPage(
+            excludeIds,
+            isFirstPage ? NEWEST_PINNED_ON_FIRST_PAGE : 0,
+            cats,
+            sessionSeed,
+            personal,
+          );
 
       if (rawPosts.length === 0) {
         // Everything visible has been delivered this session — feed end.
@@ -829,7 +867,8 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
       const prevAuthor = lastAuthorByPageRef.current.get(pageIndex) ?? null;
       // S12-F3: the personal feed already applied max 2 per author and max 3
       // per category in a row (and placed "caught up"); its order is final.
-      const ordered = servedPersonal ? enriched : reorderNoBackToBack(enriched, prevAuthor);
+      // S12-F5: Following / Favourites are time order — never reordered.
+      const ordered = servedPersonal || timeline ? enriched : reorderNoBackToBack(enriched, prevAuthor);
 
       // Record state snapshots for the NEXT page.
       excludeByPageRef.current.set(
@@ -842,7 +881,7 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
       );
 
       // Persist first page to localStorage for instant load next visit
-      if (isFirstPage && ordered.length > 0) {
+      if (isFirstPage && ordered.length > 0 && !timeline) {
         persistFeedPage(ordered, networkIds, userId!);
       }
 
@@ -937,11 +976,12 @@ export function getNetworkIds(pages: FeedPage[] | undefined): string[] {
  *     refresh that failed must not cost the member the posts they had.
  * Feed.tsx shows "Couldn't refresh — tap to retry" on false.
  */
-export function useFeedRefresh(categories?: string[] | null): () => Promise<boolean> {
+export function useFeedRefresh(categories?: string[] | null, tab: FeedTab = "for_you"): () => Promise<boolean> {
   const qc = useQueryClient();
   const catsKey = categories && categories.length ? [...categories].sort().join(",") : "";
+  const timeline: TimelineTab | null = tab === "following" || tab === "favourites" ? tab : null;
   return useCallback(async () => {
-    const queryKey = queryKeys.feed(catsKey ? catsKey.split(",") : null);
+    const queryKey = queryKeys.feed(catsKey ? catsKey.split(",") : null, timeline);
     if (!onlineManager.isOnline()) return false;
     const onScreen = qc.getQueryData<InfiniteData<FeedPage, number>>(queryKey);
     qc.setQueryData<InfiniteData<FeedPage, number>>(queryKey, (d) =>
@@ -950,5 +990,5 @@ export function useFeedRefresh(categories?: string[] | null): () => Promise<bool
     const dealt = qc.getQueryState(queryKey)?.status === "success";
     if (!dealt && onScreen && onScreen.pages.length > 1) qc.setQueryData(queryKey, onScreen);
     return dealt;
-  }, [qc, catsKey]);
+  }, [qc, catsKey, timeline]);
 }
