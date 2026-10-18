@@ -36,6 +36,8 @@ export interface FeedSession {
   lastAuthorByPage: { current: Map<number, string | null> };
   /** The committed deal's seed — null until a first page has ARRIVED. */
   seed: { current: string | null };
+  /** S12-F3: the committed deal is served by get_personal_feed (switch personal_feed on at page 0). */
+  personal: { current: boolean };
   /** The committed deal's watermark (undefined: not read yet). */
   watermark: { current: string | null | undefined };
 }
@@ -49,6 +51,7 @@ const blank = (): FeedSession => ({
   lastAuthorByPage: { current: new Map() },
   seed: { current: null },
   watermark: { current: undefined },
+  personal: { current: false },
 });
 
 /**
@@ -81,6 +84,7 @@ export function startFeedSessionOver(s: FeedSession): void {
   s.lastAuthorByPage.current = new Map();
   s.seed.current = null;
   s.watermark.current = undefined;
+  s.personal.current = false;
 }
 
 /** Sign-out: no feed session survives the member it belonged to. */
