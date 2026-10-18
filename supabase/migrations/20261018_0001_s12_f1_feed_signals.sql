@@ -186,7 +186,7 @@ BEGIN
   IF to_regprocedure('public.can_view_post(uuid, uuid, text)') IS NULL THEN _bad := _bad || E'\n  public.can_view_post(uuid, uuid, text) missing'; END IF;
   IF to_regprocedure('public.account_is_live()') IS NULL THEN _bad := _bad || E'\n  public.account_is_live() missing'; END IF;
   IF to_regprocedure('auth.uid()') IS NULL THEN _bad := _bad || E'\n  auth.uid() missing'; END IF;
-  IF to_regnamespace('cron') IS NULL OR to_regproc('cron.schedule') IS NULL THEN _bad := _bad || E'\n  pg_cron (cron.schedule) missing'; END IF;
+  IF to_regnamespace('cron') IS NULL OR to_regprocedure('cron.schedule(text,text,text)') IS NULL THEN _bad := _bad || E'\n  pg_cron (cron.schedule) missing'; END IF;
   IF to_regclass('cron.job') IS NOT NULL AND EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'purge-feed-signals') THEN
     _bad := _bad || E'\n  cron job purge-feed-signals already exists';
   END IF;
