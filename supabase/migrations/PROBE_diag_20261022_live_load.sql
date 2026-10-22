@@ -35,6 +35,7 @@ BEGIN
            round(s.mean_exec_time::numeric, 1) AS mean_ms,
            left(regexp_replace(s.query, '\s+', ' ', 'g'), 140) AS q
       FROM pg_stat_statements s
+     WHERE s.query !~* '(password|secret|token|apikey|api_key|vault|decrypted|jwt|bearer)'   -- never print a credential (the Actions log is public)
      ORDER BY s.total_exec_time DESC LIMIT 15
   LOOP
     RAISE NOTICE 'DIAG-TOP total % s | calls % | mean % ms | %', r.total_s, r.calls, r.mean_ms, r.q;
