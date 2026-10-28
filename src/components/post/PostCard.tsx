@@ -258,6 +258,7 @@ const PostCard = ({
     // Both surfaces read tags, so both have to be refreshed.
     queryClient.invalidateQueries({ queryKey: queryKeys.feedAll() });
     queryClient.invalidateQueries({ queryKey: ["user-wall-posts"] });
+    queryClient.invalidateQueries({ queryKey: ["user-own-posts"] }); // S4-a: "More posts from <name>"
   };
 
   const copyLink = () => {

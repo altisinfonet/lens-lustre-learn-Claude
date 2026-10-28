@@ -92,7 +92,7 @@ const PostPageMore = ({ postId, authorId, authorName, authorHandle, currentUserI
         </section>
       )}
 
-      {currentUserId && feedPosts.length > 0 && (
+      {currentUserId && (feedPosts.length > 0 || !!feed.hasNextPage) && (
         <section aria-label="More from your feed" data-testid="post-page-feed" className="mt-8 border-t border-border pt-6 space-y-4">
           {feedPosts.map((p) => (
             <PostCard

@@ -90,7 +90,16 @@ export function overlayCloseStep(
 export interface NotificationEntryState {
   from: "notification";
   feedBeneath: boolean;
+  /** S4-b: the notification's type, so the target page can open on the comment it is about. */
+  type?: string;
 }
+
+/** The state an in-app notification row (the bell, the Notifications page) carries onto its target. */
+export const notificationEntryState = (type?: string): NotificationEntryState => ({
+  from: "notification",
+  feedBeneath: false,
+  ...(type ? { type } : {}),
+});
 
 export function isNotificationEntry(state: unknown): state is NotificationEntryState {
   return !!state && (state as { from?: unknown }).from === "notification";
@@ -105,14 +114,15 @@ export function isNotificationEntry(state: unknown): state is NotificationEntryS
  * the target is pushed, so Back lands on the feed and the next Back leaves the
  * app (useAndroidBackButton counts the REPLACE as nothing, the push as one).
  */
-export function openNotificationTarget(navigate: NavigateFunction, target: string, depth: number): void {
+export function openNotificationTarget(navigate: NavigateFunction, target: string, depth: number, type?: string): void {
+  const typed = type ? { type } : {};
   if (depth > 0) {
-    navigate(target, { state: { from: "notification", feedBeneath: false } satisfies NotificationEntryState });
+    navigate(target, { state: { from: "notification", feedBeneath: false, ...typed } satisfies NotificationEntryState });
     return;
   }
   navigate("/feed", { replace: true });
   if (target !== "/feed") {
-    navigate(target, { state: { from: "notification", feedBeneath: true } satisfies NotificationEntryState });
+    navigate(target, { state: { from: "notification", feedBeneath: true, ...typed } satisfies NotificationEntryState });
   }
 }
 

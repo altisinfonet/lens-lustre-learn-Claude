@@ -21,6 +21,7 @@ import { useAuth } from "@/hooks/core/useAuth";
 import { useT } from "@/i18n/I18nContext";
 import { useToggleFollow } from "@/hooks/social/useFriendshipMutations";
 import { getNotifLink } from "@/lib/notificationLinks";
+import { notificationEntryState } from "@/lib/navigationContract";
 import { queryKeys } from "@/lib/queryKeys";
 import {
   useNotificationHistory,
@@ -262,11 +263,13 @@ const Notifications = () => {
       }
     }
     // F-95 — a person-destination notification opens their NAME url.
+    // S4-b: the row's type rides along, so a comment notification opens the
+    // post on that comment.
     navigate(getNotifLink({
       type: group.type,
       reference_id: group.reference_id,
       handle: notifHandles.get(group.reference_id || ""),
-    }));
+    }), { state: notificationEntryState(group.type) });
   };
 
   /**

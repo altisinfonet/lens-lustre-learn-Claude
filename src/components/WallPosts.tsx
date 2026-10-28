@@ -1564,6 +1564,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       toast({ title: "Failed to delete", description: error.message, variant: "destructive" });
     } else {
       queryClient.invalidateQueries({ queryKey: ["user-wall-posts", targetUserId] });
+      queryClient.invalidateQueries({ queryKey: ["user-own-posts", targetUserId] }); // S4-a
       // Remove instantly from the FEED cache as well (deletes made on the wall
       // previously lingered in the feed until a manual refresh).
       // Fan across EVERY cached feed variant, not just "All". queryKeys.feed()
@@ -1621,6 +1622,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       };
     });
     queryClient.invalidateQueries({ queryKey: ["user-wall-posts", targetUserId] });
+    queryClient.invalidateQueries({ queryKey: ["user-own-posts", targetUserId] }); // S4-a
     // The author's share count drops too; refresh the feed so it is not stale.
     queryClient.invalidateQueries({ queryKey: queryKeys.feedAll() });
     toast({ title: "Removed from your wall" });
