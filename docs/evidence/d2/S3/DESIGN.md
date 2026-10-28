@@ -113,3 +113,47 @@ can be switched off without touching the feed.
    withheld (fallback to today), never pointed at a public copy.
 
 `PrivacyGapNotice` and its test stay through the whole stage.
+
+## 8. Addendum (S3-b) — answers to the S3-a review's LOW notes, and how to run
+
+* **Bindings come first.** Before any backfill run on a lane, the Pages project
+  needs R2 binding `PHOTOS` → that lane's photo bucket (new) and the existing
+  `MEDIA` → video bucket. Without them the writer answers 503 `MEDIA-ENV-001`
+  and writes nothing.
+* **Orphan sweep.** Order is put → record. `detect-orphan-files` is a read-only
+  report ("No files were deleted or modified") and the only automatic purge
+  (`purge-s3-orphans`) is scoped to `competition-photos/`, so a derivative between
+  put and record is never deleted; the next run records it (same-size object at
+  the key = "recorded-existing").
+* **Audience changes.** The queue follows each post's *current* audience. A post
+  that goes public → friends-only gets a private set on the next run; its old public
+  derivatives stay where they are (no more exposed than its original, which is
+  public in this stage — O-1) and are a contract-stage cleanup. A media row used by
+  posts of both audiences gets both sets. Until a set is complete the post falls back.
+* **Switch dependency.** `media_private_photos` only matters while
+  `media_ladder_feed` is on for that member (it changes which resolved rows the
+  ladder read returns). Off/on combinations never point a non-public post at a
+  public copy.
+* **Signed-out viewers** keep today's path (switches are per member; signed-out
+  viewers see public posts only). "Every surface" means every surface for a
+  signed-in member with the switch on.
+* **Small originals.** Rungs above the long edge are separate files of the same
+  size (`min(rung, long edge)`); simpler than shared keys and still never the original.
+* **Rollback order:** 0102 → 0101 → 0100 (each rollback refuses out of order).
+
+### Running the backfill (per lane, staging first)
+
+1. Supervisor applies `20261029_0100_s3b_media_derivatives.sql`, then runs
+   `PROBE_s3b_media_derivatives.sql` (must PASS) and
+   `PROBE_s3b_derivative_coverage.sql` (baseline %).
+2. Owner adds the Pages `PHOTOS` binding and redeploys the lane (click list in the
+   S3 report).
+3. On a machine with Node 20 and this repo (`npm ci`), with an admin's access
+   token in a 0600 file (never on the command line):
+   `MEDIA_WORKER_JWT_FILE=<file> node tools/media-derivatives/run.mjs --site https://<lane site> --dry-run`
+   then the same without `--dry-run` (add `--max 5` for a first small run).
+   Tokens last 1 h; the run is resumable, so a 401 just means refresh and re-run.
+4. Re-run the coverage PROBE; repeat 3 until 100 %, then strict:
+   `SET s3.require_full = 'on';` + coverage PROBE must pass.
+5. New uploads: run the worker with `--loop` (converter VM timer or the supervisor)
+   — until it runs, a new photo falls back to today's path.
