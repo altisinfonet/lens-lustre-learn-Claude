@@ -24,6 +24,11 @@ project_id = "jtdtehuqtinjxropkkcn"
     verify_jwt = false
   [functions.sitemap]
     verify_jwt = false
+  # send-push is called by the notify trigger (20260731100000_push_on_notification)
+  # with x-internal-secret and NO Authorization header; with verify_jwt=true the
+  # gateway would 401 every push. Pinned so d1-deploy-functions.yml can deploy it.
+  [functions.send-push]
+    verify_jwt = false
   [functions.send-transactional-email]
     verify_jwt = true
   [functions.preview-transactional-email]

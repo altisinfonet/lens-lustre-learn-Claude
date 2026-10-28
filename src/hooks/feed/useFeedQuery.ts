@@ -9,7 +9,7 @@ import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
 import { queryKeys } from "@/lib/queryKeys";
 import type { ReactionType } from "@/components/ReactionPicker";
 
-import { logger } from "@/lib/logger";
+import { logger, timedRpc } from "@/lib/logger";
 import { fetchFeatureAllowed } from "@/hooks/core/useFeatureAllowed";
 
 const FILE = "src/hooks/feed/useFeedQuery.ts";
@@ -136,13 +136,13 @@ async function fetchPersonalPage(
   sessionSeed: string | null,
 ): Promise<any[] | null> {
   try {
-    const { data, error } = await supabase.rpc("get_personal_feed" as any, {
+    const { data, error } = await timedRpc("rpc.get_personal_feed", FILE, () => supabase.rpc("get_personal_feed" as any, {
       _exclude_ids: excludeIds,
       _limit: PAGE_SIZE,
       _newest_first: newestFirst,
       _categories: categories,
       _session_seed: sessionSeed,
-    } as any);
+    } as any));
     if (error || !Array.isArray(data)) {
       logger.warn({
         code: "DB-3008",
@@ -223,7 +223,7 @@ async function fetchBroadcastPage(
   };
   let res: { data: unknown; error: { code?: string; message?: string } | null } | null = null;
   if (sessionSeed && !sessionSeedRpcMissing) {
-    res = await supabase.rpc("get_broadcast_feed" as any, { ...args, _session_seed: sessionSeed } as any);
+    res = await timedRpc("rpc.get_broadcast_feed", FILE, () => supabase.rpc("get_broadcast_feed" as any, { ...args, _session_seed: sessionSeed } as any));
     if (isMissingFunction(res.error)) {
       sessionSeedRpcMissing = true;
       logger.warn({
@@ -237,7 +237,7 @@ async function fetchBroadcastPage(
       res = null;
     }
   }
-  if (!res) res = await supabase.rpc("get_broadcast_feed" as any, args);
+  if (!res) res = await timedRpc("rpc.get_broadcast_feed", FILE, () => supabase.rpc("get_broadcast_feed" as any, args));
   const { data, error } = res;
   if (error || !data) {
     logger.error({
@@ -373,7 +373,7 @@ async function enrichPosts(
         .or(`requester_id.eq.${currentUserId},addressee_id.eq.${currentUserId}`),
       // REAL view counts (distinct viewers from feed_events, author excluded).
       // Replaces the simulated 2K-100K figures removed on 2026-07-31.
-      supabase.rpc("get_post_view_counts" as never, { _post_ids: postIds } as never),
+      timedRpc("rpc.get_post_view_counts", FILE, () => supabase.rpc("get_post_view_counts" as never, { _post_ids: postIds } as never)),
       // STORED thumbnails (posts.thumbnail_urls). The broadcast-feed RPC does
       // not return this column and is flagged do-not-touch, so it is
       // batch-fetched here — one query per page, rides the same Promise.all.

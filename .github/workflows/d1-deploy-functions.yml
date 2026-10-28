@@ -1,0 +1,191 @@
+name: Deploy Supabase edge functions (manual, lane-guarded)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# S8 / F-REV4-1 — the one sanctioned path for edge functions, shaped like
+# apply-migration.yml. MANUAL DISPATCH ONLY. Nothing here runs on push.
+#
+#   mode=list    read-only. Prints, per live function: slug, version,
+#                verify_jwt, updated_at — and whether git has it. Never prints
+#                source, env values or secrets. Run this FIRST, on each lane:
+#                it is the S8 inventory ("every live function == git").
+#   mode=deploy  deploys the NAMED functions from this commit's
+#                supabase/functions/<name>. Never deletes anything, never
+#                renames anything, so every function name an old app build
+#                still calls keeps answering (live-only functions are left
+#                untouched; the list mode names them).
+#
+# FENCES (each independent):
+#   1. target=production must run from main, target=staging from staging.
+#   2. The access token's project list must contain the target ref, and the
+#      ref is fixed by the choice input — never typed.
+#   3. deploy refuses a function that has no `[functions.<name>]` block in
+#      supabase/config.toml: without one the CLI deploys verify_jwt=true, and
+#      a function that is verify_jwt=false live (webhooks, cron callers with a
+#      secret header) would start answering 401. Pin it first, from `list`.
+#   4. deploy refuses `all`; names are explicit, comma-separated, allowlisted
+#      to [a-z0-9-], and must exist as a directory in git.
+#   5. `confirm` must repeat the function list exactly.
+#
+# ONE-TIME SETUP (Owner only): GitHub → Environments → staging / production →
+# secret SUPABASE_ACCESS_TOKEN (a Supabase personal access token). Until it
+# exists the workflow refuses to start.
+#
+# RULE kept from apply-migration.yml: no `${{` inside any `run:` block —
+# every input is bound once, in `env:`.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "staging = fpszggreishhuvdpkmdr, production = jtdtehuqtinjxropkkcn"
+        required: true
+        type: choice
+        options: [staging, production]
+      mode:
+        description: "list (read-only inventory) or deploy"
+        required: true
+        type: choice
+        options: [list, deploy]
+      functions:
+        description: "deploy only: comma-separated names under supabase/functions/ (never 'all')"
+        required: false
+        type: string
+        default: ""
+      confirm:
+        description: "deploy only: type the SAME list again"
+        required: false
+        type: string
+        default: ""
+
+concurrency:
+  group: deploy-functions-${{ inputs.target }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  functions:
+    name: ${{ inputs.mode }} edge functions on ${{ inputs.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ${{ inputs.target }}
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      TARGET_LANE: ${{ inputs.target }}
+      MODE: ${{ inputs.mode }}
+      BRANCH_REF: ${{ github.ref_name }}
+      FUNCTIONS_IN: ${{ inputs.functions }}
+      CONFIRM_IN: ${{ inputs.confirm }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The branch must match the target, and the ref is fixed by it
+        run: |
+          set -euo pipefail
+          case "$TARGET_LANE" in
+            production) WANT=main;    REF=jtdtehuqtinjxropkkcn ;;
+            staging)    WANT=staging; REF=fpszggreishhuvdpkmdr ;;
+            *) echo "::error::Unknown target '$TARGET_LANE'."; exit 1 ;;
+          esac
+          if [ "$BRANCH_REF" != "$WANT" ]; then
+            echo "::error::target='$TARGET_LANE' must be dispatched from '$WANT', not '$BRANCH_REF'. Refusing."
+            exit 1
+          fi
+          echo "PROJECT_REF=$REF" >> "$GITHUB_ENV"
+          echo "Lane OK: $TARGET_LANE ($REF) from $BRANCH_REF."
+
+      - name: Refuse to start without the access token
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_ACCESS_TOKEN is not set on the '$TARGET_LANE' environment (Owner setup, see header)."
+            exit 1
+          fi
+          echo "Token present. Its value is never printed."
+
+      - name: The token must reach the target project
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /tmp/proj.json -w '%{http_code}' \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            "https://api.supabase.com/v1/projects/$PROJECT_REF")
+          if [ "$code" != "200" ]; then
+            echo "::error::Management API answered $code for project $PROJECT_REF. Refusing."
+            exit 1
+          fi
+          echo "Token reaches $PROJECT_REF."
+
+      - name: Inventory — live functions vs git (read-only)
+        run: |
+          set -euo pipefail
+          curl -sS -f -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            "https://api.supabase.com/v1/projects/$PROJECT_REF/functions" > /tmp/live.json
+          ls -1 supabase/functions | grep -v '^_' | sort > /tmp/git.txt
+          jq -r '.[].slug' /tmp/live.json | sort > /tmp/live.txt
+          {
+            echo "## Edge functions on $TARGET_LANE ($PROJECT_REF) vs git $GITHUB_SHA"
+            echo
+            echo "| slug | live version | live verify_jwt | config.toml verify_jwt | live updated_at | in git |"
+            echo "|---|---|---|---|---|---|"
+            jq -r '.[] | [.slug, (.version|tostring), (.verify_jwt|tostring), ((.updated_at // 0)|tostring)] | @tsv' /tmp/live.json \
+            | sort | while IFS=$'\t' read -r slug ver vj upd; do
+                cfg=$(awk -v s="[functions.$slug]" 'index($0,s){f=1;next} f&&/verify_jwt/{gsub(/[^a-z]/,"",$3);print $3;exit} f&&/^[ \t]*\[/{exit}' supabase/config.toml)
+                ing=no; grep -qx "$slug" /tmp/git.txt && ing=yes
+                echo "| $slug | $ver | $vj | ${cfg:-unpinned} | $upd | $ing |"
+              done
+            echo
+            echo "**Live, not in git:** $(comm -23 /tmp/live.txt /tmp/git.txt | tr '\n' ' ')"
+            echo
+            echo "**In git, not live:** $(comm -13 /tmp/live.txt /tmp/git.txt | tr '\n' ' ')"
+            echo
+            echo "Counts: live=$(wc -l < /tmp/live.txt) git=$(wc -l < /tmp/git.txt)"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate the deploy request
+        if: env.MODE == 'deploy'
+        run: |
+          set -euo pipefail
+          if [ -z "$FUNCTIONS_IN" ] || [ "$FUNCTIONS_IN" != "$CONFIRM_IN" ]; then
+            echo "::error::'functions' must be set and 'confirm' must repeat it exactly."; exit 1
+          fi
+          : > /tmp/deploy.txt
+          IFS=',' read -ra NAMES <<< "$FUNCTIONS_IN"
+          for raw in "${NAMES[@]}"; do
+            n=$(echo "$raw" | tr -d ' ')
+            case "$n" in
+              all|'') echo "::error::Name every function; 'all' and empty names are refused."; exit 1 ;;
+            esac
+            if ! [[ "$n" =~ ^[a-z0-9-]+$ ]]; then echo "::error::Bad name '$n'."; exit 1; fi
+            if [ ! -f "supabase/functions/$n/index.ts" ]; then echo "::error::supabase/functions/$n/index.ts is not in git."; exit 1; fi
+            if ! grep -q "^\s*\[functions\.$n\]" supabase/config.toml; then
+              echo "::error::$n has no [functions.$n] block in supabase/config.toml. Pin verify_jwt to the live value (see the inventory above) before deploying."
+              exit 1
+            fi
+            echo "$n" >> /tmp/deploy.txt
+          done
+          echo "Will deploy to $TARGET_LANE:"; cat /tmp/deploy.txt
+
+      - uses: supabase/setup-cli@v1
+        if: env.MODE == 'deploy'
+        with:
+          version: latest
+
+      - name: Deploy (named functions only; nothing is deleted)
+        if: env.MODE == 'deploy'
+        run: |
+          set -euo pipefail
+          while read -r n; do
+            echo "── deploying $n"
+            supabase functions deploy "$n" --project-ref "$PROJECT_REF"
+          done < /tmp/deploy.txt
+
+      - name: Re-read after deploy
+        if: env.MODE == 'deploy'
+        run: |
+          set -euo pipefail
+          curl -sS -f -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            "https://api.supabase.com/v1/projects/$PROJECT_REF/functions" \
+            | jq -r --slurpfile d <(jq -R . /tmp/deploy.txt) \
+                '.[] | select(.slug as $s | $d | index($s)) | "\(.slug) version=\(.version) verify_jwt=\(.verify_jwt) updated_at=\(.updated_at)"' \
+            | tee -a "$GITHUB_STEP_SUMMARY"

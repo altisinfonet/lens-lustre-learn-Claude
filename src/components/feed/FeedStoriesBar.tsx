@@ -8,7 +8,7 @@ import { storageSafeFileName } from "@/lib/storageSafeName";
 import { compressImage } from "@/lib/imageCompression";
 import { AnimatePresence, motion } from "framer-motion";
 import { STORY_DISPLAY_MS } from "@/lib/storyTiming";
-import { logger, newCorrelationId } from "@/lib/logger";
+import { logger, newCorrelationId, timedRpc } from "@/lib/logger";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 // Owner, 2026-08-05: "Stories time 5 sec to do it 10 sec to stay."
@@ -80,7 +80,7 @@ const FeedStoriesBar = () => {
         .eq("user_id", user.id)
         .gt("expires_at", nowIso())
         .order("created_at", { ascending: true }),
-      supabase.rpc("get_my_story_view_counts" as any),
+      timedRpc("rpc.get_my_story_view_counts", "src/components/feed/FeedStoriesBar.tsx", () => supabase.rpc("get_my_story_view_counts" as any)),
     ]);
     setBar(((barData as any[]) || []) as BarUser[]);
     setOwnStories(((own as any[]) || []) as Story[]);
