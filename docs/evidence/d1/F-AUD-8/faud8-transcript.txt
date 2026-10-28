@@ -1,0 +1,197 @@
+# F-AUD-8 harness run · 2026-10-10T07:55:16Z · scratch PG 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) · pg_cron 1.6 · log_statement=all · pg_stat_statements.track=all · branch base staging 4a5c78a
+NOTICE:  schema "pss" already exists, skipping
+
+══ staging · 0 · fixture (real 0003 + 0006/P5-b captures)
+  copies: apply-scheduled-boosts expire-gift-credits judging-invariants-nightly publish-scheduled-posts
+  previous: 4 · run-history rows: 0 · PG 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) · pg_cron 1.6
+  PASS  fail first: every one of the 8 copies holds the OLD key
+  PASS  PROBE red — fail first: before any rotation: R1 no rotation recorded on this lane (faud8_rotation:last absent)
+
+══ staging · 1 · refusals (each must change nothing)
+  PASS  refused PRE-003: neither — no temporaries; nothing changed: F-AUD-8-PRE-003: neither faud8_new:cron_secret nor faud8_new:service_key is in vault — nothing to rotate
+  PASS  refused NEW-001 — cron secret pasted with a line break; nothing changed: F-AUD-8-NEW-001: faud8_new:cron_secret must be 32–256 characters of A–Z a–z 0–9 . _ ~ + / = - (no space or line break)
+  PASS  refused NEW-003.*role is not service_role — an anon key pasted as the service key; nothing changed: F-AUD-8-NEW-003: faud8_new:service_key is a JWT whose role is not service_role (an anon key?)
+  PASS  refused NEW-003.*another project — a service key of another project; nothing changed: F-AUD-8-NEW-003: faud8_new:service_key belongs to another project (ref differs from the current key) — wrong lane?
+  PASS  refused NEW-001 — a publishable key; nothing changed: F-AUD-8-NEW-001: faud8_new:service_key is neither a legacy JWT (eyJ….….…) nor an sb_secret_ key (no space or line break; not an anon or publisha
+  PASS  refused NEW-002 — new key = old key; nothing changed: F-AUD-8-NEW-002: faud8_new:service_key equals the current key
+  PASS  refused PRE-003: an unknown — an unknown faud8_new:* secret; nothing changed: F-AUD-8-PRE-003: an unknown faud8_new:* secret exists — only faud8_new:cron_secret and faud8_new:service_key are read
+  PASS  refused OLD-001 — two copies disagree on the cron secret; nothing changed: F-AUD-8-OLD-001: the live copies hold 2 distinct x-cron-secret values (must be exactly 1)
+  PASS  refused CONTAIN-001 — another vault secret holds the old key; nothing changed: F-AUD-8-CONTAIN-001: an old value is held outside p9_cron_http/p9_cron_previous; this file cannot rotate it safely:
+  PASS  refused CONTAIN-001 — a function body holds the old cron secret; nothing changed: F-AUD-8-CONTAIN-001: an old value is held outside p9_cron_http/p9_cron_previous; this file cannot rotate it safely:
+  PASS  refused CONTAIN-001 — a cron command holds the old key; nothing changed: F-AUD-8-CONTAIN-001: an old value is held outside p9_cron_http/p9_cron_previous; this file cannot rotate it safely:
+  PASS  refused PREV-001 — a previous copy that no longer matches its live target; nothing changed: F-AUD-8-PREV-001: p9_cron_previous:judging-invariants-nightly rewritten does not evaluate to its new live target — refusing
+  PASS  refused — lane not asserted (psql without SET p32.lane): APPLY REFUSED — p32.lane is not asserted as staging or production 
+  PASS  after all refusals the lane is exactly as before (temporaries aside)
+
+══ staging · 2 · rotate JWT → JWT, both credentials
+  PASS  0001 applied
+        F-AUD-8-0001: rotated cron secret service key (jwt → jwt) on lane staging: 8 cop(y/ies) rewritten (p9_cron_http:apply-scheduled-boosts, p9_cron_http:expire-gift-credits, p9_cron_http:judging-invariants-nightly, p9_cron_http:publ
+  PASS  no p9_cron_* copy holds an old value
+  PASS  every live copy: Authorization = Bearer <new key>
+  PASS  every moved job, run, sends the new key and the new cron secret
+  PASS  cron.job untouched (no value ever written there)
+  PASS  P5-b previous: same key form → value replaced in the text, its inline vault read kept inline
+  PASS  P5-b's own secret untouched (not a rotated credential)
+  PASS  temporaries deleted; one undo copy per changed copy + the record's
+  PASS  the record holds hashes, no value
+  PASS  PROBE red — rotated, not finalized (the way back still exists): R1 the latest rotation is not finalized (run 20261010_0002)
+  PASS  refused PRE-002 — a second rotation before finalize; nothing changed: F-AUD-8-PRE-002: a rotation is not finalized (faud8_undo:* exists) — run 20261010_0002 or the rollback first
+  PASS  0002's rollback refuses by design
+
+══ staging · 3 · rollback 0001 (before finalize): byte for byte
+  PASS  rollback applied
+        F-AUD-8-0001-RB: 8 cop(y/ies) restored byte for byte; record restored; undo copies deleted
+  PASS  every vault secret and cron job byte-identical to before the rotation
+  PASS  no undo copy and no record left (first rotation undone)
+  PASS  a second rollback is refused (RB-PRE-001)
+  PASS  finalize with nothing pending is refused
+
+══ staging · 4 · rotate again → finalize → PROBE
+  PASS  0001 re-applied
+  PASS  0002 finalize applied
+        F-AUD-8-0002: finalized on lane staging: 9 undo cop(y/ies) and 0 run-history row(s) holding a retired value deleted; no old value is held anywhere checked
+  PASS  run history held 0 old-credential row(s): now 0; undo copies deleted
+  PASS  PROBE green — finalized rotation, staging shape
+        PROBE PASS F-AUD-8: rotation of 2026-10-10T07:55:25Z finalized; 4 live cop(y/ies) hold the current value(s) (service key form jwt); no retired value in 10 vault secret(s), 5 cron job(s), 0 run-history row(s), 57 function body(ies)
+
+══ staging · 5 · PROBE mutants after finalize (each red, then undone)
+  PASS  PROBE red — a vault secret holding the retired key: R2 vault secret mutant_copy holds a RETIRED value
+  PASS  PROBE red — a function body holding 'Bearer <retired key>': R2 function mutant_fn() holds a RETIRED value
+  PASS  PROBE red — a cron command holding the CURRENT cron secret: R4 cron job mutant-job holds a CURRENT value outside the managed copies
+  PASS  PROBE red — run history holding the CURRENT cron secret: R4 run history of job 1 holds a CURRENT value outside the managed copies
+  PASS  PROBE red — a live copy put back to the retired cron secret: R2 vault secret p9_cron_http:expire-gift-credits holds a RETIRED value
+  PASS  PROBE red — a temporary left in vault: R1 left behind: faud8_new:cron_secret
+  PASS  PROBE green — every mutant undone
+        PROBE PASS F-AUD-8: rotation of 2026-10-10T07:55:25Z finalized; 4 live cop(y/ies) hold the current value(s) (service key form jwt); no retired value in 10 vault secret(s), 5 cron job(s), 0 run-history row(s), 57 function body(ies)
+
+══ staging · 6 · the p9_cron_previous decision, shown: the REAL 0003 rollback after a rotation
+  PASS  0003 rollback applied (P9-c undone)
+  PASS  the 3 restored literal jobs carry the NEW credentials, none the old (a working job, not a revoked one)
+  PASS  PROBE red — after a P9-c rollback the credentials are literal in cron.job again — the PROBE says so: R4 cron job apply-scheduled-boosts holds a CURRENT value outside the managed copies
+  PASS  0003 re-applied (re-captured from the restored jobs)
+  PASS  every moved job again sends the new credentials
+  PASS  PROBE green — back to the rotated, P9-c state
+        PROBE PASS F-AUD-8: rotation of 2026-10-10T07:55:25Z finalized; 4 live cop(y/ies) hold the current value(s) (service key form jwt); no retired value in 10 vault secret(s), 5 cron job(s), 0 run-history row(s), 57 function body(ies)
+
+══ staging · 7 · rotate the service key JWT → sb_secret_ (key only)
+  PASS  0001 applied
+        F-AUD-8-0001: rotated service key (jwt → sb_secret) on lane staging: 8 cop(y/ies) rewritten (p9_cron_http:apply-scheduled-boosts, p9_cron_http:expire-gift-credits, p9_cron_http:judging-invariants-nightly, p9_cron_http:publish-sc
+  PASS  every moved job sends apikey: <sb_secret_>, no Authorization (Bearer sb_secret_ is refused as Invalid JWT); cron secret unchanged
+  PASS  no copy holds the old JWT or a Bearer sb_secret_
+  PASS  form change → P5-b previous REBUILT from its live target (the evaluated header is now a literal; stated in 0001)
+  PASS  finalized
+  PASS  PROBE green — after JWT → sb_secret_
+        PROBE PASS F-AUD-8: rotation of 2026-10-10T07:55:27Z finalized; 4 live cop(y/ies) hold the current value(s) (service key form sb_secret); no retired value in 10 vault secret(s), 5 cron job(s), 0 run-history row(s), 57 function bod
+  PASS  PROBE red — a copy sending Bearer sb_secret_: R3 p9_cron_http:judging-invariants-nightly does not hold the current value in every credential header
+
+══ staging · 8 · rotate sb_secret_ → sb_secret_ and the cron secret (same form: text replace)
+  PASS  0001 applied
+        F-AUD-8-0001: rotated cron secret service key (sb_secret → sb_secret) on lane staging: 8 cop(y/ies) rewritten (p9_cron_http:apply-scheduled-boosts, p9_cron_http:expire-gift-credits, p9_cron_http:judging-invariants-nightly, p9_cr
+  PASS  every moved job sends the second sb_secret_ and the third cron secret
+  PASS  finalized
+  PASS  record: 5 retired hashes (old key, old cs, new key, SB1, new cs), 3 kept rotations (the rolled-back one is gone)
+  PASS  PROBE green — after three rotations, every retired value checked
+        PROBE PASS F-AUD-8: rotation of 2026-10-10T07:55:28Z finalized; 4 live cop(y/ies) hold the current value(s) (service key form sb_secret); no retired value in 10 vault secret(s), 5 cron job(s), 0 run-history row(s), 57 function bod
+
+══ production · 0 · fixture (real 0003 + 0006/P5-b captures)
+  copies: apply-scheduled-boosts autoscale-ad-traffic backup-reminder expire-gift-credits judging-invariants-nightly process-email-queue publish-scheduled-posts send-reengagement-emails
+  previous: 8 · run-history rows: 2 · PG 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) · pg_cron 1.6
+  PASS  fail first: every one of the 16 copies holds the OLD key
+  PASS  PROBE red — fail first: before any rotation: R1 no rotation recorded on this lane (faud8_rotation:last absent)
+
+══ production · 1 · refusals (each must change nothing)
+  PASS  refused PRE-003: neither — no temporaries; nothing changed: F-AUD-8-PRE-003: neither faud8_new:cron_secret nor faud8_new:service_key is in vault — nothing to rotate
+  PASS  refused NEW-001 — cron secret pasted with a line break; nothing changed: F-AUD-8-NEW-001: faud8_new:cron_secret must be 32–256 characters of A–Z a–z 0–9 . _ ~ + / = - (no space or line break)
+  PASS  refused NEW-003.*role is not service_role — an anon key pasted as the service key; nothing changed: F-AUD-8-NEW-003: faud8_new:service_key is a JWT whose role is not service_role (an anon key?)
+  PASS  refused NEW-003.*another project — a service key of another project; nothing changed: F-AUD-8-NEW-003: faud8_new:service_key belongs to another project (ref differs from the current key) — wrong lane?
+  PASS  refused NEW-001 — a publishable key; nothing changed: F-AUD-8-NEW-001: faud8_new:service_key is neither a legacy JWT (eyJ….….…) nor an sb_secret_ key (no space or line break; not an anon or publisha
+  PASS  refused NEW-002 — new key = old key; nothing changed: F-AUD-8-NEW-002: faud8_new:service_key equals the current key
+  PASS  refused PRE-003: an unknown — an unknown faud8_new:* secret; nothing changed: F-AUD-8-PRE-003: an unknown faud8_new:* secret exists — only faud8_new:cron_secret and faud8_new:service_key are read
+  PASS  refused OLD-001 — two copies disagree on the cron secret; nothing changed: F-AUD-8-OLD-001: the live copies hold 2 distinct x-cron-secret values (must be exactly 1)
+  PASS  refused CONTAIN-001 — another vault secret holds the old key; nothing changed: F-AUD-8-CONTAIN-001: an old value is held outside p9_cron_http/p9_cron_previous; this file cannot rotate it safely:
+  PASS  refused CONTAIN-001 — a function body holds the old cron secret; nothing changed: F-AUD-8-CONTAIN-001: an old value is held outside p9_cron_http/p9_cron_previous; this file cannot rotate it safely:
+  PASS  refused CONTAIN-001 — a cron command holds the old key; nothing changed: F-AUD-8-CONTAIN-001: an old value is held outside p9_cron_http/p9_cron_previous; this file cannot rotate it safely:
+  PASS  refused PREV-001 — a previous copy that no longer matches its live target; nothing changed: F-AUD-8-PREV-001: p9_cron_previous:judging-invariants-nightly rewritten does not evaluate to its new live target — refusing
+  PASS  refused — lane not asserted (psql without SET p32.lane): APPLY REFUSED — p32.lane is not asserted as staging or production 
+  PASS  after all refusals the lane is exactly as before (temporaries aside)
+
+══ production · 2 · rotate JWT → JWT, both credentials
+  PASS  0001 applied
+        F-AUD-8-0001: rotated cron secret service key (jwt → jwt) on lane production: 16 cop(y/ies) rewritten (p9_cron_http:apply-scheduled-boosts, p9_cron_http:autoscale-ad-traffic, p9_cron_http:backup-reminder, p9_cron_http:expire-gif
+  PASS  no p9_cron_* copy holds an old value
+  PASS  every live copy: Authorization = Bearer <new key>
+  PASS  every moved job, run, sends the new key and the new cron secret
+  PASS  cron.job untouched (no value ever written there)
+  PASS  P5-b previous: same key form → value replaced in the text, its inline vault read kept inline
+  PASS  P5-b's own secret untouched (not a rotated credential)
+  PASS  temporaries deleted; one undo copy per changed copy + the record's
+  PASS  the record holds hashes, no value
+  PASS  PROBE red — rotated, not finalized (the way back still exists): R1 the latest rotation is not finalized (run 20261010_0002)
+  PASS  refused PRE-002 — a second rotation before finalize; nothing changed: F-AUD-8-PRE-002: a rotation is not finalized (faud8_undo:* exists) — run 20261010_0002 or the rollback first
+  PASS  0002's rollback refuses by design
+
+══ production · 3 · rollback 0001 (before finalize): byte for byte
+  PASS  rollback applied
+        F-AUD-8-0001-RB: 16 cop(y/ies) restored byte for byte; record restored; undo copies deleted
+  PASS  every vault secret and cron job byte-identical to before the rotation
+  PASS  no undo copy and no record left (first rotation undone)
+  PASS  a second rollback is refused (RB-PRE-001)
+  PASS  finalize with nothing pending is refused
+
+══ production · 4 · rotate again → finalize → PROBE
+  PASS  0001 re-applied
+  PASS  0002 finalize applied
+        F-AUD-8-0002: finalized on lane production: 17 undo cop(y/ies) and 2 run-history row(s) holding a retired value deleted; no old value is held anywhere checked
+  PASS  run history held 2 old-credential row(s): now 0; undo copies deleted
+  PASS  PROBE green — finalized rotation, production shape
+        PROBE PASS F-AUD-8: rotation of 2026-10-10T07:55:36Z finalized; 8 live cop(y/ies) hold the current value(s) (service key form jwt); no retired value in 18 vault secret(s), 9 cron job(s), 0 run-history row(s), 57 function body(ies)
+
+══ production · 5 · PROBE mutants after finalize (each red, then undone)
+  PASS  PROBE red — a vault secret holding the retired key: R2 vault secret mutant_copy holds a RETIRED value
+  PASS  PROBE red — a function body holding 'Bearer <retired key>': R2 function mutant_fn() holds a RETIRED value
+  PASS  PROBE red — a cron command holding the CURRENT cron secret: R4 cron job mutant-job holds a CURRENT value outside the managed copies
+  PASS  PROBE red — run history holding the CURRENT cron secret: R4 run history of job 1 holds a CURRENT value outside the managed copies
+  PASS  PROBE red — a live copy put back to the retired cron secret: R2 vault secret p9_cron_http:expire-gift-credits holds a RETIRED value
+  PASS  PROBE red — a temporary left in vault: R1 left behind: faud8_new:cron_secret
+  PASS  PROBE green — every mutant undone
+        PROBE PASS F-AUD-8: rotation of 2026-10-10T07:55:36Z finalized; 8 live cop(y/ies) hold the current value(s) (service key form jwt); no retired value in 18 vault secret(s), 9 cron job(s), 0 run-history row(s), 57 function body(ies)
+
+══ production · 6 · the p9_cron_previous decision, shown: the REAL 0003 rollback after a rotation
+  PASS  0003 rollback applied (P9-c undone)
+  PASS  the 6 restored literal jobs carry the NEW credentials, none the old (a working job, not a revoked one)
+  PASS  PROBE red — after a P9-c rollback the credentials are literal in cron.job again — the PROBE says so: R4 cron job apply-scheduled-boosts holds a CURRENT value outside the managed copies
+  PASS  0003 re-applied (re-captured from the restored jobs)
+  PASS  every moved job again sends the new credentials
+  PASS  PROBE green — back to the rotated, P9-c state
+        PROBE PASS F-AUD-8: rotation of 2026-10-10T07:55:36Z finalized; 8 live cop(y/ies) hold the current value(s) (service key form jwt); no retired value in 18 vault secret(s), 9 cron job(s), 0 run-history row(s), 57 function body(ies)
+
+══ production · 7 · rotate the service key JWT → sb_secret_ (key only)
+  PASS  0001 applied
+        F-AUD-8-0001: rotated service key (jwt → sb_secret) on lane production: 16 cop(y/ies) rewritten (p9_cron_http:apply-scheduled-boosts, p9_cron_http:autoscale-ad-traffic, p9_cron_http:backup-reminder, p9_cron_http:expire-gift-cred
+  PASS  every moved job sends apikey: <sb_secret_>, no Authorization (Bearer sb_secret_ is refused as Invalid JWT); cron secret unchanged
+  PASS  no copy holds the old JWT or a Bearer sb_secret_
+  PASS  form change → P5-b previous REBUILT from its live target (the evaluated header is now a literal; stated in 0001)
+  PASS  finalized
+  PASS  PROBE green — after JWT → sb_secret_
+        PROBE PASS F-AUD-8: rotation of 2026-10-10T07:55:39Z finalized; 8 live cop(y/ies) hold the current value(s) (service key form sb_secret); no retired value in 18 vault secret(s), 9 cron job(s), 0 run-history row(s), 57 function bod
+  PASS  PROBE red — a copy sending Bearer sb_secret_: R3 p9_cron_http:judging-invariants-nightly does not hold the current value in every credential header
+
+══ production · 8 · rotate sb_secret_ → sb_secret_ and the cron secret (same form: text replace)
+  PASS  0001 applied
+        F-AUD-8-0001: rotated cron secret service key (sb_secret → sb_secret) on lane production: 16 cop(y/ies) rewritten (p9_cron_http:apply-scheduled-boosts, p9_cron_http:autoscale-ad-traffic, p9_cron_http:backup-reminder, p9_cron_htt
+  PASS  every moved job sends the second sb_secret_ and the third cron secret
+  PASS  finalized
+  PASS  record: 5 retired hashes (old key, old cs, new key, SB1, new cs), 3 kept rotations (the rolled-back one is gone)
+  PASS  PROBE green — after three rotations, every retired value checked
+        PROBE PASS F-AUD-8: rotation of 2026-10-10T07:55:40Z finalized; 8 live cop(y/ies) hold the current value(s) (service key form sb_secret); no retired value in 18 vault secret(s), 9 cron job(s), 0 run-history row(s), 57 function bod
+
+══ 12 · no value in the server log or pg_stat_statements
+  PASS  control: the log does capture a literal sent as an ordinary statement
+  PASS  server log since the start (24919 lines, log_statement=all, parameters logged in full): 0 lines hold any of the 10 fixture values
+        (that log holds the rotations' own NOTICE lines: 64)
+  PASS  control: pg_stat_statements records the rotation's nested vault.update_secret calls (values as $n parameters)
+  PASS  pg_stat_statements (track=all, 197 statements incl. nested PL/pgSQL): 0 hold any fixture value
+  PASS  none of the five shipped SQL files holds a value
+
+129 PASS
+ALL CASES PASS
