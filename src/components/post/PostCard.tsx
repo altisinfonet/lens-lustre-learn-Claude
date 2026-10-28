@@ -326,7 +326,15 @@ const PostCard = ({
             behind an unchanged one — the anchor's own box is what grows, which
             is why the checker can see it. `-ml-1.5` is absorbed by the row's
             `gap-2.5`, so the avatar sits exactly where it did. */}
-        <ProfileLink userId={post.user_id} handle={post.author_handle} className="shrink-0 grid place-items-center p-1.5 -m-1.5">
+        {/* S4-a: named — the avatar's img is decorative (alt=""), so the link had no
+            accessible name (axe link-name). The name link beside it is the same
+            destination; this one now says so. */}
+        <ProfileLink
+          userId={post.user_id}
+          handle={post.author_handle}
+          aria-label={`${post.author_name || "Member"}'s profile`}
+          className="shrink-0 grid place-items-center p-1.5 -m-1.5"
+        >
           <span className="relative inline-block w-8 h-8">
             {post.author_avatar ? (
               <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={post.author_avatar} alt="" className="w-8 h-8 rounded-full object-cover" />

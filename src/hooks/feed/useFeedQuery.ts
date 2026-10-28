@@ -931,6 +931,56 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
   });
 }
 
+/**
+ * S4-a · THE FEED BENEATH A POST (Instagram: open a post, keep scrolling, the
+ * feed carries on under it).
+ *
+ * The same read path as the feed — get_broadcast_feed, then enrichPosts — so
+ * nothing new is readable and privacy is the RPC's, exactly as on /feed. What
+ * it deliberately does NOT share is the feed's cache entry or its session
+ * object: the feed's B1 promise ("Back returns to the deal you left, at the
+ * same post") depends on nothing else re-dealing or re-paging it. So:
+ *
+ *   · its own query key (one per post), never under `queryKeys.feedAll()`;
+ *   · the feed's CURRENT seed is read, never written — the posts beneath are
+ *     the deal the member is already on (and the server is not asked for a
+ *     new one); with no deal yet (a cold link to the post) a local seed is
+ *     made and kept by this query alone;
+ *   · the post on screen is excluded from the first page, and every page
+ *     excludes everything dealt above it, so no post repeats.
+ *
+ * Signed-in only, as /feed is. Five pages retained, as the feed.
+ */
+export function usePostPageFeed(userId: string | undefined, postId: string | undefined, enabled = true) {
+  const client = useQueryClient();
+  return useInfiniteQuery<{ posts: FeedPost[]; nextCursor: number | null; seen: string[] }, Error>({
+    queryKey: ["post-page-feed", userId ?? "", postId ?? ""],
+    enabled: !!userId && !!postId && enabled,
+    staleTime: Infinity,
+    initialPageParam: 0,
+    queryFn: async ({ pageParam, queryKey }) => {
+      const session = feedSessionFor(userId, "");
+      const pageIndex = Number(pageParam) || 0;
+      // The page before this one, found by its page PARAM — `maxPages` drops
+      // the oldest pages, so an array index would point at the wrong one.
+      const held = client.getQueryData<InfiniteData<{ seen: string[] }, number>>(queryKey);
+      const prev = held ? held.pageParams.indexOf(pageIndex - 1) : -1;
+      const before = pageIndex === 0 || !held || prev < 0 ? [postId!] : held.pages[prev].seen;
+      const seed = session.seed.current ?? (postPageSeeds.get(postId!) ?? postPageSeeds.set(postId!, newFeedSessionSeed()).get(postId!)!);
+      const networkIds = session.networkIds.current.length ? session.networkIds.current : await fetchRelevantUsers(userId!);
+      const { rows } = await fetchBroadcastPage(before, 0, null, seed, session.personal.current);
+      const fresh = rows.filter((r: { id: string }) => !before.includes(r.id));
+      if (fresh.length === 0) return { posts: [], nextCursor: null, seen: before };
+      const posts = await enrichPosts(fresh, networkIds, userId!);
+      return { posts, nextCursor: pageIndex + 1, seen: [...before, ...fresh.map((r: { id: string }) => r.id)] };
+    },
+    getNextPageParam: (last) => last.nextCursor,
+    maxPages: 5,
+  });
+}
+/** A cold link's own seed per post — kept so a refetch of a held page asks for the same deal. */
+const postPageSeeds = new Map<string, string>();
+
 export function flattenFeedPages(pages: FeedPage[] | undefined): FeedPost[] {
   if (!pages) return [];
   const seen = new Set<string>();
