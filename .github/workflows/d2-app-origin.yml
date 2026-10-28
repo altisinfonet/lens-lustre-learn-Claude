@@ -1,0 +1,40 @@
+name: D2 · App origin journey
+
+# The Android app is a Capacitor shell whose pages run on https://localhost and
+# call the site for every route in src/lib/net/siteApi.ts. Two halves:
+#   1. THIS CHECKOUT's own Pages Functions, in-process (src/__tests__/
+#      appOriginJourney.test.ts) — what makes a PR that breaks the app origin
+#      fail before it is deployed.
+#   2. The STAGING site, over the wire (scripts/app-origin-check.mjs) — what is
+#      actually deployed. During a PR it reads staging as it is before the merge.
+# Reads only public staging URLs. Holds no secret. Prints statuses and header
+# values only.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  app-origin:
+    name: App origin journey (https://localhost)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: This checkout's functions answer https://localhost (every SITE_API route)
+        run: npx vitest run src/__tests__/appOriginJourney.test.ts
+      - name: The staging site answers https://localhost (every SITE_API route)
+        run: node scripts/app-origin-check.mjs https://staging.50mmretina.com
