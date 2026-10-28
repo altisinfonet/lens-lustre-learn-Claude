@@ -19,6 +19,7 @@ import DownloadButton from "@/components/DownloadButton";
 import ProfileLink from "@/components/ProfileLink";
 import type { PhotoAuthor } from "@/components/FacebookPhotoGrid";
 import ZoomableImage from "@/components/media/ZoomableImage";
+import { ladderFor, originalFor } from "@/lib/media/resolvedMedia";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import { frameAspectFor, frameAspectForUrls, parseImageDims } from "@/lib/imageFrame";
 import { hasLadderMarker, rungPath, rungPlan, rungWidthFor } from "@/lib/imageLadder";
@@ -403,7 +404,9 @@ const ProgressiveImage = ({
   // layer's onError) falls everything back to the original, so a dead thumbnail
   // degrades to the pre-thumbnail behaviour instead of breaking. See the note
   // above usableThumb — the address is never guessed, only read.
-  const thumb = !transformable && !failed ? usableThumb(thumbProp, src) : null;
+  // S3-c: a URL from the derivative ladder carries its own 600 px thumb and srcset.
+  const ladder = ladderFor(src);
+  const thumb = !transformable && !failed ? (ladder?.thumb ?? usableThumb(thumbProp, src)) : null;
   /**
    * ⚠ THE BACKDROP NEVER LOADS THE FULL-RESOLUTION ORIGINAL. EVER.
    *
@@ -439,7 +442,8 @@ const ProgressiveImage = ({
   // it still paints the backdrop instantly, and it is the small end of the
   // srcset below, so a slot that only needs 600px still downloads only 600px.
   const sharpSrc = transformable ? buildRenderUrl(src, 800) : src;
-  const srcSet = transformable ? buildSrcSet(src) : buildThumbFirstSrcSet(thumb, src);
+  let srcSet = transformable ? buildSrcSet(src) : buildThumbFirstSrcSet(thumb, src);
+  if (ladder) srcSet = ladder.srcSet; // S3-c: 600/1080/1440 derivatives, never the original
 
   return (
     <>
@@ -799,7 +803,7 @@ const CarouselLightbox = ({ urls, currentIndex, onClose, onNavigate, author }: C
           <AnimatePresence mode="wait">
             <motion.div key={currentIndex} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0 flex items-center justify-center">
               <ZoomableImage
-                src={urls[currentIndex]}
+                src={originalFor(urls[currentIndex])}
                 className="max-w-[95vw] max-h-[92vh] object-contain rounded-sm shadow-2xl"
                 onZoomChange={setZoomed}
               />

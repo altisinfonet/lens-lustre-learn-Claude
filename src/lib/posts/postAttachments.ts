@@ -17,10 +17,13 @@
  */
 import { fetchPostMediaMap, resolvePostImageUrls, type PostMediaMap } from "@/lib/media/postMediaRead";
 import { fetchPostVideoMap, type FeedVideo, type PostVideoMap } from "@/lib/video/postVideoRead";
+import { fetchResolvedMediaMap, ladderSwitchOn, resolvedImageUrls, type ResolvedMap } from "@/lib/media/resolvedMedia";
 
 export interface PostAttachments {
   media: PostMediaMap;
   video: PostVideoMap;
+  /** S3-c: present only while `media_ladder_feed` is on for this member. */
+  resolved?: ResolvedMap;
 }
 
 export interface AttachedMedia {
@@ -30,8 +33,13 @@ export interface AttachedMedia {
 
 /** Photographs and videos for a whole page of posts: two batched reads, in parallel. */
 export async function fetchPostAttachments(postIds: readonly string[]): Promise<PostAttachments> {
+  // S3-c: started first, runs alongside today's two reads; any failure → undefined (today's path).
+  const resolvedP = ladderSwitchOn()
+    .then((on) => (on ? fetchResolvedMediaMap(postIds) : undefined))
+    .catch(() => undefined);
   const [media, video] = await Promise.all([fetchPostMediaMap(postIds), fetchPostVideoMap(postIds)]);
-  return { media, video };
+  const resolved = await resolvedP;
+  return resolved ? { media, video, resolved } : { media, video };
 }
 
 /**
@@ -46,5 +54,8 @@ export async function fetchPostAttachments(postIds: readonly string[]): Promise<
 export function attachmentsFor(a: PostAttachments, postId: string, legacyImageUrls: string[]): AttachedMedia | null {
   const v = a.video.get(postId);
   if (v === "hidden") return null;
-  return { image_urls: resolvePostImageUrls(a.media, postId, legacyImageUrls), video: v ?? null };
+  const today = resolvePostImageUrls(a.media, postId, legacyImageUrls);
+  // S3-c: the ladder replaces the URLs only for a post the server resolved whole.
+  const ladder = a.resolved ? resolvedImageUrls(a.resolved, postId, today) : null;
+  return { image_urls: ladder ?? today, video: v ?? null };
 }

@@ -157,3 +157,21 @@ can be switched off without touching the feed.
    `SET s3.require_full = 'on';` + coverage PROBE must pass.
 5. New uploads: run the worker with `--loop` (converter VM timer or the supervisor)
    — until it runs, a new photo falls back to today's path.
+
+## 9. Addendum (S3-c) — the ladder on every post surface
+
+One resolution point, no new props: `src/lib/posts/postAttachments.ts` (used by
+the feed, the wall, PostDetail, the hashtag feed, the landing preview and the
+pinned-post feed) asks `post_media_resolved_for` alongside today's two reads when
+`media_ladder_feed` is on. For a post the server resolved whole, `image_urls`
+become its largest derivative (≤ 1440 px WebP), so every renderer — `PostCard` /
+`PostMedia`, the profile grid (when it has no stored thumb), hashtag grid,
+comments overlay, landing preview — shows a derivative, never the original.
+`PostMedia` reads the 600/1080/1440 srcset and the 600 px thumb from a registry
+(`src/lib/media/resolvedMedia.ts`); the two lightboxes and every download use
+`originalFor()` so zoom/download still get the original.
+
+Known, outside S3-c (listed in the report): notification thumbnails come from the
+notifications RPC (`posts.image_url`, the original) and drafts / scheduled lists
+read their own tables; the four hand-rolled card renderers (hashtag, landing,
+profile grid, comments overlay) are not yet merged into `PostCard`.
