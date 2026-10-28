@@ -18,6 +18,7 @@ async function fetchAndEnrich(
   targetUserId: string,
   currentUserId: string | undefined,
   cursor: string | null,
+  ownOnly = false,
 ): Promise<UserPostsPage> {
   // BUG-062: the wall shows the user's OWN posts AND posts they've SHARED to
   // their wall, merged into one newest-first stream (a shared item sorts by its
@@ -40,7 +41,12 @@ async function fetchAndEnrich(
     shareQuery = shareQuery.lt("created_at", cursor);
   }
 
-  const [ownRes, shareRes] = await Promise.all([ownQuery, shareQuery]);
+  // S4-a: "More posts from <name>" under a post is the author's OWN posts —
+  // what they wrote, not what they passed on (Instagram shows the same).
+  const [ownRes, shareRes] = await Promise.all([
+    ownQuery,
+    ownOnly ? Promise.resolve({ data: [] as any[], error: null }) : shareQuery,
+  ]);
   if (ownRes.error && shareRes.error) {
     return { posts: [], nextCursor: null };
   }
@@ -212,14 +218,17 @@ async function fetchAndEnrich(
 export function useUserPostsQuery(
   targetUserId: string | undefined,
   currentUserId: string | undefined,
-  options?: { enabled?: boolean },
+  options?: { enabled?: boolean; ownOnly?: boolean },
 ) {
+  const ownOnly = options?.ownOnly === true;
   return useInfiniteQuery<UserPostsPage, Error>({
-    queryKey: ["user-wall-posts", targetUserId],
+    // S4-a: own-posts-only is a different list, so a different cache entry —
+    // the wall's own entry (and its setQueryData updaters) is never touched.
+    queryKey: ownOnly ? ["user-own-posts", targetUserId] : ["user-wall-posts", targetUserId],
     enabled: !!targetUserId && options?.enabled !== false,
     queryFn: async ({ pageParam }) => {
       const cursor = (pageParam as string | undefined) ?? null;
-      return fetchAndEnrich(targetUserId!, currentUserId, cursor);
+      return fetchAndEnrich(targetUserId!, currentUserId, cursor, ownOnly);
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     initialPageParam: undefined as string | undefined,
