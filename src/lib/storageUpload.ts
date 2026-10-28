@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { isS3Enabled, uploadToS3 } from "@/lib/s3Upload";
-import { logger } from "@/lib/logger";
+import { logger, timed } from "@/lib/logger";
 
 const FILE = "src/lib/storageUpload.ts";
 
@@ -29,6 +29,23 @@ async function checkS3(): Promise<boolean> {
  * For private buckets, url will be the storage path (not a public URL).
  */
 export async function storageUpload(
+  bucket: string,
+  path: string,
+  file: File | Blob,
+  options?: { upsert?: boolean; cacheControl?: string; fileName?: string }
+): Promise<StorageUploadResult> {
+  // S2-A: photo uploads feed the "upload failure %" (a throw = a failure).
+  // Video outcomes are counted once, by the video job runner (uploadJobs.ts).
+  const metric = String((file as Blob)?.type ?? "").startsWith("image/") ? "upload.photo" : undefined;
+  if (!metric) return storageUploadInner(bucket, path, file, options);
+  return timed(
+    { code: "FILE-5001", event: "STORAGE_UPLOAD_TIMED", fn: "storageUpload", file: FILE, message: `Upload to ${bucket}.` },
+    () => storageUploadInner(bucket, path, file, options),
+    { metric },
+  );
+}
+
+async function storageUploadInner(
   bucket: string,
   path: string,
   file: File | Blob,
