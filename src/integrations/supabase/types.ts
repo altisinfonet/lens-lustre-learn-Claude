@@ -3978,7 +3978,7 @@ export type Database = {
           photography_interests: string[] | null
           portfolio_url: string | null
           postal_code: string | null
-          preferred_language: string
+          preferred_language: string | null
           privacy_settings: Json
           pronouns: string | null
           reengagement_sends_count: number
