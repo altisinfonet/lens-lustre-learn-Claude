@@ -531,11 +531,85 @@ journey("post page: More posts from <name> + the feed beneath → open one → B
   return { tiles: tileCount, beneath: feedIds.length, opened: other };
 });
 
+// S4-b · A COMMENT NOTIFICATION OPENS THE POST ON THAT COMMENT: the thread
+// opens by itself, the comment is in it (even past the first page, a reply
+// whose parent is not loaded either), it is marked, and it is ON SCREEN —
+// inside the thread's own scrolling band, not merely somewhere in the DOM.
+// Back closes the thread and Back again leaves the post, as for any thread.
+async function highlighted(page, commentId, label) {
+  const row = dialog(page).locator(`[data-comment-id="${commentId}"]`);
+  try { await row.waitFor({ state: "attached", timeout: 20000 }); } catch { throw new Error(`${label}: the comment ${commentId} is not in the thread`); }
+  if ((await row.getAttribute("data-highlighted")) !== "true") throw new Error(`${label}: the comment is in the thread but not marked`);
+  const t0 = Date.now();
+  let seen = null;
+  while (Date.now() - t0 < 6000) {
+    seen = await row.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      let band = el.parentElement;
+      while (band && !/(auto|scroll)/.test(getComputedStyle(band).overflowY)) band = band.parentElement;
+      const b = band ? band.getBoundingClientRect() : { top: 0, bottom: innerHeight };
+      return { top: Math.round(r.top), bottom: Math.round(r.bottom), bandTop: Math.round(b.top), bandBottom: Math.round(b.bottom) };
+    });
+    if (seen.top >= seen.bandTop - 1 && seen.bottom <= seen.bandBottom + 1) return seen;
+    await page.waitForTimeout(150);
+  }
+  throw new Error(`${label}: the marked comment is off screen (${JSON.stringify(seen)})`);
+}
+
+journey("bell / Notifications row: comment notification → the post opens on that comment (past the first page, a reply) → Back closes → Back → feed", DESKTOP, async (page) => {
+  await openFeedFromBelow(page);
+  const postId = await page.evaluate(() => window.__nav.postId);
+  const far = await page.evaluate(() => window.__navComments.far);
+  await page.getByTestId("to-post-comment").click();
+  await dialog(page).waitFor({ state: "visible", timeout: 60000 });
+  await waitWhere(page, `/post/${postId}?comments=${postId}`);
+  const at = await highlighted(page, far, "from the bell");
+  await page.goBack();
+  await waitWhere(page, `/post/${postId}`);
+  await noDialog(page, "after the first Back");
+  await page.goBack();
+  await waitWhere(page, "/feed");
+  await noDialog(page, "after the second Back");
+  return at;
+});
+
+control("a post opened WITHOUT a comment notification does not open its comments", DESKTOP, async (page) => {
+  await openFeedFromBelow(page);
+  const postId = await page.evaluate(() => window.__nav.postId);
+  await page.getByTestId("to-post").click();
+  await waitWhere(page, `/post/${postId}`);
+  await commentButtons(page).first().waitFor({ timeout: 60000 });
+  await settle(page, 1500);
+  if (await dialog(page).first().isVisible().catch(() => false)) throw new Error("the comments opened on their own");
+});
+
+journey("native (Android stub): cold start → reply notification tap → post on that reply, marked → Back ×2 → feed → Back leaves", PHONE, async (page) => {
+  await startAt(page, "/", true);
+  await nativeReady(page);
+  const postId = await page.evaluate(() => window.__nav.postId);
+  const reply = await page.evaluate(() => window.__navComments.reply);
+  await page.evaluate((id) => window.__navNative.tap({ type: "comment_reply", reference_id: id }), postId);
+  await dialog(page).waitFor({ state: "visible", timeout: 60000 });
+  await waitWhere(page, `/post/${postId}?comments=${postId}`);
+  const at = await highlighted(page, reply, "from the push");
+  await pressBack(page);
+  await waitWhere(page, `/post/${postId}`);
+  await noDialog(page, "after the first Back");
+  await pressBack(page);
+  await waitWhere(page, "/feed");
+  if ((await exits(page)) !== 0) throw new Error("Back left the app instead of landing on the feed");
+  await pressBack(page);
+  if ((await exits(page)) !== 1) throw new Error(`on the feed with nothing beneath, Back must leave the app once (asked ${await exits(page)} times)`);
+  return at;
+});
+
 journey("native (Android stub): cold start → notification tap → post → comments → Back ×2 → feed → Back leaves the app", PHONE, async (page) => {
   await startAt(page, "/", true);
   await nativeReady(page);
   const postId = await page.evaluate(() => window.__nav.postId);
-  await page.evaluate((id) => window.__navNative.tap({ type: "post_comment", reference_id: id }), postId);
+  // A REACTION notification: the post opens with its comments closed (S4-b:
+  // a COMMENT notification opens them by itself — its own journey above).
+  await page.evaluate((id) => window.__navNative.tap({ type: "post_reaction", reference_id: id }), postId);
   await waitWhere(page, `/post/${postId}`);
   await commentButtons(page).first().waitFor({ timeout: 60000 });
   await openComments(page);

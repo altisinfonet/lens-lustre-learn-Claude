@@ -40,7 +40,7 @@ const PushNotificationsGate = () => {
           const referenceId =
             typeof data?.reference_id === "string" ? data.reference_id : null;
           if (!type) return;
-          openNotificationTarget(navigate, getNotifLink({ type, reference_id: referenceId }), inAppHistoryDepth());
+          openNotificationTarget(navigate, getNotifLink({ type, reference_id: referenceId }), inAppHistoryDepth(), type);
         });
       } catch {
         /* push is optional — never break the app because of it */

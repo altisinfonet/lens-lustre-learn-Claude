@@ -67,14 +67,19 @@ import { isOwnOverlayEntry, overlayCloseStep, overlayEntryState } from "@/lib/na
  * box still image" — the ad subject used to carry only its picture.
  */
 export type CommentsSubject =
-  | { kind: "post"; post: UnifiedPost; media: SubjectMedia }
+  | { kind: "post"; post: UnifiedPost; media: SubjectMedia; focusCommentId?: string | null }
   | { kind: "ad"; creativeId: string; media: SubjectMedia };
 
 interface CommentsOverlayContextValue {
   /** What the overlay is showing, or null when it is closed. */
   subject: CommentsSubject | null;
   isOpen: boolean;
-  openPostComments: (post: UnifiedPost, onCommentCountChange?: (postId: string, delta: number) => void) => void;
+  /** `focus` (S4-b): open on that comment — a notification's — loaded and marked. */
+  openPostComments: (
+    post: UnifiedPost,
+    onCommentCountChange?: (postId: string, delta: number) => void,
+    focus?: { commentId: string | null },
+  ) => void;
   openAdComments: (creativeId: string, media: SubjectMedia, onCommentsChanged?: () => void) => void;
   closeComments: () => void;
   /** Forwards to whatever `onCommentCountChange` the opener passed in — the same callback Feed/WallPosts/PostDetail already wire into PostCard. */
@@ -152,9 +157,13 @@ export const CommentsOverlayProvider = ({ children }: { children: ReactNode }) =
   );
 
   const openPostComments = useCallback(
-    (nextPost: UnifiedPost, onCommentCountChange?: (postId: string, delta: number) => void) => {
+    (
+      nextPost: UnifiedPost,
+      onCommentCountChange?: (postId: string, delta: number) => void,
+      focus?: { commentId: string | null },
+    ) => {
       postCountChangeRef.current = onCommentCountChange;
-      show({ kind: "post", post: nextPost, media: postMedia(nextPost) });
+      show({ kind: "post", post: nextPost, media: postMedia(nextPost), focusCommentId: focus?.commentId ?? null });
     },
     [show],
   );

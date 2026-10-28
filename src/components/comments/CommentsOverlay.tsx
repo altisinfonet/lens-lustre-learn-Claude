@@ -111,6 +111,7 @@ const CommentsOverlay = () => {
         postOwnerHandle={post.author_handle}
         subjectLabel={post.content}
         onCommentCountChange={notifyCommentCountChange}
+        focusCommentId={subject.focusCommentId ?? null}
       />
     );
   } else {

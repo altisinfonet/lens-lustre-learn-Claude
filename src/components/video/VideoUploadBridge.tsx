@@ -43,6 +43,7 @@ export default function VideoUploadBridge() {
         } else {
           void qc.invalidateQueries({ queryKey: ["feed"] });
           void qc.invalidateQueries({ queryKey: ["user-wall-posts"] });
+          void qc.invalidateQueries({ queryKey: ["user-own-posts"] }); // S4-a
           toast({ title: "Your video is posted" });
         }
       } else if (e.type === "failed" && e.job.mode !== "server") {
