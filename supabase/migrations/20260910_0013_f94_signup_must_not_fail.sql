@@ -1,3 +1,25 @@
+-- ═══ S8 / F-REV4-2 SAFETY WRAPPER (added 2026-10-28) ═══
+-- This file had no outer transaction and no lane guard: a failure part-way
+-- left a half-applied schema, and it ran on whichever database psql reached.
+-- It now runs as ONE transaction and refuses unless apply-migration.yml has
+-- asserted p32.lane (staging or production). The body below is unchanged.
+-- Rollback: supabase/rollback/20260910_0013_f94_ROLLBACK.sql
+-- PROBE:    supabase/migrations/PROBE_s8_f93_f96_f94_state.sql
+BEGIN;
+
+DO $lane_guard$
+BEGIN
+  IF coalesce(current_setting('p32.lane', true), '') NOT IN ('staging', 'production') THEN
+    RAISE EXCEPTION
+      'APPLY REFUSED — p32.lane reads %. Dispatch apply-migration.yml (it sets p32.lane from target).',
+      coalesce(current_setting('p32.lane', true), '(unset)')
+    USING ERRCODE = 'raise_exception';
+  END IF;
+END
+$lane_guard$;
+
+SET LOCAL lock_timeout = '5s';
+
 -- F-94 — a shared email domain could stop someone joining at all.
 --
 -- ═══ WHAT ACTUALLY HAPPENED, MEASURED NOT DESCRIBED ═══
@@ -109,3 +131,5 @@ $$;
 
 COMMENT ON FUNCTION public.rate_limit_newsletter_subscribe() IS
   'F-94. Rate limits PUBLIC newsletter submissions per email address per hour. Registration-sourced rows are exempt: they require an account, which already passed captcha. Previously keyed on the email DOMAIN, which blocked the eleventh member of any company, college or club from creating an account at all. Does NOT defend against one actor using many addresses — this table records no IP or device, so that control belongs at the edge.';
+
+COMMIT;

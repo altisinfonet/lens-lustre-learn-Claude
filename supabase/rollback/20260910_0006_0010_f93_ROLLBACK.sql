@@ -1,3 +1,25 @@
+-- ═══ S8 / F-REV4-2 SAFETY WRAPPER (added 2026-10-28) ═══
+-- This file had no outer transaction and no lane guard: a failure part-way
+-- left a half-applied schema, and it ran on whichever database psql reached.
+-- It now runs as ONE transaction and refuses unless apply-migration.yml has
+-- asserted p32.lane (staging or production). The body below is unchanged.
+-- Rollback: (this file is the rollback)
+-- PROBE:    supabase/migrations/PROBE_s8_f93_f96_f94_state.sql
+BEGIN;
+
+DO $lane_guard$
+BEGIN
+  IF coalesce(current_setting('p32.lane', true), '') NOT IN ('staging', 'production') THEN
+    RAISE EXCEPTION
+      'APPLY REFUSED — p32.lane reads %. Dispatch apply-migration.yml (it sets p32.lane from target).',
+      coalesce(current_setting('p32.lane', true), '(unset)')
+    USING ERRCODE = 'raise_exception';
+  END IF;
+END
+$lane_guard$;
+
+SET LOCAL lock_timeout = '5s';
+
 -- F-93 ROLLBACK.
 --
 -- ⚠ READ THIS BEFORE RUNNING IT. The backfilled custom_url values are NOT
@@ -45,3 +67,5 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
 $$;
 
 DROP TABLE IF EXISTS public.reserved_custom_urls;
+
+COMMIT;
