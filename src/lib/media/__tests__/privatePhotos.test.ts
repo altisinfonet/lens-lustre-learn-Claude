@@ -102,10 +102,12 @@ describe("client: photo passes", () => {
     expect(out[1].url).not.toContain("?t=");
   });
 
-  it("until the minter is wired (S3-d2), every private post falls back whole; public rows are untouched", async () => {
+  it("a minter that gives no passes (refused, offline, 503) → every private post falls back whole; public untouched", async () => {
     const { withPhotoPasses, __resetResolvedMediaForTests } = await import("../resolvedMedia");
     __resetResolvedMediaForTests();
-    const out = await withPhotoPasses(rows(), NOW_S);
+    const out = await withPhotoPasses(rows(), NOW_S, async () => []);
     expect(out.map((r) => r.post_id)).toEqual(["p3"]);
+    const thrown = await withPhotoPasses(rows(), NOW_S, async () => { throw new Error("offline"); });
+    expect(thrown.map((r) => r.post_id)).toEqual(["p3"]);
   });
 });

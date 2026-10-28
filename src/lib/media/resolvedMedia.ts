@@ -18,6 +18,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { fetchFeatureAllowed } from "@/hooks/core/useFeatureAllowed";
+import { SITE_API, siteFetch } from "@/lib/net/siteApi";
 
 export interface ResolvedRow {
   post_id: string;
@@ -139,19 +140,32 @@ export function isPrivatePhotoUrl(url: string): boolean {
 export type PassFetcher = (postIds: string[]) => Promise<Array<[mediaId: string, token: string, exp: number]>>;
 
 /**
- * S3-d ships the minter (functions/api/media/photo-token.ts) first. The client
- * asks it only once the route is deployed on staging and listed in SITE_API
- * (the app-origin check probes every listed route on the live lane) — follow-up
- * S3-d2. Until then no pass is fetched and every private post falls back whole.
+ * S3-d2: passes from /api/media/photo-token (this lane's Pages origin), asked AS
+ * the signed-in member. Signed out, refused (e.g. 503 until PHOTO_DELIVERY_PRIVATE
+ * is set) or offline → no passes, and every private post falls back whole.
  */
-const noPasses: PassFetcher = async () => [];
+export const fetchPassesFromMinter: PassFetcher = async (postIds) => {
+  const { data } = await supabase.auth.getSession();
+  const jwt = data.session?.access_token;
+  if (!jwt) return [];
+  const res = await siteFetch(SITE_API.mediaPhotoToken, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${jwt}` },
+    body: JSON.stringify({ post_ids: postIds }),
+  });
+  if (!res.ok) return [];
+  const b = (await res.json()) as { tokens?: Record<string, string>; expires_at?: number };
+  if (!b.tokens || typeof b.expires_at !== "number") return [];
+  const exp = b.expires_at;
+  return Object.entries(b.tokens).filter(([, t]) => typeof t === "string").map(([m, t]) => [m, t, exp]);
+};
 
 /**
  * Private rows get `?t=<pass>`. A post with ANY private row that has no pass is
  * dropped whole (it falls back to today's path) — never shown half-broken.
  * Exported for tests.
  */
-export async function withPhotoPasses(rows: ResolvedRow[], nowS: number = Math.floor(Date.now() / 1000), fetchPasses: PassFetcher = noPasses): Promise<ResolvedRow[]> {
+export async function withPhotoPasses(rows: ResolvedRow[], nowS: number = Math.floor(Date.now() / 1000), fetchPasses: PassFetcher = fetchPassesFromMinter): Promise<ResolvedRow[]> {
   const priv = rows.filter((r) => isPrivatePhotoUrl(r.url));
   if (priv.length === 0) return rows;
   const fresh = (id: string) => { const p = passes.get(id); return p && p.exp - nowS > PASS_MARGIN_S ? p.token : null; };

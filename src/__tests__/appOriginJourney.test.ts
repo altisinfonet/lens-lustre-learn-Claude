@@ -30,6 +30,7 @@ const ROUTES: Record<string, Route> = {
   "/api/video/source-url": { method: "POST", load: () => import("../../functions/api/video/source-url"), pick: onRequest },
   "/api/video/source-complete": { method: "POST", load: () => import("../../functions/api/video/source-complete"), pick: onRequest },
   "/api/video/source-cancel": { method: "POST", load: () => import("../../functions/api/video/source-cancel"), pick: onRequest },
+  "/api/media/photo-token": { method: "POST", load: () => import("../../functions/api/media/photo-token"), pick: onRequest },
   "/config/site-settings": {
     method: "GET",
     load: () => import("../../functions/config/site-settings"),
