@@ -143,7 +143,9 @@ CREATE TABLE public.client_telemetry (
 );
 COMMENT ON TABLE public.client_telemetry IS
   'S2-A client telemetry ledger: timings, uncaught errors (name + message hash, no text), realtime subscribe status, app starts. No member id, no free text. Written only by record_client_telemetry (600/member/hour); read only by admin_health_daily and service_role. Kept 30 days (purge_client_telemetry).';
+-- P28: client_telemetry · ~thousands of rows/day at launch, ≤ 30 days · BRIN on created_at for the hourly purge's age scan; a few pages, never larger than the heap
 CREATE INDEX client_telemetry_created_brin ON public.client_telemetry USING brin (created_at);
+-- P28: client_telemetry · same rows · (kind, created_at) serves admin_health_daily's per-kind day windows; reviewed by D1 2026-10-28
 CREATE INDEX client_telemetry_kind_created_idx ON public.client_telemetry (kind, created_at);
 
 CREATE TABLE public.client_telemetry_quota (
