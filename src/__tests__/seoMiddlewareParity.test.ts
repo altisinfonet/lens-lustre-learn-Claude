@@ -107,6 +107,24 @@ describe("one SEO renderer: Pages middleware == Worker", () => {
     expect(cache.m.size).toBe(0);
   });
 
+  it("slow metadata (> 1.5 s): visitor gets the page untouched, the late answer still fills the cache", async () => {
+    vi.useFakeTimers();
+    try {
+      const fills: Promise<unknown>[] = [];
+      vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((r) => setTimeout(() => r(new Response(JSON.stringify(META))), 1700))));
+      const first = onRequest({ request: new Request("https://www.50mmretina.com/post/1"), env: { SUPABASE_PROJECT_REF: "ref" }, next: async () => shell(), waitUntil: (p) => { fills.push(p); } });
+      await vi.advanceTimersByTimeAsync(1500);
+      expect((await first).headers.get("x-seo-render")).toBe("pages:fallback");
+      await vi.advanceTimersByTimeAsync(300);
+      await Promise.all(fills);
+      expect(cache.m.size).toBe(1);
+      const second = await pages("/post/1");
+      expect(second.headers.get("x-seo-edge")).toBe("injected:journal");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("forwards the bare domain to www", async () => {
     const r = await onRequest({ request: new Request("https://50mmretina.com/a?b=1"), env: {}, next: async () => shell() });
     expect(r.status).toBe(301);

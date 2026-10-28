@@ -163,9 +163,12 @@ function metadataUrl(env: Env, pathname: string): string | null {
   return `${base}?path=${encodeURIComponent(pathname)}`;
 }
 
-async function fetchMeta(url: string): Promise<RouteMeta | null> {
+/** A background fill may run past the visitor's budget, up to the edge function's own 5 s. */
+const FILL_TIMEOUT_MS = 6000;
+
+async function fetchMeta(url: string, timeoutMs: number): Promise<RouteMeta | null> {
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), META_TIMEOUT_MS);
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(url, { method: "GET", signal: ctrl.signal, headers: { accept: "application/json" } });
     if (!res.ok) return null;
@@ -211,7 +214,7 @@ export async function routeMeta(env: Env, pathname: string, waitUntil?: (p: Prom
         const meta = (await hit.json()) as RouteMeta;
         if (cacheable(meta) && age >= 0) {
           if (age > FRESH_S && typeof waitUntil === "function") {
-            waitUntil(fetchMeta(url).then((m) => (cacheable(m) ? store(cache, key, m) : undefined)));
+            waitUntil(fetchMeta(url, FILL_TIMEOUT_MS).then((m) => (cacheable(m) ? store(cache, key, m) : undefined)));
           }
           return meta;
         }
@@ -219,12 +222,18 @@ export async function routeMeta(env: Env, pathname: string, waitUntil?: (p: Prom
     } catch { /* an unreadable cache is a miss, not a failure */ }
   }
 
-  const meta = await fetchMeta(url);
-  if (cache && cacheable(meta)) {
-    const p = store(cache, key, meta);
-    if (typeof waitUntil === "function") waitUntil(p); else await p;
-  }
-  return meta;
+  // The visitor waits at most META_TIMEOUT_MS, as with the Worker. The fetch
+  // itself is NOT aborted at that point: it finishes in the background and
+  // fills the cache. Measured 2026-10-28: /post/:id takes ~1.7 s, so the
+  // Worker's aborted fetch left every post page without its tags, every time.
+  const pending = fetchMeta(url, FILL_TIMEOUT_MS);
+  const fill = pending.then((m) => (cache && cacheable(m) ? store(cache, key, m) : undefined));
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<undefined>((r) => { timer = setTimeout(() => r(undefined), META_TIMEOUT_MS); });
+  const meta = await Promise.race([pending, late]);
+  clearTimeout(timer);
+  if (typeof waitUntil === "function") waitUntil(fill); else if (meta !== undefined) await fill;
+  return meta ?? null;
 }
 
 function passthrough(res: Response, tag: string): Response {
