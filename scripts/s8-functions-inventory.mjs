@@ -43,7 +43,7 @@ export function parseLive(text) {
   for (const line of t.split(/\r?\n/)) {
     if (line.startsWith("|")) {
       const cells = line.split("|").slice(1, -1).map((c) => c.trim());
-      if (cells[0] && SLUG.test(cells[0]) && cells[0] !== "slug") out.set(cells[0], { version: cells[1], verify_jwt: cells[2] });
+      if (cells[0] && SLUG.test(cells[0]) && cells[0].toLowerCase() !== "slug") out.set(cells[0], { version: cells[1], verify_jwt: cells[2] });
     } else if (SLUG.test(line.trim())) {
       out.set(line.trim(), {});
     }
@@ -73,7 +73,18 @@ export function parseDb(text) {
   return rows;
 }
 
-const live = parseLive(readFileSync(args.live, "utf8"));
+let live;
+try {
+  live = parseLive(readFileSync(args.live, "utf8"));
+} catch (e) {
+  console.error(`cannot read --live ${args.live}: ${e instanceof Error ? e.message : e}`);
+  process.exit(2);
+}
+// An empty or unrecognised live list must never read as "nothing missing".
+if (live.size === 0) {
+  console.error(`--live ${args.live} yielded no function slugs; refusing to report a pass`);
+  process.exit(2);
+}
 const git = new Set(readdirSync("supabase/functions", { withFileTypes: true }).filter((d) => d.isDirectory() && !d.name.startsWith("_")).map((d) => d.name));
 const cfg = existsSync("supabase/config.toml") ? configJwt(readFileSync("supabase/config.toml", "utf8")) : new Map();
 const db = args.db ? parseDb(readFileSync(args.db, "utf8")) : [];
