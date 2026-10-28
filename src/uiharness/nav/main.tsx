@@ -35,6 +35,7 @@ import { fixtureRoutes } from "../fixtureRoutes";
 import { posts, postComments } from "../fixtures";
 import { notificationEntryState } from "@/lib/navigationContract";
 import PushNotificationsGate from "@/components/PushNotificationsGate";
+import NotificationBell from "@/components/NotificationBell";
 import { Toaster } from "@/components/ui/toaster";
 import "../../index.css";
 
@@ -130,7 +131,9 @@ const longThread: FakeRoute = ({ method, path, params }) => {
   return undefined;
 };
 const ownNotifications: FakeRoute = ({ method, path, params }) => {
-  if (method !== "GET" || path !== "/rest/v1/user_notifications") return undefined;
+  if (path !== "/rest/v1/user_notifications") return undefined;
+  if (method !== "GET") return { body: [] }; // marking read
+
   const type = params.get("type");
   if (type === "eq.post_comment") return { body: [{ dedup_key: `post_comment:${FAR_REPLY}:owner` }] };
   if (type === "eq.comment_reply") return { body: [{ dedup_key: `post_comment:${postComments[1].id}:reply` }] };
@@ -138,7 +141,41 @@ const ownNotifications: FakeRoute = ({ method, path, params }) => {
 };
 (window as unknown as { __navComments: Record<string, string> }).__navComments = { far: FAR_REPLY, reply: postComments[1].id };
 
-installFakeBackend({ routes: [dealBySeed, authorWall, longThread, ownNotifications, ...fixtureRoutes], signedIn: true });
+/**
+ * S4-c · THE REAL BELL AND THE REAL NOTIFICATIONS PAGE, each holding one comment
+ * notification about the first post (the row a member taps). Unread, so the
+ * bell has a badge and the tap marks it read, as on a phone.
+ */
+const BELL_ACTOR = "Noor Abadi";
+const commentGroup = {
+  group_key: "g-nav-comment",
+  type: "post_comment",
+  notification_ids: ["nav-n1"],
+  actor_ids: ["99999999-9999-4999-8999-999999999999"],
+  actor_names: [BELL_ACTOR],
+  actor_usernames: [""],
+  actor_avatars: [""],
+  actor_known: [true],
+  actor_count: 1,
+  event_count: 1,
+  unread_count: 1,
+  total_unread: 1,
+  reference_id: posts[0].id,
+  thumbnail_url: null,
+  title: "New Comment",
+  message: `${BELL_ACTOR} commented on your post`,
+  latest_at: "2026-08-15T09:00:00.000Z",
+};
+const notificationGroups: FakeRoute = ({ method, path }) => {
+  if (method !== "POST") return undefined;
+  if (path === "/rest/v1/rpc/get_my_unread_notifications_grouped" || path === "/rest/v1/rpc/get_my_notifications_grouped") {
+    return { body: [commentGroup] };
+  }
+  return undefined;
+};
+(window as unknown as { __navBellActor: string }).__navBellActor = BELL_ACTOR;
+
+installFakeBackend({ routes: [dealBySeed, authorWall, longThread, ownNotifications, notificationGroups, ...fixtureRoutes], signedIn: true });
 
 const start = new URLSearchParams(window.location.search).get("start") || "/below";
 window.history.replaceState(null, "", start);
@@ -151,6 +188,7 @@ const handle: NavHandle = { postId: POST_ID };
 const AppShell = lazy(() => import("../AppShell"));
 const Feed = lazy(() => import("@/pages/Feed"));
 const PostDetail = lazy(() => import("@/pages/PostDetail"));
+const Notifications = lazy(() => import("@/pages/Notifications"));
 
 /** Hands the router's own `navigate` to the journey — an in-app PUSH with no click. */
 const Bridge = () => {
@@ -163,6 +201,9 @@ const Bridge = () => {
 
 const Links = () => (
   <nav data-testid="harness-links" style={{ display: "flex", gap: 16, padding: 8 }}>
+    {/* S4-c: the REAL bell, on every page with links — a dropdown over the page the member is on. */}
+    <NotificationBell />
+    <Link to="/below" data-testid="to-below">Go to the page below</Link>
     <Link to="/feed" data-testid="to-feed">Go to the feed</Link>
     <Link to={`/post/${POST_ID}`} data-testid="to-post">Open the post (as the notification bell does)</Link>
     {/* S4-b: a COMMENT notification row — the same link and the same entry state the bell and the Notifications page give it. */}
@@ -186,6 +227,7 @@ const Pages = () => (
       <Route path="/below" element={<main data-testid="below"><h1>The page below</h1><Links /></main>} />
       <Route path="/feed" element={<><Links /><Feed /></>} />
       <Route path="/post/:postId" element={<PostDetail />} />
+      <Route path="/notifications" element={<Notifications />} />
     </Routes>
   </>
 );
