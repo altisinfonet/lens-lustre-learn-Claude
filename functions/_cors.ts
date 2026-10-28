@@ -29,7 +29,7 @@
  */
 
 /** The native app's own origins. Android: https://localhost; iOS: capacitor://localhost. */
-export const APP_ORIGINS = ["https://localhost", "capacitor://localhost"] as const;
+export const APP_ORIGINS = ["capacitor://localhost"] as const;
 
 export const CORS_ALLOW_METHODS = "GET, POST, OPTIONS";
 /** What the client actually sends: siteFetch adds content-type and authorization; site-settings asks with accept / if-none-match. */
