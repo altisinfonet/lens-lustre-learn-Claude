@@ -7,6 +7,10 @@ name: D2 · App origin journey
 #      fail before it is deployed.
 #   2. The STAGING site, over the wire (scripts/app-origin-check.mjs) — what is
 #      actually deployed. During a PR it reads staging as it is before the merge.
+#   3. S4-c · THE NAVIGATION JOURNEYS AT https://localhost — the L1/S4 nav
+#      harness (real Feed, PostDetail, bell, Notifications page; the Android
+#      stub for push taps and Back) served AT the app's origin, so Back per
+#      entry is proven where the app actually runs, not only on 127.0.0.1.
 # Reads only public staging URLs. Holds no secret. Prints statuses and header
 # values only.
 #
@@ -26,7 +30,7 @@ jobs:
   app-origin:
     name: App origin journey (https://localhost)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -36,5 +40,26 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: This checkout's functions answer https://localhost (every SITE_API route)
         run: npx vitest run src/__tests__/appOriginJourney.test.ts
+      - name: Install Chromium for Playwright (with its system libraries)
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            if npx playwright install --with-deps chromium; then exit 0; fi
+            sleep $((attempt * 15))
+          done
+          exit 1
+      - name: Navigation journeys at the app's origin (https://localhost)
+        env:
+          VITE_SUPABASE_URL: https://testprojectref0000x.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: test-publishable-key-not-real
+          VITE_SUPABASE_PROJECT_ID: testprojectref0000x
+        run: node tools/uishot/nav-harness.mjs --browser chromium --origin https://localhost --json /tmp/app-origin-nav.json
+      - name: Upload the reading
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-origin-nav
+          path: /tmp/app-origin-nav.json
+          if-no-files-found: warn
       - name: The staging site answers https://localhost (every SITE_API route)
         run: node scripts/app-origin-check.mjs https://staging.50mmretina.com
