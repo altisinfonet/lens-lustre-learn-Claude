@@ -9,7 +9,7 @@
  * admin, refuses copyright_music_check On without the music-API key, writes one
  * audit row); a page that hides a control is never the enforcement.
  */
-export type FeatureKey = "video_posts" | "video_ads" | "copyright_music_check" | "personal_feed";
+export type FeatureKey = "video_posts" | "video_ads" | "copyright_music_check" | "personal_feed" | "media_ladder_feed" | "media_private_photos";
 export type FeatureMode = "off" | "selected" | "everyone";
 
 export const FEATURE_MODES: ReadonlyArray<{ mode: FeatureMode; label: string }> = [
@@ -28,6 +28,14 @@ export const FEATURE_INFO: Record<FeatureKey, { title: string; blurb: string }> 
   personal_feed: {
     title: "Personal feed",
     blurb: "Who gets the new personal feed: friends and follows first, then posts matched to their interests and fair-share posts from less-seen photographers, with \"You're all caught up\". Everyone else keeps today's feed.",
+  },
+  media_ladder_feed: {
+    title: "Light photos (600 / 1080 / 1440)",
+    blurb: "Who sees photos as the small server-made copies (never larger than 1440 px) instead of the full original, on every post surface. Zoom and download still open the original. Turn on only when the coverage check is 100 %.",
+  },
+  media_private_photos: {
+    title: "Private delivery for friends-only photos",
+    blurb: "Who gets friends-only and only-me photos through the private address that needs a short-lived pass. Needs \"Light photos\" on, and the CDN route set up first.",
   },
 };
 
@@ -51,7 +59,7 @@ export interface FeatureState {
   history: FeatureHistoryRow[];
 }
 
-const FEATURES = new Set<string>(["video_posts", "video_ads", "copyright_music_check", "personal_feed"]);
+const FEATURES = new Set<string>(["video_posts", "video_ads", "copyright_music_check", "personal_feed", "media_ladder_feed", "media_private_photos"]);
 const MODES = new Set<string>(["off", "selected", "everyone"]);
 
 /** feature_admin_state() → cards. Unknown features / modes are dropped, never guessed. */
