@@ -7,8 +7,8 @@
 -- ADDS (expand only):
 --   · switch 'media_ladder_feed' in public.feature_access — created OFF, audited.
 --   · public.post_media_resolved_for(uuid[]) — the companion read the client
---     calls with a page's post ids INSTEAD of post_media_for when the switch is
---     on for that member. Returns ONLY
+--     calls with a page's post ids ALONGSIDE post_media_for (in parallel) when
+--     the switch is on for that member; resolved posts use it, others keep today's. Returns ONLY
 --         post_id · ord · media_id · width · height · mime · url
 --     one row per stored rung (600 / 1080 / 1440 WebP); the URL is built HERE
 --     from the lane's CDN origin (site_settings.s3_storage_settings.public_url).

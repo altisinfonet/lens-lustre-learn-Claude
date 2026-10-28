@@ -45,7 +45,7 @@ export interface LadderEntry {
 }
 
 const BATCH = 50; // the RPC refuses more (MEDIA-1001)
-const REGISTRY_MAX = 3000;
+const REGISTRY_MAX = 10000; // ~1–2 MB of strings; eviction would only cost zoom its original
 const registry = new Map<string, LadderEntry>();
 
 /** The srcset / thumb / original for a URL this module handed out, if any. */
@@ -64,13 +64,20 @@ function remember(url: string, e: LadderEntry): void {
   while (registry.size > REGISTRY_MAX) registry.delete(registry.keys().next().value as string);
 }
 
-let switchCache: { at: number; on: Promise<boolean> } | null = null;
+let switchCache: { at: number; uid: string; on: Promise<boolean> } | null = null;
 const SWITCH_TTL_MS = 60_000;
 
-/** `media_ladder_feed` for the signed-in member, asked at most once a minute. False on any error. */
-export function ladderSwitchOn(now: number = Date.now()): Promise<boolean> {
-  if (!switchCache || now - switchCache.at > SWITCH_TTL_MS) {
-    switchCache = { at: now, on: fetchFeatureAllowed("media_ladder_feed").catch(() => false) };
+/**
+ * `media_ladder_feed` for the signed-in member, asked at most once a minute per
+ * member. Signed out: false without asking (anon cannot execute the RPC). False
+ * on any error.
+ */
+export async function ladderSwitchOn(now: number = Date.now()): Promise<boolean> {
+  let uid = "";
+  try { uid = (await supabase.auth.getSession()).data.session?.user?.id ?? ""; } catch { uid = ""; }
+  if (!uid) return false;
+  if (!switchCache || switchCache.uid !== uid || now - switchCache.at > SWITCH_TTL_MS) {
+    switchCache = { at: now, uid, on: fetchFeatureAllowed("media_ladder_feed").catch(() => false) };
   }
   return switchCache.on;
 }
@@ -89,7 +96,8 @@ export function groupResolved(rows: readonly ResolvedRow[]): ResolvedMap {
     const slides = map.get(r.post_id) ?? [];
     let s = slides.find((x) => x.ord === r.ord);
     if (!s) { s = { ord: r.ord, rungs: [] }; slides.push(s); }
-    if (!s.rungs.some((x) => x.url === r.url)) s.rungs.push({ url: r.url, width: r.width, height: r.height });
+    // Small photos have rungs of the same size: keep one per width (no duplicate srcset widths).
+    if (!s.rungs.some((x) => x.url === r.url || x.width === r.width)) s.rungs.push({ url: r.url, width: r.width, height: r.height });
     map.set(r.post_id, slides);
   }
   for (const slides of map.values()) {

@@ -19,9 +19,12 @@
 --        d. A gets 0 rows for a non-public post of another member it cannot
 --           view (and for any non-public post: that branch is 0102's);
 --        e. anon cannot execute; 51 ids → MEDIA-1001.
---   b/c/d need a ladder-complete public post on the lane (after the backfill);
---   before it they are reported as "skipped: no complete post" — run again
---   after the backfill for the full proof.
+--   b/c need a ladder-complete public post on the lane (after the backfill).
+--   Without one the PROBE says so and does NOT print PASS for them: run with
+--     SET s3.require_full = 'on';
+--   after the backfill — then a missing complete post FAILS the PROBE.
+--   A and B are chosen so that BOTH can view that post (asserted), so B's 0 rows
+--   can only come from the switch, never from a block.
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN;
 
@@ -29,7 +32,7 @@ DO $g$
 DECLARE
   f text := 'public.post_media_resolved_for(uuid[])';
   cols text; origin text; mism int; sampled int;
-  a uuid; b uuid; post uuid; nonpub uuid; n int; n_bad int; ok boolean; detail text := 'skipped: no complete post';
+  a uuid; b uuid; post uuid; nonpub uuid; n int; n_bad int; ok boolean; detail text := 'b/c NOT RUN (no ladder-complete public post yet — rerun strict after the backfill)';
 BEGIN
   IF coalesce(current_setting('p32.lane', true), '') NOT IN ('staging', 'production') THEN
     RAISE EXCEPTION 'PROBE REFUSED — p32.lane is not asserted';
@@ -53,9 +56,13 @@ BEGIN
   IF cols IS DISTINCT FROM 'post_id,ord,media_id,width,height,mime,url' THEN
     RAISE EXCEPTION 'PROBE FAIL G1: return columns are %', cols;
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM public.feature_access WHERE feature = 'media_ladder_feed' AND mode = 'off') THEN
-    RAISE EXCEPTION 'PROBE FAIL G1: switch media_ladder_feed missing or not off';
+  IF NOT EXISTS (SELECT 1 FROM public.feature_access WHERE feature = 'media_ladder_feed') THEN
+    RAISE EXCEPTION 'PROBE FAIL G1: switch media_ladder_feed missing';
   END IF;
+  -- The behaviour checks below set the switch themselves (undone by ROLLBACK), so
+  -- the PROBE also runs after the switch has been turned on.
+  UPDATE public.feature_access SET mode = 'off' WHERE feature = 'media_ladder_feed';
+  DELETE FROM public.feature_access_members WHERE feature = 'media_ladder_feed';
 
   -- G2
   origin := public.media_cdn_origin();
@@ -69,15 +76,22 @@ BEGIN
     RAISE EXCEPTION 'PROBE FAIL G2: % of % sampled originals do not match image_urls under media_cdn_origin()', mism, sampled;
   END IF;
 
-  -- G3 setup: two non-admin members; a ladder-complete public post by somebody
-  SELECT p.id INTO a FROM public.profiles p JOIN auth.users u ON u.id = p.id
-   WHERE NOT public.has_role(p.id, 'admin'::public.app_role) ORDER BY p.created_at LIMIT 1;
-  SELECT p.id INTO b FROM public.profiles p JOIN auth.users u ON u.id = p.id
-   WHERE p.id <> a AND NOT public.has_role(p.id, 'admin'::public.app_role) ORDER BY p.created_at LIMIT 1;
-  IF a IS NULL OR b IS NULL THEN RAISE EXCEPTION 'PROBE FAIL G3: need two non-admin members'; END IF;
+  -- G3 setup: a ladder-complete public post; two non-admin members who can BOTH view it
   SELECT pm.post_id INTO post FROM public.post_media pm JOIN public.posts p ON p.id = pm.post_id AND p.privacy = 'public'
     JOIN public.media_objects mo ON mo.id = pm.media_id
    GROUP BY pm.post_id HAVING bool_and(mo.state = 'ready' AND mo.derivatives ?& ARRAY['600', '1080', '1440']) LIMIT 1;
+  IF post IS NULL AND coalesce(current_setting('s3.require_full', true), '') = 'on' THEN
+    RAISE EXCEPTION 'PROBE FAIL G3: strict mode and no ladder-complete public post on the lane — run the backfill first';
+  END IF;
+  SELECT p.id INTO a FROM public.profiles p JOIN auth.users u ON u.id = p.id
+   WHERE NOT public.has_role(p.id, 'admin'::public.app_role)
+     AND (post IS NULL OR public.can_view_post(p.id, (SELECT x.user_id FROM public.posts x WHERE x.id = post), 'public'))
+   ORDER BY p.created_at LIMIT 1;
+  SELECT p.id INTO b FROM public.profiles p JOIN auth.users u ON u.id = p.id
+   WHERE p.id <> a AND NOT public.has_role(p.id, 'admin'::public.app_role)
+     AND (post IS NULL OR public.can_view_post(p.id, (SELECT x.user_id FROM public.posts x WHERE x.id = post), 'public'))
+   ORDER BY p.created_at LIMIT 1;
+  IF a IS NULL OR b IS NULL THEN RAISE EXCEPTION 'PROBE FAIL G3: need two non-admin members who can view the post'; END IF;
   SELECT p.id INTO nonpub FROM public.posts p
    WHERE p.privacy <> 'public' AND p.user_id <> a AND NOT public.can_view_post(a, p.user_id, p.privacy) LIMIT 1;
 
