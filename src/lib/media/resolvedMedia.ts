@@ -86,6 +86,7 @@ export async function ladderSwitchOn(now: number = Date.now()): Promise<boolean>
 export function __resetResolvedMediaForTests(): void {
   switchCache = null;
   registry.clear();
+  passes.clear();
 }
 
 /** Rows → per-post slides. Exported for tests. */
@@ -120,10 +121,57 @@ export async function fetchResolvedMediaMap(postIds: readonly string[]): Promise
       if (error) return new Map();
       if (Array.isArray(data)) rows.push(...(data as ResolvedRow[]));
     }
-    return groupResolved(rows);
+    return groupResolved(await withPhotoPasses(rows));
   } catch {
     return new Map();
   }
+}
+
+// ── S3-d: friends-only / only-me derivatives need a photo pass ──────────────
+const PASS_MARGIN_S = 300;
+const passes = new Map<string, { token: string; exp: number }>();
+
+export function isPrivatePhotoUrl(url: string): boolean {
+  try { return new URL(url).pathname.startsWith("/photo/"); } catch { return false; }
+}
+
+/** Fetches passes for these posts into `passes`. */
+export type PassFetcher = (postIds: string[]) => Promise<Array<[mediaId: string, token: string, exp: number]>>;
+
+/**
+ * S3-d ships the minter (functions/api/media/photo-token.ts) first. The client
+ * asks it only once the route is deployed on staging and listed in SITE_API
+ * (the app-origin check probes every listed route on the live lane) — follow-up
+ * S3-d2. Until then no pass is fetched and every private post falls back whole.
+ */
+const noPasses: PassFetcher = async () => [];
+
+/**
+ * Private rows get `?t=<pass>`. A post with ANY private row that has no pass is
+ * dropped whole (it falls back to today's path) — never shown half-broken.
+ * Exported for tests.
+ */
+export async function withPhotoPasses(rows: ResolvedRow[], nowS: number = Math.floor(Date.now() / 1000), fetchPasses: PassFetcher = noPasses): Promise<ResolvedRow[]> {
+  const priv = rows.filter((r) => isPrivatePhotoUrl(r.url));
+  if (priv.length === 0) return rows;
+  const fresh = (id: string) => { const p = passes.get(id); return p && p.exp - nowS > PASS_MARGIN_S ? p.token : null; };
+  const need = [...new Set(priv.filter((r) => !fresh(r.media_id)).map((r) => r.post_id))];
+  for (let i = 0; i < need.length; i += BATCH) {
+    try {
+      for (const [mediaId, token, exp] of await fetchPasses(need.slice(i, i + BATCH))) {
+        if (/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token) && Number.isFinite(exp)) passes.set(mediaId, { token, exp });
+      }
+    } catch { /* fall back below */ }
+  }
+  const dropped = new Set<string>();
+  const out: ResolvedRow[] = [];
+  for (const r of rows) {
+    if (!isPrivatePhotoUrl(r.url)) { out.push(r); continue; }
+    const t = fresh(r.media_id);
+    if (!t) { dropped.add(r.post_id); continue; }
+    out.push({ ...r, url: `${r.url}?t=${encodeURIComponent(t)}` });
+  }
+  return dropped.size ? out.filter((r) => !dropped.has(r.post_id)) : out;
 }
 
 /**

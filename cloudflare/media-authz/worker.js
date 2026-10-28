@@ -86,6 +86,39 @@ async function verifyPlayToken(token, objectKey, host, nowS, keyB64) {
   return { ok: true, claims };
 }
 
+// src/lib/media/photoToken.ts
+var PHOTO_TOKEN_VERSION = "p1";
+var PHOTO_TOKEN_TTL_S = 3600;
+var PHOTO_TOKEN_SKEW_S = 60;
+var UUID2 = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+var PHOTO_PREFIX_RE = new RegExp(`^photo/${UUID2}/${UUID2}/$`);
+var PHOTO_KEY_RE = new RegExp(`^photo/${UUID2}/${UUID2}/w(600|1080|1440)\\.webp$`);
+var SUB_RE2 = new RegExp(`^${UUID2}$`);
+function photoPrefixOf(key) {
+  return PHOTO_KEY_RE.test(key) ? key.slice(0, key.lastIndexOf("/") + 1) : null;
+}
+async function verifyPhotoToken(token, objectKey, host, nowS, keyB64) {
+  if (!token) return { ok: false, reason: "no-token" };
+  const dot = token.indexOf(".");
+  if (dot <= 0 || dot !== token.lastIndexOf(".")) return { ok: false, reason: "shape" };
+  const payload = fromB64url(token.slice(0, dot));
+  const sig = fromB64url(token.slice(dot + 1));
+  if (!payload || !sig || sig.length !== 32) return { ok: false, reason: "shape" };
+  const key = await importTokenKey(keyB64);
+  if (!await crypto.subtle.verify("HMAC", key, sig, payload)) return { ok: false, reason: "signature" };
+  const lines = new TextDecoder().decode(payload).split("\n");
+  if (lines.length !== 5 || lines[0] !== PHOTO_TOKEN_VERSION) return { ok: false, reason: "payload" };
+  const take = (l, k) => l.startsWith(`${k}=`) ? l.slice(k.length + 1) : null;
+  const prefix = take(lines[1], "prefix"), expS = take(lines[2], "exp"), sub = take(lines[3], "sub"), aud = take(lines[4], "aud");
+  if (prefix === null || expS === null || sub === null || aud === null || !/^\d{1,12}$/.test(expS)) return { ok: false, reason: "payload" };
+  const exp = Number(expS);
+  if (exp <= nowS) return { ok: false, reason: "expired" };
+  if (exp > nowS + PHOTO_TOKEN_TTL_S + PHOTO_TOKEN_SKEW_S) return { ok: false, reason: "lifetime" };
+  if (aud !== host.toLowerCase()) return { ok: false, reason: "aud" };
+  if (!PHOTO_PREFIX_RE.test(prefix) || photoPrefixOf(objectKey) !== prefix) return { ok: false, reason: "prefix" };
+  return { ok: true, claims: { prefix, exp, sub, aud } };
+}
+
 // cloudflare/media-authz/handler.ts
 var CACHE_HOST = "https://media-authz.cache.invalid";
 var IMMUTABLE = "private, max-age=31536000, immutable";
@@ -139,10 +172,11 @@ async function handleMediaRequest(req, env, deps) {
   if (key.startsWith("/") || key.includes("//") || key.includes("\\") || key.split("/").includes("..")) {
     return refuse(400, req, env);
   }
-  if (/^(video|upload)\//.test(key) && (/%2f|%5c/i.test(url.pathname) || key.split("/").includes("."))) {
+  if (/^(video|upload|photo)\//.test(key) && (/%2f|%5c/i.test(url.pathname) || key.split("/").includes("."))) {
     return refuse(400, req, env);
   }
   if (key.startsWith("upload/")) return refuse(404, req, env);
+  if (key.startsWith("photo/")) return handlePhoto(req, url, key, env, deps);
   if (!key.startsWith("video/")) return deps.passthrough(req);
   if (req.method === "OPTIONS") {
     const cors = corsHeaders(req, env);
@@ -203,6 +237,54 @@ async function handleMediaRequest(req, env, deps) {
   };
   if (etag && !isPlaylist) headers.etag = etag;
   return new Response(req.method === "HEAD" ? null : out, { status: 200, headers });
+}
+async function handlePhoto(req, url, key, env, deps) {
+  if (req.method === "OPTIONS") {
+    const cors = corsHeaders(req, env);
+    if (!cors["access-control-allow-origin"]) return refuse(403, req, env);
+    return new Response(null, {
+      status: 204,
+      headers: { ...cors, "access-control-allow-methods": "GET, HEAD", "access-control-max-age": "86400", "cache-control": "no-store" }
+    });
+  }
+  if (req.method !== "GET" && req.method !== "HEAD") return refuse(405, req, env, { allow: "GET, HEAD, OPTIONS" });
+  if (!PHOTO_KEY_RE.test(key)) return refuse(404, req, env);
+  const keyB64 = env.MEDIA_TOKEN_KEY;
+  if (!keyB64) return refuse(503, req, env);
+  try {
+    await importTokenKey(keyB64);
+  } catch {
+    return refuse(503, req, env);
+  }
+  const verdict = await verifyPhotoToken(url.searchParams.get("t"), key, url.hostname, Math.floor(deps.nowMs() / 1e3), keyB64);
+  if (!verdict.ok) return refuse(403, req, env);
+  const cacheReq = new Request(`${CACHE_HOST}/${url.hostname}/${key}`);
+  let bytes;
+  let etag = "";
+  const hit = deps.cache ? await deps.cache.match(cacheReq) : void 0;
+  if (hit) {
+    bytes = new Uint8Array(await hit.arrayBuffer());
+    etag = hit.headers.get("etag") ?? "";
+  } else {
+    const obj = await env.MEDIA.get(key);
+    if (!obj) return refuse(404, req, env);
+    bytes = new Uint8Array(await obj.arrayBuffer());
+    etag = obj.httpEtag;
+    if (deps.cache && req.method === "GET") {
+      deps.waitUntil(deps.cache.put(cacheReq, new Response(bytes.slice(), {
+        headers: { etag, "content-type": "image/webp", "cache-control": "public, max-age=31536000, immutable" }
+      })));
+    }
+  }
+  const headers = {
+    "content-type": "image/webp",
+    "x-content-type-options": "nosniff",
+    "content-security-policy": "sandbox; default-src 'none'",
+    "cache-control": "private, max-age=3600",
+    ...corsHeaders(req, env)
+  };
+  if (etag) headers.etag = etag;
+  return new Response(req.method === "HEAD" ? null : bytes, { status: 200, headers });
 }
 
 // cloudflare/media-authz/worker.ts
