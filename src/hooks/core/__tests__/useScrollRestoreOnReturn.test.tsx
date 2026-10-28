@@ -86,6 +86,18 @@ function app() {
   );
 }
 
+/**
+ * `waitFor` resolves the moment the DOM shows the new route — which is BEFORE
+ * React has run that commit's passive effects (the hook's restore lives there).
+ * Whether they had run by the next line depended on the scheduler's timing: the
+ * CI flake on #434 and later runs. So arriving is "route shown AND effects
+ * flushed": act() drains them.
+ */
+const arriveAt = async (path: string) => {
+  await waitFor(() => expect(where()).toBe(path));
+  await act(async () => {});
+};
+
 const back = async () => { await act(async () => { window.history.back(); }); };
 const forward = async () => { await act(async () => { window.history.forward(); }); };
 
@@ -113,7 +125,7 @@ async function leaveFeedAt(top: number) {
   act(() => { setDocHeight(6000); });
   act(() => { scrollWindowTo(top); });
   fireEvent.click(screen.getByText("open a post"));
-  await waitFor(() => expect(where()).toBe("/post/1"));
+  await arriveAt("/post/1");
   act(() => { setDocHeight(VIEWPORT); }); // the post page is one screen tall
   expect(y, "on the short page the browser has clamped the scroll").toBe(0);
 }
@@ -123,7 +135,7 @@ describe("returning to the feed", () => {
     await leaveFeedAt(2400);
 
     await back();
-    await waitFor(() => expect(where()).toBe("/feed"));
+    await arriveAt("/feed");
     // The traversal has happened and the feed is mounted, but nothing is drawn
     // yet: the document is still one screen tall, so 2400 cannot be reached.
     expect(y).toBe(0);
@@ -148,12 +160,12 @@ describe("returning to the feed", () => {
       scrollWindowTo(0);
     });
     fireEvent.click(screen.getByText("open a post"));
-    await waitFor(() => expect(where()).toBe("/post/1"));
+    await arriveAt("/post/1");
     push.mockRestore();
     act(() => { setDocHeight(VIEWPORT); });
 
     await back();
-    await waitFor(() => expect(where()).toBe("/feed"));
+    await arriveAt("/feed");
     act(() => { setDocHeight(6000); });
     expect(y, "the 1500 the member chose — not the 0 the clamp reported").toBe(1500);
   });
@@ -161,15 +173,15 @@ describe("returning to the feed", () => {
   it("Forward restores as well (it is the same kind of return)", async () => {
     await leaveFeedAt(900);
     await back(); // on the feed
-    await waitFor(() => expect(where()).toBe("/feed"));
+    await arriveAt("/feed");
     act(() => { setDocHeight(6000); });
     expect(y).toBe(900);
     act(() => { scrollWindowTo(3100); }); // the member reads further
     await back(); // below the feed
-    await waitFor(() => expect(where()).toBe("/below"));
+    await arriveAt("/below");
     act(() => { setDocHeight(VIEWPORT); });
     await forward();
-    await waitFor(() => expect(where()).toBe("/feed"));
+    await arriveAt("/feed");
     act(() => { setDocHeight(6000); });
     expect(y).toBe(3100);
   });
@@ -181,17 +193,17 @@ describe("what a restore must never do", () => {
     scrollTo.mockClear();
     // From the post, a link to the feed: a NEW entry, not a return.
     fireEvent.click(screen.getByText("to the feed"));
-    await waitFor(() => expect(where()).toBe("/feed"));
+    await arriveAt("/feed");
     act(() => { setDocHeight(6000); });
     expect(scrollTo, "nothing scrolls a page the member has just opened").not.toHaveBeenCalled();
     expect(y).toBe(0);
 
     // …and the older visit is still restored when the member goes Back to it.
     await back(); // the post
-    await waitFor(() => expect(where()).toBe("/post/1"));
+    await arriveAt("/post/1");
     act(() => { setDocHeight(VIEWPORT); });
     await back(); // the feed, as it was first left
-    await waitFor(() => expect(where()).toBe("/feed"));
+    await arriveAt("/feed");
     act(() => { setDocHeight(6000); });
     expect(y).toBe(2400);
   });
@@ -199,7 +211,7 @@ describe("what a restore must never do", () => {
   it("the member's own touch ends the restore: a page still growing no longer drags them back", async () => {
     await leaveFeedAt(2400);
     await back();
-    await waitFor(() => expect(where()).toBe("/feed"));
+    await arriveAt("/feed");
     act(() => { setDocHeight(1800); });
     expect(y).toBe(1000);
 
@@ -212,7 +224,7 @@ describe("what a restore must never do", () => {
   it("it gives up at its deadline: late growth after that moves nothing, and the observer is released", async () => {
     await leaveFeedAt(2400);
     await back();
-    await waitFor(() => expect(where()).toBe("/feed"));
+    await arriveAt("/feed");
     act(() => { setDocHeight(1800); });
     expect(y).toBe(1000);
     expect(resizeListeners.length, "watching while the restore is live").toBe(1);
