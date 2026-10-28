@@ -414,6 +414,8 @@ const CommentThread = ({
         <div
           data-comment-id={comment.id}
           data-highlighted={comment.id === highlightId ? "true" : undefined}
+          // #509 review: the mark is not colour alone — assistive tech hears it too.
+          aria-current={comment.id === highlightId ? "true" : undefined}
           className={`flex gap-3 group/comment py-2 ${comment.id === highlightId ? "-mx-2 px-2 rounded-md bg-primary/10" : ""}`}
         >
           <ProfileLink userId={comment.user_id} handle={comment.author_handle} className="shrink-0 mt-0.5 flex min-w-8 justify-center">

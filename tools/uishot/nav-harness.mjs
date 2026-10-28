@@ -281,6 +281,28 @@ async function feedQuiet(page, quietMs = 1000, timeout = 20000) {
   throw new Error("the feed never stopped loading pages");
 }
 
+/**
+ * Tap a row once it has stopped moving — as a person does, who taps what they
+ * see, not what is still zooming in. The bell's panel opens with a short scale
+ * animation; measured in Firefox, the row settles within ~7 frames and then
+ * holds still, but a click aimed at it MID-zoom is refused there ("element is
+ * not stable") and never retried into success.
+ */
+async function tapSettled(page, locator, timeout = 30000) {
+  await locator.waitFor({ state: "visible", timeout });
+  let last = "";
+  let since = Date.now();
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeout) {
+    const b = await locator.boundingBox();
+    const key = b ? [b.x, b.y, b.width, b.height].map((v) => v.toFixed(1)).join(",") : "";
+    if (key !== last) { last = key; since = Date.now(); }
+    else if (key && Date.now() - since >= 300) break;
+    await page.waitForTimeout(50);
+  }
+  await locator.click({ timeout });
+}
+
 /** An in-app PUSH, as a link inside the app does — once the router has handed over its navigate. */
 async function inApp(page, to) {
   await page.waitForFunction(() => typeof window.__nav?.navigate === "function", null, { timeout: 120000 });
@@ -705,7 +727,7 @@ const BELL_ACTOR = "Noor Abadi";
 control("bell → a comment notification → the post → Back → the page the member was on (and the bell is closed)", DESKTOP, async (page) => {
   await startAt(page, "/below");
   await page.getByRole("button", { name: "Notifications" }).first().click({ timeout: 120000 });
-  await page.getByText(BELL_ACTOR).first().click({ timeout: 30000 });
+  await tapSettled(page, page.getByText(BELL_ACTOR).first());
   const postId = await page.evaluate(() => window.__nav.postId);
   await waitWhere(page, `/post/${postId}?comments=${postId}`);
   await page.goBack();
@@ -721,13 +743,13 @@ control("Notifications page → a notification → the post → Back → the Not
   await inApp(page, "/notifications");
   await waitWhere(page, "/notifications");
   const postId = await page.evaluate(() => window.__nav.postId);
-  await page.getByText(BELL_ACTOR).first().click({ timeout: 120000 });
+  await tapSettled(page, page.getByText(BELL_ACTOR).first(), 120000);
   await waitWhere(page, `/post/${postId}?comments=${postId}`);
   await page.goBack();
   await waitWhere(page, `/post/${postId}`);
   await page.goBack();
   await waitWhere(page, "/notifications");
-  await page.getByText(BELL_ACTOR).first().click({ timeout: 30000 });
+  await tapSettled(page, page.getByText(BELL_ACTOR).first());
   await waitWhere(page, `/post/${postId}?comments=${postId}`);
   await page.goBack();
   await waitWhere(page, `/post/${postId}`);

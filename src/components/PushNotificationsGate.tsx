@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/core/useAuth";
 import { getNotifLink } from "@/lib/notificationLinks";
 import { inAppHistoryDepth } from "@/hooks/core/useAndroidBackButton";
@@ -21,10 +21,18 @@ import { openNotificationTarget } from "@/lib/navigationContract";
  * puts the feed beneath the target when the depth is 0 — Back lands on the
  * feed, the next Back leaves the app. The depth is read at TAP time, from the
  * one counter useAndroidBackButton keeps.
+ *
+ * S4-c: with the app already open, Back from the tapped target goes to the
+ * feed too (and from there to the page that was open) — never straight back
+ * into whatever screen the member happened to have open when the push came.
  */
 const PushNotificationsGate = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  // S4-c: where the app is at TAP time — on the feed, the target goes straight on top.
+  const location = useLocation();
+  const hereRef = useRef(location.pathname);
+  hereRef.current = location.pathname;
 
   useEffect(() => {
     if (!user) return;
@@ -40,7 +48,7 @@ const PushNotificationsGate = () => {
           const referenceId =
             typeof data?.reference_id === "string" ? data.reference_id : null;
           if (!type) return;
-          openNotificationTarget(navigate, getNotifLink({ type, reference_id: referenceId }), inAppHistoryDepth(), type);
+          openNotificationTarget(navigate, getNotifLink({ type, reference_id: referenceId }), inAppHistoryDepth(), type, hereRef.current);
         });
       } catch {
         /* push is optional — never break the app because of it */
