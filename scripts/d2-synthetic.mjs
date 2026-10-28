@@ -39,7 +39,7 @@ const LANES = {
   },
 };
 const PATHS = { home: "/", site_settings: "/config/site-settings" };
-const FEED_QUERY = "/rest/v1/s2_failfirst_does_not_exist?select=image_url&privacy=eq.public&image_url=not.is.null&order=created_at.desc&limit=10";
+const FEED_QUERY = "/rest/v1/posts?select=image_url&privacy=eq.public&image_url=not.is.null&order=created_at.desc&limit=10";
 const CDN_HOST = "cdn.50mmretina.com";
 const IMG_WIDTH = 640;
 /** p95 TTFB thresholds (ms) over the last WINDOW runs. */
