@@ -60,6 +60,28 @@
  * assumed. `site_settings` is readable with the anon key today; this route adds
  * no privilege it did not already have.
  *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * D2 / PERF 2026-10-28: THE EDGE CACHE THE HEADERS PROMISED BUT NEVER GOT
+ *
+ * Measured with curl -w from outside, both lanes: ttfb 1.3-1.5 s on EVERY call,
+ * `cf-cache-status: DYNAMIC`. Cloudflare does not cache the output of a Pages
+ * Function on its own, so `Cache-Control: public, max-age=60` only ever reached
+ * the browser; the edge ran this function and did a Supabase read each time,
+ * and web and app both wait on this response at start-up.
+ *
+ * Now the settings payload is held in the colo's Cache API (`caches.default`,
+ * same pattern as functions/profile/[id].ts): fresh for MAX_AGE_S, then served
+ * stale for SWR_S while ONE background refresh runs. Only the CORS-free JSON
+ * is cached; withCors() wraps the result afterwards, so a cached response gets
+ * exactly the same Access-Control-* / Vary: Origin as an uncached one.
+ *
+ * SAFETY: a request carrying Authorization or a session cookie never reads or
+ * writes the cache (nothing here varies per user, but the rule is cheap and
+ * keeps this route from ever becoming a leak if it later does). Only a good
+ * 200 is stored; the 503 failure path stays `no-store` and is never cached.
+ * The query string is dropped from the key so ?x=1 cannot be used to force
+ * database reads. This route returns public site configuration only.
+ *
  * It does NOT reuse `sbGet` from `_seo.ts`: that helper returns only the first
  * row of an array, which is right for the single-row lookups it was written for
  * and silently wrong here.
@@ -113,12 +135,25 @@ function fail(reason: string): Response {
  * the shared CORS helper. Public, anon-readable, GET-only data: opening it to
  * the app's origin gives that origin nothing a plain page load does not.
  */
-export const onRequestGet = (context: { request: Request; env: Env }) => withCors(context.request, context.env, () => siteSettings(context));
-export const onRequestOptions = (context: { request: Request; env: Env }) => withCors(context.request, context.env, () => siteSettings(context));
+export const onRequestGet = (context: Ctx) => withCors(context.request, context.env, () => siteSettings(context));
+export const onRequestOptions = (context: Ctx) => withCors(context.request, context.env, () => siteSettings(context));
 
-async function siteSettings(context: { request: Request; env: Env }): Promise<Response> {
-  const ref = context.env?.SUPABASE_PROJECT_REF;
-  const anon = context.env?.SUPABASE_ANON_KEY;
+interface Ctx { request: Request; env: Env; waitUntil?: (p: Promise<unknown>) => void }
+
+/** Cache API entry lives for fresh + stale; freshness is judged from CACHED_AT. */
+const CACHED_AT = "x-cached-at";
+
+/** A request that might carry a user identity must not touch the shared cache. */
+function isIdentified(request: Request): boolean {
+  if (request.headers.get("authorization")) return true;
+  const cookie = request.headers.get("cookie") ?? "";
+  return /(^|;\s*)([^=;]*(sb-|session|auth|token)[^=;]*)=/i.test(cookie);
+}
+
+/** Read the table once and build the payload. Returns a failure Response instead of throwing. */
+async function loadPayload(env: Env): Promise<{ body: string; version: string } | Response> {
+  const ref = env?.SUPABASE_PROJECT_REF;
+  const anon = env?.SUPABASE_ANON_KEY;
   if (!ref || !anon) {
     // Pages Functions have no build step, so `context.env` is the only lane
     // signal there is. A missing variable is a deployment fault, not a reason
@@ -151,10 +186,52 @@ async function siteSettings(context: { request: Request; env: Env }): Promise<Re
   }
   if (Object.keys(settings).length === 0) return fail("no row carried a string key");
 
-  const body = canonical(settings);
-  const version = await sha256Hex(body);
-  const etag = `"${version}"`;
+  const version = await sha256Hex(canonical(settings));
+  return { version, body: JSON.stringify({ version, settings }) };
+}
 
+async function siteSettings(context: Ctx): Promise<Response> {
+  const cache = typeof caches === "undefined" || isIdentified(context.request) ? undefined : caches.default;
+  let key: Request | null = null;
+  if (cache) {
+    const k = new URL(context.request.url);
+    k.search = "";
+    key = new Request(k.toString(), { method: "GET" });
+  }
+
+  let payload: { body: string; version: string } | null = null;
+
+  if (cache && key) {
+    try {
+      const stored = await cache.match(key);
+      if (stored) {
+        const body = await stored.text();
+        const version = stored.headers.get("etag")?.replace(/"/g, "") ?? "";
+        const age = (Date.now() - Number(stored.headers.get(CACHED_AT))) / 1000;
+        if (version && body && age >= 0) {
+          payload = { body, version };
+          if (age > MAX_AGE_S && typeof context.waitUntil === "function") {
+            // Stale: serve it now, refresh once in the background.
+            context.waitUntil(refresh(cache, key, context.env));
+          }
+        }
+      }
+    } catch {
+      // A cache that cannot be read is not a reason to fail the route.
+    }
+  }
+
+  if (!payload) {
+    const loaded = await loadPayload(context.env);
+    if (loaded instanceof Response) return loaded;
+    payload = loaded;
+    if (cache && key) {
+      const stored = store(cache, key, payload);
+      if (typeof context.waitUntil === "function") context.waitUntil(stored);
+    }
+  }
+
+  const etag = `"${payload.version}"`;
   const headers = {
     "content-type": "application/json; charset=utf-8",
     "cache-control": `public, max-age=${MAX_AGE_S}, stale-while-revalidate=${SWR_S}`,
@@ -171,5 +248,26 @@ async function siteSettings(context: { request: Request; env: Env }): Promise<Re
     return new Response(null, { status: 304, headers });
   }
 
-  return new Response(JSON.stringify({ version, settings }), { status: 200, headers });
+  return new Response(payload.body, { status: 200, headers });
+}
+
+async function store(cache: Cache, key: Request, p: { body: string; version: string }): Promise<void> {
+  try {
+    await cache.put(key, new Response(p.body, {
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        "cache-control": `max-age=${MAX_AGE_S + SWR_S}`,
+        etag: `"${p.version}"`,
+        [CACHED_AT]: String(Date.now()),
+      },
+    }));
+  } catch {
+    // Failing to store only costs the next request a database read.
+  }
+}
+
+async function refresh(cache: Cache, key: Request, env: Env): Promise<void> {
+  const loaded = await loadPayload(env);
+  // A failed refresh keeps serving the stale copy; never overwrite with an error.
+  if (!(loaded instanceof Response)) await store(cache, key, loaded);
 }
