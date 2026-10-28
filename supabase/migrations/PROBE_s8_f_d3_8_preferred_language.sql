@@ -28,7 +28,12 @@ checks(name, ok, detail) AS (
      ''),
   ('profiles rows holding a non-code value',
      (SELECT n = 0 FROM bad_profiles),
-     (SELECT n::text FROM bad_profiles))
+     (SELECT n::text FROM bad_profiles)),
+  ('profiles_public_data rows holding a non-code value (copy has no CHECK)',
+     NOT EXISTS (SELECT 1 FROM public.profiles_public_data
+                  WHERE preferred_language IS NOT NULL
+                    AND preferred_language NOT IN ('en', 'hi', 'bn', 'mr', 'gu', 'ta', 'te')),
+     '')
 )
 SELECT name, CASE WHEN ok THEN 'PASS' ELSE 'FAIL' END AS result, detail FROM checks
 UNION ALL
