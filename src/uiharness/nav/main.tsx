@@ -72,7 +72,27 @@ const dealBySeed: FakeRoute = ({ method, path, body }) => {
   const dealt = [...posts.slice(n), ...posts.slice(0, n)].filter((p) => !exclude.has(p.id));
   return { body: dealt.slice(0, Number(req._limit ?? dealt.length)) };
 };
-installFakeBackend({ routes: [dealBySeed, ...fixtureRoutes], signedIn: true });
+/**
+ * S4-a · "MORE POSTS FROM <name>" NEEDS AN AUTHOR WITH MORE THAN ONE POST.
+ * The shared fixture gives every author exactly one, so here — and only here,
+ * the screenshot gate keeps its fixed set — the first post's author has two
+ * more (copies of the other fixture posts, re-authored, with their own ids).
+ * They are answered for the author's wall read and for their own /post/<id>;
+ * they are never dealt into the feed, so every feed journey is unchanged.
+ */
+const morePosts = posts.slice(1).map((p, i) => ({
+  ...p,
+  id: `aaaaaaa1-0000-4000-8000-00000000010${i + 1}`,
+  user_id: posts[0].user_id,
+  created_at: new Date(Date.parse(posts[0].created_at) - (i + 1) * 86_400_000).toISOString(),
+}));
+const authorWall: FakeRoute = ({ method, path, params }) => {
+  if (method !== "GET" || path !== "/rest/v1/posts") return undefined;
+  if (params.get("user_id") === `eq.${posts[0].user_id}`) return { body: [posts[0], ...morePosts] };
+  const extra = morePosts.find((p) => params.get("id") === `eq.${p.id}`);
+  return extra ? { body: extra } : undefined;
+};
+installFakeBackend({ routes: [dealBySeed, authorWall, ...fixtureRoutes], signedIn: true });
 
 const start = new URLSearchParams(window.location.search).get("start") || "/below";
 window.history.replaceState(null, "", start);

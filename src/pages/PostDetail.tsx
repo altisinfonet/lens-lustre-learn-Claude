@@ -18,6 +18,8 @@ import RichContentRenderer from "@/components/RichContentRenderer";
 import TranslateBar from "@/components/post/TranslateBar";
 import PostCommentsSection from "@/components/PostCommentsSection";
 import PostCard from "@/components/post/PostCard";
+import PostPageMore from "@/components/post/PostPageMore";
+import { useScrollRestoreOnReturn } from "@/hooks/core/useScrollRestoreOnReturn";
 import type { UnifiedPost } from "@/types/post";
 import FacebookPhotoGrid from "@/components/FacebookPhotoGrid";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
@@ -68,6 +70,9 @@ const PostDetail = () => {
   const { downloading, download: downloadImg } = useDownloadImage();
 
   const { blockedIds } = useBlockedUsers();
+  // S4-a: the page now scrolls on into the author's posts and the feed — Back
+  // from a post opened down there returns to the same place, as on /feed.
+  useScrollRestoreOnReturn();
   const reactMutation = useReactToPost();
   const unreactMutation = useUnreactToPost();
 
@@ -363,6 +368,15 @@ const PostDetail = () => {
           />
 
         </div>
+
+        <PostPageMore
+          key={post.id}
+          postId={post.id}
+          authorId={post.user_id}
+          authorName={post.author_name}
+          authorHandle={post.author_handle}
+          currentUserId={user?.id}
+        />
       </div>
     </>
   );

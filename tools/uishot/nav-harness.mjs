@@ -491,6 +491,46 @@ control("feed scroll position: a FRESH visit to the feed starts at the top and i
   return { scrollOnFreshVisit: y, dealsBefore, dealsAfter };
 });
 
+// S4-a · UNDER A POST, THE INSTAGRAM WAY: "More posts from <name>" (the
+// author's other posts, never the one on screen) and the feed beneath — and
+// neither is a dead end: a post opened from there comes Back to this post,
+// and Back again to the feed. The post page reads the feed's CURRENT deal; it
+// must not ask the server for a new one behind the member's back.
+journey("post page: More posts from <name> + the feed beneath → open one → Back → the post → Back → feed", DESKTOP, async (page) => {
+  await openFeedFromBelow(page);
+  await feedQuiet(page);
+  const postId = await page.evaluate(() => window.__nav.postId);
+  const dealsBefore = await deals(page);
+  await page.getByTestId("to-post").click();
+  await waitWhere(page, `/post/${postId}`);
+  const more = page.getByTestId("more-posts-from");
+  await more.waitFor({ timeout: 60000 });
+  if (!/More posts from/i.test(await more.getByRole("heading").innerText())) throw new Error("the section has no \"More posts from\" heading");
+  const tiles = more.getByRole("button");
+  const tileCount = await tiles.count();
+  if (tileCount < 1) throw new Error("More posts from <name> shows no posts");
+  const beneath = page.getByTestId("post-page-feed");
+  await beneath.waitFor({ timeout: 60000 });
+  const feedIds = await beneath.locator("[data-post-id]").evaluateAll((els) => els.map((e) => e.getAttribute("data-post-id")));
+  if (feedIds.length < 1) throw new Error("the feed beneath the post is empty");
+  if (feedIds.includes(postId)) throw new Error("the feed beneath repeats the post on screen");
+  if (new Set(feedIds).size !== feedIds.length) throw new Error(`the feed beneath repeats a post: [${feedIds}]`);
+  if ((await deals(page)) !== dealsBefore) throw new Error("the post page asked the feed for a new deal");
+  // The wall's grid: the first tap shows the counts, the second opens the post.
+  await tiles.first().click();
+  await tiles.first().click();
+  const t0 = Date.now();
+  let other = await where(page);
+  while ((other === `/post/${postId}` || !other.startsWith("/post/")) && Date.now() - t0 < 8000) { await page.waitForTimeout(100); other = await where(page); }
+  if (!other.startsWith("/post/") || other === `/post/${postId}`) throw new Error(`a tile under the post opened ${other}`);
+  await page.getByRole("button", { name: "Back", exact: true }).waitFor({ timeout: 60000 });
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await waitWhere(page, `/post/${postId}`);
+  await page.goBack();
+  await waitWhere(page, "/feed");
+  return { tiles: tileCount, beneath: feedIds.length, opened: other };
+});
+
 journey("native (Android stub): cold start → notification tap → post → comments → Back ×2 → feed → Back leaves the app", PHONE, async (page) => {
   await startAt(page, "/", true);
   await nativeReady(page);
