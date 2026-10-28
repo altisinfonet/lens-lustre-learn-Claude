@@ -95,9 +95,11 @@ interface CommentsBoxProps {
   ownerHandle?: string | null;
   /** The subject's first line, shown at rest in the search row for orientation. */
   subjectLabel?: string | null;
+  /** S4-b: the comment a notification points at — scrolled to and marked. */
+  highlightId?: string | null;
 }
 
-export const CommentsBox = ({ source, ownerHandle, subjectLabel }: CommentsBoxProps) => {
+export const CommentsBox = ({ source, ownerHandle, subjectLabel, highlightId = null }: CommentsBoxProps) => {
   const { comments, loading, currentUserId, viewer, isAdmin, canPin, submitting, editSubmitting, maxLength } = source;
 
   // Blocked members' comments (and the replies under them) are removed from the
@@ -169,6 +171,7 @@ export const CommentsBox = ({ source, ownerHandle, subjectLabel }: CommentsBoxPr
             sorting: true,
           }}
           maxReplyDepth={source.maxReplyDepth}
+          highlightId={highlightId}
           onAdd={(content, parentId) => source.addComment(content, parentId)}
           onEdit={source.editComment}
           onDelete={source.deleteComment}
@@ -216,6 +219,8 @@ interface Props {
   /** The post's first line, shown at rest in the search row for orientation. */
   subjectLabel?: string | null;
   onCommentCountChange?: (delta: number) => void;
+  /** S4-b: open on this comment (loaded even beyond the first page) and mark it. */
+  focusCommentId?: string | null;
 }
 
 const PostCommentsSection = ({
@@ -224,8 +229,9 @@ const PostCommentsSection = ({
   postOwnerHandle,
   subjectLabel,
   onCommentCountChange,
+  focusCommentId = null,
 }: Props) => {
-  const thread = usePostComments(postId, postOwnerId, onCommentCountChange, true);
+  const thread = usePostComments(postId, postOwnerId, onCommentCountChange, true, focusCommentId);
   const source: CommentsBoxSource = {
     comments: thread.comments,
     loading: thread.loading,
@@ -244,7 +250,7 @@ const PostCommentsSection = ({
     togglePin: thread.togglePin,
     reportComment: thread.reportComment,
   };
-  return <CommentsBox source={source} ownerHandle={postOwnerHandle} subjectLabel={subjectLabel} />;
+  return <CommentsBox source={source} ownerHandle={postOwnerHandle} subjectLabel={subjectLabel} highlightId={focusCommentId} />;
 };
 
 export default PostCommentsSection;

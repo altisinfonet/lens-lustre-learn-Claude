@@ -226,7 +226,7 @@ describe("a notification tapped at cold start (no in-app history)", () => {
     // The post page reads this to decide where a post that is gone should land
     // (src/pages/__tests__/postDetailBackAndGonePost.test.tsx).
     expect((window.history.state as { usr?: unknown } | null)?.usr, "the entry says how it was reached")
-      .toEqual({ from: "notification", feedBeneath: false });
+      .toEqual({ from: "notification", feedBeneath: false, type: "post_comment" }); // S4-b: the type rides along
 
     await press();
     await waitFor(() => expect(where()).toBe("/profile/someone"));

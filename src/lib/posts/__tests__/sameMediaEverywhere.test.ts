@@ -87,7 +87,7 @@ describe("no screen draws a video without joining the list above", () => {
 describe("the comments box draws what the card drew — it decides nothing", () => {
   it("the subject carries media for posts AND ads; a post's is postMedia(post), an ad's is the card's own", () => {
     const ctx = read("src/contexts/CommentsOverlayContext.tsx");
-    expect(ctx).toMatch(/\{ kind: "post"; post: UnifiedPost; media: SubjectMedia \}/);
+    expect(ctx).toMatch(/\{ kind: "post"; post: UnifiedPost; media: SubjectMedia(; focusCommentId\?: string \| null)? \}/);
     expect(ctx).toMatch(/\{ kind: "ad"; creativeId: string; media: SubjectMedia \}/);
     expect(ctx).toMatch(/media: postMedia\(nextPost\)/);
     expect(ctx).toMatch(/openAdComments: \(creativeId: string, media: SubjectMedia/);

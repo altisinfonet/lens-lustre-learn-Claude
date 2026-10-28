@@ -45,7 +45,38 @@ const COMMENT_COLUMNS = "id, user_id, content, created_at, updated_at, parent_id
  * could not be read. If only the EMBED is refused, the previous two-step read
  * runs instead, so a schema without the FK costs a round trip, never the thread.
  */
-async function fetchThreadRows(postId: string): Promise<CommentRow[] | null> {
+async function fetchThreadRows(postId: string, focusCommentId?: string | null): Promise<CommentRow[] | null> {
+  const rows = await fetchFirstPage(postId);
+  if (!rows || !focusCommentId || rows.some((r) => r.id === focusCommentId)) return rows;
+  return [...rows, ...(await fetchFocus(postId, focusCommentId, rows))];
+}
+
+/**
+ * S4-b · THE COMMENT A NOTIFICATION POINTS AT, WHEREVER IT IS IN THE THREAD.
+ *
+ * The thread reads its first 200 comments. A notification about comment 340
+ * must still land on comment 340, so when the focus is not among them it is
+ * read by id (and, for a reply, its parent too, so it draws in place under
+ * it). The same table and the same RLS as the thread — scoped to this post,
+ * so an id from elsewhere reads nothing.
+ */
+async function fetchFocus(postId: string, focusId: string, have: CommentRow[]): Promise<CommentRow[]> {
+  const read = async (id: string) => {
+    const { data } = await supabase
+      .from("post_comments")
+      .select(`${COMMENT_COLUMNS}, post_comment_reactions(user_id, reaction_type)`)
+      .eq("post_id", postId)
+      .eq("id", id)
+      .limit(1);
+    return ((data as unknown as CommentRow[] | null) ?? [])[0] ?? null;
+  };
+  const focus = await read(focusId);
+  if (!focus) return [];
+  const parent = focus.parent_id && !have.some((r) => r.id === focus.parent_id) ? await read(focus.parent_id) : null;
+  return parent ? [parent, focus] : [focus];
+}
+
+async function fetchFirstPage(postId: string): Promise<CommentRow[] | null> {
   const one = await supabase
     .from("post_comments")
     .select(`${COMMENT_COLUMNS}, post_comment_reactions(user_id, reaction_type)`)
@@ -138,6 +169,8 @@ export function usePostComments(
   postOwnerId: string | null | undefined,
   onCommentCountChange?: (delta: number) => void,
   enabled = true,
+  /** S4-b: a comment that must be in the thread even beyond its first page (a notification's). */
+  focusCommentId?: string | null,
 ): UsePostCommentsResult {
   const { user } = useAuth();
   const { data: currentProfile } = useProfileCore(user?.id);
@@ -230,7 +263,7 @@ export function usePostComments(
     // Only a thread with nothing to show says "Loading comments…". A cached
     // one stays on screen while it refreshes.
     if (!THREAD_CACHE.has(viewerId, postId)) setLoading(true);
-    const [rows] = await Promise.all([fetchThreadRows(postId), getAdminIds()]);
+    const [rows] = await Promise.all([fetchThreadRows(postId, focusCommentId), getAdminIds()]);
 
     // The selected post, or the member, moved on while this was in flight:
     // the response is for a screen nobody is looking at anymore. Discard it.
@@ -242,7 +275,7 @@ export function usePostComments(
     }
     setLoading(false);
     setLoaded(true);
-  }, [postId, viewerId, applyRows]);
+  }, [postId, viewerId, applyRows, focusCommentId]);
 
   // Build comment tree reactively when rawComments or profileMap changes
   useEffect(() => {

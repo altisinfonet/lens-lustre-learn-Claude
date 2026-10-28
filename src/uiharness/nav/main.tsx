@@ -32,7 +32,8 @@ import { Suspense, lazy, useEffect } from "react";
 import { Link, Route, Routes, useNavigate } from "react-router-dom";
 import { installFakeBackend, type FakeRoute } from "../fakeBackend";
 import { fixtureRoutes } from "../fixtureRoutes";
-import { posts } from "../fixtures";
+import { posts, postComments } from "../fixtures";
+import { notificationEntryState } from "@/lib/navigationContract";
 import PushNotificationsGate from "@/components/PushNotificationsGate";
 import { Toaster } from "@/components/ui/toaster";
 import "../../index.css";
@@ -92,7 +93,44 @@ const authorWall: FakeRoute = ({ method, path, params }) => {
   const extra = morePosts.find((p) => params.get("id") === `eq.${p.id}`);
   return extra ? { body: extra } : undefined;
 };
-installFakeBackend({ routes: [dealBySeed, authorWall, ...fixtureRoutes], signedIn: true });
+/**
+ * S4-b · A COMMENT NOTIFICATION LANDS ON ITS COMMENT, EVEN DEEP IN A THREAD.
+ * The first post's thread is made long here (30 more comments), and the
+ * comment a "post_comment" notification names is a REPLY whose parent is not
+ * in the first page either: they are answered only when asked for by id —
+ * exactly how a comment past the first 200 reaches the screen. The member's
+ * own notification rows (user_notifications, RLS-own) carry the dedup_key
+ * naming the comment, as the database writes it.
+ */
+const FAR_PARENT = "ccccccc1-0000-4000-8000-000000000900";
+const FAR_REPLY = "ccccccc1-0000-4000-8000-000000000901";
+const filler = Array.from({ length: 30 }, (_, i) => ({
+  ...postComments[0],
+  id: `ccccccc1-0000-4000-8000-000000000${String(100 + i)}`,
+  content: `Comment ${i + 1} on the long thread.`,
+  created_at: new Date(Date.parse(postComments[0].created_at) + (i + 1) * 60_000).toISOString(),
+}));
+const farComments = [
+  { ...postComments[0], id: FAR_PARENT, content: "An early question, long scrolled away.", created_at: "2026-08-14T04:40:00.000Z" },
+  { ...postComments[1], id: FAR_REPLY, parent_id: FAR_PARENT, content: "The answer the notification is about.", created_at: "2026-08-15T09:00:00.000Z" },
+];
+const longThread: FakeRoute = ({ method, path, params }) => {
+  if (method !== "GET" || path !== "/rest/v1/post_comments") return undefined;
+  const byId = farComments.find((c) => params.get("id") === `eq.${c.id}`);
+  if (byId) return { body: [byId] };
+  if (params.get("post_id") === `eq.${posts[0].id}` && !params.has("id")) return { body: [...postComments, ...filler] };
+  return undefined;
+};
+const ownNotifications: FakeRoute = ({ method, path, params }) => {
+  if (method !== "GET" || path !== "/rest/v1/user_notifications") return undefined;
+  const type = params.get("type");
+  if (type === "eq.post_comment") return { body: [{ dedup_key: `post_comment:${FAR_REPLY}:owner` }] };
+  if (type === "eq.comment_reply") return { body: [{ dedup_key: `post_comment:${postComments[1].id}:reply` }] };
+  return { body: [] };
+};
+(window as unknown as { __navComments: Record<string, string> }).__navComments = { far: FAR_REPLY, reply: postComments[1].id };
+
+installFakeBackend({ routes: [dealBySeed, authorWall, longThread, ownNotifications, ...fixtureRoutes], signedIn: true });
 
 const start = new URLSearchParams(window.location.search).get("start") || "/below";
 window.history.replaceState(null, "", start);
@@ -119,6 +157,8 @@ const Links = () => (
   <nav data-testid="harness-links" style={{ display: "flex", gap: 16, padding: 8 }}>
     <Link to="/feed" data-testid="to-feed">Go to the feed</Link>
     <Link to={`/post/${POST_ID}`} data-testid="to-post">Open the post (as the notification bell does)</Link>
+    {/* S4-b: a COMMENT notification row — the same link and the same entry state the bell and the Notifications page give it. */}
+    <Link to={`/post/${POST_ID}`} state={notificationEntryState("post_comment")} data-testid="to-post-comment">A comment notification</Link>
   </nav>
 );
 
