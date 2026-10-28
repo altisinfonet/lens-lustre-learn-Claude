@@ -1,3 +1,25 @@
+-- ═══ S8 / F-REV4-2 SAFETY WRAPPER (added 2026-10-28) ═══
+-- This file had no outer transaction and no lane guard: a failure part-way
+-- left a half-applied schema, and it ran on whichever database psql reached.
+-- It now runs as ONE transaction and refuses unless apply-migration.yml has
+-- asserted p32.lane (staging or production). The body below is unchanged.
+-- Rollback: (this file is the rollback)
+-- PROBE:    supabase/migrations/PROBE_s8_f93_f96_f94_state.sql
+BEGIN;
+
+DO $lane_guard$
+BEGIN
+  IF coalesce(current_setting('p32.lane', true), '') NOT IN ('staging', 'production') THEN
+    RAISE EXCEPTION
+      'APPLY REFUSED — p32.lane reads %. Dispatch apply-migration.yml (it sets p32.lane from target).',
+      coalesce(current_setting('p32.lane', true), '(unset)')
+    USING ERRCODE = 'raise_exception';
+  END IF;
+END
+$lane_guard$;
+
+SET LOCAL lock_timeout = '5s';
+
 -- F-96 / F-96b ROLLBACK.
 --
 -- ⚠ THIS RESTORES A KNOWN DEFECT. Running it re-opens both holes:
@@ -156,3 +178,5 @@ DROP FUNCTION IF EXISTS public.custom_url_ever_held(uuid);
 -- forbids — and after F-92/F-95 a member in that state has no reachable
 -- profile URL at all. If it is genuinely wanted back, that is a decision with
 -- its own evidence, not a side effect of rolling back a migration.
+
+COMMIT;
