@@ -29,12 +29,14 @@
  * fresh for FRESH_S and then served stale for STALE_S while ONE background
  * refresh runs. A visitor waits on Supabase only on a cold colo.
  *
- * WITH OR WITHOUT THE WORKER IN FRONT. The Worker strips `head > title`,
- * `meta[name=description|robots]`, `link[rel=canonical]`, `og:*`, `twitter:*`
- * and appends its own block, so running it over this output yields the same
- * tags again. When the Owner unroutes it, nothing changes for crawlers.
- * The apex → www 301 the Worker does is repeated here for the case the apex
- * reaches Pages directly.
+ * WITH OR WITHOUT THE WORKER IN FRONT. Cloudflare stamps every Worker
+ * subrequest with a `CF-Worker` header. When it is present the Worker is in
+ * front and will inject its own block, so this middleware steps aside and the
+ * Worker gets exactly the Pages response it gets today (running both would
+ * duplicate the JSON-LD: the Worker does not strip ld+json). So live output
+ * is today's output while the Worker is routed, and the same tags from here
+ * once the Owner unroutes it. The apex → www 301 the Worker does is repeated
+ * here for the case the apex reaches Pages directly.
  *
  * FAIL OPEN, like the Worker: no metadata, a timeout, a non-HTML response, an
  * error status, a non-GET → the Pages response goes out untouched.
@@ -74,6 +76,8 @@ export const FRESH_S = 300;
 /** Serve-stale window while one refresh runs; same as seo-route-metadata's own SWR. */
 export const STALE_S = 86400;
 const CACHED_AT = "x-cached-at";
+/** One background refresh per metadata URL per isolate, not one per request. */
+const refreshing = new Set<string>();
 
 // Copied from cloudflare/seo-edge-injector/worker.js — the same paths are never rewritten.
 const SKIP_PREFIXES = [
@@ -210,11 +214,15 @@ export async function routeMeta(env: Env, pathname: string, waitUntil?: (p: Prom
     try {
       const hit = await cache.match(key);
       if (hit) {
-        const age = (Date.now() - Number(hit.headers.get(CACHED_AT))) / 1000;
+        const at = Number(hit.headers.get(CACHED_AT));
+        const age = (Date.now() - at) / 1000;
         const meta = (await hit.json()) as RouteMeta;
-        if (cacheable(meta) && age >= 0) {
-          if (age > FRESH_S && typeof waitUntil === "function") {
-            waitUntil(fetchMeta(url, FILL_TIMEOUT_MS).then((m) => (cacheable(m) ? store(cache, key, m) : undefined)));
+        if (at > 0 && cacheable(meta) && age >= 0) {
+          if (age > FRESH_S && typeof waitUntil === "function" && !refreshing.has(url)) {
+            refreshing.add(url);
+            waitUntil(fetchMeta(url, FILL_TIMEOUT_MS)
+              .then((m) => (cacheable(m) ? store(cache, key, m) : undefined))
+              .finally(() => refreshing.delete(url)));
           }
           return meta;
         }
@@ -262,6 +270,8 @@ export const onRequest = async (context: Ctx): Promise<Response> => {
   if (request.method !== "GET" || !ct.includes("text/html") || shouldSkip(url.pathname) || res.status >= 400) {
     return res;
   }
+  // The Worker is in front: it injects its own block over this response.
+  if (request.headers.get("cf-worker")) return passthrough(res, "worker-in-front");
   if ((env?.SEO_INJECT || "").trim().toLowerCase() === "off") return passthrough(res, "off");
 
   const meta = await routeMeta(env, url.pathname, context.waitUntil?.bind(context));

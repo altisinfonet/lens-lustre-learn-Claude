@@ -125,6 +125,19 @@ describe("one SEO renderer: Pages middleware == Worker", () => {
     }
   });
 
+  it("steps aside when the Worker is in front (CF-Worker header): no second block, no duplicate JSON-LD, no metadata call", async () => {
+    const r = await pages("/journal/x", undefined, { headers: { "cf-worker": "50mmretina.com" } });
+    expect(r.headers.get("x-seo-render")).toBe("pages:worker-in-front");
+    expect(await r.text()).toContain("<head></head>");
+    expect(metaCalls).toHaveLength(0);
+  });
+
+  it("an entry without its timestamp is a miss, not a 56-year-old hit", async () => {
+    await cache.put(new Request("https://ref.functions.supabase.co/seo-route-metadata?path=%2Fz"), new Response(JSON.stringify(META)));
+    await pages("/z");
+    expect(metaCalls).toHaveLength(1);
+  });
+
   it("forwards the bare domain to www", async () => {
     const r = await onRequest({ request: new Request("https://50mmretina.com/a?b=1"), env: {}, next: async () => shell() });
     expect(r.status).toBe(301);
