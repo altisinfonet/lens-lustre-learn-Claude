@@ -46,8 +46,11 @@ BEGIN
     current_setting('p32.lane', true), pct, full_pub, need_pub, full_priv, need_priv, not_ready,
     posts_with_images, posts_in_graph, legacy_only_posts;
 
-  IF coalesce(current_setting('s3.require_full', true), '') = 'on' AND pct < 100 THEN
-    RAISE EXCEPTION 'PROBE FAIL: derivative coverage is % %% (strict mode requires 100)', pct;
+  -- Strict mode compares RAW COUNTS (a rounded 100.0 % can hide a missing ladder).
+  IF coalesce(current_setting('s3.require_full', true), '') = 'on'
+     AND (full_pub <> need_pub OR full_priv <> need_priv OR not_ready <> 0) THEN
+    RAISE EXCEPTION 'PROBE FAIL: derivative coverage incomplete — public %/%, private %/%, not ready % (strict mode requires all)',
+      full_pub, need_pub, full_priv, need_priv, not_ready;
   END IF;
 END
 $cov$;

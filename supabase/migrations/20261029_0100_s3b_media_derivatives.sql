@@ -105,15 +105,19 @@ BEGIN
            CASE WHEN p.privacy = 'public' THEN 'public' ELSE 'private' END AS tgt
       FROM public.post_media pm
       JOIN public.posts p ON p.id = pm.post_id
-  ), todo AS (
+  ), cand AS (
     SELECT n.mid, n.tgt, mo.width AS w, mo.height AS h, mo.derivatives AS d
       FROM need n
       JOIN public.media_objects mo ON mo.id = n.mid AND mo.state = 'ready'
      WHERE (_after IS NULL OR n.mid > _after)
        AND EXISTS (SELECT 1 FROM unnest(ARRAY[600, 1080, 1440]) r(x)
                     WHERE NOT (mo.derivatives ? ((CASE WHEN n.tgt = 'private' THEN 'p' ELSE '' END) || r.x::text)))
-     ORDER BY n.mid, n.tgt
-     LIMIT least(greatest(coalesce(_limit, 20), 1), 50)
+  ), pick AS (
+    -- The limit counts MEDIA, not (media, audience) pairs, so the worker's media-id
+    -- cursor never steps past a media object's second audience.
+    SELECT DISTINCT c.mid FROM cand c ORDER BY c.mid LIMIT least(greatest(coalesce(_limit, 20), 1), 50)
+  ), todo AS (
+    SELECT c.* FROM cand c JOIN pick USING (mid)
   )
   SELECT t.mid, t.tgt, r.x, dm.width, dm.height, t.w, t.h
     FROM todo t

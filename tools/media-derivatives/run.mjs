@@ -69,7 +69,10 @@ async function main() {
   for (;;) {
     const jobs = await claim(after);
     if (jobs.length === 0) {
-      if (after !== null) { after = null; if (!loop) break; continue; } // one full pass done
+      // One full pass done (or nothing to do). Without --loop: stop. With --loop:
+      // ALWAYS wait before the next pass, so media that keep failing or being
+      // skipped are retried once a minute, never in a tight loop.
+      after = null;
       if (!loop) break;
       await sleep(60_000);
       continue;
