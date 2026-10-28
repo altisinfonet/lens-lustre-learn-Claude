@@ -782,6 +782,13 @@ journey("native (Android stub): app OPEN on another page → push tap → post �
   await pressBack(page);
   await waitWhere(page, "/below");
   if ((await exits(page)) !== 0) throw new Error("Back left the app");
+  // #510 review: the feed and the post were pushed in ONE tick — Back's count
+  // must hold both, or this Back would leave the app with the start beneath.
+  await pressBack(page);
+  await waitWhere(page, "/");
+  if ((await exits(page)) !== 0) throw new Error("Back left the app with the start screen still beneath");
+  await pressBack(page);
+  if ((await exits(page)) !== 1) throw new Error(`at the start, Back must leave the app once (asked ${await exits(page)} times)`);
 });
 
 journey("native (Android stub): app open ON the feed → push tap → post → Back → the feed, once (no second feed beneath)", PHONE, async (page) => {
@@ -812,6 +819,7 @@ try {
   // push taps and Android Back, the bell, the Notifications page, outside links.
   const APP_JOURNEY = /native|bell|Notifications|outside link|external link/;
   const chosen = (ONLY ? JOURNEYS.filter((x) => x.name.includes(ONLY)) : JOURNEYS).filter((x) => !ORIGIN || APP_JOURNEY.test(x.name));
+  if (chosen.length === 0) throw new Error("no journey matched — a run that measures nothing is not a pass");
   for (const j of chosen) {
     const ctx = await browser.newContext({ viewport: j.viewport });
     if (ORIGIN) await serveAtOrigin(ctx);

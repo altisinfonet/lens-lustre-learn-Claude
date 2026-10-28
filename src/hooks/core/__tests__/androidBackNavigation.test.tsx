@@ -233,6 +233,13 @@ describe("a notification tapped at cold start (no in-app history)", () => {
     await press();
     await waitFor(() => expect(where()).toBe("/profile/someone"));
     expect(exitApp).not.toHaveBeenCalled();
+    // #510 review: the feed AND the post were pushed in one tick — the count
+    // must hold both, or this Back would leave the app with the start beneath.
+    await press();
+    await waitFor(() => expect(where()).toBe("/feed"));
+    expect(exitApp, "Back left the app with the start screen still beneath").not.toHaveBeenCalled();
+    await press();
+    expect(exitApp).toHaveBeenCalledTimes(1);
   });
 
   it("S4-c: with the app already open ON the feed, a tap opens the post straight on it — Back → that feed, no second one", async () => {
