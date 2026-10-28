@@ -156,7 +156,7 @@ describe("a notification about a post that is gone", () => {
     expect(where()).toBe("/feed");
   });
 
-  it("tapped with in-app history beneath: the dead post's entry BECOMES the feed, so Back returns to where the member was", async () => {
+  it("S4-c: tapped with the app open on another page: lands on the feed beneath it, and Back returns to where the member was", async () => {
     coldStartAt("/feed");
     app();
     await waitFor(() => expect(tapListener).not.toBeNull());
@@ -167,7 +167,9 @@ describe("a notification about a post that is gone", () => {
     await act(async () => { tapNotification({ type: "post_comment", reference_id: GONE }); });
     await waitFor(() => expect(where()).toBe("/feed"));
     expect(toastSpy.mock.calls[0][0]).toMatchObject({ title: NOTICE });
-    expect(window.history.length, "the tap's one entry was replaced, not added to").toBe(lenBefore + 1);
+    // The feed was pushed beneath the post, and the dead post stepped back onto
+    // it — so the feed is ONE entry above the page the member had open.
+    expect(window.history.length, "the feed and the (stepped-off) post were pushed").toBe(lenBefore + 2);
 
     await press();
     await waitFor(() => expect(where()).toBe("/profile/someone"));
