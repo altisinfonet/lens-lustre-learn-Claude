@@ -1,0 +1,119 @@
+# S2-B · SYNTHETIC MONITOR — the second, independent sink (+ alert).
+#
+# Gate: "Owner can read, without an editor: feed p95 yesterday, upload
+# failure %, crash rate per build, egress/1k views".
+#
+# Every 15 minutes, from GitHub's runners (outside Supabase and Cloudflare):
+# live + staging home TTFB, /config/site-settings TTFB, the anon feed REST
+# call, a CDN image fetch, and the feed page's media bytes (→ "estimated
+# egress per 1,000 feed views"). See scripts/d2-synthetic.mjs.
+#
+# WHERE IT GOES: the job summary of every run, an artifact, and — on the
+# schedule / a manual run on main only — an append-only history.jsonl plus
+# latest.json on the dedicated branch `d2-synthetic-data` (nothing else is
+# ever committed there). The admin Health page reads latest.json.
+#
+# ALERT: the job FAILS when any probe is down or a p95 over the last 12 runs
+# crosses its threshold. A failed scheduled run makes GitHub e-mail the repo
+# owner. No secret is used: the anon keys are public (as in health.yml) and
+# the push uses this run's GITHUB_TOKEN.
+#
+# ⚠ NO `${{ ... }}` INSIDE ANY `run:` BLOCK (F-47) — values go through env.
+name: D2 synthetic monitor
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/d2-synthetic.yml"
+      - "scripts/d2-synthetic.mjs"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: d2-synthetic
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    name: Live + staging answer from outside, under p95 thresholds
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      DATA_BRANCH: d2-synthetic-data
+      EVENT: ${{ github.event_name }}
+      REF: ${{ github.ref }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Load the history (append-only, on the data branch)
+        run: |
+          mkdir -p "$RUNNER_TEMP/syn"
+          if git fetch --depth=1 origin "$DATA_BRANCH" 2>/dev/null; then
+            git show "FETCH_HEAD:history.jsonl" > "$RUNNER_TEMP/syn/history.jsonl" 2>/dev/null || : > "$RUNNER_TEMP/syn/history.jsonl"
+          else
+            : > "$RUNNER_TEMP/syn/history.jsonl"
+          fi
+          echo "history lines: $(wc -l < "$RUNNER_TEMP/syn/history.jsonl")"
+
+      - name: Measure
+        id: measure
+        run: |
+          set +e
+          node scripts/d2-synthetic.mjs "$RUNNER_TEMP/syn/history.jsonl" "$RUNNER_TEMP/syn/summary.md" "$RUNNER_TEMP/syn/latest.json"
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/syn/summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Append to the data branch (schedule / manual run on main only)
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          set -e
+          git config user.name "d2-synthetic"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3; do
+            rm -rf "$RUNNER_TEMP/wt"
+            if git fetch --depth=1 origin "$DATA_BRANCH" 2>/dev/null; then
+              git worktree add --detach "$RUNNER_TEMP/wt" FETCH_HEAD
+              # Re-append this run's line onto the newest history (another run may have pushed).
+              tail -n 1 "$RUNNER_TEMP/syn/history.jsonl" >> "$RUNNER_TEMP/wt/history.jsonl"
+            else
+              git worktree add --detach "$RUNNER_TEMP/wt"
+              git -C "$RUNNER_TEMP/wt" checkout --orphan "$DATA_BRANCH"
+              git -C "$RUNNER_TEMP/wt" rm -rf -q . || true
+              tail -n 1 "$RUNNER_TEMP/syn/history.jsonl" > "$RUNNER_TEMP/wt/history.jsonl"
+            fi
+            # Keep the file bounded: 30 days × 96 runs.
+            tail -n 2880 "$RUNNER_TEMP/wt/history.jsonl" > "$RUNNER_TEMP/h" && mv "$RUNNER_TEMP/h" "$RUNNER_TEMP/wt/history.jsonl"
+            cp "$RUNNER_TEMP/syn/latest.json" "$RUNNER_TEMP/wt/latest.json"
+            git -C "$RUNNER_TEMP/wt" add history.jsonl latest.json
+            git -C "$RUNNER_TEMP/wt" commit -q -m "synthetic: $(date -u +%Y-%m-%dT%H:%MZ)"
+            if git -C "$RUNNER_TEMP/wt" push origin "HEAD:refs/heads/$DATA_BRANCH"; then exit 0; fi
+            git worktree remove --force "$RUNNER_TEMP/wt" || true
+            sleep $((attempt * 5))
+          done
+          echo "::warning::could not push to $DATA_BRANCH after 3 attempts (the measurement itself is in the summary and the artifact)"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: synthetic-${{ github.run_id }}
+          path: ${{ runner.temp }}/syn/
+          retention-days: 30
+
+      - name: Alert — fail when a probe is down or a p95 crosses its threshold
+        env:
+          CODE: ${{ steps.measure.outputs.code }}
+        run: |
+          if [ "$CODE" != "0" ]; then
+            echo "::error::Synthetic monitor: a probe is DOWN or over its p95 threshold — see the job summary."
+            exit 1
+          fi
+          echo "PASS"
