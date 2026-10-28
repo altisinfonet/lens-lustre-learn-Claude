@@ -2,7 +2,7 @@
  * S3-d · friends-only / only-me derivatives: the photo pass, the Worker's
  * photo/ branch, and the client's all-or-nothing pass step.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { handleMediaRequest, type MediaAuthzEnv, type MediaAuthzDeps } from "../../../../cloudflare/media-authz/handler";
 import { PHOTO_TOKEN_TTL_S, photoPrefixOf, signPhotoToken, verifyPhotoToken } from "../photoToken";
 import { signPlayToken, playPrefix } from "../../video/shared/playToken";
@@ -85,27 +85,27 @@ describe("media-authz photo/ branch", () => {
 });
 
 describe("client: photo passes", () => {
+  const row = (post: string, media: string, path: string) =>
+    ({ post_id: post, ord: 0, media_id: media, width: 600, height: 400, mime: "image/webp", url: `https://${HOST}/${path}` });
+  const rows = () => [
+    row("p1", MEDIA_A, `${PA}w600.webp`),
+    row("p2", MEDIA_B, `${PB}w600.webp`),
+    row("p3", "m3", `post-images/${OWNER}/d/m3/w600.webp`),
+  ];
+
   it("appends a pass to private rows and drops a whole post whose pass is missing", async () => {
-    vi.resetModules();
-    vi.doMock("@/integrations/supabase/client", () => ({
-      supabase: { auth: { getSession: async () => ({ data: { session: { access_token: "jwt", user: { id: VIEWER } } } }) } },
-    }));
-    vi.doMock("@/lib/net/siteApi", () => ({
-      SITE_API: { mediaPhotoToken: "/api/media/photo-token" },
-      siteFetch: async () => new Response(JSON.stringify({ tokens: { [MEDIA_A]: "aaa.bbb" }, expires_at: NOW_S + 3600 }), { status: 200 }),
-    }));
-    const { withPhotoPasses } = await import("../resolvedMedia");
-    const row = (post: string, media: string, path: string) =>
-      ({ post_id: post, ord: 0, media_id: media, width: 600, height: 400, mime: "image/webp", url: `https://${HOST}/${path}` });
-    const out = await withPhotoPasses([
-      row("p1", MEDIA_A, `${PA}w600.webp`),
-      row("p2", MEDIA_B, `${PB}w600.webp`),
-      row("p3", "m3", `post-images/${OWNER}/d/m3/w600.webp`),
-    ], NOW_S);
+    const { withPhotoPasses, __resetResolvedMediaForTests } = await import("../resolvedMedia");
+    __resetResolvedMediaForTests();
+    const out = await withPhotoPasses(rows(), NOW_S, async () => [[MEDIA_A, "aaa.bbb", NOW_S + 3600]]);
     expect(out.map((r) => r.post_id)).toEqual(["p1", "p3"]);
     expect(out[0].url).toBe(`https://${HOST}/${PA}w600.webp?t=aaa.bbb`);
     expect(out[1].url).not.toContain("?t=");
-    vi.doUnmock("@/integrations/supabase/client");
-    vi.doUnmock("@/lib/net/siteApi");
+  });
+
+  it("until the minter is wired (S3-d2), every private post falls back whole; public rows are untouched", async () => {
+    const { withPhotoPasses, __resetResolvedMediaForTests } = await import("../resolvedMedia");
+    __resetResolvedMediaForTests();
+    const out = await withPhotoPasses(rows(), NOW_S);
+    expect(out.map((r) => r.post_id)).toEqual(["p3"]);
   });
 });

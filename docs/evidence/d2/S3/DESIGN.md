@@ -193,6 +193,11 @@ profile grid, comments overlay) are not yet merged into `PostCard`.
   Gated by Pages `PHOTO_DELIVERY_PRIVATE=1` (503 until the route is live).
 * **Client.** Private rows get `?t=<pass>`; a post with any private row lacking a
   pass falls back whole to today's path. Passes are reused until 5 min before expiry.
+  **Order:** this PR ships the minter, Worker branch and SQL; the client does not
+  call the minter yet (every private post falls back). Follow-up **S3-d2** adds
+  `/api/media/photo-token` to `SITE_API` and wires the pass fetcher once staging
+  serves the route — the required "App origin journey" check probes every listed
+  route on live staging, so a route is listed only after it is deployed.
 * **Revocation.** Unfriending takes effect for new passes at once; a pass already
   issued keeps working until it expires (≤ 1 h). Owner decision O-2 if shorter is wanted.
 * **What stays open (O-1).** The friends-only ORIGINAL keeps its public URL for
