@@ -62,6 +62,8 @@ describe("/sitemap.xml edge function", () => {
     expect(thin.headers.get("x-sitemap-source")).toBe("static-fallback");
     expect(thin.status).toBe(200);
     expect(await (await call(STATIC, {})).text()).toBe(STATIC);
+    fetchMock.mockImplementationOnce(async () => new Response(DYN.replace(/https:\/\/a\//g, "https://other-lane/"), { status: 200 }));
+    expect((await call()).headers.get("x-sitemap-source")).toBe("static-fallback");
     expect(cache.m.size).toBe(0);
   });
 });

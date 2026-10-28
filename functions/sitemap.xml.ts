@@ -18,7 +18,7 @@
  * without it serves the static file.
  *
  * NEVER WORSE THAN BEFORE. The static template is the fallback for every
- * failure: upstream down, slow (8 s), non-200, not a <urlset>, or listing
+ * failure: upstream down, slow (4 s), non-200, not a <urlset>, or listing
  * fewer URLs than the template. A crawler never gets an empty 200 or a 5xx
  * from this route.
  *
@@ -32,14 +32,20 @@ interface Ctx { request: Request; env: Env; next: () => Promise<Response>; waitU
 
 export const FRESH_S = 3600;
 export const STALE_S = 86400;
-const UPSTREAM_TIMEOUT_MS = 8000;
+const UPSTREAM_TIMEOUT_MS = 4000;
 const CACHED_AT = "x-cached-at";
 
 export function locCount(xml: string): number {
   return (xml.match(/<loc>/g) || []).length;
 }
 
-async function fetchUpstream(url: string, minLocs: number): Promise<string | null> {
+/** Host of the first <loc>: the upstream must name the same site as this lane's build. */
+export function firstLocHost(xml: string): string | null {
+  const m = xml.match(/<loc>\s*https?:\/\/([^/<\s]+)/);
+  return m ? m[1].toLowerCase() : null;
+}
+
+async function fetchUpstream(url: string, minLocs: number, host: string | null): Promise<string | null> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), UPSTREAM_TIMEOUT_MS);
   try {
@@ -47,6 +53,8 @@ async function fetchUpstream(url: string, minLocs: number): Promise<string | nul
     if (!r.ok) return null;
     const xml = await r.text();
     if (!xml.includes("<urlset") || locCount(xml) < minLocs) return null;
+    // A Pages project pointed at the wrong lane's ref must not publish that lane's URLs.
+    if (firstLocHost(xml) !== host) return null;
     return xml;
   } catch {
     return null;
@@ -84,6 +92,7 @@ export const onRequest = async (context: Ctx): Promise<Response> => {
 
   const staticXml = await fallback.clone().text();
   const minLocs = locCount(staticXml);
+  const host = firstLocHost(staticXml);
   // The build wrote an empty sitemap on purpose: this lane is not for indexing.
   if (minLocs === 0) return fallback;
 
@@ -98,11 +107,12 @@ export const onRequest = async (context: Ctx): Promise<Response> => {
     try {
       const hit = await cache.match(key);
       if (hit) {
-        const age = (Date.now() - Number(hit.headers.get(CACHED_AT))) / 1000;
+        const at = Number(hit.headers.get(CACHED_AT));
+        const age = (Date.now() - at) / 1000;
         const xml = await hit.text();
-        if (age >= 0 && locCount(xml) >= minLocs) {
+        if (at > 0 && age >= 0 && locCount(xml) >= minLocs && firstLocHost(xml) === host) {
           if (age > FRESH_S && waitUntil) {
-            waitUntil(fetchUpstream(url, minLocs).then((x) => (x ? store(cache, key, x) : undefined)));
+            waitUntil(fetchUpstream(url, minLocs, host).then((x) => (x ? store(cache, key, x) : undefined)));
           }
           return xmlResponse(xml, "dynamic-cached");
         }
@@ -110,7 +120,7 @@ export const onRequest = async (context: Ctx): Promise<Response> => {
     } catch { /* an unreadable cache is a miss */ }
   }
 
-  const xml = await fetchUpstream(url, minLocs);
+  const xml = await fetchUpstream(url, minLocs, host);
   if (!xml) return xmlResponse(staticXml, "static-fallback");
   if (cache) {
     const p = store(cache, key, xml);
