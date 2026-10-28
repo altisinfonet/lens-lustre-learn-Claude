@@ -46,6 +46,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { isNativeCapacitorApp } from "@/lib/native/authDeepLink";
 import { CODE_PATTERN, getErrorCode, type Severity } from "@/lib/errorCodes";
+import { recordTiming } from "@/lib/telemetry";
 
 export type { Severity };
 
@@ -378,10 +379,17 @@ export const logger = {
 export async function timed<T>(
   fields: Omit<LogFields, "durationMs">,
   operation: () => Promise<T>,
+  opts?: { metric?: string },
 ): Promise<T> {
   const started = Date.now();
   try {
     const result = await operation();
+    // S2-A: a Supabase call resolves with { error } instead of throwing, so a
+    // returned error counts as a failure for the telemetry metric.
+    if (opts?.metric) {
+      const failed = result != null && typeof result === "object" && (result as { error?: unknown }).error != null;
+      recordTiming(opts.metric, Date.now() - started, !failed);
+    }
     emit("info", {
       ...fields,
       durationMs: Date.now() - started,
@@ -389,6 +397,7 @@ export async function timed<T>(
     });
     return result;
   } catch (err) {
+    if (opts?.metric) recordTiming(opts.metric, Date.now() - started, false);
     emit("error", {
       ...fields,
       durationMs: Date.now() - started,
@@ -397,6 +406,19 @@ export async function timed<T>(
     });
     throw err;
   }
+}
+
+/**
+ * S2-A · time one RPC / fetch for telemetry: `timedRpc("rpc.get_broadcast_feed",
+ * "src/hooks/feed/useFeedQuery.ts", () => supabase.rpc(...))`. Same contract as
+ * timed(): returns the result unchanged, re-throws a throw.
+ */
+export function timedRpc<T>(metric: string, file: string, operation: () => PromiseLike<T>): Promise<T> {
+  return timed(
+    { code: "DB-3001", event: "TIMED_CALL", fn: metric, file, message: `Timed ${metric}.` },
+    () => Promise.resolve(operation()),
+    { metric },
+  );
 }
 
 export default logger;

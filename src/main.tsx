@@ -4,6 +4,7 @@ import { startNetworkTrace } from "./lib/networkTracer";
 import { runCacheBuster, stripCacheBusterParam } from "./lib/cacheBuster";
 import { installImageFallback } from "./lib/imageFallback";
 import { installImageErrorReporter } from "./lib/reportImageError";
+import { installTelemetry } from "./lib/telemetry";
 import { installOverlayUnfreeze } from "./lib/unfreezeStuckOverlay";
 import { initNativeAuthDeepLink } from "./lib/native/authDeepLink";
 import { installZoomPolicy } from "./lib/native/zoomPolicy";
@@ -78,6 +79,11 @@ installZoomPolicy();
  * Swapping these two lines would silently disable the reporting again.
  */
 installImageErrorReporter();
+
+// S2-A: uncaught errors, unhandled rejections, realtime subscribe status and
+// app starts, batched every 15 s through record_client_telemetry. Installed
+// once, before the app mounts, on the website and in the app's WebView.
+installTelemetry();
 
 /**
  * "after just a touch report content entire screen got freezed. until app

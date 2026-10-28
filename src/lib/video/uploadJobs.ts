@@ -44,6 +44,7 @@
  * substitutes content. From `ready` on it is the device path's own publish.
  * ─────────────────────────────────────────────────────────────────────────────
  */
+import { recordTiming } from "@/lib/telemetry";
 import { backoffMs } from "@/lib/offline/outbox";
 import { isNetworkError } from "@/lib/offline/retryPolicy";
 
@@ -190,7 +191,10 @@ export type JobEvent = { type: "changed"; job: VideoJob } | { type: "failed"; jo
   | { type: "removed"; job: VideoJob };
 const listeners = new Set<(e: JobEvent) => void>();
 export function subscribeVideoJobs(fn: (e: JobEvent) => void) { listeners.add(fn); return () => { listeners.delete(fn); }; }
-function emit(e: JobEvent) { listeners.forEach((l) => { try { l(e); } catch { /* never break the runner */ } }); }
+function emit(e: JobEvent) {
+  // S2-A: a video upload's outcome (published / failed) feeds "upload failure %".
+  if (e.type === "published" || e.type === "failed") recordTiming("upload.video", Date.now() - e.job.createdAt, e.type === "published");
+  listeners.forEach((l) => { try { l(e); } catch { /* never break the runner */ } }); }
 
 /** v4 UUID; safeRandomUUID = Web Crypto's when present, never a blank page on an old WebView. */
 function newKey(): string {
