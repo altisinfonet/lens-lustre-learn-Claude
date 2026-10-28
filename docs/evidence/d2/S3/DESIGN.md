@@ -198,6 +198,7 @@ profile grid, comments overlay) are not yet merged into `PostCard`.
   `/api/media/photo-token` to `SITE_API` and wires the pass fetcher once staging
   serves the route — the required "App origin journey" check probes every listed
   route on live staging, so a route is listed only after it is deployed.
+  S3-d2 (done): route listed, `fetchPassesFromMinter` is the default fetcher.
 * **Revocation.** Unfriending takes effect for new passes at once; a pass already
   issued keeps working until it expires (≤ 1 h). Owner decision O-2 if shorter is wanted.
 * **What stays open (O-1).** The friends-only ORIGINAL keeps its public URL for
