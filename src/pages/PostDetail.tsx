@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { timedRpc } from "@/lib/logger";
 import { useBlockedUsers } from "@/hooks/core/useBlockedUsers";
 import { publicUrl } from "@/lib/publicUrl";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
@@ -98,11 +99,13 @@ const PostDetail = () => {
     if (!postId) return;
     const load = async () => {
       setLoading(true);
-      const { data: rawPost, error } = await supabase
-        .from("posts")
-        .select("*")
-        .eq("id", postId)
-        .maybeSingle();
+      const { data: rawPost, error } = await timedRpc("post.open", "src/pages/PostDetail.tsx", () =>
+        supabase
+          .from("posts")
+          .select("*")
+          .eq("id", postId)
+          .maybeSingle(),
+      );
 
       if (error || !rawPost) {
         setNotFound(true);

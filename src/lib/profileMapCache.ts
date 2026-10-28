@@ -34,7 +34,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { QueryClient } from "@tanstack/react-query";
 import { profilesPublic } from "@/lib/profilesPublic";
 
-import { logger } from "@/lib/logger";
+import { logger, timedRpc } from "@/lib/logger";
 
 const FILE = "src/lib/profileMapCache.ts";
 
@@ -335,7 +335,7 @@ async function rawFetchProfileMap(
     withRetry(() => profilesPublic().select("id, full_name, avatar_url, custom_url").in("id", sortedIds)),
     supabase.from("user_badges").select("user_id, badge_type").in("user_id", sortedIds),
     // F2: anon-safe RPC; returns only registered_photographer/student/content_editor
-    supabase.rpc("get_public_roles_for_users", { _user_ids: sortedIds } as any),
+    timedRpc("rpc.get_public_roles_for_users", FILE, () => supabase.rpc("get_public_roles_for_users", { _user_ids: sortedIds } as any)),
     // Presence (online dot). last_active_at is readable ONLY by authenticated users
     // (and null for users who hid their active status), so for anon this query
     // returns an error we ignore -> no dots for logged-out visitors, by design.
