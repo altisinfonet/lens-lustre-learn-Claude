@@ -18,6 +18,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { fetchFeatureAllowed } from "@/hooks/core/useFeatureAllowed";
+import { SITE_API, siteFetch } from "@/lib/net/siteApi";
 
 export interface ResolvedRow {
   post_id: string;
@@ -86,6 +87,7 @@ export async function ladderSwitchOn(now: number = Date.now()): Promise<boolean>
 export function __resetResolvedMediaForTests(): void {
   switchCache = null;
   registry.clear();
+  passes.clear();
 }
 
 /** Rows → per-post slides. Exported for tests. */
@@ -120,10 +122,59 @@ export async function fetchResolvedMediaMap(postIds: readonly string[]): Promise
       if (error) return new Map();
       if (Array.isArray(data)) rows.push(...(data as ResolvedRow[]));
     }
-    return groupResolved(rows);
+    return groupResolved(await withPhotoPasses(rows));
   } catch {
     return new Map();
   }
+}
+
+// ── S3-d: friends-only / only-me derivatives need a photo pass ──────────────
+const PASS_MARGIN_S = 300;
+const passes = new Map<string, { token: string; exp: number }>();
+
+export function isPrivatePhotoUrl(url: string): boolean {
+  try { return new URL(url).pathname.startsWith("/photo/"); } catch { return false; }
+}
+
+async function fetchPhotoPasses(postIds: string[]): Promise<void> {
+  const { data } = await supabase.auth.getSession();
+  const jwt = data.session?.access_token;
+  if (!jwt) return;
+  const res = await siteFetch(SITE_API.mediaPhotoToken, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${jwt}` },
+    body: JSON.stringify({ post_ids: postIds }),
+  });
+  if (!res.ok) return;
+  const b = (await res.json()) as { tokens?: Record<string, string>; expires_at?: number };
+  if (!b.tokens || typeof b.expires_at !== "number") return;
+  for (const [mediaId, token] of Object.entries(b.tokens)) {
+    if (typeof token === "string" && /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token)) passes.set(mediaId, { token, exp: b.expires_at });
+  }
+}
+
+/**
+ * Private rows get `?t=<pass>`. A post with ANY private row that has no pass is
+ * dropped whole (it falls back to today's path) — never shown half-broken.
+ * Exported for tests.
+ */
+export async function withPhotoPasses(rows: ResolvedRow[], nowS: number = Math.floor(Date.now() / 1000)): Promise<ResolvedRow[]> {
+  const priv = rows.filter((r) => isPrivatePhotoUrl(r.url));
+  if (priv.length === 0) return rows;
+  const fresh = (id: string) => { const p = passes.get(id); return p && p.exp - nowS > PASS_MARGIN_S ? p.token : null; };
+  const need = [...new Set(priv.filter((r) => !fresh(r.media_id)).map((r) => r.post_id))];
+  for (let i = 0; i < need.length; i += BATCH) {
+    try { await fetchPhotoPasses(need.slice(i, i + BATCH)); } catch { /* fall back below */ }
+  }
+  const dropped = new Set<string>();
+  const out: ResolvedRow[] = [];
+  for (const r of rows) {
+    if (!isPrivatePhotoUrl(r.url)) { out.push(r); continue; }
+    const t = fresh(r.media_id);
+    if (!t) { dropped.add(r.post_id); continue; }
+    out.push({ ...r, url: `${r.url}?t=${encodeURIComponent(t)}` });
+  }
+  return dropped.size ? out.filter((r) => !dropped.has(r.post_id)) : out;
 }
 
 /**

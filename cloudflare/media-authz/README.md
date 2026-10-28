@@ -44,3 +44,18 @@ then repeat step 7.
 The handler still passes non-video paths to the origin (`fetch(request)`) as a safety net, but with the route limited to
 `<lane cdn host>/video/*` no photo request ever reaches the Worker. Step 7's photo comparison is the proof; if it differs,
 remove the route.
+
+## S3-d · the `photo/` branch (friends-only / only-me photo derivatives)
+Design: `docs/evidence/d2/S3/DESIGN.md` §10. Same Worker, same bindings (`MEDIA` = the lane's **video** bucket,
+`MEDIA_TOKEN_KEY`), same copy-paste deploy of the rebuilt `worker.js`. Staging first.
+1. Paste the new `worker.js` into `media-authz-staging` → Save and deploy. Re-run step 7 above (video unchanged).
+2. Settings → Domains & Routes → **add** route `<lane cdn host>/photo/*` → this Worker (keep `/video/*`; never `/*`).
+3. Verify (all must hold, else remove the `/photo/*` route):
+   - `curl -sI https://<lane cdn host>/photo/x` → `404` (unknown key shape, from the Worker);
+   - `curl -sI "https://<lane cdn host>/photo/<owner>/<media>/w1080.webp"` for a stored private derivative → **`403`**, zero bytes (anonymous fetch);
+   - the same with `?t=<pass from /api/media/photo-token>` → `200 image/webp`, `cache-control: private, max-age=3600`;
+   - `curl -sI https://<lane cdn host>/%70hoto/x` → `403`/`404`, never `200` (the photo bucket holds no `photo/` objects: R2 → photo bucket → prefix `photo/` → 0 objects);
+   - one public photo: same status / ETag / Content-Type as before (it never reaches the Worker).
+4. Only then the Pages variable `PHOTO_DELIVERY_PRIVATE=1` on that lane (the pass minter answers 503 until it is).
+5. Only then may the supervisor turn the switch `media_private_photos` to *Selected members*.
+Free plan: only friends-only / only-me derivative requests reach the Worker (100k requests/day cap).

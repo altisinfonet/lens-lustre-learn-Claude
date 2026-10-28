@@ -51,6 +51,7 @@
  */
 import { verifyPlayToken, importTokenKey } from "../../src/lib/video/shared/playToken";
 import { contentTypeFor, isAllowedFileName } from "../../src/lib/video/shared/rules";
+import { PHOTO_KEY_RE, verifyPhotoToken } from "../../src/lib/media/photoToken";
 
 export interface R2ObjectLike {
   size: number;
@@ -135,11 +136,12 @@ export async function handleMediaRequest(req: Request, env: MediaAuthzEnv, deps:
   // SEC-VID-12: on the restricted prefixes the key must be spelled plainly. An encoded
   // separator (%2F, %5C) or a "." segment names the same object by another spelling, so
   // it is refused rather than normalised. Photos keep today's pass-through untouched.
-  if (/^(video|upload)\//.test(key) && (/%2f|%5c/i.test(url.pathname) || key.split("/").includes("."))) {
+  if (/^(video|upload|photo)\//.test(key) && (/%2f|%5c/i.test(url.pathname) || key.split("/").includes("."))) {
     return refuse(400, req, env);
   }
 
   if (key.startsWith("upload/")) return refuse(404, req, env);
+  if (key.startsWith("photo/")) return handlePhoto(req, url, key, env, deps);
   if (!key.startsWith("video/")) return deps.passthrough(req);
 
   // ── video/ ─────────────────────────────────────────────────────────────────
@@ -211,4 +213,63 @@ export async function handleMediaRequest(req: Request, env: MediaAuthzEnv, deps:
   };
   if (etag && !isPlaylist) headers.etag = etag;
   return new Response(req.method === "HEAD" ? null : out, { status: 200, headers });
+}
+
+/**
+ * S3-d · `photo/<owner>/<media>/w{600,1080,1440}.webp` — friends-only / only-me
+ * DERIVATIVES (docs/evidence/d2/S3/DESIGN.md). They live in the video bucket
+ * (binding MEDIA, no public domain), so this Worker is the only way to them.
+ * Photo pass required (src/lib/media/photoToken.ts — "p1", never a video token).
+ * No pass / bad pass / expired → 403, zero bytes, R2 never read. Unknown key
+ * shape → 404. Misconfigured → 503 on photo/ only. Cached only after the check,
+ * token-free, off the zone — as for video. Route: `<cdn host>/photo/*` (Owner).
+ */
+async function handlePhoto(req: Request, url: URL, key: string, env: MediaAuthzEnv, deps: MediaAuthzDeps): Promise<Response> {
+  if (req.method === "OPTIONS") {
+    const cors = corsHeaders(req, env);
+    if (!cors["access-control-allow-origin"]) return refuse(403, req, env);
+    return new Response(null, {
+      status: 204,
+      headers: { ...cors, "access-control-allow-methods": "GET, HEAD", "access-control-max-age": "86400", "cache-control": "no-store" },
+    });
+  }
+  if (req.method !== "GET" && req.method !== "HEAD") return refuse(405, req, env, { allow: "GET, HEAD, OPTIONS" });
+  if (!PHOTO_KEY_RE.test(key)) return refuse(404, req, env);
+  const keyB64 = env.MEDIA_TOKEN_KEY;
+  if (!keyB64) return refuse(503, req, env);
+  try {
+    await importTokenKey(keyB64);
+  } catch {
+    return refuse(503, req, env);
+  }
+  const verdict = await verifyPhotoToken(url.searchParams.get("t"), key, url.hostname, Math.floor(deps.nowMs() / 1000), keyB64);
+  if (!verdict.ok) return refuse(403, req, env);
+
+  const cacheReq = new Request(`${CACHE_HOST}/${url.hostname}/${key}`);
+  let bytes: Uint8Array;
+  let etag = "";
+  const hit = deps.cache ? await deps.cache.match(cacheReq) : undefined;
+  if (hit) {
+    bytes = new Uint8Array(await hit.arrayBuffer());
+    etag = hit.headers.get("etag") ?? "";
+  } else {
+    const obj = await env.MEDIA.get(key);
+    if (!obj) return refuse(404, req, env);
+    bytes = new Uint8Array(await obj.arrayBuffer());
+    etag = obj.httpEtag;
+    if (deps.cache && req.method === "GET") {
+      deps.waitUntil(deps.cache.put(cacheReq, new Response(bytes.slice(), {
+        headers: { etag, "content-type": "image/webp", "cache-control": "public, max-age=31536000, immutable" },
+      })));
+    }
+  }
+  const headers: Record<string, string> = {
+    "content-type": "image/webp",
+    "x-content-type-options": "nosniff",
+    "content-security-policy": "sandbox; default-src 'none'",
+    "cache-control": "private, max-age=3600",
+    ...corsHeaders(req, env),
+  };
+  if (etag) headers.etag = etag;
+  return new Response(req.method === "HEAD" ? null : bytes, { status: 200, headers });
 }

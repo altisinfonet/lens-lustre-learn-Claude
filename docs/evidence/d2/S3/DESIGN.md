@@ -175,3 +175,26 @@ Known, outside S3-c (listed in the report): notification thumbnails come from th
 notifications RPC (`posts.image_url`, the original) and drafts / scheduled lists
 read their own tables; the four hand-rolled card renderers (hashtag, landing,
 profile grid, comments overlay) are not yet merged into `PostCard`.
+
+## 10. Addendum (S3-d) — private delivery for friends-only / only-me photos
+
+* **Where the bytes are.** Private derivatives are written by the S3-b worker to
+  the VIDEO bucket (`photo/<owner>/<media>/w<rung>.webp`), which has no public
+  domain; the photo bucket never holds a `photo/` object, so an encoded path
+  (`%70hoto/…`) that skips the Worker route finds nothing.
+* **Who serves them.** The media-authz Worker on route `<cdn>/photo/*`: a photo
+  pass is required (`src/lib/media/photoToken.ts`, version `p1`, same
+  `MEDIA_TOKEN_KEY` as video, prefix `photo/<owner>/<media>/`, 1 h). No pass →
+  403 with zero bytes; a video play token never opens a photo. Cached only after
+  the check, token-free; clients get `private, max-age=3600`.
+* **Who gets a pass.** `POST /api/media/photo-token {post_ids}` calls
+  `post_media_resolved_for` AS THE MEMBER, so `can_view_post` and both switches
+  decide; it signs only `photo/` URLs that call returned, on this lane's CDN host.
+  Gated by Pages `PHOTO_DELIVERY_PRIVATE=1` (503 until the route is live).
+* **Client.** Private rows get `?t=<pass>`; a post with any private row lacking a
+  pass falls back whole to today's path. Passes are reused until 5 min before expiry.
+* **Revocation.** Unfriending takes effect for new passes at once; a pass already
+  issued keeps working until it expires (≤ 1 h). Owner decision O-2 if shorter is wanted.
+* **What stays open (O-1).** The friends-only ORIGINAL keeps its public URL for
+  old builds; D-002 is closed for what the new client shows, not for that URL.
+  `PrivacyGapNotice` and its test stay.
