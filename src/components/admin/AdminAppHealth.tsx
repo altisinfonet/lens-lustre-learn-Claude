@@ -83,9 +83,21 @@ export default function AdminAppHealth() {
       rpc("admin_health_daily", { _days: 7 }),
       fetch(SYNTHETIC_URL, { cache: "no-store" }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))),
     ]);
-    if (d.status === "fulfilled" && !d.value.error && d.value.data && typeof d.value.data === "object") setDaily(d.value.data as Daily);
+    if (d.status === "fulfilled" && !d.value.error && d.value.data && typeof d.value.data === "object") {
+      // Shape guard: a partial payload must not take down the Health tab.
+      const v = d.value.data as Partial<Daily>;
+      const arr = <T,>(x: T[] | undefined) => (Array.isArray(x) ? x : []);
+      setDaily({ days: Number(v.days) || 7, timings: arr(v.timings), builds: arr(v.builds), realtime: arr(v.realtime), uploads: arr(v.uploads) });
+    }
     else setDailyErr(d.status === "fulfilled" ? d.value.error?.message ?? "no data" : "request failed");
-    if (s.status === "fulfilled" && s.value && typeof s.value === "object") setSyn(s.value as Synthetic);
+    const sv = s.status === "fulfilled" ? (s.value as Partial<Synthetic> | null) : null;
+    if (sv && typeof sv === "object" && sv.lanes && typeof sv.lanes === "object") {
+      const lanes: Synthetic["lanes"] = {};
+      for (const [k, l] of Object.entries(sv.lanes)) {
+        if (l && typeof l === "object") lanes[k] = { probes: l.probes && typeof l.probes === "object" ? l.probes : {}, est_egress_per_1k_feed_views_mb: Number(l.est_egress_per_1k_feed_views_mb) || 0, feed_page_images: Number(l.feed_page_images) || 0 };
+      }
+      setSyn({ at: String(sv.at ?? ""), window: Number(sv.window) || 0, problems: Array.isArray(sv.problems) ? sv.problems.map(String) : [], lanes });
+    }
     else setSynErr(true);
     setLoading(false);
   }, []);
@@ -163,7 +175,7 @@ export default function AdminAppHealth() {
         ) : (
           <>
             <p className="text-xs text-muted-foreground mb-2">
-              Measured {new Date(syn.at).toLocaleString()} · p95 over the last {syn.window} runs ·{" "}
+              Measured {syn.at ? new Date(syn.at).toLocaleString() : "—"} · p95 over the last {syn.window} runs ·{" "}
               {syn.problems.length ? <span className="text-destructive">{syn.problems.join("; ")}</span> : "all up, under thresholds"}
             </p>
             <table className="w-full text-sm">
