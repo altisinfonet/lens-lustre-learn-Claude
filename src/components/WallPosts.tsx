@@ -183,6 +183,8 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   useFeedRealtime({
     userId: user?.id,
     relevantUserIds: useMemo(() => [targetUserId], [targetUserId]),
+    // S6-b: the wall posts held are the posts watched live (filtered bindings).
+    watchPostIds: useMemo(() => posts.map((p: UnifiedPost) => p.id), [posts]),
     onNewPost: useCallback(() => { refetch(); }, [refetch]),
     // Counters always (the `posts` row is authoritative and is now their only
     // writer); content only for someone else's post, so a server row arriving
@@ -201,12 +203,6 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
             },
       );
     }, [patchWallPost]),
-    onDeletePost: useCallback((postId: string) => {
-      queryClient.setQueryData<any>(["user-wall-posts", targetUserId], (old: any) => {
-        if (!old?.pages) return old;
-        return { ...old, pages: old.pages.map((page: any) => ({ ...page, posts: page.posts.filter((p: UnifiedPost) => p.id !== postId) })) };
-      });
-    }, [queryClient, targetUserId]),
     onReactionChange: handleWallReactionChange,
   });
 

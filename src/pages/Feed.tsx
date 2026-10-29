@@ -269,10 +269,6 @@ const Feed = () => {
     );
   }, [patchPost]);
 
-  const handleDeletePost = useCallback((postId: string) => {
-    removePost(postId);
-  }, [removePost]);
-
   /**
    * ⚠ THIS NO LONGER TOUCHES `like_count`, AND THAT IS THE POINT.
    *
@@ -289,12 +285,14 @@ const Feed = () => {
     );
   }, [patchPost]);
 
+  // S6-b: the posts on screen are the posts watched live (filtered bindings).
+  const watchPostIds = useMemo(() => posts.map((p) => p.id), [posts]);
   useFeedRealtime({
     userId: user?.id,
     relevantUserIds,
+    watchPostIds,
     onNewPost: handleNewPost,
     onUpdatePost: handleUpdatePost,
-    onDeletePost: handleDeletePost,
     onReactionChange: handleReactionChange,
   });
 

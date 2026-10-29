@@ -8,7 +8,7 @@
  * twice, and `removeChannel` on either one tearing the topic out from under the
  * other.
  *
- * `useIsPrimaryInstance` exists for precisely this and was already applied to
+ * (Before S6-b) `useIsPrimaryInstance` existed for precisely this and was already applied to
  * the notification bell. This asserts it is applied to the feed hook too, and
  * that the effect re-runs when leadership moves — otherwise a promoted instance
  * would never subscribe and the feed would go silent instead of duplicating.
@@ -29,32 +29,26 @@ const code = (p: string) => stripComments(read(p))
 
 const hook = code("src/hooks/feed/useRealtimeFeed.ts");
 
+// S6-b (2026-10-29): the election is replaced by ONE shared channel owned by
+// src/lib/realtime/feedLive.ts — every consumer registers with it, so two
+// mounts can neither duplicate the topic nor leave the feed deaf.
+const live = code("src/lib/realtime/feedLive.ts");
+const feedHook = hook.slice(
+  hook.indexOf("export function useFeedRealtime"),
+  hook.indexOf("export function useNotificationRealtime"),
+);
+
 describe("the feed realtime channel is a singleton per client", () => {
-  it("guards useFeedRealtime with useIsPrimaryInstance", () => {
-    const feedHook = hook.slice(
-      hook.indexOf("export function useFeedRealtime"),
-      hook.indexOf("export function useNotificationRealtime"),
-    );
-    expect(feedHook.length, "useFeedRealtime not found before useNotificationRealtime")
-      .toBeGreaterThan(200);
-    expect(feedHook).toMatch(/useIsPrimaryInstance\(/);
-    expect(feedHook).toMatch(/if \(!userId \|\| !isPrimary\) return;/);
+  it("useFeedRealtime opens no channel of its own: it registers with the shared feed-live channel", () => {
+    expect(feedHook.length, "useFeedRealtime not found before useNotificationRealtime").toBeGreaterThan(200);
+    expect(feedHook).not.toMatch(/\.channel\(/);
+    expect(feedHook).toMatch(/addFeedLiveConsumer\(/);
   });
 
-  it("keys the guard per user, so a re-login starts a new group", () => {
-    expect(hook).toMatch(/useIsPrimaryInstance\(userId \? `feed-realtime:\$\{userId\}` : ""\)/);
-  });
-
-  it("re-subscribes when leadership moves, or a promoted instance stays silent", () => {
-    const feedHook = hook.slice(
-      hook.indexOf("export function useFeedRealtime"),
-      hook.indexOf("export function useNotificationRealtime"),
-    );
-    expect(feedHook).toMatch(/\}, \[userId, isPrimary\]\)/);
-  });
-
-  it("still tears the channel down on unmount", () => {
-    expect(hook).toMatch(/removeChannel\(channel\)/);
+  it("the shared module opens exactly one channel object, per user, and removes the previous one first", () => {
+    expect(live.match(/supabase\.channel\(/g) ?? []).toHaveLength(1);
+    expect(live).toMatch(/supabase\.channel\(`feed-live:\$\{f\.userId\}:/);
+    expect(live.indexOf("removeChannel(channel)")).toBeLessThan(live.indexOf("supabase.channel("));
   });
 
   it("the notification bell keeps its own guard — this change must not remove it", () => {
