@@ -24,7 +24,11 @@ export const SYNTHETIC_URL =
 const FEED_METRICS = ["rpc.get_broadcast_feed", "rpc.get_personal_feed"];
 
 interface Timing { day: string; metric: string; n: number; p50: number; p95: number; p99: number; fail_pct: number }
-interface Build { day: string; platform: string; app_build: string; starts: number; errors: number; errors_per_100_starts: number | null }
+/** crashes / oom / anr come from 20261031_0100 (native exits); absent on a lane without it. */
+interface Build {
+  day: string; platform: string; app_build: string; starts: number; errors: number; errors_per_100_starts: number | null;
+  crashes?: number; oom?: number; anr?: number;
+}
 interface Rate { day: string; attempts: number; failures: number; fail_pct: number }
 export interface Daily { days: number; timings: Timing[]; builds: Build[]; realtime: Rate[]; uploads: Rate[] }
 interface SynProbe { ok: boolean; status: number; ttfb: number | null; p95: number | null }
@@ -41,19 +45,31 @@ export function yesterdayUtc(now = new Date()): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Per build over the whole window: app starts, errors, errors per 100 starts. */
+const per100 = (n: number, starts: number) => (starts > 0 ? Math.round((10000 * n) / starts) / 100 : null);
+
+/**
+ * Per build over the whole window: app starts, JS errors, native crashes, out-of-memory
+ * kills and ANRs, with errors and (crashes + OOM) per 100 starts.
+ * `native` is false when no row carries the native columns (lane without 20261031_0100).
+ */
 export function buildsOverWindow(builds: Build[]) {
-  const m = new Map<string, { platform: string; app_build: string; starts: number; errors: number }>();
+  const m = new Map<string, { platform: string; app_build: string; starts: number; errors: number; crashes: number; oom: number; anr: number }>();
+  let native = false;
   for (const b of builds) {
     const k = `${b.platform}|${b.app_build}`;
-    const cur = m.get(k) ?? { platform: b.platform, app_build: b.app_build, starts: 0, errors: 0 };
+    const cur = m.get(k) ?? { platform: b.platform, app_build: b.app_build, starts: 0, errors: 0, crashes: 0, oom: 0, anr: 0 };
     cur.starts += Number(b.starts) || 0;
     cur.errors += Number(b.errors) || 0;
+    if (b.crashes != null || b.oom != null || b.anr != null) native = true;
+    cur.crashes += Number(b.crashes) || 0;
+    cur.oom += Number(b.oom) || 0;
+    cur.anr += Number(b.anr) || 0;
     m.set(k, cur);
   }
-  return [...m.values()]
-    .map((b) => ({ ...b, rate: b.starts > 0 ? Math.round((10000 * b.errors) / b.starts) / 100 : null }))
+  const rows = [...m.values()]
+    .map((b) => ({ ...b, rate: per100(b.errors, b.starts), crashRate: per100(b.crashes + b.oom, b.starts) }))
     .sort((a, b) => b.starts - a.starts);
+  return Object.assign(rows, { native });
 }
 
 const fmt = (v: number | null | undefined, unit = "") => (v == null ? "—" : `${v}${unit}`);
@@ -143,13 +159,19 @@ export default function AdminAppHealth() {
         <div className="overflow-x-auto">
           <h3 className="text-sm font-semibold mb-1">Crash rate per build (last {daily?.days ?? 7} days)</h3>
           <p className="text-xs text-muted-foreground mb-2">
-            Uncaught errors (window.onerror + unhandled promise rejections) per 100 app starts. Native crashes are not in this number.
+            {builds.native
+              ? "Crashes = the app closed by a crash (Java or native) or killed for memory while on screen (OOM), per 100 app starts, from Android's own record (Android 11+, app builds with the crash reader). ANR = Android closed the app because it stopped responding. Errors = uncaught script errors per 100 starts."
+              : "Uncaught errors (window.onerror + unhandled promise rejections) per 100 app starts. Native crashes are not in this number yet (database update 20261031_0100 not applied here)."}
           </p>
           <table className="w-full text-sm">
-            <thead><tr className="text-left text-muted-foreground"><th>Platform</th><th>Build</th><th className="text-right">Starts</th><th className="text-right">Errors</th><th className="text-right">Per 100 starts</th></tr></thead>
+            <thead><tr className="text-left text-muted-foreground"><th>Platform</th><th>Build</th><th className="text-right">Starts</th>
+              {builds.native && <><th className="text-right">Crashes</th><th className="text-right">OOM</th><th className="text-right">ANR</th><th className="text-right">Crashes per 100 starts</th></>}
+              <th className="text-right">Errors</th><th className="text-right">Errors per 100 starts</th></tr></thead>
             <tbody>
-              {builds.length === 0 ? <tr><td colSpan={5} className="text-muted-foreground">No data yet.</td></tr> : builds.map((b) => (
-                <tr key={`${b.platform}|${b.app_build}`}><td>{b.platform}</td><td className="font-mono">{b.app_build}</td><td className="text-right">{b.starts}</td><td className="text-right">{b.errors}</td><td className="text-right">{fmt(b.rate)}</td></tr>
+              {builds.length === 0 ? <tr><td colSpan={builds.native ? 9 : 5} className="text-muted-foreground">No data yet.</td></tr> : builds.map((b) => (
+                <tr key={`${b.platform}|${b.app_build}`}><td>{b.platform}</td><td className="font-mono">{b.app_build}</td><td className="text-right">{b.starts}</td>
+                  {builds.native && <><td className="text-right">{b.crashes}</td><td className="text-right">{b.oom}</td><td className="text-right">{b.anr}</td><td className="text-right">{fmt(b.crashRate)}</td></>}
+                  <td className="text-right">{b.errors}</td><td className="text-right">{fmt(b.rate)}</td></tr>
               ))}
             </tbody>
           </table>
