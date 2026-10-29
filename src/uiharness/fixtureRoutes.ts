@@ -191,6 +191,8 @@ const RPCS: Record<string, (body: Record<string, unknown>, params: URLSearchPara
    * columns or the harness would silently photograph the OLD code path.
    */
   get_broadcast_feed: () => posts,
+  /** S6-a · the same fixed list by cursor (feed_pos = the delivery position the client pages from). */
+  get_feed_page: (body) => posts.map((p, i) => ({ source: null, caught_up_after: false, ...p, feed_pos: Number(body._after ?? 0) + i + 1 })),
 
   /** The home page's Top Contributors card (2026-10-13): three ranked members of the fixture set. */
   get_top_contributors_v3: () => topContributors,

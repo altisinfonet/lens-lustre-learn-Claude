@@ -26,7 +26,10 @@ import { useProfileCore } from "@/hooks/profile/useProfileData";
 import { useIsBanned } from "@/hooks/core/useIsBanned";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadImageWithThumbnail } from "@/lib/imageUpload";
+import { createPhotoJob, runPhotoJob } from "@/lib/upload/photoJobs";
+import { photoResumeOn, realPhotoJobDeps } from "@/lib/upload/photoJobDeps";
 import { queryKeys } from "@/lib/queryKeys";
+import { isS3Enabled } from "@/lib/s3Upload";
 import { toast } from "@/hooks/core/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { Textarea } from "@/components/ui/textarea";
@@ -57,6 +60,7 @@ import {
   reportLegacyOnlyPublish,
   reportMediaPathFailure,
 } from "@/lib/media/postMediaWrite";
+import { recoverPostByKey } from "@/lib/upload/recoverPost";
 import type { StoredObjectFacts } from "@/lib/media/storedObject";
 import type { ReactionType } from "@/components/ReactionPicker";
 import type { UnifiedPost } from "@/types/post";
@@ -179,6 +183,8 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   useFeedRealtime({
     userId: user?.id,
     relevantUserIds: useMemo(() => [targetUserId], [targetUserId]),
+    // S6-b: the wall posts held are the posts watched live (filtered bindings).
+    watchPostIds: useMemo(() => posts.map((p: UnifiedPost) => p.id), [posts]),
     onNewPost: useCallback(() => { refetch(); }, [refetch]),
     // Counters always (the `posts` row is authoritative and is now their only
     // writer); content only for someone else's post, so a server row arriving
@@ -197,12 +203,6 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
             },
       );
     }, [patchWallPost]),
-    onDeletePost: useCallback((postId: string) => {
-      queryClient.setQueryData<any>(["user-wall-posts", targetUserId], (old: any) => {
-        if (!old?.pages) return old;
-        return { ...old, pages: old.pages.map((page: any) => ({ ...page, posts: page.posts.filter((p: UnifiedPost) => p.id !== postId) })) };
-      });
-    }, [queryClient, targetUserId]),
     onReactionChange: handleWallReactionChange,
   });
 
@@ -1135,6 +1135,52 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     }
   };
 
+  /**
+   * S5-b · post through the resumable photo job (src/lib/upload/photoJobs.ts).
+   * Returns false when this post must take today's path instead: switch off,
+   * no R2, a scheduled post, photo tags (written after the post exists), a
+   * photo the scan could not read, or one the encoder refused. The job id is
+   * this composition's idempotency key, so the post it makes is the post.
+   */
+  const tryResumablePost = async (): Promise<boolean> => {
+    if (!user || scheduleAt || pendingTags.length > 0 || selectedImages.length === 0) return false;
+    if (!(await photoResumeOn()) || !(await isS3Enabled().catch(() => false))) return false;
+    for (const f of selectedImages) {
+      let safe: boolean;
+      try { safe = await scanFileWithToast(f, toast, { allowedTypes: "image" }); } catch { return false; }
+      if (!safe) return true; // the scan already told the member; nothing is posted
+    }
+    const id = publishIdemKey.current;
+    try {
+      await createPhotoJob({
+        id, userId: user.id, files: selectedImages,
+        post: {
+          content: captionMentions.convert(newContent.trim()), privacy: newPrivacy,
+          categories: postCategories, indexingDisabled: excludeFromSearch,
+        },
+      });
+    } catch {
+      return false;
+    }
+    // On the device now: the composer is free, the post finishes on its own.
+    setNewContent("");
+    captionMentions.reset();
+    captionHashtags.reset();
+    setExcludeFromSearch(false);
+    setPostCategories([]);
+    clearAllImages();
+    closeComposer();
+    const j = await runPhotoJob(id, realPhotoJobDeps);
+    if (j?.step === "published") {
+      toast({ title: "Posted" });
+      await refetch();
+      queryClient.invalidateQueries({ queryKey: queryKeys.feedAll() });
+    } else if (j?.step !== "failed") {
+      toast({ title: "Saved on this device", description: "Your post will finish uploading when the connection is back." });
+    }
+    return true;
+  };
+
   const createPost = async () => {
     // ONE ACTION, ONE THREAD OF LOGS. Every line below carries this id, so
     // "show me everything that happened when Neil's post failed at 01:14"
@@ -1261,6 +1307,9 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
 
     setPosting(true);
     try {
+      // S5-b · the resumable path (switch `photo_upload_resume`, default OFF):
+      // the post is kept on the device and finishes even if the app is closed.
+      if (await tryResumablePost()) { setPosting(false); return; }
       const { uploadedUrls, uploadedThumbs, uploadedStored } = await uploadPhotos(correlationId);
       // Phase 3B — Schedule branch: divert INSERT to scheduled_posts (RLS-gated).
       // Window validated by DB trigger validate_scheduled_post_window (5min…90d).
@@ -1384,9 +1433,16 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           indexing_disabled: excludeFromSearch,
           // Stage C: same INSERT as the post itself. Never a second statement.
           categories: postCategories,
+          // S5: one upload id, one post — the key the media path already used.
+          idempotency_key: publishIdemKey.current,
         } as any).select("id").single();
-        newPost = legacy.data as { id: string } | null;
-        error = legacy.error;
+        const settled = await recoverPostByKey(
+          { data: legacy.data as { id: string } | null, error: legacy.error },
+          user.id,
+          publishIdemKey.current,
+        );
+        newPost = settled.data;
+        error = settled.error;
       }
       if (error) {
         // NOTHING HERE MAY MENTION A PROFILE PHOTO.

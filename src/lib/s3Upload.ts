@@ -131,6 +131,9 @@ async function invokePresignWithRetry(body: Record<string, unknown>) {
  * 4xx other than 403/429 are NOT retried: the request itself is wrong, and
  * repeating it just repeats the mistake.
  */
+// (Imported here, not at the top: the as-any baseline is keyed by line number.)
+import { putWithRetry as sharedPut } from "@/lib/upload/transport";
+
 async function putWithRetry(
   uploadUrl: string,
   file: File | Blob,
@@ -138,37 +141,28 @@ async function putWithRetry(
   label: string,
   onExpired?: () => Promise<string>,
 ): Promise<void> {
-  let url = uploadUrl;
-  let refreshed = false;
-  let lastErr: Error | null = null;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt > 0) await new Promise((r) => setTimeout(r, attempt === 1 ? 400 : 1200));
-    try {
-      const res = await fetch(url, { method: "PUT", body: file, headers: { "Content-Type": contentType } });
-      if (res.ok) return;
-      if (res.status === 403 && onExpired && !refreshed) {
-        // Presign likely outlived by the transfer. One fresh URL, same path.
-        refreshed = true;
-        url = await onExpired();
-        lastErr = new Error(`${label} upload got 403; re-presigned and retrying`);
-        continue;
-      }
-      if (res.status >= 500 || res.status === 429) {
-        lastErr = new Error(`${label} upload failed (${res.status}); retrying`);
-        continue;
-      }
-      const text = await res.text().catch(() => "");
-      throw new Error(`${label} upload failed (${res.status}): ${text.slice(0, 200)}`);
-    } catch (e) {
-      if (e instanceof TypeError) {
-        // Network drop mid-transfer — the retryable case this exists for.
-        lastErr = e;
-        continue;
-      }
-      throw e;
-    }
-  }
-  throw lastErr ?? new Error(`${label} upload failed after retries`);
+  // S5: the shared transport — XHR byte progress, stall timeout, backoff with
+  // jitter, re-presign on 403 for the SAME key. One copy for photo and video.
+  await sharedPut(uploadUrl, file, { label, headers: { "Content-Type": contentType }, represign: onExpired });
+}
+
+/**
+ * S5 · presign one object, or two in a single call (halves edge-worker
+ * pressure). Exported for the resumable photo job (src/lib/upload/photoJobs.ts),
+ * which presigns its own deterministic keys.
+ */
+export async function presignObjects(
+  objs: { path: string; contentType: string; size: number }[],
+  isPrivate = false,
+): Promise<{ uploadUrl: string; publicUrl: string | null; key: string }[]> {
+  const [a, b] = objs;
+  const data = await invokePresignWithRetry({
+    path: a.path, contentType: a.contentType, size: a.size, private: isPrivate,
+    ...(b ? { pair: { path: b.path, contentType: b.contentType, size: b.size } } : {}),
+  });
+  if (b && !data?.pair) throw new Error("Presign did not return pair URLs");
+  const one = { uploadUrl: data.uploadUrl as string, publicUrl: (data.publicUrl ?? null) as string | null, key: data.key as string };
+  return b ? [one, { uploadUrl: data.pair.uploadUrl, publicUrl: data.pair.publicUrl ?? null, key: data.pair.key }] : [one];
 }
 
 export async function uploadToS3(

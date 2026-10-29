@@ -123,7 +123,8 @@ describe("the composer is wired, the textarea is kept", () => {
     // kind of difference nobody would think to look for.
     expect(wall).toContain("useCaptionMentions");
     const conversions = wall.match(/captionMentions\.convert\(newContent\.trim\(\)\)/g) || [];
-    expect(conversions.length).toBe(4);
+    // S5-b: a fifth — the resumable photo job converts before it stores the caption.
+    expect(conversions.length).toBe(5);
   });
 
   it("the plain Textarea (with its over-limit overlay) survives — mentions did not replace it", () => {

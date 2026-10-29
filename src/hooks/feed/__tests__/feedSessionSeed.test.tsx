@@ -67,7 +67,7 @@ let qc: QueryClient;
 
 beforeEach(() => {
   localStorage.clear();
-  __resetSessionSeedRpcProbe();
+  __resetSessionSeedRpcProbe({ cursor: false }); // S6-a: these pin the _exclude_ids calls (feedPageCursor.test.tsx pins the cursor)
   feedCalls = [];
   rpc = (body) => ({ status: 200, body: deal(body) });
   fallback = () => ({ status: 200, body: POOL.slice(0, 10).map(({ feed_tier: _t, author_name: _n, author_avatar: _a, categories: _c, ...row }) => row) });

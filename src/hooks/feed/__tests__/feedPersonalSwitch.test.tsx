@@ -59,7 +59,7 @@ let qc: QueryClient;
 beforeEach(() => {
   localStorage.clear();
   clearFeedSessions();
-  __resetSessionSeedRpcProbe();
+  __resetSessionSeedRpcProbe({ cursor: false }); // S6-a: these pin the _exclude_ids calls (feedPageCursor.test.tsx pins the cursor)
   calls = [];
   flag = false;
   personalFails = false;

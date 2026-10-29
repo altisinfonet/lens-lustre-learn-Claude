@@ -1,171 +1,98 @@
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsPrimaryInstance } from "@/hooks/core/useIsPrimaryInstance";
+import { addFeedLiveConsumer, refreshFeedLive } from "@/lib/realtime/feedLive";
 
 /**
  * Realtime for the feed and the wall.
  *
- * Uses refs for all handlers so the channel is stable — only re-subscribes when
- * userId changes.
- *
  * ─────────────────────────────────────────────────────────────────────────────
- * ⚠ FOUR BINDINGS WERE REMOVED ON 2026-08-13, AND WHY THAT IS SAFE
+ * S6-b (2026-10-29): this hook no longer opens a channel. It registers with
+ * the ONE shared "feed-live" channel in `src/lib/realtime/feedLive.ts`, whose
+ * every binding carries a server-side filter (the posts this consumer holds,
+ * the authors it follows). Every mounted consumer — the feed, a wall, the
+ * composer on /feed — receives the events it asked for, so the old
+ * "primary instance" election (which could leave the feed deaf while the
+ * composer held the channel) is gone for this hook.
  *
- * This channel carried NINE bindings: `posts` INSERT/UPDATE/DELETE, plus
- * INSERT/DELETE on each of `post_reactions`, `post_comments` and `post_shares`
- * — the four busiest tables in the product, with no server-side filter. Every
- * write anywhere on the platform was broadcast to every connected client and
- * then discarded in JavaScript. At 500 concurrent members one reaction became
- * 500 messages so that 499 could `return`.
- *
- * The `post_comments` and `post_shares` bindings existed only to keep two
- * counters moving. They are gone, because those counters already arrive on the
- * `posts` UPDATE — verified against production, not assumed:
- *
- *     post_comments  → trg_update_post_comments_count → posts.comments_count
- *     post_shares    → trg_update_post_shares_count   → posts.shares_count
- *     post_reactions → trg_update_post_likes_count    → posts.likes_count
- *
- * The reason they were load-bearing anyway was a field-name mismatch on the
- * consumer side, described in full in `src/lib/feed/realtimeCounts.ts`.
- *
- * `post_reactions` STAYS. It is the one child table carrying something `posts`
- * does not: the per-reaction-type breakdown behind the emoji cluster. There is
- * no absolute source for that, so it keeps its delta path.
- *
- * ⚠ Do not "finish the job" by removing `post_reactions` too without replacing
- * the breakdown — the emoji cluster on every card is fed by it.
+ * History kept for the next reader:
+ *   · 2026-08-13 removed the post_comments / post_shares bindings — those
+ *     counters ride the `posts` UPDATE (trg_update_post_comments_count,
+ *     trg_update_post_shares_count, trg_update_post_likes_count); see
+ *     `src/lib/feed/realtimeCounts.ts` for the field-name mismatch that made
+ *     them look load-bearing.
+ *   · `post_reactions` INSERT STAYS: it is the only source of the per-type
+ *     breakdown behind the emoji cluster.
+ *   · S6-b removed the posts DELETE and post_reactions DELETE bindings:
+ *     Supabase cannot filter DELETE events, and an unfiltered binding sends
+ *     every delete on the platform to every client (decision S6-b-D1 in
+ *     feedLive.ts).
  */
 export function useFeedRealtime({
   userId,
   relevantUserIds,
+  watchPostIds,
   onNewPost,
   onUpdatePost,
-  onDeletePost,
   onReactionChange,
 }: {
   userId: string | undefined;
   relevantUserIds: string[];
+  /** The posts this screen holds: their edits, counts and reactions arrive live (≤ 100 used). */
+  watchPostIds: string[];
   onNewPost: (post: any) => void;
   /** `isOwnPost` lets a consumer take the counters but keep its own local content edit. */
   onUpdatePost: (post: any, isOwnPost: boolean) => void;
-  onDeletePost: (postId: string) => void;
   onReactionChange: (postId: string, event: "INSERT" | "DELETE", reaction: any) => void;
 }) {
-  // Store handlers + data in refs so channel callbacks always see latest values
-  const handlersRef = useRef({ onNewPost, onUpdatePost, onDeletePost, onReactionChange });
-  handlersRef.current = { onNewPost, onUpdatePost, onDeletePost, onReactionChange };
-
+  // Handlers + data in refs: the consumer is registered once per member.
+  const handlersRef = useRef({ onNewPost, onUpdatePost, onReactionChange });
+  handlersRef.current = { onNewPost, onUpdatePost, onReactionChange };
   const relevantIdsRef = useRef(relevantUserIds);
   relevantIdsRef.current = relevantUserIds;
-
+  const postIdsRef = useRef(watchPostIds);
+  postIdsRef.current = watchPostIds;
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
 
-  /**
-   * ⚠ THE SAME DEFECT THE BELL ALREADY FIXED, ON A SECOND HOOK.
-   *
-   * `/feed` mounts this hook TWICE: `Feed.tsx:167` directly, and again through
-   * `Feed.tsx:298`, which renders `<WallPosts composerOnly>` — and `composerOnly`
-   * gates only the JSX at `WallPosts.tsx:1834`, never the hook at
-   * `WallPosts.tsx:150`.
-   *
-   * The channel name is the fixed string "feed-live", so supabase-js created two
-   * channel objects on ONE topic. Every `posts` and `post_reactions` event was
-   * delivered and processed twice, and — the dangerous half —
-   * `removeChannel` on either one tears down the topic the other is still
-   * using, so unmounting the composer could silence the live feed.
-   *
-   * `useIsPrimaryInstance` was written for exactly this and applied to
-   * `useNotificationRealtime` below; it was never carried across to this hook.
-   * The key is per-user so signing out and in as somebody else starts a new
-   * group rather than inheriting a half-torn-down one.
-   */
-  const isPrimary = useIsPrimaryInstance(userId ? `feed-realtime:${userId}` : "");
-
   useEffect(() => {
-    if (!userId || !isPrimary) return;
+    if (!userId) return;
+    return addFeedLiveConsumer({
+      userId,
+      authorIds: () => relevantIdsRef.current,
+      postIds: () => postIdsRef.current,
+      onInsert: (p) => {
+        // Own posts are NOT skipped: this event is the designed path for a
+        // member's own new post to appear at the top instantly (Feed's
+        // handleNewPost own-post branch).
+        if (p.privacy === "public" || p.user_id === userIdRef.current || relevantIdsRef.current.includes(p.user_id)) {
+          handlersRef.current.onNewPost(p);
+        }
+      },
+      onUpdate: (p) => {
+        /**
+         * ⚠ OWN POSTS ARE NOT DROPPED HERE: a like on your photo is a `posts`
+         * UPDATE, and dropping it froze the counts on your own posts. The
+         * consumer decides whether a local content edit wins.
+         */
+        const isOwnPost = p.user_id === userIdRef.current;
+        if (isOwnPost || p.privacy === "public" || relevantIdsRef.current.includes(p.user_id)) {
+          handlersRef.current.onUpdatePost(p, isOwnPost);
+        }
+      },
+      onReaction: (r) => {
+        // Own reactions are already applied optimistically.
+        if (r.user_id === userIdRef.current) return;
+        handlersRef.current.onReactionChange(r.post_id, "INSERT", r);
+      },
+    });
+  }, [userId]);
 
-    const channel = supabase
-      .channel("feed-live")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "posts" },
-        (payload) => {
-          const p = payload.new as any;
-          // NOTE: own posts are NOT skipped here. The create flow (WallPosts
-          // composer) does not write into the feed cache, so this event is the
-          // designed path for a user's own post to appear instantly — Feed's
-          // handleNewPost has an own-post branch (insert at top + scroll) that
-          // was previously dead code because of a skip here.
-          if (p.privacy === "public" || p.user_id === userIdRef.current || relevantIdsRef.current.includes(p.user_id)) {
-            handlersRef.current.onNewPost(p);
-          }
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "posts" },
-        (payload) => {
-          const p = payload.new as any;
-          /**
-           * ⚠ OWN POSTS ARE NO LONGER DROPPED HERE.
-           *
-           * This used to `return` outright for your own posts, on the reasoning
-           * that an edit you made is already applied locally. True for CONTENT
-           * — and it also silently threw away every COUNTER change on your own
-           * posts. Somebody liking your photo produced a `posts` UPDATE that
-           * this line discarded, so the count only moved because a separate
-           * `post_reactions` binding happened to catch it. Remove that binding
-           * (as 2026-08-13 did for comments and shares) and the counts on your
-           * own posts would quietly stop moving.
-           *
-           * The flag is passed on instead of decided here: the consumer knows
-           * whether it has a local edit worth protecting. See
-           * `src/lib/feed/realtimeCounts.ts`.
-           */
-          const isOwnPost = p.user_id === userIdRef.current;
-          if (isOwnPost || p.privacy === "public" || relevantIdsRef.current.includes(p.user_id)) {
-            handlersRef.current.onUpdatePost(p, isOwnPost);
-          }
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "DELETE", schema: "public", table: "posts" },
-        (payload) => {
-          const old = payload.old as any;
-          // Skip own post deletes — already removed locally
-          if (old?.user_id === userIdRef.current) return;
-          if (old?.id) handlersRef.current.onDeletePost(old.id);
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "post_reactions" },
-        (payload) => {
-          const r = payload.new as any;
-          // Skip own reactions — already handled optimistically
-          if (r.user_id === userIdRef.current) return;
-          handlersRef.current.onReactionChange(r.post_id, "INSERT", r);
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "DELETE", schema: "public", table: "post_reactions" },
-        (payload) => {
-          const r = payload.old as any;
-          // Skip own reaction removals — already handled optimistically
-          if (r.user_id === userIdRef.current) return;
-          handlersRef.current.onReactionChange(r.post_id, "DELETE", r);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [userId, isPrimary]); // Re-subscribe when the user changes, or when this instance is promoted
+  // The filter lists follow what is on screen (debounced rebuild in feedLive).
+  const filterKey = `${relevantUserIds.join(",")}|${watchPostIds.slice(0, 100).join(",")}`;
+  useEffect(() => {
+    if (userId) refreshFeedLive();
+  }, [userId, filterKey]);
 }
 
 /**

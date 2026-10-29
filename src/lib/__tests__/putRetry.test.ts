@@ -22,6 +22,7 @@ vi.mock("@/integrations/supabase/client", () => ({
 }));
 
 import { uploadToS3 } from "@/lib/s3Upload";
+import { __setPutSend, PUT_MAX_ATTEMPTS } from "@/lib/upload/transport";
 import { supabase } from "@/integrations/supabase/client";
 
 const okPresign = {
@@ -33,10 +34,14 @@ describe("putWithRetry via uploadToS3", () => {
   const realFetch = global.fetch;
   beforeEach(() => {
     vi.useFakeTimers();
+    // S5: the PUT is the shared transport's XHR; bridge it to the mocked fetch
+    // so each test still scripts the server's answers in one place.
+    __setPutSend(async (url) => (await (global.fetch as any)(url, { method: "PUT" })).status);
     (supabase.functions.invoke as ReturnType<typeof vi.fn>).mockResolvedValue(okPresign);
   });
   afterEach(() => {
     global.fetch = realFetch;
+    __setPutSend(null);
     vi.useRealTimers();
     vi.clearAllMocks();
   });
@@ -64,7 +69,7 @@ describe("putWithRetry via uploadToS3", () => {
     p.catch(() => {}); // observed below; avoids unhandled-rejection noise under fake timers
     await vi.runAllTimersAsync();
     await expect(p).rejects.toThrow(/500/);
-    expect((global.fetch as any).mock.calls.length).toBe(3); // capped, not infinite
+    expect((global.fetch as any).mock.calls.length).toBe(PUT_MAX_ATTEMPTS); // capped, not infinite
   });
 
   it("a 400 is NOT retried — a wrong request repeated is still wrong", async () => {

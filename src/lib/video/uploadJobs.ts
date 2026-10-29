@@ -47,6 +47,7 @@
 import { recordTiming } from "@/lib/telemetry";
 import { backoffMs } from "@/lib/offline/outbox";
 import { isNetworkError } from "@/lib/offline/retryPolicy";
+import { idbUploadStore, memoryUploadStore, type UploadJobStore } from "@/lib/upload/jobStore";
 
 /** Postgres says "try again", not "no": statement/lock timeout, serialisation, deadlock. */
 const RETRYABLE_DB_CODES = new Set(["57014", "55P03", "40001", "40P01"]);
@@ -92,69 +93,10 @@ export interface VideoJob {
 
 /* ── storage (jobs + their files) ───────────────────────────────────────── */
 
-export interface JobStore {
-  allJobs(): Promise<VideoJob[]>;
-  putJob(j: VideoJob): Promise<void>;
-  deleteJob(id: string): Promise<void>;
-  putFile(jobId: string, name: string, data: Blob): Promise<void>;
-  getFile(jobId: string, name: string): Promise<Blob | null>;
-  deleteFiles(jobId: string): Promise<void>;
-  clear(): Promise<void>;
-}
-
-export function memoryJobStore(): JobStore & { jobs: Map<string, VideoJob>; files: Map<string, Blob> } {
-  const jobs = new Map<string, VideoJob>();
-  const files = new Map<string, Blob>();
-  const clone = (j: VideoJob) => JSON.parse(JSON.stringify(j)) as VideoJob;
-  return {
-    jobs, files,
-    allJobs: async () => [...jobs.values()].map(clone),
-    putJob: async (j) => { jobs.set(j.id, clone(j)); },
-    deleteJob: async (id) => { jobs.delete(id); },
-    putFile: async (id, n, d) => { files.set(`${id}/${n}`, d); },
-    getFile: async (id, n) => files.get(`${id}/${n}`) ?? null,
-    deleteFiles: async (id) => { for (const k of [...files.keys()]) if (k.startsWith(`${id}/`)) files.delete(k); },
-    clear: async () => { jobs.clear(); files.clear(); },
-  };
-}
-
-function idbJobStore(): JobStore | null {
-  if (typeof indexedDB === "undefined" || !indexedDB) return null;
-  let dbp: Promise<IDBDatabase> | null = null;
-  const open = () => {
-    if (!dbp) {
-      dbp = new Promise((resolve, reject) => {
-        const req = indexedDB.open(VIDEO_DB, 1);
-        req.onupgradeneeded = () => {
-          const db = req.result;
-          if (!db.objectStoreNames.contains("jobs")) db.createObjectStore("jobs", { keyPath: "id" });
-          if (!db.objectStoreNames.contains("files")) db.createObjectStore("files");
-        };
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-      });
-      dbp.catch(() => { dbp = null; });
-    }
-    return dbp;
-  };
-  const run = async <T>(store: string, mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> => {
-    const db = await open();
-    return new Promise<T>((resolve, reject) => {
-      const r = fn(db.transaction(store, mode).objectStore(store));
-      r.onsuccess = () => resolve(r.result);
-      r.onerror = () => reject(r.error);
-    });
-  };
-  return {
-    allJobs: () => run<VideoJob[]>("jobs", "readonly", (s) => s.getAll() as IDBRequest<VideoJob[]>),
-    putJob: async (j) => { await run("jobs", "readwrite", (s) => s.put(j)); },
-    deleteJob: async (id) => { await run("jobs", "readwrite", (s) => s.delete(id)); },
-    putFile: async (id, n, d) => { await run("files", "readwrite", (s) => s.put(d, `${id}/${n}`)); },
-    getFile: async (id, n) => (await run<Blob | undefined>("files", "readonly", (s) => s.get(`${id}/${n}`) as IDBRequest<Blob | undefined>)) ?? null,
-    deleteFiles: async (id) => { await run("files", "readwrite", (s) => s.delete(IDBKeyRange.bound(`${id}/`, `${id}/￿`))); },
-    clear: async () => { await run("jobs", "readwrite", (s) => s.clear()); await run("files", "readwrite", (s) => s.clear()); },
-  };
-}
+/** S5: the job store is the shared upload layer's (src/lib/upload/jobStore.ts) — one copy for photo and video. */
+export type JobStore = UploadJobStore<VideoJob>;
+export const memoryJobStore = () => memoryUploadStore<VideoJob>();
+const idbJobStore = () => idbUploadStore<VideoJob>(VIDEO_DB);
 
 let store: JobStore | undefined;
 function getStore(): JobStore {

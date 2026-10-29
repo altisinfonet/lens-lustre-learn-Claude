@@ -489,7 +489,9 @@ describe("Stage C HAS shipped — the tripwire has flipped", () => {
     // route but not the other would mean the post lands in different sections
     // depending on whether a verification endpoint happened to be up. So the
     // two immediate-publish sites are also checked to agree, below.
-    expect((composer.match(/categories: postCategories/g) ?? []).length).toBe(4);
+    // S5-b: a FIFTH — the resumable photo job (tryResumablePost) carries the
+    // same categories into the job it keeps on the device.
+    expect((composer.match(/categories: postCategories/g) ?? []).length).toBe(5);
     // The three that reach `posts` are the ones that matter for the feed.
     expect(composer).toContain("categories: postCategories,");
     expect(composer).toContain("categories: postCategories,\n        indexingDisabled: excludeFromSearch,");
