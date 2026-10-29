@@ -87,16 +87,16 @@ function sharedRead(
   const k = `${url}|${minLocs}|${host}|${timeoutMs}`;
   const cur = inFlight.get(k);
   if (cur && Date.now() - cur.at <= timeoutMs + 1000) return cur.p;
-  const p: Promise<string | null> = fetchUpstream(url, minLocs, host, timeoutMs)
-    .then(async (x) => {
-      if (x && cache) await store(cache, key, x);
-      return x;
-    })
-    .finally(() => {
-      if (inFlight.get(k)?.p === p) inFlight.delete(k);
-    });
+  const read: Promise<string | null> = fetchUpstream(url, minLocs, host, timeoutMs);
+  // The cache write runs once per read. With waitUntil it is held there and the
+  // visitor does not wait for it; without, the answer resolves after the write
+  // (nothing would keep it alive after the response).
+  const stored = read.then((x) => (x && cache ? store(cache, key, x) : undefined));
+  const p: Promise<string | null> = (keep ? read : stored.then(() => read)).finally(() => {
+    if (inFlight.get(k)?.p === p) inFlight.delete(k);
+  });
   inFlight.set(k, { p, at: Date.now() });
-  keep?.(p);
+  keep?.(Promise.all([p, stored]));
   return p;
 }
 /** Tests only. */

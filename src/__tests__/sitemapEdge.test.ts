@@ -169,11 +169,15 @@ describe("/sitemap.xml edge function — a generator slower than the 4 s visitor
     expect(cache.m.size).toBe(0);
   });
 
-  it("the request that starts a read hands it to its own waitUntil at once, even when it answers in time", async () => {
+  it("the request that starts a read hands it to its own waitUntil BEFORE the upstream answers", async () => {
+    let answer: (r: Response) => void = () => {};
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((res) => { answer = res; }));
     const waits: Promise<unknown>[] = [];
-    const r = await callWith(waits);
-    expect(r.headers.get("x-sitemap-source")).toBe("dynamic");
-    expect(waits.length).toBeGreaterThanOrEqual(1);
+    const pending = callWith(waits);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(waits.length).toBe(1); // held while the generator is still working
+    answer(new Response(DYN, { status: 200 }));
+    expect((await pending).headers.get("x-sitemap-source")).toBe("dynamic");
     await Promise.all(waits);
     expect(cache.puts).toBe(1);
   });
