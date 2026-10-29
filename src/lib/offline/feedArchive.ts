@@ -143,6 +143,11 @@ function warmPreviews(list: ArchivedPost[]) {
   const conn = (globalThis.navigator as { connection?: { saveData?: boolean } } | undefined)?.connection;
   if (conn?.saveData) return;
   if (typeof fetch !== "function") return;
+  // Only when the photo worker controls the page (switch app_image_sw on):
+  // without it nothing keeps the picture, and it would be mobile data for
+  // nothing (carry review #563).
+  const controller = (globalThis.navigator as Navigator | undefined)?.serviceWorker?.controller;
+  if (!controller || !/\/sw-image-cache\.js/.test(controller.scriptURL)) return;
   for (const p of list) {
     const u = previewUrl(p);
     // Same request the image worker stores (CORS, no cookies), at low priority
