@@ -67,7 +67,7 @@ const out = process.argv.includes("--json") ? process.argv[process.argv.indexOf(
 function chromePath() {
   const root = process.env.PLAYWRIGHT_BROWSERS_PATH || "/opt/pw-browsers";
   if (!existsSync(root)) return undefined;
-  for (const d of readdirSync(root)) for (const rel of ["chrome-linux/chrome", "chrome-linux/headless_shell"]) {
+  for (const d of readdirSync(root)) for (const rel of ["chrome-linux/chrome", "chrome-linux64/chrome", "chrome-linux/headless_shell"]) {
     const p = join(root, d, rel);
     if (existsSync(p)) return p;
   }
@@ -254,10 +254,11 @@ try {
   const P = result.pages;
   await page.goto(`${BASE}/offlineharness.html?phase=seed&route=post&id=${POST_ID}`, { waitUntil: "load" });
   P.postSeeded = await shows(page, SENTINEL, 60_000);
-  await page.waitForTimeout(2000); // device-store writes are debounced
+  await waitForRecords(page, "seen-post"); // device-store writes are debounced
   await page.goto(`${BASE}/offlineharness.html?phase=seed&route=profile&id=${AUTHOR_ID}`, { waitUntil: "load" });
   P.profileSeeded = await shows(page, AUTHOR_NAME, 60_000);
-  await page.waitForTimeout(2000);
+  await waitForRecords(page, "profile-core");
+  await page.waitForTimeout(1000); // the rest of the profile's reads
   const seen = new Set();
   const offlineScreen = async (key, query, expect) => {
     await page.goto(`${BASE}/offlineharness.html?phase=offline${query}`, { waitUntil: "load" });
@@ -281,7 +282,9 @@ try {
   F.marked = await page.getByTestId("pending-mark").locator("visible=true").first().waitFor({ timeout: 5_000 }).then(() => true, () => false);
   await page.waitForTimeout(1500);
   for (const w of forbiddenIn(await screenText(page))) seen.add(`follow: ${w}`);
-  const fq = await readOutbox(page);
+  // Background telemetry (feed_events / feed_signals) may share the outbox;
+  // the member's own actions must be exactly this one follow.
+  const fq = (await readOutbox(page)).filter((i) => i.kind !== "feed_events" && i.kind !== "feed_signals");
   F.queuedOnDevice = fq.length === 1 && fq[0].kind === "follow";
   await page.goto(`${BASE}/offlineharness.html?phase=reconnect&lose=2&route=profile&id=${AUTHOR_ID}`, { waitUntil: "load" });
   await shows(page, AUTHOR_NAME);
