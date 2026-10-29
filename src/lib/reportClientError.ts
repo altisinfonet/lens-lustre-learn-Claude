@@ -119,7 +119,7 @@ const KIND_SENTENCE: Record<FailureKind, string> = {
   auth: "Your sign-in has expired. Please sign in again.",
   forbidden: "You don't have permission to do that.",
   rate: "Too many tries in a short time. Please wait a minute and try again.",
-  server: "The service is busy right now. Nothing was lost — please try again in a moment.",
+  server: "The service is busy right now. Please try again in a moment.",
   offline: "Couldn't reach the service. Check your connection and try again.",
 };
 
@@ -131,11 +131,17 @@ export function failureKind(err: unknown): FailureKind | null {
   const name = typeof e.name === "string" ? e.name : "";
   const msg = typeof e.message === "string" ? e.message : "";
   if (status === 401 || code === "PGRST301" || code === "PGRST302" || /\bjwt (expired|is expired)\b|invalid jwt/i.test(msg)) return "auth";
-  if (status === 403 || code === "42501" || /^permission denied for /i.test(msg)) return "forbidden";
+  // 42501 alone is not enough: our own triggers raise member-readable refusals
+  // with it ("VID-UP-003: video posts are not enabled for this member") and
+  // those must stay. Only Postgres's own wording is replaced.
+  if (status === 403 || /^permission denied for (table|relation|function|schema|view|sequence|column) /i.test(msg) || /^new row violates row-level security policy/i.test(msg)) return "forbidden";
   if (status === 429) return "rate";
-  if (status >= 500 && status <= 599) return "server";
-  if (name === "FunctionsFetchError" || name === "FunctionsRelayError") return "offline";
-  if (name === "TypeError" && /^(failed to fetch|load failed|networkerror when attempting to fetch resource\.?)$/i.test(msg.trim())) return "offline";
+  if ((status >= 500 && status <= 599) || name === "FunctionsRelayError") return "server";
+  const NET = /^(typeerror: )?(failed to fetch|load failed|networkerror when attempting to fetch resource\.?)$/i;
+  if (name === "FunctionsFetchError" || name === "AuthRetryableFetchError") return "offline";
+  // fetch's own TypeError, and the plain object postgrest-js returns for it
+  // ({ message: "TypeError: Failed to fetch", code: "" }).
+  if ((name === "TypeError" || name === "") && NET.test(msg.trim())) return "offline";
   return null;
 }
 
