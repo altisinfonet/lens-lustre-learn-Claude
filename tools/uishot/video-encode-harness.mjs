@@ -88,9 +88,9 @@ function makeFixtures() {
   for (const [name, f] of Object.entries(GENERATED)) {
     const plain = join(dir, `${name}-plain.mp4`), final = join(dir, `${name}.mp4`);
     const a = spawnSync("ffmpeg", ["-v", "error", "-y", ...f.args, plain], { encoding: "utf8" });
-    if (a.status !== 0) throw new Error(`ffmpeg ${name}: ${(a.stderr || "").slice(0, 400)}`);
+    if (a.status !== 0) throw new Error(`ffmpeg ${name}: status ${a.status} signal ${a.signal} ${a.error ? a.error.message : ""} ${(a.stderr || "").slice(0, 400)}`);
     const b = f.rotate === false ? { status: 0 } : spawnSync("ffmpeg", ["-v", "error", "-y", "-display_rotation", "90", "-i", plain, "-c", "copy", final], { encoding: "utf8" });
-    if (b.status !== 0) throw new Error(`ffmpeg rotate ${name}: ${(b.stderr || "").slice(0, 400)}`);
+    if (b.status !== 0) throw new Error(`ffmpeg rotate ${name}: status ${b.status} ${b.error ? b.error.message : ""} ${(b.stderr || "").slice(0, 400)}`);
     files[name] = readFileSync(f.rotate === false ? plain : final);
   }
   return files;
