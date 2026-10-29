@@ -20,6 +20,7 @@
  *   profiles           ["profile-core", userId]
  *   the member's posts ["user-wall-posts", <own id only>]
  *   notifications      ["notifications", <own id only>]
+ *   the feed's ads     ["ad-zone", zone]  (ads bug 2, 2026-10-29)
  * Nothing else is persisted: admin data, search, drafts and anything not
  * named here stay in memory only.
  * ─────────────────────────────────────────────────────────────────────────────
@@ -38,6 +39,9 @@ export function isPersisted(key: QueryKey, userId: string | null): boolean {
     case "profile-core": return typeof arg === "string" && arg.length > 0;
     case "user-wall-posts": return arg === userId;
     case "notifications": return arg === userId;
+    // Ads bug 2: the feed's ad zone (flag, config, picture library) — the
+    // same for every member, kept per member like everything here.
+    case "ad-zone": return key.length === 2 && typeof arg === "string" && arg.length > 0;
     default: return false;
   }
 }
