@@ -245,6 +245,30 @@ export async function getSiteSettings<T = unknown>(keys: string[], opts?: ReadOp
   return keys.map((k) => (cache.get(k)?.value as T) ?? null);
 }
 
+/**
+ * Read one setting and say whether the answer is KNOWN. `known: false` means it
+ * could not be read (offline, a query error) — distinct from `known: true,
+ * value: null`, which means there is no such row. For switches where "could not
+ * read" must not be treated as "off" (S7b-1b, the photo worker). Never throws.
+ */
+export async function readSiteSettingState<T = unknown>(
+  key: string,
+  opts?: ReadOpts,
+): Promise<{ known: boolean; value: T | null }> {
+  const t0 = Date.now();
+  try {
+    await load([key], opts?.maxAgeMs);
+  } catch {
+    return { known: false, value: null };
+  }
+  const c = cache.get(key);
+  if (!c) return { known: false, value: null };
+  // Review #551: an expired entry that this read failed to refresh is NOT a
+  // current answer — a failed re-read leaves the old entry in place.
+  if (c.at < t0 && !isFresh(c, Date.now(), opts?.maxAgeMs)) return { known: false, value: null };
+  return { known: true, value: c.missing ? null : ((c.value as T) ?? null) };
+}
+
 /** Drop a cached setting after a write. No argument = drop everything. */
 export function invalidateSiteSetting(key?: string) {
   if (key) cache.delete(key);
