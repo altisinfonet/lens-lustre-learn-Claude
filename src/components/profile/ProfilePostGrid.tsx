@@ -77,6 +77,9 @@ export const SQUARES_PER_BLOCK = 9;
  */
 export const BLOCK = SQUARES_PER_BLOCK + 1;
 
+/** S6-c · tiles never windowed: the first two blocks (the opening screen on any width). */
+export const EAGER_TILES = BLOCK * 2;
+
 /** Is the post at this index the full-width one? The 10th of every block. */
 export function isShowcase(index: number): boolean {
   return index % BLOCK === BLOCK - 1;
@@ -225,7 +228,7 @@ const GridTile = memo(function GridTile({ post }: { post: UnifiedPost }) {
          by ~355 tall in an 899px frame — 4:5, not 1:1. Instagram moved its
          grid to 4:5 and the spec sentence was describing it from memory.
          The photograph beats the sentence, so 4:5 it is. */
-      className="group relative aspect-[4/5] overflow-hidden bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      className="group relative block w-full aspect-[4/5] overflow-hidden bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
       {video ? (
         <VideoPoster video={video} />
@@ -373,14 +376,17 @@ const ProfilePostGrid = ({ posts }: Props) => (
         each tile's contents (its <img>/<video> poster and decoded bitmap)
         exist only near the viewport; the wrapper stays, at its measured
         height, so the grid never shifts. The wrapper is the grid item, so the
-        showcase's full width is set on it. */}
+        showcase's full width is set on it. The tile fills its wrapper
+        (block w-full), as it filled its grid cell before. The first two
+        blocks are never windowed — the opening screen on every width, as the
+        feed's EAGER_CARDS. */}
     {posts.map((post, i) =>
       isShowcase(i) ? (
-        <FeedCardWindow key={post.id} className="col-span-3">
+        <FeedCardWindow key={post.id} className="col-span-3" eager={i < EAGER_TILES}>
           <ShowcaseTile post={post} />
         </FeedCardWindow>
       ) : (
-        <FeedCardWindow key={post.id}>
+        <FeedCardWindow key={post.id} eager={i < EAGER_TILES}>
           <GridTile post={post} />
         </FeedCardWindow>
       ),

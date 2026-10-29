@@ -19,8 +19,8 @@ describe("S6-c profile windowing", () => {
   });
 
   it("wraps BOTH tile kinds, the showcase with its full width on the wrapper", () => {
-    expect(grid).toMatch(/<FeedCardWindow key=\{post\.id\} className="col-span-3">\s*<ShowcaseTile post=\{post\} \/>/);
-    expect(grid).toMatch(/<FeedCardWindow key=\{post\.id\}>\s*<GridTile post=\{post\} \/>/);
+    expect(grid).toMatch(/<FeedCardWindow key=\{post\.id\} className="col-span-3" eager=\{i < EAGER_TILES\}>\s*<ShowcaseTile post=\{post\} \/>/);
+    expect(grid).toMatch(/<FeedCardWindow key=\{post\.id\} eager=\{i < EAGER_TILES\}>\s*<GridTile post=\{post\} \/>/);
   });
 
   it("no second windowing component exists in src/components", () => {
