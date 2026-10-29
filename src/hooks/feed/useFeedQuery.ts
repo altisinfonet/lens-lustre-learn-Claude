@@ -946,10 +946,16 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
         const saved = await readFeedPage(userId!, pageIndex, PAGE_SIZE);
         if (saved.posts.length === 0) return null;
         offlineSessions.add(session);
+        // Review #548 (N1): a session served from the phone has its own seed,
+        // stamped on its pages, so Back from a post returns to it (L1 · B1)
+        // instead of dealing a new hand under the member. Later pages of this
+        // session never reach the server, so the seed is never sent.
+        if (isFirstPage || !sessionSeedRef.current) sessionSeedRef.current = `offline:${newFeedSessionSeed()}`;
         return {
           posts: saved.posts as FeedPost[],
           nextCursor: saved.more ? pageIndex + 1 : null,
           networkIds: networkIdsRef.current ?? [],
+          sessionSeed: sessionSeedRef.current,
           offline: true,
         };
       };
@@ -961,7 +967,9 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
       // server would re-deal from 0 and wipe the session's log). The saved
       // posts run out → end of feed; pull-to-refresh starts a live session.
       if (archivedFeed && !isFirstPage && offlineSessions.has(session)) {
-        return (await fromPhone()) ?? { posts: [], nextCursor: null, networkIds: networkIdsRef.current ?? [], offline: true };
+        return (await fromPhone()) ?? {
+          posts: [], nextCursor: null, networkIds: networkIdsRef.current ?? [], sessionSeed: sessionSeedRef.current ?? undefined, offline: true,
+        };
       }
 
       // S7b-3 · NO NETWORK: the "For you" feed scrolls through the posts saved
@@ -978,10 +986,14 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
         return await livePage();
       } catch (error) {
         // Review #548: "online" but nothing answers (Wi-Fi without internet, a
-        // dead signal): a FIRST page that fails on the network shows the saved
-        // posts instead of the error card. Later pages of a live session keep
-        // retrying (a saved page there would not continue what is on screen).
-        if (archivedFeed && isFirstPage && isNetworkError(error)) {
+        // dead signal). ONLY a first page with NOTHING on screen, and only on
+        // its LAST attempt (the 3 retries have run), shows the saved posts
+        // instead of the error card. A refresh with posts on screen fails as
+        // before — the posts stay and "Couldn't refresh" says so — and later
+        // pages of a live session keep retrying.
+        const nothingOnScreen = !(qc.getQueryData<InfiniteData<FeedPage, number>>(feedKey)?.pages?.length);
+        const lastAttempt = (qc.getQueryState(feedKey)?.fetchFailureCount ?? 0) >= 3;
+        if (archivedFeed && isFirstPage && nothingOnScreen && lastAttempt && isNetworkError(error)) {
           const saved = await fromPhone();
           if (saved) return saved;
         }
@@ -1246,7 +1258,9 @@ export function useFeedRefresh(categories?: string[] | null, tab: FeedTab = "for
     qc.setQueryData<InfiniteData<FeedPage, number>>(queryKey, (d) =>
       d && d.pages.length > 0 ? { pages: d.pages.slice(0, 1), pageParams: [0] } : d);
     await qc.refetchQueries({ queryKey, exact: true, type: "active" });
-    const dealt = qc.getQueryState(queryKey)?.status === "success";
+    // S7b-3: a first page read from the phone is not a new deal.
+    const dealt = qc.getQueryState(queryKey)?.status === "success"
+      && qc.getQueryData<InfiniteData<FeedPage, number>>(queryKey)?.pages?.[0]?.offline !== true;
     if (!dealt && onScreen && onScreen.pages.length > 1) qc.setQueryData(queryKey, onScreen);
     return dealt;
   }, [qc, catsKey, timeline]);

@@ -138,12 +138,17 @@ try {
   // the pre-OFF-1 cache must not be what answers next
   await page.evaluate(() => localStorage.removeItem("feed_cache_v1"));
 
-  // 2) the app starts with no data network
+  // 2) the app starts with no data network. Only OFF-1's record may answer:
+  // S7b-3's saved feed is removed here too (review #548), so this run and the
+  // control below differ in ONE thing — the bridge — and leg 1 still proves
+  // OFF-1's reader on its own. Leg 1b proves the saved feed on its own.
+  await deviceRecords(page, "feed-archive", true);
   await page.goto(`${BASE}/offlineharness.html?phase=offline`, { waitUntil: "load" });
   result.offlineShown = await page.getByText(SENTINEL, { exact: false }).first().waitFor({ timeout: 20_000 }).then(() => true, () => false);
 
-  // 3) control: same start without the bridge — and without S7b-3's saved feed,
-  // the other reader of this store, so only OFF-1's (unread) record is left
+  // 3) control: same start without the bridge (S7b-3's saved feed, the other
+  // reader of this store, removed as in step 2 — the step 2 run may have
+  // written nothing new, as it was offline)
   await page.evaluate(() => localStorage.removeItem("feed_cache_v1"));
   await deviceRecords(page, "feed-archive", true);
   await page.goto(`${BASE}/offlineharness.html?phase=offline&nobridge=1`, { waitUntil: "load" });

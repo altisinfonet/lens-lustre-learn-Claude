@@ -34,7 +34,7 @@ vi.mock("@/integrations/supabase/client", async () => {
   };
 });
 
-const { useFeedQuery, __resetSessionSeedRpcProbe } = await import("@/hooks/feed/useFeedQuery");
+const { useFeedQuery, useFeedRefresh, isReturnToTheDealOnScreen, __resetSessionSeedRpcProbe } = await import("@/hooks/feed/useFeedQuery");
 const { clearFeedSessions } = await import("@/lib/feedSessions");
 const { memoryBackend, setBackend } = await import("@/lib/offline/deviceStore");
 const { recordFeedPage, resetFeedArchiveMemory } = await import("@/lib/offline/feedArchive");
@@ -138,11 +138,11 @@ describe("review #548 · flight-mode cold start", () => {
 });
 
 describe("review #548 · 'online' but nothing answers", () => {
-  it("page 0 fails with a network error: the saved posts, not the error card", async () => {
+  it("a COLD first page that still fails after its retries: the saved posts, not the error card", async () => {
     await saveTwoPages();
     dead = true;
     const { result } = mount();
-    await waitFor(() => expect(result.current.data?.pages?.[0]?.offline).toBe(true), { timeout: 6000 });
+    await waitFor(() => expect(result.current.data?.pages?.[0]?.offline).toBe(true), { timeout: 20000 });
     expect(result.current.isError).toBe(false);
     // the rest of that session comes from the phone too (one session, one source)
     dead = false;
@@ -150,5 +150,35 @@ describe("review #548 · 'online' but nothing answers", () => {
     await waitFor(() => expect(result.current.data?.pages).toHaveLength(2));
     expect(result.current.data!.pages[1].posts[0].id).toBe("saved-10");
     expect(feedCalls).toEqual([]);
-  }, 15000);
+  }, 30000);
+
+  it("re-review #548 B1: a pull-to-refresh that fails with posts on screen is NOT swapped for saved posts", async () => {
+    await saveTwoPages();
+    const wrapper = ({ children }: { children: React.ReactNode }) => React.createElement(QueryClientProvider, { client: qc }, children);
+    const { result } = renderHook(() => ({ feed: useFeedQuery(ME), refresh: useFeedRefresh() }), { wrapper });
+    await waitFor(() => expect(result.current.feed.data?.pages?.[0]?.posts?.length).toBe(10));
+    await act(async () => { await result.current.feed.fetchNextPage(); });
+    await act(async () => { await result.current.feed.fetchNextPage(); });
+    await waitFor(() => expect(result.current.feed.data?.pages).toHaveLength(3));
+    const before = qc.getQueryData<{ pages: Array<{ posts: Array<{ id: string }> }> }>(["feed", null])!.pages.flatMap((p) => p.posts.map((x) => x.id));
+    dead = true;
+    let dealt: boolean | undefined;
+    await act(async () => { dealt = await result.current.refresh(); });
+    expect(dealt).toBe(false);
+    const after = qc.getQueryData<{ pages: Array<{ offline?: boolean; posts: Array<{ id: string }> }> }>(["feed", null])!.pages;
+    expect(after.some((p) => p.offline)).toBe(false);
+    expect(after.flatMap((p) => p.posts.map((x) => x.id))).toEqual(before);
+  }, 30000);
+});
+
+describe("re-review #548 N1 · Back returns to a session read from the phone", () => {
+  it("saved pages carry their session's seed, so Back keeps them on screen", async () => {
+    await saveTwoPages();
+    onlineManager.setOnline(false);
+    const { result } = mount();
+    await waitFor(() => expect(result.current.data?.pages?.[0]?.offline).toBe(true));
+    const seed = result.current.data!.pages[0].sessionSeed;
+    expect(typeof seed).toBe("string");
+    expect(isReturnToTheDealOnScreen("POP", { status: "success", data: result.current.data }, seed as string)).toBe(true);
+  });
 });
