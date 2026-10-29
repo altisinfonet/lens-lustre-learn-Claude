@@ -17,6 +17,8 @@ import FeedCardWindow, { EAGER_CARDS } from "@/components/feed/FeedCardWindow";
 
 /** Captures the observer so a test can drive intersection by hand. */
 let fire: ((isIntersecting: boolean) => void) | null = null;
+/** Several entries for the same card in ONE callback, oldest first (as browsers deliver them). */
+let fireBatch: ((states: boolean[]) => void) | null = null;
 let observed = 0;
 let disconnected = 0;
 
@@ -25,6 +27,7 @@ class FakeIO {
   constructor(cb: (e: { isIntersecting: boolean }[]) => void) {
     this.cb = cb;
     fire = (isIntersecting) => act(() => { this.cb([{ isIntersecting }]); });
+    fireBatch = (states) => act(() => { this.cb(states.map((isIntersecting) => ({ isIntersecting }))); });
   }
   observe() { observed++; }
   disconnect() { disconnected++; }
@@ -42,7 +45,7 @@ function stubHeight(px: number) {
 }
 
 beforeEach(() => {
-  fire = null; observed = 0; disconnected = 0;
+  fire = null; fireBatch = null; observed = 0; disconnected = 0;
   vi.stubGlobal("IntersectionObserver", FakeIO as unknown as typeof IntersectionObserver);
 });
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
@@ -116,6 +119,19 @@ describe("⚠ it fails open — every one of these must keep the card on screen"
     delete (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver;
     stubHeight(600);
     render(<FeedCardWindow><p>post body</p></FeedCardWindow>);
+    expect(screen.getByText("post body")).toBeInTheDocument();
+  });
+
+  it("reads the NEWEST entry when the browser batches several (fast scroll / fling)", () => {
+    // Owner report 2026-10-29: "many posts are not coming, showing black" — a
+    // full card-height blank in the middle of the screen, web and app. When a
+    // card leaves and comes back between two observer callbacks, the browser
+    // hands over BOTH entries in one call, oldest first. Reading entries[0]
+    // acted on the stale "left" and hid a card that is on screen; no further
+    // callback comes (its state does not change again), so it stayed blank.
+    stubHeight(600);
+    render(<FeedCardWindow><p>post body</p></FeedCardWindow>);
+    fireBatch!([false, true]);
     expect(screen.getByText("post body")).toBeInTheDocument();
   });
 
