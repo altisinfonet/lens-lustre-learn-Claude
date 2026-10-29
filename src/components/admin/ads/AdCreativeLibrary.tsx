@@ -18,12 +18,13 @@
  * working.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Upload, Trash2, ImageOff, Copy, ExternalLink } from "lucide-react";
+import { Loader2, Upload, Trash2, ImageOff, Copy, ExternalLink, ArrowUp, ArrowDown, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import { compressImageToFiles } from "@/lib/imageCompression";
 import { generateImagePath, uploadImage } from "@/lib/imageUpload";
 import { invalidateAdCreatives } from "@/lib/ads/adCreatives";
+import { movedOne, renumberWrites, sharesSpot, spotsForNew } from "@/lib/ads/adSpotOrder";
 import { adPath } from "@/lib/ads/adEngagement";
 import { publicUrl } from "@/lib/publicUrl";
 import { feedAdSlotLabel } from "@/lib/ads/feedAdPlacement";
@@ -110,7 +111,9 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
     setUploading({ done: 0, total: images.length });
     let added = 0;
     const failed: string[] = [];
-    const base = (rows?.length ?? 0);
+    // Owner 2026-10-29: a new picture takes the spot a deleted one freed, so
+    // the other ads stay where they are (adSpotOrder.ts).
+    const spots = spotsForNew(rows ?? [], images.length);
 
     for (let i = 0; i < images.length; i++) {
       const file = images[i];
@@ -121,7 +124,7 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
           bucket: "journal-images", file: webpFile, path, type: "ad", fileName: `ad-${zone}.webp`,
         });
         const { error } = await supabase.from("ad_creatives" as never).insert({
-          zone, image_url: url, click_url: "", alt_text: "", is_active: true, sort_order: base + i,
+          zone, image_url: url, click_url: "", alt_text: "", is_active: true, sort_order: spots[i],
         } as never);
         if (error) throw error;
         added++;
@@ -184,6 +187,94 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
     }
   };
 
+  /**
+   * REPLACE PICTURE — a new ad in the SAME spot (Owner 2026-10-29, Instagram
+   * way). The new picture is a new row, so its likes, comments and shares
+   * start at 0; deleting the old row removes the old ones (ON DELETE CASCADE).
+   * Insert first, delete second: if anything fails, the spot is never empty.
+   */
+  const [replaceBusy, setReplaceBusy] = useState<string | null>(null);
+
+  const onReplace = async (row: Row, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = (e.target.files || [])[0];
+    if (e.target) e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Please choose an image (jpg / png / webp)", variant: "destructive" });
+      return;
+    }
+    if (!window.confirm(
+      "Replace this picture?\n\nThe new picture becomes a new ad in the same spot: it starts at 0 likes, comments and shares. " +
+      "The old picture's likes, comments, shares and video are removed.",
+    )) return;
+    setReplaceBusy(row.id);
+    try {
+      let spot = row.sort_order;
+      // Two pictures on one number: number them 0, 1, 2 … first (same order
+      // shown), so the new picture cannot land after its twin.
+      if (rows && sharesSpot(rows, row.id)) {
+        if (!(await writeOrder(rows))) return;
+        spot = rows.findIndex((r) => r.id === row.id);
+      }
+      // The card text this screen does not show — carried over unchanged.
+      const { data: extra, error: readErr } = await supabase
+        .from("ad_creatives" as never)
+        .select("headline, subtext, cta")
+        .eq("id", row.id)
+        .maybeSingle();
+      // Never replace with the card text silently blanked.
+      if (readErr) throw readErr;
+      const { webpFile } = await compressImageToFiles(file, `ad-${zone}`, { maxDimension: 1600 });
+      const path = generateImagePath({ type: "ad", ext: "webp" });
+      const { url } = await uploadImage({
+        bucket: "journal-images", file: webpFile, path, type: "ad", fileName: `ad-${zone}.webp`,
+      });
+      const { error: insErr } = await supabase.from("ad_creatives" as never).insert({
+        ...((extra as Record<string, unknown> | null) ?? {}),
+        zone, image_url: url, click_url: row.click_url, alt_text: row.alt_text,
+        advertiser_name: row.advertiser_name, advertiser_logo_url: row.advertiser_logo_url,
+        is_active: row.is_active, sort_order: spot,
+      } as never);
+      if (insErr) throw insErr;
+      const { error: delErr } = await supabase.from("ad_creatives" as never).delete().eq("id", row.id);
+      if (delErr) {
+        toast({ title: "New picture added, but the old one could not be removed", description: delErr.message, variant: "destructive" });
+      } else {
+        toast({ title: "Picture replaced ✅", description: "Same spot, new ad: likes and comments start at 0." });
+      }
+    } catch {
+      toast({ title: "Could not replace that picture", description: "The old picture is still in its spot.", variant: "destructive" });
+    } finally {
+      setReplaceBusy(null);
+      invalidateAdCreatives();
+      await load();
+    }
+  };
+
+  /** Save `list`'s order as sort_order 0, 1, 2 … (only rows that change). */
+  const writeOrder = async (list: readonly Row[]): Promise<boolean> => {
+    const writes = renumberWrites(list);
+    if (!writes.length) return true;
+    const results = await Promise.all(writes.map((w) =>
+      supabase.from("ad_creatives" as never).update({ sort_order: w.sort_order } as never).eq("id", w.id)));
+    invalidateAdCreatives();
+    const bad = results.find((res) => res.error);
+    if (bad) {
+      toast({ title: "Could not save the new order", description: bad.error?.message, variant: "destructive" });
+      await load();
+      return false;
+    }
+    return true;
+  };
+
+  const move = async (index: number, delta: -1 | 1) => {
+    if (!rows) return;
+    const next = movedOne(rows, index, delta);
+    if (next === rows) return;
+    setRows(next.map((r, i) => ({ ...r, sort_order: i })));
+    if (await writeOrder(next)) toast({ title: delta < 0 ? "Moved up" : "Moved down" });
+  };
+
   const patch = async (id: string, values: Partial<Row>) => {
     setRows((prev) => (prev ? prev.map((r) => (r.id === id ? { ...r, ...values } : r)) : prev));
     const { error } = await supabase.from("ad_creatives" as never).update(values as never).eq("id", id);
@@ -203,7 +294,7 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
     }
     invalidateAdCreatives();
     setRows((prev) => (prev ? prev.filter((r) => r.id !== id) : prev));
-    toast({ title: "Picture removed" });
+    toast({ title: "Picture removed", description: "The next picture you add takes its spot." });
   };
 
   const activeCount = rows?.filter((r) => r.is_active).length ?? 0;
@@ -265,8 +356,24 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
                       onChange={(e) => void patch(r.id, { is_active: e.target.checked })} />
                     {r.is_active ? "Showing" : "Hidden"}
                   </label>
+                  <button type="button" onClick={() => void move(i, -1)} disabled={i === 0}
+                    className="ml-auto text-muted-foreground hover:text-primary disabled:opacity-30 shrink-0"
+                    title="Move up" aria-label="Move up">
+                    <ArrowUp className="h-3.5 w-3.5" />
+                  </button>
+                  <button type="button" onClick={() => void move(i, 1)} disabled={i === rows.length - 1}
+                    className="text-muted-foreground hover:text-primary disabled:opacity-30 shrink-0"
+                    title="Move down" aria-label="Move down">
+                    <ArrowDown className="h-3.5 w-3.5" />
+                  </button>
+                  <label className={`shrink-0 text-muted-foreground hover:text-primary cursor-pointer ${replaceBusy === r.id ? "opacity-50" : ""}`}
+                    title="Replace this picture (same spot, new ad)" aria-label="Replace this picture">
+                    {replaceBusy === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                    <input type="file" accept="image/*" className="hidden" disabled={!!replaceBusy}
+                      onChange={(e) => void onReplace(r, e)} />
+                  </label>
                   <button type="button" onClick={() => void remove(r.id)}
-                    className="ml-auto text-muted-foreground hover:text-destructive shrink-0" title="Remove this picture">
+                    className="text-muted-foreground hover:text-destructive shrink-0" title="Remove this picture">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
