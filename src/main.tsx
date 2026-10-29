@@ -6,7 +6,8 @@ import { installImageFallback } from "./lib/imageFallback";
 import { installImageErrorReporter } from "./lib/reportImageError";
 import { installTelemetry } from "./lib/telemetry";
 import { installOverlayUnfreeze } from "./lib/unfreezeStuckOverlay";
-import { initNativeAuthDeepLink } from "./lib/native/authDeepLink";
+import { initNativeAuthDeepLink, isNativeCapacitorApp, isNativeIOSApp } from "./lib/native/authDeepLink";
+import { imageWorkerDecision } from "./lib/offline/imageWorkerRegistration";
 import { installZoomPolicy } from "./lib/native/zoomPolicy";
 
 import "./index.css";
@@ -120,17 +121,23 @@ if ("serviceWorker" in navigator) {
     }
   })();
 
-  const isPreviewHost =
-    window.location.hostname.includes("id-preview--") ||
-    window.location.hostname.includes("lovableproject.com") ||
-    window.location.hostname === "localhost";
+  // S7b-1: one rule (src/lib/offline/imageWorkerRegistration.ts). The Android
+  // app's origin is https://localhost, which the old "localhost = developer"
+  // test treated as a dev machine, so the app never saved a photo offline.
+  const decision = imageWorkerDecision({
+    hostname: window.location.hostname,
+    inIframe: isInIframe,
+    prod: import.meta.env.PROD,
+    nativeAndroid: isNativeCapacitorApp() && !isNativeIOSApp(),
+    nativeIOS: isNativeIOSApp(),
+  });
 
-  if (isPreviewHost || isInIframe) {
+  if (decision === "unregister") {
     // Unregister any existing service workers in preview/iframe/dev contexts
     navigator.serviceWorker.getRegistrations().then((registrations) => {
       registrations.forEach((r) => r.unregister());
     });
-  } else if (import.meta.env.PROD) {
+  } else if (decision === "register") {
     window.addEventListener("load", () => {
       void (async () => {
         try {

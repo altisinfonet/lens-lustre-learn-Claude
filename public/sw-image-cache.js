@@ -25,7 +25,13 @@
  * images once and then the cache refills under the corrected code.
  */
 const CACHE_NAME = "gallery-images-v3";
-const MAX_CACHE_ENTRIES = 200;
+/**
+ * S7b-1 (2026-10-29): 200 -> 600 entries and 50 -> 150 MB, so the last ~200
+ * feed posts' photos (a 600px thumbnail ~30 KB plus the photo shown ~440 KB,
+ * measured on live) stay on the phone for no-network use — inside the OFF-5 G7
+ * 300 MB device budget, least-recently-viewed evicted first.
+ */
+const MAX_CACHE_ENTRIES = 600;
 
 /**
  * OFF-4 (2026-10-04): a BYTE cap as well as an entry cap. 200 entries was the
@@ -38,7 +44,7 @@ const MAX_CACHE_ENTRIES = 200;
  * sizes live in SIZE_INDEX_URL, a small JSON entry inside the same cache, so they
  * survive the worker being stopped; it is never served to a page.
  */
-const MAX_CACHE_BYTES = 50 * 1024 * 1024;
+const MAX_CACHE_BYTES = 150 * 1024 * 1024;
 const UNKNOWN_SIZE_ESTIMATE_BYTES = 250 * 1024;
 const SIZE_INDEX_URL = "/__retina-image-cache-sizes__.json";
 
@@ -70,10 +76,36 @@ const THUMB_BUCKETS = [
   "site-assets",
 ];
 
+/**
+ * S7b-1: our own image CDN (Cloudflare R2 behind a custom domain). Every feed
+ * photo on live comes from here (192 of 192 measured 2026-10-29), and the list
+ * below never matched it, so no photo was ever saved for offline use.
+ */
+const OUR_CDN_HOSTS = ["cdn.50mmretina.com", "cdn-staging.50mmretina.com"];
+
+/** Query parameters that mean "this URL carries a pass or a signature". */
+const PRIVATE_PARAMS = ["t", "token", "sig", "signature", "Signature", "Expires", "X-Amz-Signature", "X-Amz-Credential"];
+
+function isOurCdn(url) {
+  try { return OUR_CDN_HOSTS.includes(new URL(url).hostname); } catch { return false; }
+}
+
 /** Match any image request that targets one of our thumbnail sources. */
 function isGalleryImage(url) {
   let u;
   try { u = new URL(url); } catch { return false; }
+
+  // NEVER a private photo: friends-only / only-me photos are served with a
+  // short-lived pass (`?t=…`, S3-d `photo/` prefix). Kept here they could be
+  // shown to the next member who signs in on the same phone.
+  for (const p of PRIVATE_PARAMS) if (u.searchParams.has(p)) return false;
+  if (u.pathname.startsWith("/photo/")) return false;
+
+  // Our CDN: cdn.50mmretina.com/<bucket>/<key>
+  if (OUR_CDN_HOSTS.includes(u.hostname)) {
+    const parts = u.pathname.replace(/^\//, "").split("/");
+    if (parts.length >= 2 && THUMB_BUCKETS.includes(parts[0])) return true;
+  }
 
   // Supabase Storage public OR render endpoint
   const sb = u.pathname.match(/^\/storage\/v1\/(?:object\/public|render\/image\/public)\/([^/]+)\//);
@@ -109,8 +141,15 @@ self.addEventListener("fetch", (event) => {
 });
 
 async function handle(request) {
-  const cache = await caches.open(CACHE_NAME);
-  const cached = await cache.match(request);
+  // S7b-1: if the phone's storage fails (quota, a broken cache), the photo
+  // still comes from the network exactly as without this worker.
+  let cache, cached;
+  try {
+    cache = await caches.open(CACHE_NAME);
+    cached = await cache.match(request);
+  } catch {
+    return fetch(request);
+  }
 
   if (cached) {
     // LRU touch: re-insert clone so this URL becomes most-recently-used.
@@ -120,7 +159,13 @@ async function handle(request) {
   }
 
   try {
-    const response = await fetch(request);
+    // S7b-1: an <img> without crossorigin asks "no-cors", and its OPAQUE answer
+    // is never stored (see below). Our CDN sends Access-Control-Allow-Origin
+    // for the site and the app, so ask it for a CORS answer, which can be kept.
+    const netRequest = isOurCdn(request.url)
+      ? new Request(request.url, { mode: "cors", credentials: "omit" })
+      : request;
+    const response = await fetch(netRequest);
     if (response.ok) {
       // Only `ok` responses are cached, exactly as before OFF-4. An OPAQUE
       // response (an <img> without crossorigin) is still not cached: Chromium

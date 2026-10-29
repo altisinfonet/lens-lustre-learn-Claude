@@ -4,7 +4,8 @@
  * public/sw-image-cache.js is loaded into a sandbox with a fake Cache Storage
  * (insertion-ordered, like the real one) and a fake network, and real fetch
  * events are dispatched to it. Before OFF-4 the only bound was 200 entries:
- * 200 × 1 MB photographs = 200 MB on a phone. Now the total stays ≤ 50 MB.
+ * 200 × 1 MB photographs = 200 MB on a phone. Now the total stays ≤ 150 MB
+ * (S7b-1, 2026-10-29; was 50 MB).
  */
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
@@ -71,24 +72,26 @@ describe("planTrim", () => {
 });
 
 describe("the worker under load", () => {
-  it("120 photographs of 1 MB stay under 50 MB (before OFF-4: all 120 = 120 MB kept)", async () => {
+  // S7b-1 (2026-10-29): the byte cap is 150 MB (was 50 MB) so ~200 posts'
+  // photos stay on the phone for no-network use, inside the OFF-5 G7 300 MB.
+  it("200 photographs of 1 MB stay under 150 MB (before OFF-4: all 200 = 200 MB kept)", async () => {
     const w = loadWorker(() => MB);
-    for (let i = 0; i < 120; i++) await w.fetchImage(img(i));
+    for (let i = 0; i < 200; i++) await w.fetchImage(img(i));
     const kept = w.entries();
-    expect(kept.length).toBeLessThanOrEqual(50);
-    expect(kept.length).toBeGreaterThan(40);
+    expect(kept.length).toBeLessThanOrEqual(150);
+    expect(kept.length).toBeGreaterThan(140);
     // the NEWEST survive (LRU), the oldest went first
-    expect(kept).toContain(img(119));
+    expect(kept).toContain(img(199));
     expect(kept).not.toContain(img(0));
-  }, 30_000); // same simulated worker as below: explicit time budget
+  }, 60_000); // same simulated worker as below: explicit time budget
 
   // 230 sequential fetches through the simulated worker take ~5–9 s on a CI
   // runner and on Windows: over vitest's 5 s default, so this test timed out
   // (red since #362, unseen while no PR ran the unit tests). The assertion is
   // unchanged; only the time budget is explicit.
-  it("small thumbnails are still bounded by the 200-entry cap", async () => {
+  it("small thumbnails are still bounded by the 600-entry cap", async () => {
     const w = loadWorker(() => 1024);
-    for (let i = 0; i < 230; i++) await w.fetchImage(img(i));
-    expect(w.entries().length).toBe(200);
-  }, 30_000);
+    for (let i = 0; i < 630; i++) await w.fetchImage(img(i));
+    expect(w.entries().length).toBe(600);
+  }, 120_000);
 });
