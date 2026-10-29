@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { SITE_HOST } from "@/lib/env";
 import { QrCode, Download } from "lucide-react";
-import QRCode from "qrcode";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -17,11 +16,23 @@ const QRCodeCard = ({ profileUrl, displayName, avatarUrl }: Props) => {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    QRCode.toDataURL(profileUrl, {
-      width: 200,
-      margin: 2,
-      color: { dark: "#000000", light: "#ffffff" },
-    }).then(setQrDataUrl);
+    // S11: the QR library is loaded with the card, not with the app — this
+    // card sits in the profile sidebar, which is in every visitor's first
+    // script. A result for an earlier URL is ignored.
+    let current = true;
+    void import("qrcode")
+      .then(({ default: QRCode }) =>
+        QRCode.toDataURL(profileUrl, { width: 200, margin: 2, color: { dark: "#000000", light: "#ffffff" } }),
+      )
+      .then((url) => {
+        if (current) setQrDataUrl(url);
+      })
+      .catch(() => {
+        /* no QR image; the card still shows the link */
+      });
+    return () => {
+      current = false;
+    };
   }, [profileUrl]);
 
   const handleDownload = async () => {
