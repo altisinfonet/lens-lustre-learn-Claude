@@ -278,13 +278,22 @@ export async function fetchAdFrequency(): Promise<AdFrequencyConfig> {
  * the phone as "ads off" over the last good settings).
  */
 export async function fetchAdZoneSettings(): Promise<{ enabled: boolean; zones: Record<AdZoneId, AdZoneConfig> } | null> {
+  let flag: unknown;
+  let stored: unknown;
   try {
-    const [flag, stored] = await getSiteSettings([AD_ZONES_FLAG_KEY, AD_ZONES_KEY], { maxAgeMs: AD_SETTING_MAX_AGE_MS });
-    if (flag === null || stored === null) return null;
-    return { enabled: flag === true, zones: zonesFromStored(stored) };
+    [flag, stored] = await getSiteSettings([AD_ZONES_FLAG_KEY, AD_ZONES_KEY], { maxAgeMs: AD_SETTING_MAX_AGE_MS });
   } catch {
     return null;
   }
+  // A malformed config degrades to the safe defaults, as fetchAdZones does —
+  // it is not a network problem, so it must not read as "unknown".
+  const zones = () => {
+    try { return zonesFromStored(stored); } catch { return zonesFromStored(null); }
+  };
+  // An explicit "off" is a definite answer even when no zone was ever saved.
+  if (flag === false) return { enabled: false, zones: zones() };
+  if (flag === null || stored === null) return null;
+  return { enabled: flag === true, zones: zones() };
 }
 
 /** Master flag — while false, v2 stays fully dormant. Defaults to false. */
