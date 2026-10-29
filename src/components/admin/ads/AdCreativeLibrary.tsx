@@ -18,7 +18,7 @@
  * working.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Upload, Trash2, ImageOff, Copy, ExternalLink, ArrowUp, ArrowDown, RefreshCw } from "lucide-react";
+import { Loader2, Upload, Trash2, ImageOff, Copy, ExternalLink, ArrowUp, ArrowDown, RefreshCw, Film } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import { compressImageToFiles } from "@/lib/imageCompression";
@@ -33,6 +33,9 @@ import AdVideoButton from "@/components/admin/ads/AdVideoButton";
 import { fetchAdVideoMap } from "@/lib/video/postVideoRead";
 import { subscribeVideoJobs } from "@/lib/video/uploadJobs";
 import { AdLinkInput } from "./AdLinkInput";
+import { useFeatureAllowed } from "@/hooks/core/useFeatureAllowed";
+import { createVideoAdCreative } from "@/lib/ads/videoAdCreate";
+import { coverFromVideoAt } from "@/lib/video/cover";
 
 interface Row {
   id: string;
@@ -68,6 +71,11 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
   /** VID-5 · each creative's video: "ready" (playing on the ad), "pending" (linked, not ready yet), or none. */
   const [videoStates, setVideoStates] = useState<Map<string, "ready" | "pending">>(new Map());
   const fileRef = useRef<HTMLInputElement>(null);
+  // S7-c · VID-5: "Add a video ad" — story-card only, Video ads switch on for this admin.
+  const videoAdsAllowed = useFeatureAllowed("video_ads");
+  const videoRef = useRef<HTMLInputElement>(null);
+  const [videoAd, setVideoAd] = useState<{ creativeId: string; file: File } | null>(null);
+  const [makingVideoAd, setMakingVideoAd] = useState(false);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase
@@ -94,6 +102,43 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
   useEffect(() => subscribeVideoJobs((e) => { if (e.type === "published" && e.job.purpose === "ad") void load(); }), [load]);
 
   useEffect(() => { void load(); }, [load]);
+
+  /** S7-c: one video → a new ad in the next free spot (picture = a frame), then the video dialog opens with it. */
+  const onVideo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (e.target) e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("video/")) {
+      toast({ title: "Please choose a video file", variant: "destructive" });
+      return;
+    }
+    setMakingVideoAd(true);
+    try {
+      const made = await createVideoAdCreative(file, zone, rows ?? [], {
+        frame: coverFromVideoAt,
+        uploadPicture: async (picture) => {
+          const { webpFile } = await compressImageToFiles(picture, `ad-${zone}`, { maxDimension: 1600 });
+          const { url } = await uploadImage({
+            bucket: "journal-images", file: webpFile, path: generateImagePath({ type: "ad", ext: "webp" }), type: "ad", fileName: `ad-${zone}.webp`,
+          });
+          return url;
+        },
+        insert: async (row) => {
+          const { data, error } = await (supabase.from("ad_creatives" as never).insert(row as never).select("id").single() as unknown as
+            Promise<{ data: { id: string } | null; error: { message: string } | null }>);
+          if (error || !data) throw new Error(error?.message ?? "the new ad was not saved");
+          return data.id;
+        },
+      });
+      invalidateAdCreatives();
+      await load();
+      setVideoAd({ creativeId: made.creativeId, file });
+      toast({ title: "New ad added", description: "It shows a still from the video until the video is ready. Choose its categories to upload the video." });
+    } catch (err) {
+      toast({ title: "Could not add the video ad", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    }
+    setMakingVideoAd(false);
+  };
 
   /** Upload many files at once. Each becomes one picture in the library. */
   const onFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -333,6 +378,23 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
         {uploading ? `Uploading ${uploading.done} of ${uploading.total}…` : "Add pictures (choose many at once)"}
       </button>
 
+      {zone === "story-card" && videoAdsAllowed && (
+        <>
+          <input ref={videoRef} type="file" accept="video/*" className="hidden" onChange={onVideo} data-testid="ad-library-video-input" />
+          <button
+            type="button"
+            onClick={() => videoRef.current?.click()}
+            disabled={makingVideoAd || !!uploading || tableMissing}
+            className="ml-2 inline-flex items-center gap-2 px-3 py-2 rounded-sm border border-primary/40 text-[11px] text-foreground hover:bg-primary/10 disabled:opacity-50"
+            style={hFont}
+            data-testid="ad-library-add-video"
+          >
+            {makingVideoAd ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Film className="h-3.5 w-3.5" />}
+            {makingVideoAd ? "Adding the video ad…" : "Add a video ad"}
+          </button>
+        </>
+      )}
+
       {rows !== null && rows.length === 0 && !tableMissing && (
         <p className="text-[10px] text-muted-foreground flex items-center gap-1.5" style={bFont}>
           <ImageOff className="h-3 w-3" /> No pictures yet — the single picture above is used until you add some.
@@ -379,7 +441,8 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
                 </div>
                 {/* VID-5 · a video for this ad (only when Video ads is on for this admin). */}
                 {zone === "story-card" && (
-                  <AdVideoButton creativeId={r.id} videoState={videoStates.get(r.id) ?? null} onChanged={() => void load()} />
+                  <AdVideoButton creativeId={r.id} videoState={videoStates.get(r.id) ?? null} onChanged={() => void load()}
+                    initialFile={videoAd?.creativeId === r.id ? videoAd.file : null} />
                 )}
                 {/* Bug 4: a web address only (https://, http:// or a bare site.com),
                     with the reason under the box, and a warning when the SAVED
