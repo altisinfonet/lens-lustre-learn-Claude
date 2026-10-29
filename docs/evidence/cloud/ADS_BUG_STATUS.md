@@ -39,12 +39,22 @@ Browser check: nav harness journeys "sponsored card: …" (Chromium/Firefox/WebK
 - Bug 1: PR #556 → staging, all CI green on d652e31 (incl. Back-returns-to-feed chromium/firefox/webkit with the
   new "sponsored card" journeys, and App origin journey https://localhost 13/13), independent diff-only review
   "nothing blocking" → **merged staging `fc3ceea`**.
-- Bug 1 carry to main: PR #559 (cherry-pick of fc3ceea only onto main c027545) — CI running.
+- Bug 1 carry to main: PR #559 (cherry-pick of fc3ceea only onto main c027545; diff byte-identical to #556),
+  26/26 checks green, independent diff-only review "nothing blocking" → **merged main `f09dbee`**
+  (2026-10-29 ~18:31 UTC). Live bundle carries the fix (index-ChXD_VgF.js contains the new code) within ~2 min.
 - Bug 2 (ads offline): PR #558 → staging (persist ["ad-zone", zone]; unreadable settings ≠ "ads off").
   Fail-first 3/3; independent review "nothing blocking"; review points fixed in f066073. CI running.
 - Ad PICTURE offline: needs `journal-images` added to the photo worker's buckets (#547, now on staging behind
   `app_image_sw`, default OFF — not switched on). Separate small PR after Bug 2.
-- Live check: —
+- **Live check (2026-10-29 ~18:35–18:41 UTC, www.50mmretina.com, the deployed bundle, REAL production ad data):**
+  Chromium 153, Firefox 153, WebKit 26.5 — `/` 200, `/feed` 200, the sponsored card shows the real library ad
+  `1793264198326-0v8kgqyk809o.webp` WITH Like + Comment in all three; also PASS with the ad library made
+  unreadable for 4 s (weak network): the card arrives with Like + Comment, never the bar-less picture.
+  Method: Playwright; sign-in and the feed's post list faked inside the test browser only (no real account),
+  every write answered locally (21–26 blocked, nothing reached production), reads forwarded with the public key.
+  Console: no new errors from the ad code. Seen: X-Frame-Options-in-meta and Cloudflare beacon CSP (both
+  present before this deploy), 401s from the public key on signed-in reads (test setup), a Dialog a11y warning
+  (not in this diff), WebKit "access control checks" on the test's own faked feed replies (test setup).
 - Android build run ID: —
 
 ## For the Owner (plain words)
