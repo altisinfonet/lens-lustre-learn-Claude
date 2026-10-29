@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { startVisibilityInterval } from "@/lib/timers/visibilityInterval";
+import { reportNativeExits } from "@/lib/native/exitReasons";
 
 /**
  * S2-A · CLIENT TELEMETRY. One way a device reports timings, uncaught errors,
@@ -124,10 +125,12 @@ export function hashMessage(message: string): string {
 
 /* ── record ──────────────────────────────────────────────────────────────── */
 
-function push(e: Omit<TelemetryEvent, "platform" | "app_build" | "route">): void {
+/** `build` overrides the app build (a native exit is credited to the build that was running). */
+function push(e: Omit<TelemetryEvent, "platform" | "app_build" | "route">, build?: string): void {
   try {
     if (queue.length >= MAX_QUEUE) return;
-    queue.push({ ...e, platform: telemetryPlatform(), app_build: appBuild(), route: currentRoute() });
+    const b = build ? String(build).replace(/[^A-Za-z0-9._+-]/g, "").slice(0, 40) || appBuild() : appBuild();
+    queue.push({ ...e, platform: telemetryPlatform(), app_build: b, route: currentRoute() });
   } catch {
     /* rule 1 */
   }
@@ -252,7 +255,19 @@ export function installTelemetry(): void {
     const app = (window as unknown as {
       Capacitor?: { Plugins?: { App?: { getInfo?: () => Promise<{ build?: string }> } } };
     }).Capacitor?.Plugins?.App;
-    const start = () => push({ kind: "session", metric: "app.start" });
+    const start = () => {
+      push({ kind: "session", metric: "app.start" });
+      // Native crash / OOM / ANR of an EARLIER process, from the OS's own record
+      // (Android ExitInfo plugin; absent on web, iOS and older app builds).
+      if (telemetryPlatform() === "android") {
+        void reportNativeExits(appBuild(), (metric, build) => push({ kind: "session", metric }, build)).then(
+          (n) => {
+            if (n > 0) void flushTelemetry(); // send now: a crash loop may not live 15 s
+          },
+          () => undefined,
+        );
+      }
+    };
     if (telemetryPlatform() !== "web" && app?.getInfo) {
       app.getInfo().then(
         (i) => {
