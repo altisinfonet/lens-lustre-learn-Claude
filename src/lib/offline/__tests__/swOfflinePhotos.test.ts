@@ -165,6 +165,11 @@ describe("photos from our CDN are saved on the phone", () => {
   it("ads bug 2: only the ads folder of journal-images, not the whole bucket", async () => {
     const w = loadWorker();
     expect(await w.fetchImage("https://cdn.50mmretina.com/journal-images/articles/a.webp")).toBeNull();
+    // review #560: never a signed ad URL, another host, or a bare folder
+    expect(await w.fetchImage("https://cdn.50mmretina.com/journal-images/ads/x.webp?token=abc")).toBeNull();
+    expect(await w.fetchImage("https://cdn.50mmretina.com/journal-images/ads/x.webp?Expires=1&Signature=s")).toBeNull();
+    expect(await w.fetchImage("https://example.com/journal-images/ads/x.webp")).toBeNull();
+    expect(await w.fetchImage("https://cdn.50mmretina.com/journal-images/ads/")).toBeNull();
     expect(w.entries()).toEqual([]);
   });
 

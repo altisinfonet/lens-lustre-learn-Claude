@@ -125,7 +125,7 @@ function isGalleryImage(url) {
     // Ads bug 2 (2026-10-29, "On no network ad is not showing"): the feed's
     // sponsored pictures are kept like feed photos. Only the ads folder of
     // journal-images (public, admin-placed), not the whole bucket.
-    if (parts.length >= 3 && parts[0] === AD_BUCKET && parts[1] === AD_FOLDER) return true;
+    if (parts.length >= 3 && parts[0] === AD_BUCKET && parts[1] === AD_FOLDER && parts[parts.length - 1] !== "") return true;
   }
 
   // Supabase Storage public OR render endpoint
