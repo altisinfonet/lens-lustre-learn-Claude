@@ -20,9 +20,7 @@
     "hashtag-list-in-dialog": {},
     "hashtag-list-inline-edit": {},
     "hashtag-list-ranked-by-people": {},
-    "journey-create-from-feed": {
-      "link-name": 1
-    },
+    "journey-create-from-feed": {},
     "journey-create-from-wall": {},
     "mention-list-over-comment-box": {},
     "post-audience-chooser": {},
@@ -38,9 +36,7 @@
     "screen-discover": {
       "link-name": 4
     },
-    "screen-feed": {
-      "link-name": 1
-    },
+    "screen-feed": {},
     "screen-friends": {},
     "screen-login": {
       "link-in-text-block": 2

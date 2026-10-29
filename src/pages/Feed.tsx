@@ -21,7 +21,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import AdZone from "@/components/ads/AdZone";
 import FeedFriendSuggestions from "@/components/feed/FeedFriendSuggestions";
-import TodaysBirthdayStrip from "@/components/feed/TodaysBirthdayStrip";
 import { slotForPostIndex, shouldShowFeedAd } from "@/lib/ads/feedAdPlacement";
 import { useT } from "@/i18n/I18nContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -421,12 +420,11 @@ const Feed = () => {
         <FeedStoriesBar />
 
         {/*
-          Today's Birthday on phones, tablets and inside the Android app.
-          The left sidebar that carries it is `hidden xl:block`, so below
-          1280px it was never rendered at all. This is `xl:hidden` — the exact
-          complement — and renders nothing on days with no birthday.
+          No birthday box above the posts. Owner, 2026-10-29: "In web left card
+          is okay but in App NO, Only Push Notification, Email are Okay."
+          Phones and the app get birthdays by push and email; the desktop
+          left-sidebar card stays. Guarded by noBirthdayBoxAboveFeed.test.ts.
         */}
-        <TodaysBirthdayStrip />
 
         {/*
           NO HEADING AND NO REFRESH BUTTON. Owner, 2026-08-10, after seeing the
