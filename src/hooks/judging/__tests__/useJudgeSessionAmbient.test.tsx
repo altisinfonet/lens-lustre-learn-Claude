@@ -100,6 +100,10 @@ describe("JudgePanel wiring", () => {
     expect(src).toMatch(/JUDGE_AMBIENT_KEY/);
     expect(src).toMatch(/const \{ trackPosition \} = session;[\s\S]{0,200}if \(!ambientOn[^)]*\) return;[\s\S]{0,300}trackPosition\(/);
   });
+  it("an unanswered switch read counts as OFF after a short cap (never leaves the resume check open)", () => {
+    expect(src).toMatch(/setTimeout\(\(\) => \{ if \(live\) setAmbientOn\(\(prev\) => prev \?\? false\); \}, AMBIENT_READ_CAP_MS\)/);
+    expect(src).toMatch(/const AMBIENT_READ_CAP_MS = 3_000;/);
+  });
   it("decides the resume offer through resumeTarget", () => {
     expect(src).toMatch(/resumeTarget\(session\.session, readAmbientPosition\(session\.session\.competition_id\), ambientOn === true\)/);
   });

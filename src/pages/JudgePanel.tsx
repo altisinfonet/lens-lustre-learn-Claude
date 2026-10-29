@@ -47,6 +47,7 @@ import { SOW_ROUND4_CRITERIA_KEYS } from "@/hooks/judging/types";
 
 /** S11 · site_settings switch for offering the last-viewed photo on resume. No row = OFF. */
 const JUDGE_AMBIENT_KEY = "judge_resume_ambient";
+const AMBIENT_READ_CAP_MS = 3_000;
 
 const hasAllSowCriteria = (criteria?: CriteriaScores | null) =>
   !!criteria && SOW_ROUND4_CRITERIA_KEYS.every((key) => typeof criteria[key] === "number");
@@ -132,9 +133,12 @@ const JudgePanel = () => {
   useEffect(() => {
     let live = true;
     void readSiteSettingState<string>(JUDGE_AMBIENT_KEY, { maxAgeMs: 60_000 }).then((st) => {
-      if (live) setAmbientOn(st.known && st.value === "on");
+      if (live) setAmbientOn((prev) => prev ?? (st.known && st.value === "on"));
     });
-    return () => { live = false; };
+    // A read that never answers must not leave the resume check open (a later
+    // bookmark would then pop the dialog mid-judging): after 3 s, unread = OFF.
+    const cap = setTimeout(() => { if (live) setAmbientOn((prev) => prev ?? false); }, AMBIENT_READ_CAP_MS);
+    return () => { live = false; clearTimeout(cap); };
   }, []);
 
   // ── Data hooks ──
