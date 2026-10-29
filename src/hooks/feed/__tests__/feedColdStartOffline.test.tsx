@@ -18,7 +18,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import React from "react";
-import { renderHook } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider, onlineManager } from "@tanstack/react-query";
 import { persistFeedPage, getCachedFeed } from "@/lib/feedCache";
 import { useFeedQuery } from "@/hooks/feed/useFeedQuery";
@@ -68,7 +68,7 @@ describe("F-D3-13 · feedCache keeps what it saved (OFF-5 G2)", () => {
 describe("F-D3-13 · the real feed hook, cold start, no network", () => {
   // 10 min is the CONTROL: it passed on the 30-minute implementation too, which
   // proves this harness can see the saved feed at all. 3 h is the finding.
-  it.each([10, 3 * 60])("shows the 10 saved posts from a cache saved %i minutes earlier, and makes no request", (mins) => {
+  it.each([10, 3 * 60])("shows the 10 saved posts from a cache saved %i minutes earlier, and makes no request", async (mins) => {
     persistFeedPage(posts, [], ME);
     vi.setSystemTime(T0 + mins * MIN);
     onlineManager.setOnline(false);
@@ -81,11 +81,9 @@ describe("F-D3-13 · the real feed hook, cold start, no network", () => {
 
     expect(result.current.data?.pages[0].posts.map((p) => p.id)).toEqual(posts.map((p) => p.id));
     expect(result.current.isPlaceholderData).toBe(true);
-    // S7b-3 (2026-10-29): the feed runs offline ("offlineFirst") so it can read
-    // the posts saved on the phone; with nothing saved it WAITS for the network
-    // itself (waitForNetwork) instead of React Query pausing it. The contract is
-    // unchanged — saved posts on screen, still waiting, and NO request at all.
-    expect(result.current.fetchStatus).not.toBe("idle");
+    // S7b-3: with nothing saved on the phone for the page, React Query pauses
+    // it (OfflineNoSavedPageError → retry → paused) — and NO request at all.
+    await waitFor(() => expect(result.current.fetchStatus).toBe("paused"));
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });

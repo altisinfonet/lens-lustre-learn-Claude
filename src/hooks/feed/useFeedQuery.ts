@@ -3,7 +3,8 @@ import { useMemo, useCallback, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPostAttachments, attachmentsFor } from "@/lib/posts/postAttachments";
 import { persistFeedPage, getCachedFeed } from "@/lib/feedCache";
-import { readFeedPage, recordFeedPage } from "@/lib/offline/feedArchive";
+import { feedArchiveEpoch, readFeedPage, recordFeedPage } from "@/lib/offline/feedArchive";
+import { isNetworkError } from "@/lib/offline/retryPolicy";
 import { feedSessionFor, startFeedSessionOver } from "@/lib/feedSessions";
 import { fetchProfileMap } from "@/lib/profileMapCache";
 import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
@@ -722,26 +723,17 @@ export function isReturnToTheDealOnScreen(
 const offlineSessions = new WeakSet<object>();
 
 /**
- * S7b-3: resolves when React Query's online manager says the device is online
- * again; rejects if the fetch is cancelled (unmount, refresh) meanwhile. Used so
- * an offline page with nothing saved makes no request until there is a network.
+ * S7b-3 (review #548): no network and nothing saved for this page. The page
+ * function THROWS it instead of waiting inside itself: React Query's retry then
+ * PAUSES the page until the device is online (networkMode "offlineFirst"), and
+ * a paused page that is cancelled or refreshed leaves nothing running — so the
+ * network coming back makes exactly one request, never one per refresh.
  */
-export function waitForNetwork(signal?: AbortSignal): Promise<void> {
-  if (onlineManager.isOnline()) return Promise.resolve();
-  if (signal?.aborted) return Promise.reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
-  return new Promise<void>((resolve, reject) => {
-    const stop = onlineManager.subscribe((online) => {
-      if (!online) return;
-      stop();
-      signal?.removeEventListener("abort", onAbort);
-      resolve();
-    });
-    const onAbort = () => {
-      stop();
-      reject(signal?.reason ?? new DOMException("Aborted", "AbortError"));
-    };
-    signal?.addEventListener("abort", onAbort, { once: true });
-  });
+export class OfflineNoSavedPageError extends Error {
+  constructor() {
+    super("No network and no saved posts for this page");
+    this.name = "OfflineNoSavedPageError";
+  }
 }
 
 export interface FeedPage {
@@ -935,14 +927,32 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
      * Still bounded. A genuinely dead RPC must fail and be SEEN, not hammered
      * forever behind a spinner.
      */
-    retry: 3,
-    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
+    // S7b-3: "no network, nothing saved" retries with no delay — React Query
+    // pauses it until the device is online — and is never counted out.
+    retry: (failureCount, error) => error instanceof OfflineNoSavedPageError || failureCount < 3,
+    retryDelay: (attempt, error) => (error instanceof OfflineNoSavedPageError ? 0 : Math.min(1000 * 2 ** attempt, 8000)),
 
     // `signal` is deliberately NOT read: reading it makes React Query cancel and
     // revert an in-flight page on unmount (Back), which this feed never did.
     queryFn: async ({ pageParam }): Promise<FeedPage> => {
       const pageIndex = (pageParam as number | undefined) ?? 0;
       const isFirstPage = pageIndex === 0;
+
+      // Review #548: asked when the request STARTS, handed back when the page
+      // is saved — a member who signed out meanwhile gets nothing saved.
+      const archiveEpoch = feedArchiveEpoch();
+      /** Saved page `pageIndex` from the phone; marks this session as served from it. */
+      const fromPhone = async (): Promise<FeedPage | null> => {
+        const saved = await readFeedPage(userId!, pageIndex, PAGE_SIZE);
+        if (saved.posts.length === 0) return null;
+        offlineSessions.add(session);
+        return {
+          posts: saved.posts as FeedPost[],
+          nextCursor: saved.more ? pageIndex + 1 : null,
+          networkIds: networkIdsRef.current ?? [],
+          offline: true,
+        };
+      };
 
       // S7b-3 · ONE SESSION, ONE SOURCE. Once any page of this session was read
       // from the phone, every later page of it is too — even if the network is
@@ -951,146 +961,147 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
       // server would re-deal from 0 and wipe the session's log). The saved
       // posts run out → end of feed; pull-to-refresh starts a live session.
       if (archivedFeed && !isFirstPage && offlineSessions.has(session)) {
-        const saved = await readFeedPage(userId!, pageIndex, PAGE_SIZE);
-        return {
-          posts: saved.posts as FeedPost[],
-          nextCursor: saved.more && saved.posts.length > 0 ? pageIndex + 1 : null,
-          networkIds: networkIdsRef.current ?? [],
-          offline: true,
-        };
+        return (await fromPhone()) ?? { posts: [], nextCursor: null, networkIds: networkIdsRef.current ?? [], offline: true };
       }
 
       // S7b-3 · NO NETWORK: the "For you" feed scrolls through the posts saved
       // on the phone (up to ~200, in the order they were seen). Nothing saved
-      // for this page: no request — wait for the network, then go on below.
+      // for this page: no request — React Query pauses it until the network is
+      // back (OfflineNoSavedPageError, above).
       if (!onlineManager.isOnline()) {
-        if (archivedFeed) {
-          const saved = await readFeedPage(userId!, pageIndex, PAGE_SIZE);
-          if (saved.posts.length > 0) {
-            offlineSessions.add(session);
-            return {
-              posts: saved.posts as FeedPost[],
-              nextCursor: saved.more ? pageIndex + 1 : null,
-              networkIds: networkIdsRef.current ?? [],
-              offline: true,
-            };
+        const saved = archivedFeed ? await fromPhone() : null;
+        if (saved) return saved;
+        throw new OfflineNoSavedPageError();
+      }
+
+      try {
+        return await livePage();
+      } catch (error) {
+        // Review #548: "online" but nothing answers (Wi-Fi without internet, a
+        // dead signal): a FIRST page that fails on the network shows the saved
+        // posts instead of the error card. Later pages of a live session keep
+        // retrying (a saved page there would not continue what is on screen).
+        if (archivedFeed && isFirstPage && isNetworkError(error)) {
+          const saved = await fromPhone();
+          if (saved) return saved;
+        }
+        throw error;
+      }
+
+      async function livePage(): Promise<FeedPage> {
+        /**
+         * Stage L2 · A NEW SESSION IS PREPARED HERE AND COMMITTED ONLY WHEN ITS
+         * FIRST PAGE HAS ARRIVED (commitSession below).
+         *
+         * Page 0 used to reset the refs first and ask second. A refresh that then
+         * failed left the OLD posts on screen with a NEW seed and EMPTY exclude
+         * lists behind them, so the next "load more" dealt from a session the
+         * member had never seen (and could repeat what was already on screen). A
+         * failed refresh must change nothing.
+         *
+         * The network list is fetched ONLY to label `is_suggested`. The watermark
+         * rides the same round trip, and is read BEFORE the page is dealt.
+         */
+        const fresh = isFirstPage
+          ? await Promise.all([fetchRelevantUsers(userId!), fetchWatermark(userId!, cats), timeline ? Promise.resolve(false) : fetchFeatureAllowed("personal_feed")])
+              .then(([ids, wm, personal]) => ({ networkIds: ids, watermark: wm, seed: newFeedSessionSeed(), personal }))
+          : null;
+        const commitSession = () => {
+          if (!fresh) return;
+          // A live page 0 starts a live session: later pages come from the server.
+          offlineSessions.delete(session);
+          networkIdsRef.current = fresh.networkIds;
+          sessionWatermarkRef.current = fresh.watermark;
+          sessionSeedRef.current = fresh.seed;
+          excludeByPageRef.current = new Map([[0, []]]);
+          lastAuthorByPageRef.current = new Map([[0, null]]);
+          personalRef.current = fresh.personal;
+        };
+
+        const networkIds = fresh ? fresh.networkIds : networkIdsRef.current;
+        const excludeIds = fresh ? [] : excludeByPageRef.current.get(pageIndex) ?? [];
+        const sessionSeed = fresh ? fresh.seed : sessionSeedRef.current ?? (sessionSeedRef.current = newFeedSessionSeed());
+        const watermark = fresh ? fresh.watermark : sessionWatermarkRef.current;
+        // S12-F3: decided once per session (page 0), so every page of one deal
+        // comes from the same function.
+        const personal = fresh ? fresh.personal : personalRef.current;
+
+        const newestFirst = timeline ? 0 : isFirstPage ? NEWEST_PINNED_ON_FIRST_PAGE : 0;
+        // S6-a: by cursor first — `_after` is how many rows this session holds
+        // before this page (the old exclude list's length; the list itself stays
+        // on the device only for the fallbacks below). Personal → broadcast on
+        // failure, exactly as before; both share the server's session log.
+        const after = excludeIds.length;
+        const cursorKey = `${timeline ?? "for_you"}|${sessionSeed}`;
+        const cursorOk = !oldPathSessions.has(cursorKey);
+        let served: BroadcastPage | null = null;
+        if (!cursorOk) {
+          // this session already left the cursor (see oldPathSessions)
+        } else if (timeline) {
+          const rows = await fetchPageByCursor(timeline, false, sessionSeed, after, 0, cats);
+          if (rows) served = { rows, degraded: false, personal: false };
+        } else {
+          if (personal) {
+            const rows = await fetchPageByCursor("for_you", true, sessionSeed, after, newestFirst, cats);
+            if (rows) served = { rows, degraded: false, personal: true };
+          }
+          if (!served) {
+            const rows = await fetchPageByCursor("for_you", false, sessionSeed, after, newestFirst, cats);
+            if (rows) served = { rows, degraded: false, personal: false };
           }
         }
-        await waitForNetwork();
-      }
+        if (!served) oldPathSessions.add(cursorKey);
+        const { rows: rawPosts, degraded, personal: servedPersonal } = served ?? (timeline
+          ? { rows: await fetchTimelinePage(timeline, excludeIds, cats), degraded: false, personal: false }
+          : await fetchBroadcastPage(excludeIds, newestFirst, cats, sessionSeed, personal));
 
-      /**
-       * Stage L2 · A NEW SESSION IS PREPARED HERE AND COMMITTED ONLY WHEN ITS
-       * FIRST PAGE HAS ARRIVED (commitSession below).
-       *
-       * Page 0 used to reset the refs first and ask second. A refresh that then
-       * failed left the OLD posts on screen with a NEW seed and EMPTY exclude
-       * lists behind them, so the next "load more" dealt from a session the
-       * member had never seen (and could repeat what was already on screen). A
-       * failed refresh must change nothing.
-       *
-       * The network list is fetched ONLY to label `is_suggested`. The watermark
-       * rides the same round trip, and is read BEFORE the page is dealt.
-       */
-      const fresh = isFirstPage
-        ? await Promise.all([fetchRelevantUsers(userId!), fetchWatermark(userId!, cats), timeline ? Promise.resolve(false) : fetchFeatureAllowed("personal_feed")])
-            .then(([ids, wm, personal]) => ({ networkIds: ids, watermark: wm, seed: newFeedSessionSeed(), personal }))
-        : null;
-      const commitSession = () => {
-        if (!fresh) return;
-        // A live page 0 starts a live session: later pages come from the server.
-        offlineSessions.delete(session);
-        networkIdsRef.current = fresh.networkIds;
-        sessionWatermarkRef.current = fresh.watermark;
-        sessionSeedRef.current = fresh.seed;
-        excludeByPageRef.current = new Map([[0, []]]);
-        lastAuthorByPageRef.current = new Map([[0, null]]);
-        personalRef.current = fresh.personal;
-      };
-
-      const networkIds = fresh ? fresh.networkIds : networkIdsRef.current;
-      const excludeIds = fresh ? [] : excludeByPageRef.current.get(pageIndex) ?? [];
-      const sessionSeed = fresh ? fresh.seed : sessionSeedRef.current ?? (sessionSeedRef.current = newFeedSessionSeed());
-      const watermark = fresh ? fresh.watermark : sessionWatermarkRef.current;
-      // S12-F3: decided once per session (page 0), so every page of one deal
-      // comes from the same function.
-      const personal = fresh ? fresh.personal : personalRef.current;
-
-      const newestFirst = timeline ? 0 : isFirstPage ? NEWEST_PINNED_ON_FIRST_PAGE : 0;
-      // S6-a: by cursor first — `_after` is how many rows this session holds
-      // before this page (the old exclude list's length; the list itself stays
-      // on the device only for the fallbacks below). Personal → broadcast on
-      // failure, exactly as before; both share the server's session log.
-      const after = excludeIds.length;
-      const cursorKey = `${timeline ?? "for_you"}|${sessionSeed}`;
-      const cursorOk = !oldPathSessions.has(cursorKey);
-      let served: BroadcastPage | null = null;
-      if (!cursorOk) {
-        // this session already left the cursor (see oldPathSessions)
-      } else if (timeline) {
-        const rows = await fetchPageByCursor(timeline, false, sessionSeed, after, 0, cats);
-        if (rows) served = { rows, degraded: false, personal: false };
-      } else {
-        if (personal) {
-          const rows = await fetchPageByCursor("for_you", true, sessionSeed, after, newestFirst, cats);
-          if (rows) served = { rows, degraded: false, personal: true };
+        if (rawPosts.length === 0) {
+          // Everything visible has been delivered this session — feed end.
+          // (Tier 2 recycling already happened server-side, so reaching here
+          // means the user scrolled through literally every visible post twice.)
+          commitSession();
+          return { posts: [], nextCursor: null, networkIds, degraded, sessionSeed, watermark };
         }
-        if (!served) {
-          const rows = await fetchPageByCursor("for_you", false, sessionSeed, after, newestFirst, cats);
-          if (rows) served = { rows, degraded: false, personal: false };
-        }
-      }
-      if (!served) oldPathSessions.add(cursorKey);
-      const { rows: rawPosts, degraded, personal: servedPersonal } = served ?? (timeline
-        ? { rows: await fetchTimelinePage(timeline, excludeIds, cats), degraded: false, personal: false }
-        : await fetchBroadcastPage(excludeIds, newestFirst, cats, sessionSeed, personal));
 
-      if (rawPosts.length === 0) {
-        // Everything visible has been delivered this session — feed end.
-        // (Tier 2 recycling already happened server-side, so reaching here
-        // means the user scrolled through literally every visible post twice.)
+        const enriched = await enrichPosts(rawPosts, networkIds, userId!);
         commitSession();
-        return { posts: [], nextCursor: null, networkIds, degraded, sessionSeed, watermark };
+
+        // Keep server order (tier + fairness), then apply the one client-side
+        // rule: no same author back-to-back.
+        const prevAuthor = lastAuthorByPageRef.current.get(pageIndex) ?? null;
+        // S12-F3: the personal feed already applied max 2 per author and max 3
+        // per category in a row (and placed "caught up"); its order is final.
+        // S12-F5: Following / Favourites are time order — never reordered.
+        const ordered = servedPersonal || timeline ? enriched : reorderNoBackToBack(enriched, prevAuthor);
+
+        // Record state snapshots for the NEXT page.
+        excludeByPageRef.current.set(
+          pageIndex + 1,
+          [...excludeIds, ...ordered.map((p) => p.id)],
+        );
+        lastAuthorByPageRef.current.set(
+          pageIndex + 1,
+          ordered.length > 0 ? ordered[ordered.length - 1].user_id : prevAuthor,
+        );
+
+        // Persist first page to localStorage for instant load next visit
+        if (isFirstPage && ordered.length > 0 && !timeline) {
+          persistFeedPage(ordered, networkIds, userId!);
+        }
+        // S7b-3: every "For you" page served online is saved for no-network use.
+        if (archivedFeed && ordered.length > 0) {
+          void recordFeedPage(userId!, pageIndex, ordered, { epoch: archiveEpoch });
+        }
+
+        return {
+          posts: ordered,
+          nextCursor: pageIndex + 1,
+          networkIds,
+          degraded,
+          sessionSeed,
+          watermark,
+        };
       }
-
-      const enriched = await enrichPosts(rawPosts, networkIds, userId!);
-      commitSession();
-
-      // Keep server order (tier + fairness), then apply the one client-side
-      // rule: no same author back-to-back.
-      const prevAuthor = lastAuthorByPageRef.current.get(pageIndex) ?? null;
-      // S12-F3: the personal feed already applied max 2 per author and max 3
-      // per category in a row (and placed "caught up"); its order is final.
-      // S12-F5: Following / Favourites are time order — never reordered.
-      const ordered = servedPersonal || timeline ? enriched : reorderNoBackToBack(enriched, prevAuthor);
-
-      // Record state snapshots for the NEXT page.
-      excludeByPageRef.current.set(
-        pageIndex + 1,
-        [...excludeIds, ...ordered.map((p) => p.id)],
-      );
-      lastAuthorByPageRef.current.set(
-        pageIndex + 1,
-        ordered.length > 0 ? ordered[ordered.length - 1].user_id : prevAuthor,
-      );
-
-      // Persist first page to localStorage for instant load next visit
-      if (isFirstPage && ordered.length > 0 && !timeline) {
-        persistFeedPage(ordered, networkIds, userId!);
-      }
-      // S7b-3: every "For you" page served online is saved for no-network use.
-      if (archivedFeed && ordered.length > 0) {
-        void recordFeedPage(userId!, pageIndex, ordered);
-      }
-
-      return {
-        posts: ordered,
-        nextCursor: pageIndex + 1,
-        networkIds,
-        degraded,
-        sessionSeed,
-        watermark,
-      };
     },
 
     /**

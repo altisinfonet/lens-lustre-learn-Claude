@@ -35,12 +35,29 @@ let posts: ArchivedPost[] = [];
 let sessionLen = 0;
 let loaded: Promise<void> | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+/** Saves run one at a time, each on the newest posts (review #548). */
+let saving: Promise<void> = Promise.resolve();
+/**
+ * Bumped by every sign-out wipe (resetFeedArchiveMemory). A feed page asks for
+ * it when its request STARTS and hands it back when it records the page, so a
+ * page that was loading when the member signed out is never saved after the
+ * wipe (review #548).
+ */
+let epoch = 0;
+/** Bumped whenever the in-memory copy is dropped, so a read of the phone's store
+ *  that finishes late can never merge into another member's copy. */
+let generation = 0;
+
+export function feedArchiveEpoch(): number {
+  return epoch;
+}
 
 function reset(userId: string) {
   owner = userId;
   posts = [];
   sessionLen = 0;
   loaded = null;
+  generation++;
 }
 
 function dedupe(list: ArchivedPost[]): ArchivedPost[] {
@@ -58,12 +75,22 @@ function dedupe(list: ArchivedPost[]): ArchivedPost[] {
 function ensureLoaded(userId: string): Promise<void> {
   if (owner !== userId) reset(userId);
   if (!loaded) {
+    const gen = generation;
     loaded = readAll(userId)
       .then((records) => {
-        const chunks = records
+        // Signed out / another member meanwhile: this read is not theirs.
+        if (gen !== generation || owner !== userId) return;
+        const sorted = records
           .filter((r) => Array.isArray(r.key) && r.key[0] === KEY && typeof r.key[1] === "number")
-          .sort((a, b) => (a.key[1] as number) - (b.key[1] as number))
-          .flatMap((r) => (Array.isArray(r.data) ? (r.data as ArchivedPost[]) : []));
+          .sort((a, b) => (a.key[1] as number) - (b.key[1] as number));
+        // Only chunks 0, 1, 2 … without a gap: if the store evicted a middle
+        // chunk, the ones after it would no longer be in the order seen.
+        const contiguous: typeof sorted = [];
+        for (const r of sorted) {
+          if (r.key[1] !== contiguous.length) break;
+          contiguous.push(r);
+        }
+        const chunks = contiguous.flatMap((r) => (Array.isArray(r.data) ? (r.data as ArchivedPost[]) : []));
         // Anything recorded while the read was in flight stays in front.
         posts = dedupe([...posts, ...chunks]).slice(0, ARCHIVE_MAX_POSTS);
       })
@@ -81,11 +108,18 @@ function scheduleSave(userId: string, delayMs: number) {
   }, delayMs);
 }
 
-async function saveNow(userId: string) {
+function saveNow(userId: string): Promise<void> {
+  const ep = epoch;
+  saving = saving.then(() => writeChunks(userId, ep)).catch(() => {});
+  return saving;
+}
+
+async function writeChunks(userId: string, ep: number) {
+  if (ep !== epoch || owner !== userId) return; // signed out before this save's turn
   const snapshot = posts.slice();
   const chunks = Math.ceil(ARCHIVE_MAX_POSTS / ARCHIVE_CHUNK);
   for (let i = 0; i < chunks; i++) {
-    if (owner !== userId) return; // signed out meanwhile: write nothing more
+    if (ep !== epoch || owner !== userId) return; // signed out meanwhile: write nothing more
     const part = snapshot.slice(i * ARCHIVE_CHUNK, (i + 1) * ARCHIVE_CHUNK);
     // An empty chunk is written too, so a shorter archive never keeps stale
     // tails. A chunk the store refuses (over its size cap) is replaced by an
@@ -125,11 +159,13 @@ export async function recordFeedPage(
   userId: string,
   pageIndex: number,
   page: ArchivedPost[],
-  opts: { saveDelayMs?: number; warm?: boolean } = {},
+  opts: { saveDelayMs?: number; warm?: boolean; epoch?: number } = {},
 ): Promise<void> {
   if (!userId || !Array.isArray(page) || page.length === 0) return;
+  // The member signed out while this page was loading: it is not saved.
+  if (opts.epoch !== undefined && opts.epoch !== epoch) return;
   await ensureLoaded(userId);
-  if (owner !== userId) return;
+  if (owner !== userId || (opts.epoch !== undefined && opts.epoch !== epoch)) return;
   const before = new Set(posts.map((p) => p.id));
   if (pageIndex === 0) {
     posts = dedupe([...page, ...posts]);
@@ -175,6 +211,8 @@ export async function flushFeedArchive(): Promise<void> {
 /** Forget the in-memory copy (sign-out, tests). The device copy is wiped by signOutWipe. */
 export function resetFeedArchiveMemory(): void {
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+  epoch++;
+  generation++;
   owner = null;
   posts = [];
   sessionLen = 0;

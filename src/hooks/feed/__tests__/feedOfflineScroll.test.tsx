@@ -14,7 +14,7 @@ import { renderHook, waitFor, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider, onlineManager } from "@tanstack/react-query";
 import { memoryBackend, setBackend } from "@/lib/offline/deviceStore";
 import { recordFeedPage, resetFeedArchiveMemory } from "@/lib/offline/feedArchive";
-import { useFeedQuery, waitForNetwork } from "@/hooks/feed/useFeedQuery";
+import { useFeedQuery } from "@/hooks/feed/useFeedQuery";
 
 const ME = "00000000-0000-4000-8000-0000000000aa";
 const post = (id: string) => ({ id, user_id: "u1", content: `saved ${id}` });
@@ -67,21 +67,5 @@ describe("S7b-3 · offline feed scroll", () => {
     expect(fetchSpy.mock.calls.filter(([u]) => String(u).includes("/rpc/"))).toEqual([]);
     fetchSpy.mockRestore();
   });
-
-  it("with nothing saved for a page it waits for the network (no request), then goes on", async () => {
-    let done = false;
-    const p = waitForNetwork().then(() => { done = true; });
-    await new Promise((r) => setTimeout(r, 20));
-    expect(done).toBe(false);
-    onlineManager.setOnline(true);
-    await p;
-    expect(done).toBe(true);
-  });
-
-  it("stops waiting when the page is cancelled", async () => {
-    const ac = new AbortController();
-    const p = waitForNetwork(ac.signal);
-    ac.abort();
-    await expect(p).rejects.toBeTruthy();
-  });
+  // "Nothing saved → no request, paused, one deal when back": feedOfflineNetwork.test.tsx.
 });

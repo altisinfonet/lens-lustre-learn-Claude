@@ -229,6 +229,11 @@ const queryClient = new QueryClient({
   },
 });
 
+// S7b-3: React Query starts "online"; a phone opened in flight mode must not
+// look online (src/lib/offline/onlineSeed.ts).
+import { seedOnlineManager } from "@/lib/offline/onlineSeed";
+seedOnlineManager();
+
 // Wire up QueryClient for non-React imperative helpers
 import { setSiteLogoQueryClient } from "@/hooks/core/useSiteLogo";
 import { setProfileBatchQueryClient } from "@/lib/profileBatch";
