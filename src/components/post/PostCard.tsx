@@ -1,4 +1,6 @@
 import { useMemo, useRef, useState } from "react";
+import PendingMark from "@/components/offline/PendingMark";
+import { submit } from "@/lib/offline/outbox";
 import ProfileLink from "@/components/ProfileLink";
 import { publicUrl } from "@/lib/publicUrl";
 import { Link } from "react-router-dom";
@@ -197,14 +199,13 @@ const PostCard = ({
   const handleReport = async () => {
     if (!currentUserId || !reportReason) return;
     setActionLoading(true);
-    const { error } = await supabase
-      .from("post_reports")
-      .insert({ post_id: post.id, reporter_id: currentUserId, reason: reportReason });
-    if (error) {
-      if (error.code === "23505") toast({ title: "You have already reported this post" });
-      else toast({ title: "Failed to submit report", variant: "destructive" });
-    } else {
-      toast({ title: "Report submitted" });
+    // S7b-5: through the OFF-2 outbox — one report per (post, reporter) however
+    // often it is sent; with no network it is kept on the phone and sent once.
+    try {
+      const r = await submit(currentUserId, { kind: "post_report", postId: post.id, reason: reportReason });
+      toast({ title: r.status === "queued" ? "Report saved — it will be sent when you're back online" : "Report submitted" });
+    } catch {
+      toast({ title: "Failed to submit report", variant: "destructive" });
     }
     setReportingOpen(false);
     setReportReason("");
@@ -659,6 +660,8 @@ const PostCard = ({
           business; the ad card passed none, so it drew a like count that named
           nobody, and the reasoning was wrong. The share number IS still a slot,
           because ShareSummaryTooltip reads post_shares. */}
+      {/* S7b-5: a like made with no network, kept on the phone until sent. */}
+      <PendingMark subject={`post:${post.id}`} className="px-4 pt-1" />
       <PostActionRow
         currentReaction={post.user_reaction}
         onReact={(type) => onReact(post.id, type)}

@@ -24,7 +24,7 @@ import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
 import { useAddComment } from "@/hooks/feed/useAddComment";
 import type { ThreadComment } from "@/components/comments/CommentThread";
 import { createThreadCache, threadCacheKey } from "@/lib/comments/threadCache";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, onlineManager } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { rememberThread, savedThread, seenContentEpoch, type SavedAuthor } from "@/lib/offline/seenContent";
 import type { ProfileMapEntry } from "@/lib/profileMapCache";
@@ -437,6 +437,13 @@ export function usePostComments(
    * covered by the existing RLS, so this needed no schema change.
    */
   const setReaction = async (commentId: string, reactionType: string) => {
+    // S7b-5: comment reactions are not in D1's exactly-once contract yet, so
+    // they cannot be queued. With no network say so plainly — never show a
+    // reaction that will silently never be sent (OFF-5 G4: queued or online-only).
+    if (!onlineManager.isOnline()) {
+      toast({ title: "No internet — reacting to comments needs a connection" });
+      return;
+    }
     forgetThread(postId);
     if (!user) return;
     const current = findComment(comments, commentId)?.user_reaction ?? null;

@@ -31,7 +31,6 @@
  * go to a public CDN (outcome 3). A file we CAN prove clean sails through.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-import exifr from "exifr";
 import { logger } from "@/lib/logger";
 
 const FILE = "src/lib/gpsGuard.ts";
@@ -43,6 +42,10 @@ export class GpsPrivacyError extends Error {
     this.name = "GpsPrivacyError";
   }
 }
+
+/** The location check itself could not run (its reader did not load). */
+export const GPS_UNCHECKED_MESSAGE =
+  "We couldn't check this photo for location data, so it wasn't uploaded. Reload the page and try again.";
 
 /** Member-facing copy, kept here so every surface says the same thing. */
 export const GPS_REFUSAL_MESSAGE =
@@ -87,11 +90,37 @@ export function stripJpegMetadata(bytes: Uint8Array): Uint8Array {
 }
 
 /**
+ * P13: exifr (~74 KB) is loaded when a photo is checked, not with the app.
+ */
+const loadExifr = () => import("exifr").then((m) => m.default);
+
+/**
  * Gate an ORIGINAL (non-re-encoded) file before it may be uploaded.
  * Returns the file to upload (original, or a stripped copy).
  * Throws GpsPrivacyError when the file must not be uploaded at all.
  */
 export async function guardOriginalUpload(file: File): Promise<File> {
+  // Loaded ONCE, before any check (review #587): without the reader neither
+  // "no location" nor "stripping removed it" can be proven, and an unprovable
+  // file does not go to a public CDN.
+  let exifr: Awaited<ReturnType<typeof loadExifr>>;
+  try {
+    exifr = await loadExifr();
+  } catch (e) {
+    logger.warn({
+      code: "FILE-5013",
+      event: "GPS_GUARD_READER_UNAVAILABLE",
+      fn: "guardOriginalUpload",
+      file: FILE,
+      message: "The EXIF reader could not be loaded; the original upload was refused.",
+      reason: e instanceof Error ? e.message : String(e),
+      expected: "The on-demand exifr chunk loads",
+      actual: "Load failed (offline web, or a stale deploy)",
+      nextStep: "Fails closed by design. The member can retry once the page can load its files again.",
+      detail: { fileType: file.type, fileSizeBytes: file.size },
+    });
+    throw new GpsPrivacyError(GPS_UNCHECKED_MESSAGE);
+  }
   let hasGps: boolean;
   try {
     const gps = await exifr.gps(file);

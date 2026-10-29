@@ -73,12 +73,27 @@ export default function OutboxBridge() {
         return;
       }
       if (e.type === "delivered" && !e.awaited) {
+        // S7b-5: a follow sent from the phone — the follow state and counts
+        // shown optimistically are now re-read from the server.
+        const k = e.item.action.kind;
+        if (k === "follow" || k === "unfollow") {
+          void qc.invalidateQueries({ queryKey: ["friend-follow"] });
+          void qc.invalidateQueries({ queryKey: ["follows"] });
+          void qc.invalidateQueries({ queryKey: ["following-set"] });
+        }
         if (refresh) clearTimeout(refresh);
         refresh = setTimeout(() => { void qc.invalidateQueries({ queryKey: ["feed"] }); }, 500);
       } else if (e.type === "failed" && !e.awaited) {
+        // Review #574: a follow refused in the background — the follow state
+        // shown optimistically is re-read, never left wrong.
+        if (e.item.action.kind === "follow" || e.item.action.kind === "unfollow") {
+          void qc.invalidateQueries({ queryKey: ["friend-follow"] });
+        }
         toast({
           title: "1 action couldn't be sent",
-          description: e.item.action.kind === "comment" ? "Your comment was not posted." : "The server refused it.",
+          description: e.item.action.kind === "comment" ? "Your comment was not posted."
+            : e.item.action.kind === "follow" || e.item.action.kind === "unfollow" ? "Your follow was not saved."
+            : "The server refused it.",
           variant: "destructive",
         });
       }

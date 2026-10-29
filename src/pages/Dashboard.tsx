@@ -1,4 +1,5 @@
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { ownDisplayName } from "@/lib/ownDisplayName";
 import { fadeUp } from "@/lib/motionVariants";
 import ProfileLink from "@/components/ProfileLink";
 import {
@@ -218,7 +219,7 @@ const Dashboard = () => {
   }
 
   const memberSince = profile?.created_at ? new Date(profile.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long" }) : "—";
-  const displayName = profile?.full_name || "Photographer";
+  const displayName = ownDisplayName(profile?.full_name, user);
   const initials = displayName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
   const hasRole = (role: string) => roles.some((r) => r.role === role);
   const getRoleDate = (role: string) => { const r = roles.find((r) => r.role === role); return r ? new Date(r.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : ""; };

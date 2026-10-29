@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
+import { ownDisplayName } from "@/lib/ownDisplayName";
 import { memberPath, CLAIM_URL_PATH } from "@/lib/urlHelpers";
 import { SITE_DISPLAY_HOST } from "@/lib/env";
 import { publicUrl } from "@/lib/publicUrl";
@@ -73,7 +74,7 @@ const Profile = () => {
     );
   }
 
-  const displayName = profile?.full_name || "Photographer";
+  const displayName = ownDisplayName(profile?.full_name, user);
   const avatarUrl = profile?.avatar_url || null;
   const memberSince = profile?.created_at
     ? new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })

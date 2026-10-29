@@ -45,6 +45,9 @@ export const CONSTRAINTS: Record<string, { name: string; cols: string[] }[]> = {
   // S12-F1 Extra A / D: the pair is the fact.
   feed_hidden_posts: [{ name: "feed_hidden_posts_pkey", cols: ["user_id", "post_id"] }],
   feed_muted_authors: [{ name: "feed_muted_authors_pkey", cols: ["user_id", "author_id"] }],
+  // S7b-5: follow / unfollow and the post report, both natural keys (D1 contract).
+  follows: [{ name: "follows_follower_id_following_id_key", cols: ["follower_id", "following_id"] }],
+  post_reports: [{ name: "post_reports_post_id_reporter_id_key", cols: ["post_id", "reporter_id"] }],
 };
 
 export class LostAnswer extends TypeError {
