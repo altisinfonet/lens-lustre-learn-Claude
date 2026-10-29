@@ -12,7 +12,7 @@ on:
   pull_request:
     branches: [main, staging]
   push:
-    branches: [main, staging, 'claude/feed-keyset-cursor-paging-1y0x0w']  # TEMPORARY: fail-first on the pre-S6 head; removed in the next commit
+    branches: [main, staging]
   workflow_dispatch:
 
 permissions:
