@@ -4,13 +4,20 @@ import { useAuth } from "@/hooks/core/useAuth";
 import { toast } from "@/hooks/core/use-toast";
 import { queryKeys } from "@/lib/queryKeys";
 import { submit } from "@/lib/offline/outbox";
+import { onlineManager } from "@tanstack/react-query";
 
 /* ── helpers ── */
 
 // S7b-5: through the OFF-2 outbox — one row per (follower, following) however
-// often it is sent, and kept on the phone when there is no network.
+// often it is sent, and kept on the phone when there is no network. Only ever
+// for the SIGNED-IN member (the outbox sends only its own member's items).
+// Best effort, as before: a refusal never fails the friend request itself.
 const ensureFollow = async (followerId: string, followingId: string) => {
-  await submit(followerId, { kind: "follow", targetId: followingId });
+  try {
+    await submit(followerId, { kind: "follow", targetId: followingId });
+  } catch {
+    /* the friendship is written; a refused follow is not worth failing it */
+  }
 };
 
 /* ── Send friend request ── */
@@ -84,10 +91,10 @@ export function useAcceptFriendRequest() {
         .update({ status: "accepted", updated_at: new Date().toISOString() })
         .eq("id", friendshipId);
       if (error) throw error;
-      await Promise.all([
-        ensureFollow(user.id, targetUserId),
-        ensureFollow(targetUserId, user.id),
-      ]);
+      // Review #574: only this member's own follow. "They follow me back" was
+      // never something this client could write (RLS: follower = the caller) —
+      // queued, it would have been another member's action on this phone.
+      await ensureFollow(user.id, targetUserId);
     },
     onSuccess: () => {
       toast({ title: "Friend request accepted!" });
@@ -142,7 +149,9 @@ export function useToggleFollow() {
           ["friend-follow", result.targetUserId, user.id],
           (d) => (d ? { ...d, isFollowing: result.followed, followerCount: Math.max(0, (d.followerCount ?? 0) + (result.followed ? 1 : -1)) } : d),
         );
-        toast({ title: result.followed ? "Following — will send when online" : "Unfollowed — will send when online" });
+        // Queued while online = waiting behind an earlier item; it goes shortly.
+        const later = onlineManager.isOnline() ? "will send shortly" : "will send when online";
+        toast({ title: result.followed ? `Following — ${later}` : `Unfollowed — ${later}` });
         return;
       }
       toast({ title: result.followed ? "Following!" : "Unfollowed" });

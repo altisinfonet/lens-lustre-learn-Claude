@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
@@ -51,6 +52,9 @@ export function useAddComment(
   onCommentCountChange: ((delta: number) => void) | undefined,
   reloadComments: () => void,
 ) {
+  // Review #574: stop listening for queued comments when this thread goes away.
+  const settleStops = useRef<Array<() => void>>([]);
+  useEffect(() => () => { settleStops.current.forEach((stop) => stop()); settleStops.current = []; }, []);
   const { user } = useAuth();
   const { isBanned } = useIsBanned();
   const qc = useQueryClient();
@@ -188,7 +192,7 @@ export function useAddComment(
         // S7b-5: when the outbox delivers it (or the server refuses it), the
         // thread is re-read: "Pending" becomes the real comment (or goes away).
         const key = (data as { key?: string }).key;
-        if (key) whenOutboxSettles(key, () => reloadComments());
+        if (key) settleStops.current.push(whenOutboxSettles(key, () => reloadComments()));
         toast({ title: "Saved — it will post when you're back online" });
         return;
       }

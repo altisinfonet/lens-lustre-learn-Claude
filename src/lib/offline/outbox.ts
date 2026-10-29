@@ -471,6 +471,9 @@ export function startOutbox(userId: string, send: Sender): () => void {
       if (typeof window !== "undefined") window.removeEventListener("online", kick);
     };
   }
+  // Review #574: items saved in an earlier session are this member's pending
+  // actions from the first frame (marks, the bar's count), even offline.
+  emit({ type: "changed" });
   void drain();
   return stopOutbox;
 }

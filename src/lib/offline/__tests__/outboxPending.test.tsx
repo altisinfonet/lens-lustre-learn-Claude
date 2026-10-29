@@ -59,3 +59,17 @@ describe("pending subjects", () => {
     expect(got).toEqual(["delivered"]);
   });
 });
+
+describe("review #574: cold start offline", () => {
+  it("items already on the device are marked as soon as the outbox starts (no other event needed)", async () => {
+    __resetOutbox();
+    const store = memoryOutboxStore();
+    __setOutboxStore(store);
+    __setOutboxOnline(() => false);
+    // an item saved in an earlier session, before this app start
+    await store.put({ key: "k1", userId: U, action: { kind: "follow", targetId: "t9" }, createdAt: 1, seq: 1, attempts: 0, nextAt: 0 });
+    const { result } = renderHook(() => useOutboxPendingSubjects());
+    await act(async () => { startOutbox(U, async () => ({ ok: true })); });
+    await waitFor(() => expect(result.current.has("follow:t9")).toBe(true));
+  });
+});
