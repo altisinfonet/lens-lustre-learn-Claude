@@ -72,6 +72,25 @@ async function fetchUpstream(url: string, minLocs: number, host: string | null, 
   }
 }
 
+/**
+ * One upstream read at a time per isolate and URL: a burst of crawler requests
+ * (cold cache, or a stale entry) shares one ~5 s generator read instead of each
+ * starting its own.
+ */
+const inFlight = new Map<string, Promise<string | null>>();
+function sharedRead(url: string, minLocs: number, host: string | null, timeoutMs: number): Promise<string | null> {
+  const k = `${url}|${minLocs}|${host}`;
+  const cur = inFlight.get(k);
+  if (cur) return cur;
+  const p = fetchUpstream(url, minLocs, host, timeoutMs).finally(() => inFlight.delete(k));
+  inFlight.set(k, p);
+  return p;
+}
+/** Tests only. */
+export function __resetSitemapInFlight(): void {
+  inFlight.clear();
+}
+
 async function store(cache: Cache, key: Request, xml: string): Promise<void> {
   try {
     await cache.put(key, new Response(xml, {
@@ -121,7 +140,7 @@ export const onRequest = async (context: Ctx): Promise<Response> => {
         const xml = await hit.text();
         if (at > 0 && age >= 0 && locCount(xml) >= minLocs && firstLocHost(xml) === host) {
           if (age > FRESH_S && waitUntil) {
-            waitUntil(fetchUpstream(url, minLocs, host, BACKGROUND_TIMEOUT_MS).then((x) => (x ? store(cache, key, x) : undefined)));
+            waitUntil(sharedRead(url, minLocs, host, BACKGROUND_TIMEOUT_MS).then((x) => (x ? store(cache, key, x) : undefined)));
           }
           return xmlResponse(xml, "dynamic-cached");
         }
@@ -132,7 +151,8 @@ export const onRequest = async (context: Ctx): Promise<Response> => {
   // ONE upstream read with the background limit; the visitor waits for it at most
   // VISITOR_BUDGET_MS. Slower than that: the visitor gets the static file now and
   // the same read, still running under waitUntil, fills the cache for the next one.
-  const read = fetchUpstream(url, minLocs, host, waitUntil ? BACKGROUND_TIMEOUT_MS : VISITOR_BUDGET_MS);
+  // The long limit only when a late answer can still be kept (cache + waitUntil).
+  const read = sharedRead(url, minLocs, host, cache && waitUntil ? BACKGROUND_TIMEOUT_MS : VISITOR_BUDGET_MS);
   const SLOW = Symbol("slow");
   let timer: ReturnType<typeof setTimeout> | undefined;
   const first = await Promise.race([

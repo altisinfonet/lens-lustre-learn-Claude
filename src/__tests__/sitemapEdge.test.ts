@@ -4,7 +4,7 @@
  * wrote an empty sitemap (non-production) keeps it.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { onRequest } from "../../functions/sitemap.xml";
+import { onRequest, __resetSitemapInFlight } from "../../functions/sitemap.xml";
 
 const STATIC = `<?xml version="1.0"?><urlset><url><loc>https://a/</loc></url><url><loc>https://a/journal</loc></url></urlset>`;
 const EMPTY = `<?xml version="1.0"?><urlset></urlset>`;
@@ -18,6 +18,7 @@ let cache: ReturnType<typeof fakeCache>;
 let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
+  __resetSitemapInFlight();
   cache = fakeCache();
   (globalThis as unknown as { caches: unknown }).caches = { default: cache };
   fetchMock = vi.fn(async () => new Response(DYN, { status: 200 }));
@@ -122,5 +123,48 @@ describe("/sitemap.xml edge function — a generator slower than the 4 s visitor
     await vi.advanceTimersByTimeAsync(5100);
     await Promise.all(waits);
     expect(await (await cache.match(new Request(key))).text()).toBe(fresher);
+  });
+
+  it("a burst of visitors during one slow read shares it: one generator call, one cache fill", async () => {
+    vi.useFakeTimers();
+    slowUpstream(4700);
+    const waits: Promise<unknown>[] = [];
+    const reqs = [callWith(waits), callWith(waits), callWith(waits)];
+    await vi.advanceTimersByTimeAsync(4100);
+    for (const r of await Promise.all(reqs)) expect(r.headers.get("x-sitemap-source")).toBe("static-fallback");
+    await vi.advanceTimersByTimeAsync(1000);
+    await Promise.all(waits);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(cache.m.size).toBe(1);
+  });
+
+  it("an upstream that fails or answers thin AFTER the budget stores nothing", async () => {
+    vi.useFakeTimers();
+    for (const late of [() => Promise.reject(new Error("down")), () => Promise.resolve(new Response("<urlset><loc>https://a/</loc></urlset>", { status: 200 }))]) {
+      __resetSitemapInFlight();
+      fetchMock.mockImplementation(() => new Promise<Response>((res, rej) => setTimeout(() => late().then(res, rej), 4700)));
+      const waits: Promise<unknown>[] = [];
+      const r = callWith(waits);
+      await vi.advanceTimersByTimeAsync(4100);
+      expect((await r).headers.get("x-sitemap-source")).toBe("static-fallback");
+      await vi.advanceTimersByTimeAsync(1000);
+      await Promise.all(waits);
+      expect(cache.m.size).toBe(0);
+    }
+  });
+
+  it("without waitUntil the visitor budget is also the read's limit (nothing runs on after the response)", async () => {
+    vi.useFakeTimers();
+    slowUpstream(4700);
+    const r = onRequest({
+      request: new Request("https://x.example/sitemap.xml"),
+      env: { SUPABASE_PROJECT_REF: "ref" },
+      next: async () => new Response(STATIC, { status: 200 }),
+    });
+    await vi.advanceTimersByTimeAsync(4100);
+    expect((await r).headers.get("x-sitemap-source")).toBe("static-fallback");
+    const signal = (fetchMock.mock.calls[0][1] as { signal: AbortSignal }).signal;
+    expect(signal.aborted).toBe(true);
+    expect(cache.m.size).toBe(0);
   });
 });
