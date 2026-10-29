@@ -13,8 +13,8 @@
 --           every url under <origin>/photo/<author>/, none under /d/, none an original;
 --        b. CROSS-MEMBER: another non-admin member B (cannot view it) gets 0 rows;
 --        c. media_private_photos OFF → the author gets 0 rows for it (0101 behaviour);
---        d. the same post made public again → the author gets /d/ (public) URLs
---           only when the public ladder is complete — never /photo/;
+--        d. the same post made public again, public ladder complete (seeded,
+--           rolled back) → the author gets rows, all /d/ (public), never /photo/;
 --        e. anon cannot execute.
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN;
@@ -58,13 +58,13 @@ BEGIN
   -- PROBE is shaped the same on both lanes and seeds no real data.
   IF post IS NULL THEN
     SELECT p.id, p.user_id INTO post, author
-      FROM public.posts p JOIN auth.users u ON u.id = p.user_id
+      FROM public.posts p
      WHERE NOT public.has_role(p.user_id, 'admin'::public.app_role)
        AND NOT EXISTS (SELECT 1 FROM public.post_media pm WHERE pm.post_id = p.id)
      ORDER BY p.created_at LIMIT 1;
     IF post IS NULL THEN RAISE EXCEPTION 'PROBE FAIL G2: no post by a non-admin on this lane to build the fixture on'; END IF;
     INSERT INTO public.media_objects (owner_id, sha256, width, height, bytes, mime, visibility, state, verified_at)
-    VALUES (author, decode(md5(random()::text) || md5(random()::text), 'hex'), 2000, 1500, 1000, 'image/webp', 'public', 'ready', now())
+    VALUES (author, decode(md5(random()::text) || md5(random()::text), 'hex'), 2000, 1500, 1000, 'image/webp', 'private', 'ready', now())
     RETURNING id INTO fx_media;
     INSERT INTO public.post_media (post_id, ord, media_id) VALUES (post, 0, fx_media);
     fixture := 'built in-transaction (lane has no ready media by a non-admin)';
@@ -110,13 +110,24 @@ BEGIN
   RESET ROLE;
   IF n <> 0 THEN RAISE EXCEPTION 'PROBE FAIL G2c: % rows with media_private_photos off', n; END IF;
 
-  -- d. public again → never /photo/
+  -- d. public again, with a complete PUBLIC ladder (seeded here, rolled back) →
+  --    rows come back, 3 per slide, every one under /d/, none under /photo/.
+  --    Requiring rows keeps this from passing vacuously.
   UPDATE public.feature_access SET mode = 'everyone' WHERE feature = 'media_private_photos';
   UPDATE public.posts SET privacy = 'public' WHERE id = post;
+  UPDATE public.media_objects mo
+     SET derivatives = mo.derivatives
+       || jsonb_build_object('600', public.media_derivative_key(mo.owner_id, mo.id, 'public', 600),
+                             '1080', public.media_derivative_key(mo.owner_id, mo.id, 'public', 1080),
+                             '1440', public.media_derivative_key(mo.owner_id, mo.id, 'public', 1440))
+   WHERE mo.id IN (SELECT media_id FROM public.post_media WHERE post_id = post);
   SET LOCAL ROLE authenticated;
-  SELECT count(*) FILTER (WHERE r.url LIKE '%/photo/%') INTO n FROM public.post_media_resolved_for(ARRAY[post]) r;
+  SELECT count(*), count(*) FILTER (WHERE r.url LIKE '%/photo/%' OR r.url NOT LIKE '%/d/%')
+    INTO n, n_bad FROM public.post_media_resolved_for(ARRAY[post]) r;
   RESET ROLE;
-  IF n <> 0 THEN RAISE EXCEPTION 'PROBE FAIL G2d: a public post got % private-path rows', n; END IF;
+  IF n = 0 OR n % 3 <> 0 OR n_bad <> 0 THEN
+    RAISE EXCEPTION 'PROBE FAIL G2d: a public post with a complete public ladder got % rows, % of them private-path or not /d/', n, n_bad;
+  END IF;
 
   -- e. anon
   PERFORM set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);
@@ -129,7 +140,7 @@ BEGIN
 
   PERFORM set_config('request.jwt.claims', '', true);
   PERFORM set_config('request.jwt.claim.sub', '', true);
-  RAISE NOTICE 'PROBE PASS 20261029_0102 (lane %): switch row present; definer/no anon; author gets /photo/ rows only; member B 0 rows (cross-member); private switch off → 0; public post never /photo/; anon refused; fixture: %',
+  RAISE NOTICE 'PROBE PASS 20261029_0102 (lane %): switch row present; definer/no anon; author gets /photo/ rows only; member B 0 rows (cross-member); private switch off → 0; public post gets /d/ rows, never /photo/; anon refused; fixture: %',
     current_setting('p32.lane', true), fixture;
 END
 $g$;
