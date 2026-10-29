@@ -31,7 +31,6 @@
  * go to a public CDN (outcome 3). A file we CAN prove clean sails through.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-import exifr from "exifr";
 import { logger } from "@/lib/logger";
 
 const FILE = "src/lib/gpsGuard.ts";
@@ -91,10 +90,17 @@ export function stripJpegMetadata(bytes: Uint8Array): Uint8Array {
  * Returns the file to upload (original, or a stripped copy).
  * Throws GpsPrivacyError when the file must not be uploaded at all.
  */
+/**
+ * P13: exifr (~74 KB) is loaded when a photo is checked, not with the app. A
+ * failed load throws inside the same try as a parse failure, so it takes the
+ * same fail-closed path.
+ */
+const loadExifr = () => import("exifr").then((m) => m.default);
+
 export async function guardOriginalUpload(file: File): Promise<File> {
   let hasGps: boolean;
   try {
-    const gps = await exifr.gps(file);
+    const gps = await (await loadExifr()).gps(file);
     hasGps = !!gps && typeof gps.latitude === "number" && typeof gps.longitude === "number";
   } catch {
     // exifr could not parse the container at all. For JPEG we can still strip
@@ -129,7 +135,7 @@ export async function guardOriginalUpload(file: File): Promise<File> {
   // failure on the stripped copy means the metadata container is gone, which
   // is the outcome we wanted — only a POSITIVE GPS read fails the guard.
   try {
-    const still = await exifr.gps(cleanFile);
+    const still = await (await loadExifr()).gps(cleanFile);
     if (still && typeof still.latitude === "number") {
       logger.error({
         code: "FILE-5007",
