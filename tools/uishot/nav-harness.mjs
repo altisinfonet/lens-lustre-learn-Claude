@@ -123,8 +123,8 @@ async function waitWhere(page, expected, timeout = 8000) {
   throw new Error(`expected to be at ${expected}, still at ${last}`);
 }
 
-async function startAt(page, start, native = false) {
-  const q = `${native ? "native=1&" : ""}start=${encodeURIComponent(start)}`;
+async function startAt(page, start, native = false, extra = "") {
+  const q = `${native ? "native=1&" : ""}${extra}start=${encodeURIComponent(start)}`;
   await page.goto(`${ORIGIN || BASE}/navharness.html?${q}`, { waitUntil: "domcontentloaded", timeout: 240000 });
   if (ORIGIN) {
     const o = await page.evaluate(() => location.origin);
@@ -808,6 +808,44 @@ journey("native (Android stub): app open ON the feed → push tap → post → B
   if ((await exits(page)) !== 0) throw new Error("Back left the app");
 });
 
+/**
+ * ADS BUG 1 (2026-10-29). Owner, latest Android app: "From Feed ad comment and
+ * like section vanished". Every sponsored card on the feed, as the page draws
+ * it: which picture, and whether its Like and Comment buttons are on it.
+ */
+const sponsoredCards = (page) => page.evaluate(() =>
+  [...document.querySelectorAll('img[alt="Library advert"], img[alt="Zone single picture"]')].map((img) => {
+    let card = img;
+    while (card.parentElement && !(card.textContent || "").includes("Sponsored")) card = card.parentElement;
+    return {
+      picture: img.getAttribute("alt"),
+      like: !!card.querySelector('button[aria-label="Like"]'),
+      comment: !!card.querySelector('button[aria-label="Comment"]'),
+    };
+  }));
+
+for (const mode of ["on", "flaky"]) {
+  const what = mode === "flaky" ? "the ad library cannot be read for 3 s (weak / no network)" : "the ad library reads";
+  journey(`sponsored card: ${what} → every sponsored card on the feed shows Like + Comment`, PHONE, async (page) => {
+    await startAt(page, "/feed", false, `ads=${mode}&`);
+    const t0 = Date.now();
+    while (Date.now() - t0 < 120000) {
+      const cards = await sponsoredCards(page);
+      const bare = cards.find((c) => !c.like || !c.comment);
+      if (bare) throw new Error(`a sponsored card (${bare.picture}) is on the feed without ${!bare.like ? "Like" : "Comment"}`);
+      if (cards.some((c) => c.picture === "Library advert")) {
+        await settle(page, 1500); // and it stays that way
+        const after = await sponsoredCards(page);
+        const bad = after.find((c) => !c.like || !c.comment || c.picture !== "Library advert");
+        if (bad) throw new Error(`the sponsored card changed to ${bad.picture} without its Like / Comment`);
+        return { cards: after.length, libraryReads: await page.evaluate(() => window.__adLibraryReads) };
+      }
+      await page.waitForTimeout(100);
+    }
+    throw new Error("no sponsored card with its library picture appeared on the feed");
+  });
+}
+
 const result = { at: new Date().toISOString(), browser: BROWSER, origin: ORIGIN || BASE, version: null, journeys: [], verdict: "FAIL" };
 let code = 1;
 let browser;
@@ -817,7 +855,7 @@ try {
   result.version = browser.version();
   // At the app's origin: the journeys about how the APP is entered and left —
   // push taps and Android Back, the bell, the Notifications page, outside links.
-  const APP_JOURNEY = /native|bell|Notifications|outside link|external link/;
+  const APP_JOURNEY = /native|bell|Notifications|outside link|external link|sponsored card/;
   const chosen = (ONLY ? JOURNEYS.filter((x) => x.name.includes(ONLY)) : JOURNEYS).filter((x) => !ORIGIN || APP_JOURNEY.test(x.name));
   if (chosen.length === 0) throw new Error("no journey matched — a run that measures nothing is not a pass");
   for (const j of chosen) {

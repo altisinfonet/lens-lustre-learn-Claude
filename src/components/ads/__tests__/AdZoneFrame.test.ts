@@ -81,6 +81,8 @@ describe("an admin's ad change reaches screens quickly", () => {
 
   it("mounted AdZones refetch on the admin's save event", () => {
     expect(adZone).toMatch(/addEventListener\("ad-slots-updated", onUpdated\)/);
-    expect(adZone).toMatch(/\[zone, reloadTick\]/);
+    // 2026-10-29: the zone's data is a React Query entry (adZoneData.ts); the
+    // save event invalidates it, which refetches every mounted slot.
+    expect(adZone).toMatch(/invalidateQueries\(\{ queryKey: adZoneQueryKey\(zone\) \}\)/);
   });
 });
