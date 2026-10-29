@@ -12,7 +12,8 @@ const DYN = `<?xml version="1.0"?><urlset>${"<url><loc>https://a/x</loc></url>".
 
 function fakeCache() {
   const m = new Map<string, Response>();
-  return { m, match: async (r: Request) => m.get(r.url)?.clone(), put: async (r: Request, res: Response) => { m.set(r.url, res.clone()); } };
+  const c = { m, puts: 0, match: async (r: Request) => m.get(r.url)?.clone(), put: async (r: Request, res: Response) => { c.puts++; m.set(r.url, res.clone()); } };
+  return c;
 }
 let cache: ReturnType<typeof fakeCache>;
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -135,7 +136,7 @@ describe("/sitemap.xml edge function — a generator slower than the 4 s visitor
     await vi.advanceTimersByTimeAsync(1000);
     await Promise.all(waits);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(cache.m.size).toBe(1);
+    expect(cache.puts).toBe(1);
   });
 
   it("an upstream that fails or answers thin AFTER the budget stores nothing", async () => {
@@ -166,5 +167,27 @@ describe("/sitemap.xml edge function — a generator slower than the 4 s visitor
     const signal = (fetchMock.mock.calls[0][1] as { signal: AbortSignal }).signal;
     expect(signal.aborted).toBe(true);
     expect(cache.m.size).toBe(0);
+  });
+
+  it("the request that starts a read hands it to its own waitUntil at once, even when it answers in time", async () => {
+    const waits: Promise<unknown>[] = [];
+    const r = await callWith(waits);
+    expect(r.headers.get("x-sitemap-source")).toBe("dynamic");
+    expect(waits.length).toBeGreaterThanOrEqual(1);
+    await Promise.all(waits);
+    expect(cache.puts).toBe(1);
+  });
+
+  it("a read that never settles is not reused after its limit (a dropped visitor cannot strand the isolate)", async () => {
+    vi.useFakeTimers();
+    fetchMock.mockImplementationOnce(() => new Promise<Response>(() => {})); // ignores its abort, never settles
+    const r1 = callWith([]);
+    await vi.advanceTimersByTimeAsync(4100);
+    expect((await r1).headers.get("x-sitemap-source")).toBe("static-fallback");
+    await vi.advanceTimersByTimeAsync(25000 + 1100);
+    fetchMock.mockImplementation(async () => new Response(DYN, { status: 200 }));
+    const r2 = await callWith([]);
+    expect(r2.headers.get("x-sitemap-source")).toBe("dynamic");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

@@ -28,3 +28,13 @@ edge cache under `waitUntil`; the stale refresh uses the 25 s limit.
 
 Fail first: `src/__tests__/sitemapEdge.test.ts` two new tests fail on #504's
 code (cache stays empty; refresh aborted), pass after.
+
+**Second live run (after the review fix, slow path hit):** 1st request
+static-fallback in 4.0 s (12 URLs) while the background read filled the cache;
+2nd request dynamic-cached, 729 URLs, 4 ms.
+
+**Review fix:** the read is shared per isolate; the request that starts it
+hands it to its own `waitUntil` at once (a dropped visitor cannot strand it),
+the read fills the cache once itself, and an entry older than its limit is
+never reused. Tests: burst = 1 generator call and 1 cache put; never-settling
+read replaced after its limit; starter's waitUntil always registered.

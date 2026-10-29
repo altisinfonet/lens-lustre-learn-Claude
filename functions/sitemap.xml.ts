@@ -73,17 +73,30 @@ async function fetchUpstream(url: string, minLocs: number, host: string | null, 
 }
 
 /**
- * One upstream read at a time per isolate and URL: a burst of crawler requests
- * (cold cache, or a stale entry) shares one ~5 s generator read instead of each
- * starting its own.
+ * One upstream read at a time per isolate, URL and limit: a burst of crawler
+ * requests (cold cache, or a stale entry) shares one ~5 s generator read.
+ * The request that STARTS the read hands it to its own waitUntil at once, so a
+ * visitor who disconnects cannot strand it; the read stores into the cache
+ * itself (once); an entry older than its limit is never reused.
  */
-const inFlight = new Map<string, Promise<string | null>>();
-function sharedRead(url: string, minLocs: number, host: string | null, timeoutMs: number): Promise<string | null> {
-  const k = `${url}|${minLocs}|${host}`;
+const inFlight = new Map<string, { p: Promise<string | null>; at: number }>();
+function sharedRead(
+  url: string, minLocs: number, host: string | null, timeoutMs: number,
+  keep: ((p: Promise<unknown>) => void) | undefined, cache: Cache | undefined, key: Request,
+): Promise<string | null> {
+  const k = `${url}|${minLocs}|${host}|${timeoutMs}`;
   const cur = inFlight.get(k);
-  if (cur) return cur;
-  const p = fetchUpstream(url, minLocs, host, timeoutMs).finally(() => inFlight.delete(k));
-  inFlight.set(k, p);
+  if (cur && Date.now() - cur.at <= timeoutMs + 1000) return cur.p;
+  const p: Promise<string | null> = fetchUpstream(url, minLocs, host, timeoutMs)
+    .then(async (x) => {
+      if (x && cache) await store(cache, key, x);
+      return x;
+    })
+    .finally(() => {
+      if (inFlight.get(k)?.p === p) inFlight.delete(k);
+    });
+  inFlight.set(k, { p, at: Date.now() });
+  keep?.(p);
   return p;
 }
 /** Tests only. */
@@ -140,7 +153,7 @@ export const onRequest = async (context: Ctx): Promise<Response> => {
         const xml = await hit.text();
         if (at > 0 && age >= 0 && locCount(xml) >= minLocs && firstLocHost(xml) === host) {
           if (age > FRESH_S && waitUntil) {
-            waitUntil(sharedRead(url, minLocs, host, BACKGROUND_TIMEOUT_MS).then((x) => (x ? store(cache, key, x) : undefined)));
+            void sharedRead(url, minLocs, host, BACKGROUND_TIMEOUT_MS, waitUntil, cache, key);
           }
           return xmlResponse(xml, "dynamic-cached");
         }
@@ -152,7 +165,7 @@ export const onRequest = async (context: Ctx): Promise<Response> => {
   // VISITOR_BUDGET_MS. Slower than that: the visitor gets the static file now and
   // the same read, still running under waitUntil, fills the cache for the next one.
   // The long limit only when a late answer can still be kept (cache + waitUntil).
-  const read = sharedRead(url, minLocs, host, cache && waitUntil ? BACKGROUND_TIMEOUT_MS : VISITOR_BUDGET_MS);
+  const read = sharedRead(url, minLocs, host, cache && waitUntil ? BACKGROUND_TIMEOUT_MS : VISITOR_BUDGET_MS, waitUntil, cache, key);
   const SLOW = Symbol("slow");
   let timer: ReturnType<typeof setTimeout> | undefined;
   const first = await Promise.race([
@@ -160,15 +173,7 @@ export const onRequest = async (context: Ctx): Promise<Response> => {
     new Promise<typeof SLOW>((r) => { timer = setTimeout(() => r(SLOW), VISITOR_BUDGET_MS); }),
   ]);
   clearTimeout(timer);
-  if (first === SLOW) {
-    if (cache && waitUntil) waitUntil(read.then((x) => (x ? store(cache, key, x) : undefined)));
-    return xmlResponse(staticXml, "static-fallback");
-  }
-  const xml = first;
-  if (!xml) return xmlResponse(staticXml, "static-fallback");
-  if (cache) {
-    const p = store(cache, key, xml);
-    if (waitUntil) waitUntil(p); else await p;
-  }
-  return xmlResponse(xml, "dynamic");
+  // SLOW: the read is already held by its starter's waitUntil and fills the cache.
+  if (first === SLOW || !first) return xmlResponse(staticXml, "static-fallback");
+  return xmlResponse(first, "dynamic");
 };
