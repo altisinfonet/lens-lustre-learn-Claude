@@ -20,6 +20,8 @@
  *                    and `&lose=N` makes the first N writes commit and then
  *                    lose their answer (the fetch throws), forcing resends.
  *                    `window.__off6server` exposes its rows and log.
+ *   &route=post&id=  S7b-7: the post page (PostDetail) instead of the feed;
+ *   &route=profile&id=  or a member's profile (PublicProfile).
  * The JS bundle itself still comes from the dev server: this harness proves the
  * DATA path offline. Loading the web shell offline is the app-shell question
  * (P22 superseded by OFF; the Capacitor app ships its shell on the device).
@@ -38,6 +40,9 @@ if (!import.meta.env.DEV) throw new Error("offline harness is development-only")
 const params = new URLSearchParams(window.location.search);
 const phase = params.get("phase") ?? "seed";
 const withBridge = params.get("nobridge") !== "1";
+/** S7b-7: which screen — the feed (default), a post page or a profile (`&id=`). */
+const screen = params.get("route") ?? "feed";
+const screenId = params.get("id") ?? "";
 
 installFakeBackend({ routes: fixtureRoutes, signedIn: true });
 
@@ -81,14 +86,21 @@ const AppShell = lazy(() => import("../AppShell"));
 const Feed = lazy(() => import("@/pages/Feed"));
 const Bridge = lazy(() => import("@/components/OfflineDeviceStoreBridge"));
 const Outbox = lazy(() => import("@/components/OutboxBridge"));
+const PostDetail = lazy(() => import("@/pages/PostDetail"));
+const PublicProfile = lazy(() => import("@/pages/PublicProfile"));
+
+const [route, path, Page] =
+  screen === "post" ? [`/post/${screenId}`, "/post/:postId", PostDetail]
+  : screen === "profile" ? [`/profile/${screenId}`, "/profile/:userId", PublicProfile]
+  : ["/feed", "/feed", Feed];
 
 createRoot(document.getElementById("root")!).render(
   <Suspense fallback={<p>loading harness…</p>}>
-    <AppShell route="/feed" path="/feed">
+    <AppShell route={route} path={path}>
       <>
         {withBridge && <Bridge />}
         <Outbox />
-        <Feed />
+        <Page />
       </>
     </AppShell>
   </Suspense>,
