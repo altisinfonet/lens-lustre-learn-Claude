@@ -108,6 +108,8 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   const {
     data,
     isLoading: loading,
+    isError: wallFailed,
+    fetchStatus: wallFetchStatus,
     isFetchingNextPage: loadingMore,
     hasNextPage: hasMore,
     fetchNextPage,
@@ -2458,7 +2460,10 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                 <MessageCircle className="h-7 w-7 text-muted-foreground/30" />
               </div>
               <p className="text-sm text-muted-foreground">
-                {isOwnWall ? "Your wall is empty. Share your first photo above!" : "No posts to show yet."}
+                {/* S7b-4: no network (paused) or a read that failed is NOT an empty wall. */}
+                {wallFailed || wallFetchStatus === "paused"
+                  ? "No internet. These posts will show when you're back online."
+                  : isOwnWall ? "Your wall is empty. Share your first photo above!" : "No posts to show yet."}
               </p>
             </div>
           ) : (

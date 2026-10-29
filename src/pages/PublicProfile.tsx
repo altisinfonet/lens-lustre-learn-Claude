@@ -2,7 +2,9 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import { useParams, Link } from "react-router-dom";
-import { Camera, CheckCircle2, ExternalLink, Globe, Trophy, BookOpen, User, Expand, Award, ChevronLeft, ChevronRight, Facebook, Instagram, GraduationCap, Twitter, Youtube, MapPin, Calendar, Image, BadgeCheck, Check, X, Play, Briefcase, Phone, Mail, Heart, Lock, Users as UsersIcon, Star, FileText, Layers, MessageSquare, BarChart3, Pencil, Menu, MoreVertical, Settings as SettingsIcon } from "lucide-react";
+import { Camera, CheckCircle2, ExternalLink, Globe, Trophy, BookOpen, User, Expand, Award, ChevronLeft, ChevronRight, Facebook, Instagram, GraduationCap, Twitter, Youtube, MapPin, Calendar, Image, BadgeCheck, Check, X, Play, Briefcase, Phone, Mail, Heart, Lock, Users as UsersIcon, Star, FileText, Layers, MessageSquare, BarChart3, Pencil, Menu, MoreVertical, Settings as SettingsIcon, WifiOff } from "lucide-react";
+import { useNetworkQuality } from "@/hooks/core/useNetworkQuality";
+import { screenState } from "@/lib/offline/screenState";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import JudgingStampBadge from "@/components/JudgingStampBadge";
 import { participantLabelForJudgingTag } from "@/lib/judging/participantStageLabels";
@@ -245,7 +247,8 @@ export const PublicProfileInner = ({ userId }: { userId: string }) => {
   const wallSectionRef = useRef<HTMLDivElement>(null);
 
   // React Query: core profile data (cached + prefetched)
-  const { data: coreProfile, isLoading: coreLoading, isError: coreError } = useProfileCore(userId);
+  const { data: coreProfile, isLoading: coreLoading, isError: coreError, error: coreErrorDetail, fetchStatus: coreFetchStatus } = useProfileCore(userId);
+  const netState = useNetworkQuality();
 
   // React Query: extended data (entries, badges, etc.) — only for authenticated
   const { data: extData } = useProfileExtended(userId, currentUser?.id);
@@ -480,6 +483,23 @@ export const PublicProfileInner = ({ userId }: { userId: string }) => {
     // profile_views above is a different thing: the profile owner's view count.
     recordProfileVisit(currentUser?.id, userId);
   }, [entries, userId, currentUser?.id]);
+
+  // S7b-4: no network and this profile is not saved on the phone — say so,
+  // never "This profile doesn't exist" (it may well exist).
+  if (!profile && screenState({
+    hasData: !!coreProfile, loading: coreLoading, error: coreErrorDetail,
+    online: netState.online, paused: coreFetchStatus === "paused",
+  }) === "offline") {
+    return (
+      <main className="min-h-screen bg-background flex flex-col items-center justify-center gap-6 px-6 text-center">
+        <WifiOff className="h-10 w-10 text-muted-foreground/40" />
+        <p className="text-muted-foreground text-sm" style={bodyFont}>No internet. This profile isn't saved on your phone yet — it will open when you're back online.</p>
+        <Link to="/" className="text-xs tracking-[0.15em] uppercase text-primary hover:underline" style={headingFont}>
+          Back to Home
+        </Link>
+      </main>
+    );
+  }
 
   // Loading: show Facebook-style skeleton
   if (coreLoading || (!profile && !coreError)) {

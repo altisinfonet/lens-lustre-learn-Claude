@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { timedRpc } from "@/lib/logger";
+import { onlineManager } from "@tanstack/react-query";
+import { loadPostPage, type PostRow } from "@/lib/posts/postPageLoad";
 import { useBlockedUsers } from "@/hooks/core/useBlockedUsers";
 import { publicUrl } from "@/lib/publicUrl";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
@@ -10,7 +12,7 @@ import { fetchPostAttachments, attachmentsFor } from "@/lib/posts/postAttachment
 import type { FeedVideo } from "@/lib/video/postVideoRead";
 import { useAuth } from "@/hooks/core/useAuth";
 import { fetchProfileMap } from "@/lib/profileMapCache";
-import { Globe, Users, Lock, ArrowLeft, Share2, Copy, Flag, MoreHorizontal, MessageCircle, Eye } from "lucide-react";
+import { Globe, Users, Lock, ArrowLeft, Share2, Copy, Flag, MoreHorizontal, MessageCircle, Eye, WifiOff } from "lucide-react";
 import { useDownloadImage } from "@/hooks/core/useDownloadImage";
 import DownloadButton from "@/components/DownloadButton";
 import { toast } from "@/hooks/core/use-toast";
@@ -126,6 +128,8 @@ const PostDetail = () => {
   const [post, setPost] = useState<PostData | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  /** S7b-4: no network and this post is not saved on the phone. */
+  const [offline, setOffline] = useState(false);
   const [showComments, setShowComments] = useState(true);
   const { downloading, download: downloadImg } = useDownloadImage();
 
@@ -162,22 +166,9 @@ const PostDetail = () => {
 
   useEffect(() => {
     if (!postId) return;
-    const load = async () => {
-      setLoading(true);
-      const { data: rawPost, error } = await timedRpc("post.open", "src/pages/PostDetail.tsx", () =>
-        supabase
-          .from("posts")
-          .select("*")
-          .eq("id", postId)
-          .maybeSingle(),
-      );
-
-      if (error || !rawPost) {
-        setNotFound(true);
-        setLoading(false);
-        return;
-      }
-
+    let live = true;
+    /** Author, counts and media for a post row (null = not viewable here, e.g. a hidden video). */
+    const readDetails = async (rawPost: PostRow & { image_url?: string | null }): Promise<PostData | null> => {
       const profileMap = await fetchProfileMap([rawPost.user_id]);
       const profile = profileMap.get(rawPost.user_id);
 
@@ -222,13 +213,9 @@ const PostDetail = () => {
       const attached = attachmentsFor(
         await fetchPostAttachments([rawPost.id]), rawPost.id, (rawPost as any).image_urls || [],
       );
-      if (attached === null) {
-        setNotFound(true);
-        setLoading(false);
-        return;
-      }
+      if (attached === null) return null;
 
-      setPost({
+      return {
         id: rawPost.id,
         user_id: rawPost.user_id,
         content: rawPost.content || "",
@@ -246,10 +233,27 @@ const PostDetail = () => {
         user_reaction: userReaction,
         top_reactions: topReactions,
         reaction_counts: reactionCounts,
+      };
+    };
+    const load = async () => {
+      setLoading(true);
+      setOffline(false);
+      // S7b-4: no network → the copy saved on the phone (src/lib/posts/postPageLoad.ts).
+      const result = await loadPostPage(postId, user?.id, {
+        online: () => onlineManager.isOnline(),
+        readPost: (id) => timedRpc("post.open", "src/pages/PostDetail.tsx", () =>
+          supabase.from("posts").select("*").eq("id", id).maybeSingle(),
+        ) as Promise<{ data: PostRow | null; error: unknown }>,
+        readDetails,
       });
+      if (!live) return;
+      if (result.kind === "post") setPost(result.post as PostData);
+      else if (result.kind === "offline") setOffline(true);
+      else setNotFound(true);
       setLoading(false);
     };
     load();
+    return () => { live = false; };
   }, [postId, user?.id]);
 
   const handleReact = (reactionType: ReactionType) => {
@@ -310,6 +314,17 @@ const PostDetail = () => {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
         <span className="text-xs tracking-[0.3em] uppercase text-muted-foreground animate-pulse" style={headingFont}>Loading…</span>
+      </main>
+    );
+  }
+
+  if (offline && !post) {
+    // S7b-4: not "not found" — the post may well exist; the phone has no copy.
+    return (
+      <main className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 px-6 text-center">
+        <WifiOff className="h-6 w-6 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground" style={bodyFont}>No internet. This post isn't saved on your phone yet — it will open when you're back online.</p>
+        <button onClick={goBack} className="text-xs text-primary hover:underline" style={headingFont}>Go back</button>
       </main>
     );
   }

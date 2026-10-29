@@ -28,7 +28,16 @@ describe("what is kept", () => {
     [["feed", ["landscape"]], true],
     [["profile-core", "someone"], true],
     [["user-wall-posts", "me"], true],
-    [["user-wall-posts", "someone-else"], false],
+    // S7b-4: profiles seen online open offline — their wall's first page, the
+    // profile extras and counts as THIS member saw them (stored per member).
+    [["user-wall-posts", "someone-else"], true],
+    [["user-own-posts", "someone-else"], true],
+    [["profile-extended", "someone", "me"], true],
+    [["profile-extended", "someone", "another-viewer"], false],
+    [["friend-follow", "someone", "me"], true],
+    [["friend-follow", "someone", "another-viewer"], false],
+    [["notification-history", "me"], true],
+    [["notification-history", "someone-else"], false],
     [["notifications", "me"], true],
     [["notifications", "someone-else"], false],
     [["is-admin", "me"], false],
