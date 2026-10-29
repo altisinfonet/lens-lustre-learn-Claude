@@ -59,7 +59,8 @@ vi.mock("@/lib/ads/adZonesV2", async (importOriginal) => {
   const zones = Object.fromEntries(real.ALL_ZONES.map((z) => [z, real.defaultZoneConfig(z)]));
   // Production today: the zone ALSO has a single picture (uploaded 2026-10-29).
   zones["story-card"] = { ...zones["story-card"], mode: "own", own: { ...zones["story-card"].own, image_url: SINGLE } };
-  return { ...real, fetchAdZonesEnabled: async () => true, fetchAdZones: async () => zones, fetchAdFrequency: async () => ({}) };
+  return { ...real, fetchAdZonesEnabled: async () => true, fetchAdZones: async () => zones, fetchAdFrequency: async () => ({}),
+    fetchAdZoneSettings: async () => ({ enabled: true, zones }) };
 });
 vi.mock("@/lib/ads/adTrackV2", () => ({ trackZoneEvent: () => {}, detectDevice: () => "mobile" }));
 vi.mock("@/components/video/FeedVideoCard", () => ({ default: () => <div data-testid="feed-video">video</div> }));
