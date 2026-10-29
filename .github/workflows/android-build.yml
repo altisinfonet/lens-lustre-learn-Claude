@@ -1375,10 +1375,14 @@ jobs:
           set -euo pipefail
           AAB=android/app/build/outputs/bundle/release/app-release.aab
           test -f "$AAB" || { echo "::error::no release AAB was produced"; exit 1; }
+          # Extract, then grep the FILE: `unzip -p | grep -q` under pipefail
+          # reports a match as failure (grep exits early, unzip gets SIGPIPE).
+          DEX=$(mktemp -d)
+          unzip -q -o "$AAB" 'base/dex/*.dex' -d "$DEX" || { echo "::error::no dex in the release bundle"; exit 1; }
           found=0
-          for d in $(unzip -Z1 "$AAB" | grep -E '^base/dex/classes[0-9]*\.dex$'); do
-            if unzip -p "$AAB" "$d" | grep -a -q "Lcom/fiftymmretina/app/ExitInfoPlugin;"; then
-              echo "OK: ExitInfoPlugin is in $d"; found=1
+          for d in "$DEX"/base/dex/classes*.dex; do
+            if grep -a -F -q 'Lcom/fiftymmretina/app/ExitInfoPlugin;' "$d"; then
+              echo "OK: ExitInfoPlugin is in ${d#"$DEX"/}"; found=1
             fi
           done
           test "$found" = 1 || { echo "::error::ExitInfoPlugin is not in the release bundle - crash / OOM reasons would never reach Admin -> Health"; exit 1; }
