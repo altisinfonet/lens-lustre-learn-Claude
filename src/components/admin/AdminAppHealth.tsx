@@ -160,7 +160,7 @@ export default function AdminAppHealth() {
           <h3 className="text-sm font-semibold mb-1">Crash rate per build (last {daily?.days ?? 7} days)</h3>
           <p className="text-xs text-muted-foreground mb-2">
             {builds.native
-              ? "Crashes = the app closed by a crash (Java or native) or killed for memory while on screen (OOM), per 100 app starts, from Android's own record (Android 11+, app builds with the crash reader). ANR = Android closed the app because it stopped responding. Errors = uncaught script errors per 100 starts."
+              ? "From Android's own record (Android 11+, app builds with the crash reader): Crashes = the app closed by a crash (Java or native); OOM = killed for memory while on screen; ANR = Android closed the app because it stopped responding. Crashes per 100 starts = (Crashes + OOM) per 100 app starts. Errors = uncaught script errors."
               : "Uncaught errors (window.onerror + unhandled promise rejections) per 100 app starts. Native crashes are not in this number yet (database update 20261031_0100 not applied here)."}
           </p>
           <table className="w-full text-sm">

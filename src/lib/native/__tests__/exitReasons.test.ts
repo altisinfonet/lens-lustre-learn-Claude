@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -8,6 +8,7 @@ import {
   EXIT_BUILD_KEY,
   EXIT_SINCE_KEY,
   MAX_EXITS_PER_START,
+  __resetNativeExits,
   type ExitInfoPlugin,
 } from "@/lib/native/exitReasons";
 import { installNativePlugins, PACKAGE_DIR } from "../../../../scripts/android-native-plugins.mjs";
@@ -22,6 +23,7 @@ function mem(init: Record<string, string> = {}) {
 const plugin = (exits: unknown, supported = true): ExitInfoPlugin => ({ recent: async () => ({ supported, exits }) });
 
 describe("S2 native exits — the OS record becomes telemetry metrics", () => {
+  beforeEach(() => __resetNativeExits());
   it("maps crash / native crash / on-screen OOM / ANR; skips background OOM, other reasons and old records", () => {
     const { metrics, newest } = exitMetrics(
       [
@@ -65,16 +67,29 @@ describe("S2 native exits — the OS record becomes telemetry metrics", () => {
     expect(s.m.get(EXIT_SINCE_KEY)).toBe("150");
     expect(s.m.get(EXIT_BUILD_KEY)).toBe("v1133");
     rec.mockClear();
+    __resetNativeExits(); // next app start
     expect(await reportNativeExits("v1133", rec, p, s)).toBe(0);
     expect(rec).not.toHaveBeenCalled();
+  });
+
+  it("a second call in the same page load reports nothing (no double count)", async () => {
+    const s = mem({ [EXIT_SINCE_KEY]: "100", [EXIT_BUILD_KEY]: "v1132" });
+    const rec = vi.fn();
+    const p = plugin([{ reason: "crash", timestamp: 150 }]);
+    const [a, b] = await Promise.all([reportNativeExits("v1133", rec, p, s), reportNativeExits("v1133", rec, p, s)]);
+    expect(a + b).toBe(1);
+    expect(rec).toHaveBeenCalledTimes(1);
   });
 
   it("never throws: no plugin, unsupported Android, a rejecting plugin, a broken storage", async () => {
     const rec = vi.fn();
     const s = mem({ [EXIT_SINCE_KEY]: "1" });
     expect(await reportNativeExits("v1", rec, null, s)).toBe(0);
+    __resetNativeExits();
     expect(await reportNativeExits("v1", rec, plugin([{ reason: "crash", timestamp: 9 }], false), s)).toBe(0);
+    __resetNativeExits();
     expect(await reportNativeExits("v1", rec, { recent: () => Promise.reject(new Error("x")) }, s)).toBe(0);
+    __resetNativeExits();
     const broken = { getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); } };
     expect(await reportNativeExits("v1", rec, plugin([]), broken)).toBe(0);
     expect(rec).not.toHaveBeenCalled();

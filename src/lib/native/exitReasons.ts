@@ -89,6 +89,12 @@ function defaultStorage(): KV | null {
  * Reads the plugin once and calls `record(metric, build)` for each new bad exit.
  * Returns how many were recorded. Always stores the current build for next time.
  */
+let ranThisLoad = false;
+/** Tests only. */
+export function __resetNativeExits(): void {
+  ranThisLoad = false;
+}
+
 export async function reportNativeExits(
   currentBuild: string,
   record: (metric: string, build: string) => void,
@@ -97,6 +103,9 @@ export async function reportNativeExits(
   now: () => number = Date.now,
 ): Promise<number> {
   if (!plugin || !storage) return 0;
+  // Once per page load: two calls would read the same `since` and report the same exits twice.
+  if (ranThisLoad) return 0;
+  ranThisLoad = true;
   let prevBuild: string | null = null;
   let since = NaN;
   try {
