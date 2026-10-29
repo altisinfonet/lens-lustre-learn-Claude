@@ -105,7 +105,8 @@ const readOutbox = (page) => page.evaluate(() => new Promise((resolve) => {
 }));
 // Device-store records whose key starts with `prefix` ("feed" = OFF-1's query
 // page, "feed-archive" = S7b-3's saved feed): count them, or delete them.
-const deviceRecords = (page, prefix, del = false) => page.evaluate(([prefix, del]) => new Promise((resolve) => {
+// `id`, when given, must also match key[1] (one post's or one member's record).
+const deviceRecords = (page, prefix, del = false, id = null) => page.evaluate(([prefix, del, id]) => new Promise((resolve) => {
   const req = indexedDB.open("retina-offline");
   req.onerror = () => resolve(0);
   req.onsuccess = () => {
@@ -118,6 +119,7 @@ const deviceRecords = (page, prefix, del = false) => page.evaluate(([prefix, del
     all.onsuccess = () => {
       for (const r of all.result) {
         if (!Array.isArray(r.key) || r.key[0] !== prefix) continue;
+        if (id !== null && r.key[1] !== id) continue;
         if (Array.isArray(r.data) && r.data.length === 0) continue; // empty archive chunk
         n++;
         if (del) store.delete(r.id);
@@ -126,10 +128,10 @@ const deviceRecords = (page, prefix, del = false) => page.evaluate(([prefix, del
     tx.oncomplete = () => { db.close(); resolve(n); };
     tx.onerror = () => resolve(0);
   };
-}), [prefix, del]);
-const waitForRecords = async (page, prefix) => {
+}), [prefix, del, id]);
+const waitForRecords = async (page, prefix, id = null) => {
   for (let i = 0; i < 20; i++) {
-    if ((await deviceRecords(page, prefix)) > 0) return true;
+    if ((await deviceRecords(page, prefix, false, id)) > 0) return true;
     await page.waitForTimeout(500);
   }
   return false;
@@ -253,11 +255,10 @@ try {
   // or a placeholder name.
   const P = result.pages;
   await page.goto(`${BASE}/offlineharness.html?phase=seed&route=post&id=${POST_ID}`, { waitUntil: "load" });
-  P.postSeeded = await shows(page, SENTINEL, 60_000);
-  await waitForRecords(page, "seen-post"); // device-store writes are debounced
+  P.postSeeded = await shows(page, SENTINEL, 60_000)
+    && await waitForRecords(page, "seen-post", POST_ID); // device-store writes are debounced
   await page.goto(`${BASE}/offlineharness.html?phase=seed&route=profile&id=${AUTHOR_ID}`, { waitUntil: "load" });
-  P.profileSeeded = await shows(page, AUTHOR_NAME, 60_000);
-  await waitForRecords(page, "profile-core");
+  P.profileSeeded = await shows(page, AUTHOR_NAME, 60_000) && await waitForRecords(page, "profile-core", AUTHOR_ID);
   await page.waitForTimeout(1000); // the rest of the profile's reads
   const seen = new Set();
   const offlineScreen = async (key, query, expect) => {
