@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState, useCallback, useMemo } from "react";
+import PendingPhotoPosts from "@/components/upload/PendingPhotoPosts";
 import { useQuery } from "@tanstack/react-query";
 
 import { useFeedRealtime } from "@/hooks/feed/useRealtimeFeed";
@@ -536,6 +537,8 @@ const Feed = () => {
                 network), or a page served by the DB-3004 chronological
                 fallback, is not the feed. The posts stay (availability), and
                 the screen says they are stale. */}
+            {/* S7b-5b: posts with photos made offline, kept on the phone. */}
+            <PendingPhotoPosts />
             {(isError || servedStale || refreshFailed) && (
               <button
                 type="button"

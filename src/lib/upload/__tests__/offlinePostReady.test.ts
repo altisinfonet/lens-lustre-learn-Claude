@@ -1,0 +1,103 @@
+/**
+ * S7b-5b · A NEW POST WITH PHOTOS MADE WITH NO NETWORK. The resumable photo
+ * job (S5) keeps such a post on the phone and publishes it once (idempotency
+ * key) when the network is back — but only when two answers say yes: the
+ * switch `photo_upload_resume` and "is R2 storage on". Offline both answers
+ * failed and read as NO (isS3Enabled even cached false for a minute), so a post
+ * made in flight mode never took the job path and failed instead.
+ * Now: a failed read means "the last answer this phone saw", never a new no.
+ */
+import { describe, it, expect, beforeEach, vi } from "vitest";
+
+const db = vi.hoisted(() => ({ s3: true as boolean | null, s3Fails: false, s3Refused: false, rows: [] as { key: string; value: unknown }[], settingsFail: false, settingsRefused: false }));
+vi.mock("@/integrations/supabase/client", () => ({
+  supabase: {
+    rpc: async () => (db.s3Fails ? { data: null, error: { message: "TypeError: Failed to fetch" } }
+      : db.s3Refused ? { data: null, error: { message: "permission denied for function is_s3_storage_enabled", code: "42501" } }
+      : { data: db.s3, error: null }),
+    from: () => ({ select: () => ({ in: async () => {
+      if (db.settingsFail) throw new TypeError("Failed to fetch");
+      if (db.settingsRefused) return { data: null, error: { message: "permission denied for table site_settings", code: "42501" } };
+      return { data: db.rows, error: null };
+    } }) }),
+  },
+}));
+
+const { isS3Enabled, clearS3Cache } = await import("@/lib/s3Upload");
+const { photoResumeOn } = await import("@/lib/upload/photoJobDeps");
+const { invalidateSiteSetting } = await import("@/lib/siteSettingsCache");
+
+beforeEach(() => {
+  localStorage.clear();
+  clearS3Cache();
+  invalidateSiteSetting();
+  db.s3 = true; db.s3Fails = false; db.s3Refused = false; db.rows = []; db.settingsFail = false; db.settingsRefused = false;
+});
+
+describe("storage switch offline", () => {
+  it("a failed read is the last answer seen, not 'off'", async () => {
+    expect(await isS3Enabled()).toBe(true);
+    clearS3Cache();
+    db.s3Fails = true;
+    expect(await isS3Enabled()).toBe(true);
+  });
+  it("never seen: off (nothing is switched on by a failure)", async () => {
+    db.s3Fails = true;
+    expect(await isS3Enabled()).toBe(false);
+  });
+  it("review #583: a server refusal with the network up is off, as before — only a lost network uses the last answer", async () => {
+    expect(await isS3Enabled()).toBe(true);
+    clearS3Cache();
+    db.s3Refused = true;
+    expect(await isS3Enabled()).toBe(false);
+  });
+  it("seen on, then read off, then offline: off", async () => {
+    expect(await isS3Enabled()).toBe(true);
+    clearS3Cache();
+    db.s3 = false;
+    expect(await isS3Enabled()).toBe(false);
+    clearS3Cache();
+    db.s3Fails = true;
+    expect(await isS3Enabled()).toBe(false);
+  });
+});
+
+describe("photo_upload_resume offline", () => {
+  it("a failed read is the last answer seen", async () => {
+    db.rows = [{ key: "photo_upload_resume", value: "on" }];
+    expect(await photoResumeOn()).toBe(true);
+    invalidateSiteSetting();
+    db.settingsFail = true;
+    expect(await photoResumeOn()).toBe(true);
+  });
+  it("review #583: a server refusal with the network up is off — only a lost network uses the last answer", async () => {
+    db.rows = [{ key: "photo_upload_resume", value: "on" }];
+    expect(await photoResumeOn()).toBe(true);
+    invalidateSiteSetting();
+    db.settingsRefused = true;
+    expect(await photoResumeOn()).toBe(false);
+    // and a lost network after that still uses the last answer seen (on)
+    invalidateSiteSetting();
+    db.settingsRefused = false;
+    db.settingsFail = true;
+    expect(await photoResumeOn()).toBe(true);
+  });
+  it("seen on, then read off, then offline: off", async () => {
+    db.rows = [{ key: "photo_upload_resume", value: "on" }];
+    expect(await photoResumeOn()).toBe(true);
+    invalidateSiteSetting();
+    db.rows = [];
+    expect(await photoResumeOn()).toBe(false);
+    invalidateSiteSetting();
+    db.settingsFail = true;
+    expect(await photoResumeOn()).toBe(false);
+  });
+  it("off stays off; never seen + failed read: off", async () => {
+    db.settingsFail = true;
+    expect(await photoResumeOn()).toBe(false);
+    db.settingsFail = false;
+    db.rows = [{ key: "photo_upload_resume", value: "off" }];
+    invalidateSiteSetting();
+    expect(await photoResumeOn()).toBe(false);
+  });
+});
