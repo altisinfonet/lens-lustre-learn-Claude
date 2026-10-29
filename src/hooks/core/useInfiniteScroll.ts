@@ -64,7 +64,9 @@ export function useInfiniteScroll<T extends HTMLElement = HTMLDivElement>({
 
     const observer = new IntersectionObserver(
       (entries) => {
-        const entry = entries[0];
+        // Newest entry: a batched [left, back] pair must still load the next
+        // page (same cause as FeedCardWindow, Owner report 2026-10-29).
+        const entry = entries[entries.length - 1];
         if (!entry?.isIntersecting) return;
         // Double-fire protection: don't trigger while a fetch is already in flight.
         if (isFetching) return;
