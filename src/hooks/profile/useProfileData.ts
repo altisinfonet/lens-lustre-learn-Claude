@@ -64,7 +64,7 @@ export function useProfileCore(userId: string | undefined) {
 }
 
 /** Fetch extended profile data (entries, certs, badges, etc.) — requires auth */
-async function fetchProfileExtended(userId: string, currentUserId: string) {
+export async function fetchProfileExtended(userId: string, currentUserId: string) {
   const [entriesData, certsRes, rolesRes, profileMapRes, friendRes, privacyRes, articlesRes, coursesRes, featuredPhotosRes, visibleFieldsRes, adminIds] = await Promise.all([
     fetchUserEntries(userId),
     supabase.from("certificates").select("id, title, type, issued_at").eq("user_id", userId).order("issued_at", { ascending: false }).limit(10),
