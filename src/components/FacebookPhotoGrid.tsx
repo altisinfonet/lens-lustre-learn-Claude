@@ -4,6 +4,7 @@ import { useDownloadImage } from "@/hooks/core/useDownloadImage";
 import DownloadButton from "@/components/DownloadButton";
 import ProfileLink from "@/components/ProfileLink";
 import ZoomableImage from "@/components/media/ZoomableImage";
+import { originalFor } from "@/lib/media/resolvedMedia";
 import { motion, AnimatePresence } from "framer-motion";
 
 /**
@@ -202,7 +203,7 @@ const PostLightbox = ({ urls, currentIndex, onClose, onNavigate, author }: PostL
           <AnimatePresence mode="wait">
             <motion.div key={currentIndex} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0 flex items-center justify-center">
               <ZoomableImage
-                src={urls[currentIndex]}
+                src={originalFor(urls[currentIndex])}
                 className="max-w-[95vw] max-h-[92vh] object-contain rounded-sm shadow-2xl"
                 onZoomChange={setZoomed}
               />

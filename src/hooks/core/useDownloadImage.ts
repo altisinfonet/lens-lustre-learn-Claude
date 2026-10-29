@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { downloadImageAsJpeg } from "@/lib/imageCompression";
+import { originalFor } from "@/lib/media/resolvedMedia";
 
 /**
  * Hook providing a download handler with loading state.
@@ -8,7 +9,9 @@ import { downloadImageAsJpeg } from "@/lib/imageCompression";
 export function useDownloadImage() {
   const [downloading, setDownloading] = useState<string | null>(null);
 
-  const download = useCallback(async (url: string, fileName?: string) => {
+  const download = useCallback(async (shownUrl: string, fileName?: string) => {
+    // S3-c: a derivative on screen downloads its ORIGINAL (unchanged for every other URL).
+    const url = originalFor(shownUrl);
     if (downloading) return;
     setDownloading(url);
     try {
