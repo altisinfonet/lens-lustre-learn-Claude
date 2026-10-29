@@ -117,7 +117,7 @@ BEGIN
 
   -- c. admin, if the lane has one
   SELECT ur.user_id INTO adm FROM public.user_roles ur JOIN auth.users u ON u.id = ur.user_id
-   WHERE ur.role = 'admin'::public.app_role LIMIT 1;
+   WHERE ur.role::text = 'admin' LIMIT 1;
   IF adm IS NOT NULL THEN
     PERFORM set_config('request.jwt.claims', json_build_object('sub', adm, 'role', 'authenticated')::text, true);
     PERFORM set_config('request.jwt.claim.sub', adm::text, true);
