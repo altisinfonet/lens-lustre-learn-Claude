@@ -169,7 +169,7 @@ const RoundDecisionButtons = memo(({
               title={kHint(meta.kind, meta.hint)}
               className={[
                 "flex items-center gap-2 rounded-lg border-2 transition-all font-bold uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed",
-                compact ? "px-2.5 py-1.5 text-[10px]" : "px-3 py-2.5 text-[11px] justify-start",
+                compact ? "min-h-[44px] px-2.5 py-1.5 text-[10px]" : "min-h-[44px] px-3 py-2.5 text-[11px] justify-start",
                 isActive ? meta.active : `${meta.idle} bg-muted/20 text-muted-foreground`,
               ].join(" ")}
               style={f}
