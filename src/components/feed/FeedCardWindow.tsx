@@ -102,7 +102,14 @@ export default function FeedCardWindow({ children, eager = false }: FeedCardWind
   const [placeholderHeight, setPlaceholderHeight] = useState<number | null>(null);
 
   useEffect(() => {
-    if (eager) return;
+    // An eager card is always shown. The feed keeps cards by post id, so a
+    // refresh or a hidden post can move a card that was culled further down
+    // into the top three: bring it back here, or it stays an empty box for
+    // good (Owner 2026-10-29, blank posts 1–2 above the first ad).
+    if (eager) {
+      setMounted(true);
+      return;
+    }
     const el = ref.current;
     if (!el) return;
     // Fail open — see point 3 in the header.
@@ -140,9 +147,11 @@ export default function FeedCardWindow({ children, eager = false }: FeedCardWind
     return () => io.disconnect();
   }, [eager]);
 
+  // `|| eager`: shown in the same render, before the effect above runs.
+  const show = mounted || eager;
   return (
-    <div ref={ref} style={mounted ? undefined : { height: placeholderHeight ?? undefined }}>
-      {mounted ? children : null}
+    <div ref={ref} style={show ? undefined : { height: placeholderHeight ?? undefined }}>
+      {show ? children : null}
     </div>
   );
 }
