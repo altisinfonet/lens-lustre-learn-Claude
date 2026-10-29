@@ -135,6 +135,21 @@ describe("⚠ it fails open — every one of these must keep the card on screen"
     expect(screen.getByText("post body")).toBeInTheDocument();
   });
 
+  it("a culled card that moves into the top (becomes eager) shows its post again", () => {
+    // Owner report 2026-10-29 (second): blank posts 1–2, right above the
+    // first ad, after the newest-entry fix was live. The feed keeps each card
+    // by post id; when it refreshes and reorders, a card culled further down
+    // can land in the top three and be handed `eager`. The eager branch
+    // stopped observing but never set `mounted` back, so that card stayed an
+    // empty box for good.
+    stubHeight(600);
+    const { rerender } = render(<FeedCardWindow><p>post body</p></FeedCardWindow>);
+    fire!(false);
+    expect(screen.queryByText("post body")).toBeNull();
+    rerender(<FeedCardWindow eager><p>post body</p></FeedCardWindow>);
+    expect(screen.getByText("post body")).toBeInTheDocument();
+  });
+
   it("keeps a sensible number of cards eager at the top of the feed", () => {
     // Not zero (the first screenful would churn where it is most visible) and
     // not so many that culling stops mattering.
