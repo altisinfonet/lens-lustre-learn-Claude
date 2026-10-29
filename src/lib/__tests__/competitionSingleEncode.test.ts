@@ -95,8 +95,14 @@ describe("metadataFreeWebp — real bytes and hostile containers", () => {
   });
   it("refuses EXIF, XMP and any unknown or renamed chunk (allow-list); a colour profile or image chunk is fine", async () => {
     expect(await check(asFile(bytes(EXIF)))).toBeNull();
-    for (const t of ["XMP ", "exif", "abcd", "EXIF"]) expect(await check(asFile(withChunk(t))), t).toBeNull();
-    for (const t of ["ALPH", "ICCP"]) expect(await check(asFile(withChunk(t))), t).not.toBeNull();
+    for (const t of ["XMP ", "exif", "abcd", "EXIF", "ANMF", "ANIM"]) expect(await check(asFile(withChunk(t))), t).toBeNull();
+    expect(await check(asFile(withChunk("ALPH")))).not.toBeNull();
+    // A colour-profile chunk must BE a colour profile: "acsp" at 36, at most 4 KB.
+    expect(await check(asFile(withChunk("ICCP")))).toBeNull(); // 5 junk bytes, no signature
+    const icc = new Array(48).fill(0); [0x61, 0x63, 0x73, 0x70].forEach((v, k) => (icc[36 + k] = v));
+    const good = chunk("ICCP", icc), base = bytes(CLEAN), out = new Uint8Array(base.length + good.length);
+    out.set(base); out.set(good, base.length); setU32(out, 4, out.length - 8);
+    expect(await check(asFile(out))).not.toBeNull();
   });
   it("refuses bytes after the RIFF end, a RIFF size shorter than the file, and EXIF hidden past a shrunk RIFF size", async () => {
     const trail = new Uint8Array(bytes(CLEAN).length + 20); trail.set(bytes(CLEAN)); trail.set(chunk("EXIF", [9, 9, 9, 9]), bytes(CLEAN).length);

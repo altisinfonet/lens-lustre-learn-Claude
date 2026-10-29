@@ -287,9 +287,10 @@ export async function uploadImageWithThumbnail(
   const maxDimension = type === "post" ? 2560 : undefined;
   let fullResFile: File;
   let encodedDims: { width: number; height: number } | null = null;
-  // The caller's word is not proof: only a WebP whose chunk list PROVABLY holds
-  // no EXIF / XMP skips the encode (a canvas encode never writes them). Anything
-  // else is encoded here as before, which strips metadata.
+  // The caller's word is not proof: only a WebP that metadataFreeWebp PROVES is a
+  // plain still image (exact container, image + colour-profile chunks only) and
+  // whose own header states the stated size skips the encode. Anything else is
+  // encoded here as before, which strips metadata.
   // The size the caller states must be the size the file's own header states.
   const proven = encoded && file.type === "image/webp" ? await metadataFreeWebp(file) : null;
   if (proven && encoded && proven.width === encoded.width && proven.height === encoded.height) {

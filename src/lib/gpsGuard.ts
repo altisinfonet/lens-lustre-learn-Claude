@@ -176,10 +176,11 @@ function readBytes(file: Blob): Promise<Uint8Array> {
  * otherwise. Reads the RIFF container only — no decode.
  *
  * "Provably" means: the RIFF size covers the file EXACTLY (no bytes after it),
- * every top-level chunk is an image chunk (VP8 / VP8L / VP8X / ALPH / ANIM /
- * ANMF) or the colour profile (ICCP — Chromium, WebKit and the Android WebView
- * write an sRGB profile into every canvas WebP; it holds no location) — an
- * allow-list, so EXIF, XMP and anything unknown or renamed are refused), the chunk list ends exactly at the end, and an image chunk states
+ * every top-level chunk is a still-image chunk (VP8 / VP8L / VP8X / ALPH) or a
+ * real, small ICC colour profile (ICCP with the "acsp" signature, ≤ 4 KB —
+ * Chromium, WebKit and the Android WebView write an sRGB profile into every
+ * canvas WebP) — an allow-list, so EXIF, XMP, animation frames and anything
+ * unknown or renamed are refused), the chunk list ends exactly at the end, and an image chunk states
  * the size. A browser canvas encode (compressImageToFiles) writes exactly this;
  * a camera / editor WebP with location data does not pass.
  *
@@ -194,7 +195,7 @@ export async function metadataFreeWebp(file: File): Promise<{ file: File; width:
     const tag = (i: number) => String.fromCharCode(b[i], b[i + 1], b[i + 2], b[i + 3]);
     if (b.length < 20 || tag(0) !== "RIFF" || tag(8) !== "WEBP") return null;
     if (8 + u32(4) !== b.length) return null; // no bytes after the container, none missing
-    const ALLOWED = new Set(["VP8 ", "VP8L", "VP8X", "ALPH", "ANIM", "ANMF", "ICCP"]);
+    const ALLOWED = new Set(["VP8 ", "VP8L", "VP8X", "ALPH", "ICCP"]);
     let i = 12;
     let dims: { width: number; height: number } | null = null;
     while (i < b.length) {
@@ -203,6 +204,7 @@ export async function metadataFreeWebp(file: File): Promise<{ file: File; width:
       const n = u32(i + 4);
       const d = i + 8;
       if (!ALLOWED.has(t) || d + n > b.length) return null;
+      if (t === "ICCP" && (n < 40 || n > 4096 || tag(d + 36) !== "acsp")) return null;
       if (t === "VP8X" && n >= 10) dims = { width: u24(d + 4) + 1, height: u24(d + 7) + 1 };
       else if (t === "VP8 " && n >= 10 && !dims && b[d + 3] === 0x9d && b[d + 4] === 0x01 && b[d + 5] === 0x2a)
         dims = { width: (b[d + 6] | (b[d + 7] << 8)) & 0x3fff, height: (b[d + 8] | (b[d + 9] << 8)) & 0x3fff };

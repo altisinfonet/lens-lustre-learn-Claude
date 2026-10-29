@@ -159,7 +159,7 @@ export default function EditEntryDialog({ entryId, open, onOpenChange, onSaved }
       const uploadResult = await uploadImageWithThumbnail({
         bucket: "competition-photos",
         file: webpFile,
-          encoded: { width, height }, // already the full-size WebP: upload it, do not encode again
+        encoded: { width, height }, // already the full-size WebP: upload it, do not encode again
         type: "competition",
         userId: user.id,
         cacheControl: "3600",
