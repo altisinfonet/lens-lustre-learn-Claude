@@ -12,10 +12,13 @@
 --      (effective privilege, so a PUBLIC grant counts — F-62);
 --   3. of those, how many the app calls by name (the list below is every
 --      .rpc("…") name in src/, supabase/functions/ and functions/ on staging,
---      2026-10-29 — a LOWER bound: calls through a variable are not all seen);
+--      2026-10-29, grep noise such as test stubs removed — a LOWER bound: calls
+--      through a variable are not all seen);
 --   4. of those, how many RLS policies reference (they run as the caller and
 --      need EXECUTE whatever the client calls), and how many are trigger
 --      functions (they run as the table owner and need no caller EXECUTE).
+-- "other" is NOT "safe to revoke": functions called inside views, invoker
+-- functions or column defaults also need the caller's EXECUTE and land there.
 -- Never fails on what it finds. FAILS only if the lane is not asserted.
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN READ ONLY;
@@ -27,8 +30,7 @@ DECLARE
     'admin_reject_wallet_transaction', 'admin_search_users', 'admin_set_photo_rejected', 'admin_wallet_credit',
     'app_has_role', 'approve_deposit', 'are_friends', 'auth_emails',
     'backfill_judging_notifications', 'change_custom_url', 'check_custom_urls_taken', 'claim_username',
-    'clear', 'competition_entries', 'create_pending_deposit', 'current_phase',
-    'custom_fn', 'delete_email', 'emit', 'emit_notification',
+    'create_pending_deposit', 'current_phase', 'delete_email', 'emit_notification',
     'enqueue_email', 'enroll_in_course', 'expire_gift_credit', 'feature_add_member',
     'feature_admin_state', 'feature_member_search', 'feature_set_mode', 'feed_mix_admin_stats',
     'feed_mix_set', 'filter_moderated_user_ids', 'fix_certificate_readiness_admin', 'fix_gift_drift_admin',
@@ -42,21 +44,21 @@ DECLARE
     'get_personal_feed', 'get_placement_drift_admin', 'get_post_view_counts', 'get_profile_admin',
     'get_profile_visible_fields', 'get_progression_drift_admin', 'get_public_final_votes', 'get_public_role_user_ids',
     'get_public_roles_for_users', 'get_public_round_scores', 'get_referral_drift_admin', 'get_round_summary',
-    'get_test_agent_health_admin', 'get_todays_birthdays', 'get_top_contributors_v1', 'get_x',
-    'has_role', 'heartbeat_judge_lock', 'increment_managed_page_view', 'is_s3_storage_enabled',
-    'issue_course_completion_certificate', 'judge_apply_single_tag', 'judging_invariants', 'judging_invariants_check',
-    'judging_rounds', 'judging_write_decision_atomic', 'list_tag_decision_drift_admin', 'md5_public_shim',
-    'media_derivative_queue', 'media_derivative_record', 'media_derivative_source', 'media_derivative_target',
-    'media_mark_ready', 'media_mark_verified', 'media_migrate_post', 'media_migration_reconcile',
-    'media_quarantine', 'move_to_dlq', 'mutual_friend_ids', 'mutual_friends_count',
-    'name', 'post_attach_media', 'process_referral_reward', 'publish_post_draft',
-    'read_email_batch', 'record_client_telemetry', 'record_session_end', 'register_push_token',
-    'release_judge_lock', 'request_withdrawal', 'resolve_custom_url', 'search_certificates',
-    'search_profiles_admin', 'soft_void_wallet_transactions', 'submit_competition_entry', 'suggest_hashtags',
-    'suggest_username', 'transactional_emails', 'unregister_push_token', 'username_available',
-    'verify_certificate', 'verify_certificate_by_token', 'verify_staff_id', 'video_begin_upload',
-    'video_delete', 'video_publish_post', 'video_source_begin', 'video_source_cancel',
-    'wallet_ledger_apply_v2', 'wallet_transaction', 'withdrawal_requests'
+    'get_test_agent_health_admin', 'get_todays_birthdays', 'get_top_contributors_v1', 'has_role',
+    'heartbeat_judge_lock', 'increment_managed_page_view', 'is_s3_storage_enabled', 'issue_course_completion_certificate',
+    'judge_apply_single_tag', 'judging_invariants', 'judging_invariants_check', 'judging_rounds',
+    'judging_write_decision_atomic', 'list_tag_decision_drift_admin', 'md5_public_shim', 'media_derivative_queue',
+    'media_derivative_record', 'media_derivative_source', 'media_derivative_target', 'media_mark_ready',
+    'media_mark_verified', 'media_migrate_post', 'media_migration_reconcile', 'media_quarantine',
+    'move_to_dlq', 'mutual_friend_ids', 'mutual_friends_count', 'post_attach_media',
+    'process_referral_reward', 'publish_post_draft', 'read_email_batch', 'record_client_telemetry',
+    'record_session_end', 'register_push_token', 'release_judge_lock', 'request_withdrawal',
+    'resolve_custom_url', 'search_certificates', 'search_profiles_admin', 'soft_void_wallet_transactions',
+    'submit_competition_entry', 'suggest_hashtags', 'suggest_username', 'transactional_emails',
+    'unregister_push_token', 'username_available', 'verify_certificate', 'verify_certificate_by_token',
+    'verify_staff_id', 'video_begin_upload', 'video_delete', 'video_publish_post',
+    'video_source_begin', 'video_source_cancel', 'wallet_ledger_apply_v2', 'wallet_transaction',
+    'withdrawal_requests'
   ];
   r record; line text := '';
 BEGIN
@@ -90,7 +92,7 @@ BEGIN
            p.prorettype = 'trigger'::regtype AS is_trigger,
            p.proname = ANY (client_rpcs) AS client_called,
            EXISTS (SELECT 1 FROM pg_policies pol
-                    WHERE coalesce(pol.qual, '') || ' ' || coalesce(pol.with_check, '') ~ ('\m' || p.proname || '\(')) AS in_policy
+                    WHERE coalesce(pol.qual, '') || ' ' || coalesce(pol.with_check, '') ~ ('\m' || regexp_replace(p.proname, '(\W)', '\\\1', 'g') || '\(')) AS in_policy
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
      WHERE n.nspname = 'public' AND p.prokind IN ('f', 'p')
   )
