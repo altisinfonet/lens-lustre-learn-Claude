@@ -1,6 +1,6 @@
 # STAGES runner — status
 
-Updated: 2026-10-29 23:26 UTC · runner branch `status/stages-runner` · never merged.
+Updated: 2026-10-29 23:44 UTC · runner branch `status/stages-runner` · never merged.
 
 ## Done per stage
 
@@ -9,7 +9,7 @@ Updated: 2026-10-29 23:26 UTC · runner branch `status/stages-runner` · never m
 | S0 | 95 | Server half PASS, re-checked live today. Only the Owner's phone test ("Video OK") is left. |
 | S2 Observability | 95 | Live: telemetry SQL, client telemetry, outside monitor + alert, Admin → Health page, and now native crash / OOM / ANR per build (code + SQL live). Left: the reader is inside the app only from the S9 build (its build-file change #562 waits on staging for the S9 bump); Owner reads the page. |
 | S3 Media | 85 | Code live on main (03004ff, 20:32 UTC) and SQL 0100/0101/0102 applied on staging and production, both switches OFF. All PROBEs PASS on both lanes. Left (Owner): backfill secrets (then 1-click backfill to 100 %), PHOTOS binding + Worker route, decisions O-1/O-2, then switch-on and the phone test. |
-| S8 Live debt | 65 | DONE before: F-REV4-2 (prod), one SEO renderer (#508), F-D3-8 SQL 0201 (main #515, prod 40819037088). Today: sitemap root cause fixed (#577, #585 both on staging), carry #580 updated with #585 and in CI/review; F-AUD-8 rotation SQL on main (#581, nothing run); inventory tools on main (#582); PROBE for places the rotation misses (#586 on staging, carry #599). Old PRs: #323, #130 closed as superseded. Blocked on Owner: SUPABASE_ACCESS_TOKEN (function inventory/deploy, send-push), Vault entries for the rotation, converter password. F-REV4-6: finding text not in the repo (Owner/supervisor to paste it). |
+| S8 Live debt | 80 | DONE before: F-REV4-2 (prod), one SEO renderer (#508), F-D3-8 SQL 0201 (main #515, prod 40819037088). Today: **sitemap LIVE** (#504 + #577 + #585 carried as #580, main c801512): /sitemap.xml serves the dynamic 729-URL sitemap; F-AUD-8 rotation SQL on main (#581, nothing run); inventory tools on main (#582); PROBE for places the rotation misses (#586; main 6f24ab3 via #599; staging PASS, production run queued). Old PRs: #323, #130 closed as superseded. Blocked on Owner: SUPABASE_ACCESS_TOKEN (function inventory/deploy, send-push), Vault entries for the rotation, converter password. F-REV4-6: finding text not in the repo (Owner/supervisor to paste it). |
 | S11 Reliability | 55 | On staging: #589 stale-chunk recovery, #590 competition single encode, #591 upload size+type signed, #592 profile/Tagged, #593 tap targets, #594 error messages, #595 qrcode lazy, #596 app-build guards. Carries to main: #605 (#589 #590 #592–#595) and #606 (#591, inert until functions deploy, item 7). Reviewed, in CI: #597 upload type lists + GPS guard on support replies, #601 build-only deps, #602 doc drift, #603 judge-identity PROBE, #604 one Mention award. Already fixed before today (re-verified): `npm ci` has no `npm install` fallback; the AAB web-bundle check is blocking. Left: react-mentions (replacement design), trackPosition (needs its own store + switch: today's heartbeat would overwrite the judge's bookmark), PlacementBoard / awards by tag id, judge_id fix (after the #603 measurement), drafts purge, M2; drills D1–D9 and M2 need the Supabase token (item 7). |
 | S10 remainder | 0 | Waits for PR #538 (supervisor). |
 | S12 / S5 | 50 | Switch-state PROBE on staging (#588), carry #600; runs on both lanes next. Switches stay OFF. |
@@ -28,11 +28,11 @@ Updated: 2026-10-29 23:26 UTC · runner branch `status/stages-runner` · never m
 | S3 | PROBE 0102 setup writes without member claims | #573 | staging 9a0f9e1 | staging PROBE 0102 PASS 40946796937 (20:11) | — |
 | S3 | **Carry S3 to main** (#496–#501, #567, #569, #571, #573) | #576 | main 03004ff | production: 0100 PROBE FAIL 40949645431 → apply 40951365749 → PASS 40951832115 · 0101 FAIL 40951913183 → apply 40951975386 → PASS 40952048358 · 0102 FAIL 40952139141 → apply 40952199347 → PASS 40952288920 · coverage 0 % of 507 (40952365255) | 20:32 UTC live; Chromium/Firefox/WebKit home + /feed 200, same text, 0 new console errors. Anonymous GET of a private photo path on the live CDN → 404 (fails closed). PASS |
 
-| S8 | Sitemap: survives a slow generator | #577 | staging fbdb644 | — | carry #580 (with #585) |
-| S8 | Sitemap: held ETag / Range no longer pin the thin file; nosniff + CSP | #585 | staging 77ee4e4 · carry #580 (cherry-pick 6282674) | — | after #580 |
+| S8 | Sitemap: survives a slow generator | #577 | staging fbdb644 · main c801512 (#580) | — | 23:37 UTC PASS (below) |
+| S8 | Sitemap: held ETag / Range no longer pin the thin file; nosniff + CSP | #585 | staging 77ee4e4 · main c801512 (#580) | — | 23:37 UTC: `/sitemap.xml` 200 `x-sitemap-source: dynamic-cached`, 729 URLs (one cold request served the static 12 as designed); If-None-Match → 200, not a stale 304; nosniff + CSP `default-src 'none'`. Home + /feed in Chromium, Firefox, WebKit: 200, same text, 0 new console errors. PASS |
 | S8 | F-AUD-8 rotation SQL to main (files only) | #581 | main b891559 | not run (Owner Vault step first) | — |
 | S8 | F-REV4-1 inventory tools to main | #582 | main cb21960 | PROBE runs: see below | — |
-| S8 | PROBE: credentials the rotation does not scan | #586 → carry #599 | staging 1703ac4 | staging PASS 40968413653 (23:11): trigger args 0, db/role settings 0, pg_net queue 0 | — |
+| S8 | PROBE: credentials the rotation does not scan | #586 → #599 | staging 1703ac4 · main 6f24ab3 | staging PASS 40968413653 (23:11): trigger args 0, db/role settings 0, pg_net queue 0 | — |
 | S8 | Old open PRs | #323, #130 closed (superseded, comment left) | — | — | — |
 
 | S11 | Stale-chunk recovery installed | #589 | staging 52878b6 · carry #605 | — | after #605 |
@@ -47,8 +47,11 @@ Updated: 2026-10-29 23:26 UTC · runner branch `status/stages-runner` · never m
 | S11 | Doc drift (queryKeys focus default; realtimeCounts guard name) | #602 | review nothing blocking; CI | — | — |
 | S11 | PROBE: who can read a judge's identity (measure before fixing) | #603 | review nothing blocking; CI | — | — |
 | S11 | One Mention award for all three spellings | #604 | review nothing blocking (2 rounds); CI | — | — |
-| S11 | One upload type list; support reply photos GPS-guarded; honest "couldn't check" copy | #597 | review nothing blocking (3 rounds); CI | — | — |
-| S12/S5 | Switch-state PROBE (confirm OFF) | #588 → carry #600 | staging 584b305 | staging: queued (runners saturated, 250+ queued) | `photo_upload_resume` has no row on live = OFF |
+| S11 | One upload type list; support reply photos GPS-guarded; honest "couldn't check" copy | #597 | staging 0c34e68 | — | carry next |
+| S11 | PROBE: drafts lifecycle (is anything purging 7-day drafts?) | #607 | review nothing blocking (2 rounds); CI | — | — |
+| S11 | Retire the frozen RLS baseline (unrun since cd3dc7ef) | #608 | review nothing blocking; CI | — | — |
+| S11 | PROBE: M2 default EXECUTE privileges vs real callers | #609 | review nothing blocking; CI | — | — |
+| S12/S5 | Switch-state PROBE (confirm OFF) | #588 → #600 | staging 584b305 · main 8af24ef | staging: queued (runners saturated, 250+ queued) | `photo_upload_resume` has no row on live = OFF |
 
 ## Findings recorded
 
@@ -58,6 +61,8 @@ Updated: 2026-10-29 23:26 UTC · runner branch `status/stages-runner` · never m
 - **F-REV4-1 inventory:** the DB-caller PROBE does not see Vault-held cron URLs or webhook triggers — never use it alone to remove a function.
 
 - **S8 sitemap #504 "0 vs 12":** not a defect. Staging's static sitemap is empty on purpose (staging tells crawlers to stay out, `scripts/generate-seo-assets.mjs`), and the dynamic route returns the static file when it is empty. Live static has 12 URLs on `50mmretina.com`; live upstream `functions/v1/sitemap` returns 729 URLs on the same host, so on main the dynamic route would serve 729. Carry needs a production-shaped proof, not a staging one.
+- **S11 drafts:** git has MARK (`mark_expiring_post_drafts`) and REAP (`reap_post_drafts(uuid[])`) but no PURGE edge function (step 2 of 20260812110000), so nothing would ever call the reaper. #607 measures what each lane really runs.
+- **S11 awards by label:** `complete-round` builds its award map from catalog LABELS; PlacementBoard hard-codes 3 mandatory awards where the server requires only Winner. Fix = edge-function change → deploy needs item 7.
 - **S11 trackPosition:** wiring it as written would let the 30 s heartbeat overwrite the judge's intentional bookmark (same DB columns; JudgePanel.tsx notes bookmarks are intentional-only). Needs a local-only ambient store, and a switch because judges would see a new resume prompt.
 - **S11 react-mentions:** npm marks 4.4.10 deprecated ("no longer supported"), with no security advisory. Replacing it rewrites the 622-line comment input, so it ships behind a switch.
 - **S11 build:** the image optimizer logs `Cannot find package 'svgo'` for 4 fallback SVGs. Pre-existing; the build stays green.
