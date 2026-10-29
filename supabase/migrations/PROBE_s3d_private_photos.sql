@@ -63,8 +63,11 @@ BEGIN
        AND NOT EXISTS (SELECT 1 FROM public.post_media pm WHERE pm.post_id = p.id)
      ORDER BY p.created_at LIMIT 1;
     IF post IS NULL THEN RAISE EXCEPTION 'PROBE FAIL G2: no post by a non-admin on this lane to build the fixture on'; END IF;
-    INSERT INTO public.media_objects (owner_id, sha256, width, height, bytes, mime, visibility, state, verified_at)
-    VALUES (author, decode(md5(random()::text) || md5(random()::text), 'hex'), 2000, 1500, 1000, 'image/webp', 'private', 'ready', now())
+    -- 'ready' requires derivatives ? 'original' (media_objects_ready_has_derivatives,
+    -- 20260814104119); the key names no real object and is rolled back.
+    INSERT INTO public.media_objects (owner_id, sha256, width, height, bytes, mime, visibility, state, verified_at, derivatives)
+    VALUES (author, decode(md5(random()::text) || md5(random()::text), 'hex'), 2000, 1500, 1000, 'image/webp', 'private', 'ready', now(),
+            jsonb_build_object('original', 'post-images/' || author::text || '/posts/probe-0102-fixture-w2000h1500.webp'))
     RETURNING id INTO fx_media;
     INSERT INTO public.post_media (post_id, ord, media_id) VALUES (post, 0, fx_media);
     fixture := 'built in-transaction (lane has no ready media by a non-admin)';
