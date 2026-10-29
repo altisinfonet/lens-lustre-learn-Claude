@@ -13,7 +13,7 @@ import { render, screen, act } from "@testing-library/react";
 import { noteOutcome, getNetState, resetNetState, SLOW_MEDIAN_MS } from "../networkQuality";
 import { shouldRetry, retryDelay, MAX_NETWORK_RETRIES } from "../retryPolicy";
 import NetworkBanner from "@/components/NetworkBanner";
-import PostMedia, { SLOW_FEED_SIZES } from "@/components/post/PostMedia";
+import PostMedia, { SLOW_FEED_SIZES, FEED_SIZES } from "@/components/post/PostMedia";
 
 vi.mock("@/hooks/core/useDownloadImage", () => ({ useDownloadImage: () => ({ download: vi.fn(), downloading: false }) }));
 
@@ -37,6 +37,26 @@ describe("networkQuality", () => {
     expect(getNetState().reason).toBe("declared");
     setConnection({ effectiveType: "4g", saveData: true }); resetNetState();
     expect(getNetState().reason).toBe("declared");
+  });
+  it("declared 3g, a weak downlink or a long round trip -> slow (Owner 2026-10-29)", () => {
+    for (const c of [{ effectiveType: "3g" }, { effectiveType: "4g", downlink: 1.0 }, { effectiveType: "4g", rtt: 800 }]) {
+      setConnection(c); resetNetState();
+      expect(getNetState().reason, JSON.stringify(c)).toBe("declared");
+    }
+  });
+  it("a good 4g link, or an unknown downlink of 0, is not slow", () => {
+    for (const c of [{ effectiveType: "4g", downlink: 10, rtt: 100 }, { effectiveType: "4g", downlink: 0 }]) {
+      setConnection(c); resetNetState();
+      expect(getNetState().slow, JSON.stringify(c)).toBe(false);
+    }
+  });
+  it("the observed threshold is 1.5 s, not 3 s (a weak 4G read takes ~2 s)", () => {
+    expect(SLOW_MEDIAN_MS).toBeLessThanOrEqual(1500);
+    for (let i = 0; i < 6; i++) noteOutcome(2000, false);
+    expect(getNetState().reason).toBe("observed");
+  });
+  it("phones ask for ~1080 px (Instagram's feed width), never the 1440 rung or the original", () => {
+    expect(FEED_SIZES.startsWith("(max-width: 430px) 360px")).toBe(true);
   });
   it(`observed: median read > ${SLOW_MEDIAN_MS} ms -> slow, then recovers`, () => {
     for (let i = 0; i < 6; i++) noteOutcome(SLOW_MEDIAN_MS + 500, false);
@@ -76,7 +96,7 @@ const sharpSizes = (c: HTMLElement) => [...c.querySelectorAll("img")].map((i) =>
 describe("PostMedia on a slow link", () => {
   it("good link -> the normal sizes", () => {
     const { container } = render(<PostMedia urls={[photo("-w3000h2000.webp")]} />);
-    expect(sharpSizes(container)).toEqual(["(max-width: 768px) 100vw, 600px"]);
+    expect(sharpSizes(container)).toEqual([FEED_SIZES]);
   });
   it("slow link -> the smallest rung", () => {
     noteOutcome(25_000, true); noteOutcome(25_000, true);

@@ -4,8 +4,9 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * Three inputs, in order of strength:
  *   1. OFFLINE — `navigator.onLine === false` (and the `offline` event).
- *   2. SLOW, declared — the Network Information API says `slow-2g`/`2g`, or the
- *      member turned on Data Saver (`saveData`). Chromium/Android WebView only;
+ *   2. SLOW, declared — the Network Information API says `slow-2g`/`2g`/`3g`, a
+ *      downlink under 1.5 Mbps or a round trip over 600 ms, or the member
+ *      turned on Data Saver (`saveData`). Chromium/Android WebView only;
  *      absent elsewhere, which simply means "not declared".
  *   3. SLOW, observed — every Supabase read reports its outcome here (from
  *      `timeoutFetch` in the client). Over the last WINDOW reads: a median above
@@ -20,7 +21,17 @@
 export type NetState = { online: boolean; slow: boolean; reason: "offline" | "declared" | "observed" | null };
 
 export const WINDOW = 6;
-export const SLOW_MEDIAN_MS = 3000;
+/**
+ * Owner 2026-10-29: "Poor network is not handled". Measured on live the same
+ * day: a feed photo is 438 KB median (p90 1.26 MB) = ~5 s each on 3G, yet only
+ * 2g / Data Saver / a 3 s median counted as slow, so a weak 4G or 3G link got
+ * full-size photos. Now: 3g, a declared downlink under SLOW_DOWNLINK_MBPS or a
+ * round trip over SLOW_RTT_MS is slow, and the observed median threshold is
+ * 1.5 s (a feed read on a good link is ~0.2–0.4 s).
+ */
+export const SLOW_MEDIAN_MS = 1500;
+export const SLOW_DOWNLINK_MBPS = 1.5;
+export const SLOW_RTT_MS = 600;
 export const TIMEOUTS_FOR_SLOW = 2;
 
 type Outcome = { ms: number; failed: boolean };
@@ -28,7 +39,17 @@ let outcomes: Outcome[] = [];
 const listeners = new Set<() => void>();
 let state: NetState = compute();
 
-interface NetInfo { effectiveType?: string; saveData?: boolean; addEventListener?: (t: string, f: () => void) => void }
+interface NetInfo { effectiveType?: string; saveData?: boolean; downlink?: number; rtt?: number; addEventListener?: (t: string, f: () => void) => void }
+
+/** The browser's own word that the link is weak (Chromium / Android WebView only). */
+function declaredSlow(c: NetInfo): boolean {
+  if (c.saveData === true) return true;
+  if (c.effectiveType === "slow-2g" || c.effectiveType === "2g" || c.effectiveType === "3g") return true;
+  // 0 means "unknown" in some WebViews — never read it as slow.
+  if (typeof c.downlink === "number" && c.downlink > 0 && c.downlink < SLOW_DOWNLINK_MBPS) return true;
+  if (typeof c.rtt === "number" && c.rtt > SLOW_RTT_MS) return true;
+  return false;
+}
 function connection(): NetInfo | undefined {
   try { return (globalThis.navigator as unknown as { connection?: NetInfo } | undefined)?.connection; } catch { return undefined; }
 }
@@ -37,7 +58,7 @@ function compute(): NetState {
   const nav = globalThis.navigator as Navigator | undefined;
   if (nav && nav.onLine === false) return { online: false, slow: true, reason: "offline" };
   const c = connection();
-  if (c && (c.saveData === true || c.effectiveType === "slow-2g" || c.effectiveType === "2g")) {
+  if (c && declaredSlow(c)) {
     return { online: true, slow: true, reason: "declared" };
   }
   const failures = outcomes.filter((o) => o.failed).length;
