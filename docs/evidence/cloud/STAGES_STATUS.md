@@ -1,6 +1,6 @@
 # STAGES runner — status
 
-Updated: 2026-10-29 23:05 UTC · runner branch `status/stages-runner` · never merged.
+Updated: 2026-10-29 23:26 UTC · runner branch `status/stages-runner` · never merged.
 
 ## Done per stage
 
@@ -10,7 +10,7 @@ Updated: 2026-10-29 23:05 UTC · runner branch `status/stages-runner` · never m
 | S2 Observability | 95 | Live: telemetry SQL, client telemetry, outside monitor + alert, Admin → Health page, and now native crash / OOM / ANR per build (code + SQL live). Left: the reader is inside the app only from the S9 build (its build-file change #562 waits on staging for the S9 bump); Owner reads the page. |
 | S3 Media | 85 | Code live on main (03004ff, 20:32 UTC) and SQL 0100/0101/0102 applied on staging and production, both switches OFF. All PROBEs PASS on both lanes. Left (Owner): backfill secrets (then 1-click backfill to 100 %), PHOTOS binding + Worker route, decisions O-1/O-2, then switch-on and the phone test. |
 | S8 Live debt | 65 | DONE before: F-REV4-2 (prod), one SEO renderer (#508), F-D3-8 SQL 0201 (main #515, prod 40819037088). Today: sitemap root cause fixed (#577, #585 both on staging), carry #580 updated with #585 and in CI/review; F-AUD-8 rotation SQL on main (#581, nothing run); inventory tools on main (#582); PROBE for places the rotation misses (#586 on staging, carry #599). Old PRs: #323, #130 closed as superseded. Blocked on Owner: SUPABASE_ACCESS_TOKEN (function inventory/deploy, send-push), Vault entries for the rotation, converter password. F-REV4-6: finding text not in the repo (Owner/supervisor to paste it). |
-| S11 Reliability | 40 | On staging: #589 stale-chunk recovery, #590 competition single encode, #591 upload size+type signed (edge deploy needs item 7). Reviewed, in CI: #592 profile/Tagged, #593 tap targets, #594 error messages, #595 qrcode lazy, #596 app-build guards, #597 upload type lists + GPS guard on support replies. Already fixed before today (re-verified): `npm ci` has no `npm install` fallback; the AAB web-bundle check is blocking. Left: deps, react-mentions, doc drift, judging items, drafts purge, carries; drills D1–D9 and M2 need the Supabase token (item 7). |
+| S11 Reliability | 55 | On staging: #589 stale-chunk recovery, #590 competition single encode, #591 upload size+type signed, #592 profile/Tagged, #593 tap targets, #594 error messages, #595 qrcode lazy, #596 app-build guards. Carries to main: #605 (#589 #590 #592–#595) and #606 (#591, inert until functions deploy, item 7). Reviewed, in CI: #597 upload type lists + GPS guard on support replies, #601 build-only deps, #602 doc drift, #603 judge-identity PROBE, #604 one Mention award. Already fixed before today (re-verified): `npm ci` has no `npm install` fallback; the AAB web-bundle check is blocking. Left: react-mentions (replacement design), trackPosition (needs its own store + switch: today's heartbeat would overwrite the judge's bookmark), PlacementBoard / awards by tag id, judge_id fix (after the #603 measurement), drafts purge, M2; drills D1–D9 and M2 need the Supabase token (item 7). |
 | S10 remainder | 0 | Waits for PR #538 (supervisor). |
 | S12 / S5 | 50 | Switch-state PROBE on staging (#588), carry #600; runs on both lanes next. Switches stay OFF. |
 | S9 Release | 0 | Last. |
@@ -32,19 +32,23 @@ Updated: 2026-10-29 23:05 UTC · runner branch `status/stages-runner` · never m
 | S8 | Sitemap: held ETag / Range no longer pin the thin file; nosniff + CSP | #585 | staging 77ee4e4 · carry #580 (cherry-pick 6282674) | — | after #580 |
 | S8 | F-AUD-8 rotation SQL to main (files only) | #581 | main b891559 | not run (Owner Vault step first) | — |
 | S8 | F-REV4-1 inventory tools to main | #582 | main cb21960 | PROBE runs: see below | — |
-| S8 | PROBE: credentials the rotation does not scan | #586 → carry #599 | staging 1703ac4 | staging: running | — |
+| S8 | PROBE: credentials the rotation does not scan | #586 → carry #599 | staging 1703ac4 | staging PASS 40968413653 (23:11): trigger args 0, db/role settings 0, pg_net queue 0 | — |
 | S8 | Old open PRs | #323, #130 closed (superseded, comment left) | — | — | — |
 
-| S11 | Stale-chunk recovery installed | #589 | staging 52878b6 | — | carry next |
-| S11 | Competition photo encoded once (WebP proof) | #590 | staging 78bf997 | — | carry next |
-| S11 | Photo presign signs size + type | #591 | staging a0dbdd5 | — | edge deploy needs SUPABASE_ACCESS_TOKEN (item 7) |
-| S11 | Admin profile edit refresh; Tagged photos errors | #592 | review nothing blocking; CI (sweep test updated for the moved query) | — | — |
-| S11 | Judge tap targets ≥ 44 px | #593 | review nothing blocking; CI | — | — |
-| S11 | Plain member messages for 401/403/429/5xx/offline | #594 | review nothing blocking (3 rounds); CI | — | — |
-| S11 | qrcode out of the entry chunk (−25 KB) | #595 | review nothing blocking; CI | — | — |
-| S11 | App build: every template edit proven; synced app = this commit; stale root file removed | #596 | review nothing blocking; CI | — | goes to main with the S9 bump |
+| S11 | Stale-chunk recovery installed | #589 | staging 52878b6 · carry #605 | — | after #605 |
+| S11 | Competition photo encoded once (WebP proof) | #590 | staging 78bf997 · carry #605 | — | after #605 |
+| S11 | Photo presign signs size + type | #591 | staging a0dbdd5 · carry #606 | — | edge deploy needs SUPABASE_ACCESS_TOKEN (item 7) |
+| S11 | Admin profile edit refresh; Tagged photos errors | #592 | staging 8fd94b7 · carry #605 | — | after #605 |
+| S11 | Judge tap targets ≥ 44 px | #593 | staging dfe3e69 · carry #605 | — | after #605 |
+| S11 | Plain member messages for 401/403/429/5xx/offline | #594 | staging ad98977 · carry #605 | — | after #605 |
+| S11 | qrcode out of the entry chunk (−25 KB) | #595 | staging d01f8ad · carry #605 | — | after #605 |
+| S11 | App build: every template edit proven; synced app = this commit; stale root file removed | #596 | staging b0952c2 | — | goes to main with the S9 bump |
+| S11 | Build-only packages to devDependencies (prod audit 33 → 19, critical 0) | #601 | review nothing blocking; CI | — | — |
+| S11 | Doc drift (queryKeys focus default; realtimeCounts guard name) | #602 | review nothing blocking; CI | — | — |
+| S11 | PROBE: who can read a judge's identity (measure before fixing) | #603 | review nothing blocking; CI | — | — |
+| S11 | One Mention award for all three spellings | #604 | review nothing blocking (2 rounds); CI | — | — |
 | S11 | One upload type list; support reply photos GPS-guarded; honest "couldn't check" copy | #597 | review nothing blocking (3 rounds); CI | — | — |
-| S12/S5 | Switch-state PROBE (confirm OFF) | #588 → carry #600 | staging 584b305 | staging: running | `photo_upload_resume` has no row on live = OFF |
+| S12/S5 | Switch-state PROBE (confirm OFF) | #588 → carry #600 | staging 584b305 | staging: queued (runners saturated, 250+ queued) | `photo_upload_resume` has no row on live = OFF |
 
 ## Findings recorded
 
@@ -54,6 +58,9 @@ Updated: 2026-10-29 23:05 UTC · runner branch `status/stages-runner` · never m
 - **F-REV4-1 inventory:** the DB-caller PROBE does not see Vault-held cron URLs or webhook triggers — never use it alone to remove a function.
 
 - **S8 sitemap #504 "0 vs 12":** not a defect. Staging's static sitemap is empty on purpose (staging tells crawlers to stay out, `scripts/generate-seo-assets.mjs`), and the dynamic route returns the static file when it is empty. Live static has 12 URLs on `50mmretina.com`; live upstream `functions/v1/sitemap` returns 729 URLs on the same host, so on main the dynamic route would serve 729. Carry needs a production-shaped proof, not a staging one.
+- **S11 trackPosition:** wiring it as written would let the 30 s heartbeat overwrite the judge's intentional bookmark (same DB columns; JudgePanel.tsx notes bookmarks are intentional-only). Needs a local-only ambient store, and a switch because judges would see a new resume prompt.
+- **S11 react-mentions:** npm marks 4.4.10 deprecated ("no longer supported"), with no security advisory. Replacing it rewrites the 622-line comment input, so it ships behind a switch.
+- **S11 build:** the image optimizer logs `Cannot find package 'svgo'` for 4 fallback SVGs. Pre-existing; the build stays green.
 - **S11 support attachments (#597):** reply attachments on Help & Support and Admin → Support were uploaded with no location (GPS) check, and their picker hid PNG screenshots. Fixed on staging after merge; the app's main photo paths were already guarded.
 - **S11 app build (#596):** Capacitor 8.5.0's template already ships AGP 8.13.0 / Gradle 8.14.3; the build pins them down to 8.12.3 / 8.13 (the set that built 1028 onward). Recorded, not changed.
 - **Other open PR to main:** #305 (head = `staging` itself, never mergeable by rule) and #103 (Sept). Not treated as collisions.
