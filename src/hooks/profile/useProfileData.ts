@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { isNetworkError } from "@/lib/offline/retryPolicy";
 import { supabase } from "@/integrations/supabase/client";
 import { profilesPublic } from "@/lib/profilesPublic";
 import { fetchProfileMap } from "@/lib/profileMapCache";
@@ -64,7 +65,7 @@ export function useProfileCore(userId: string | undefined) {
 }
 
 /** Fetch extended profile data (entries, certs, badges, etc.) — requires auth */
-async function fetchProfileExtended(userId: string, currentUserId: string) {
+export async function fetchProfileExtended(userId: string, currentUserId: string) {
   const [entriesData, certsRes, rolesRes, profileMapRes, friendRes, privacyRes, articlesRes, coursesRes, featuredPhotosRes, visibleFieldsRes, adminIds] = await Promise.all([
     fetchUserEntries(userId),
     supabase.from("certificates").select("id, title, type, issued_at").eq("user_id", userId).order("issued_at", { ascending: false }).limit(10),
@@ -84,6 +85,14 @@ async function fetchProfileExtended(userId: string, currentUserId: string) {
     supabase.rpc("get_profile_visible_fields", { _target: userId } as any),
     getAdminIds(),
   ]);
+
+  // S7b-4: profile extras are kept on the phone. A sub-read that failed on the
+  // NETWORK must not become "no certificates / not friends / no privacy" and
+  // overwrite the saved copy — throw, so React Query keeps it. Refusals (RLS)
+  // behave as before.
+  for (const r of [certsRes, rolesRes, friendRes, privacyRes, articlesRes, coursesRes, featuredPhotosRes, visibleFieldsRes] as Array<{ error?: unknown }>) {
+    if (r?.error && isNetworkError(r.error)) throw r.error;
+  }
 
   const userRoles = rolesRes.data?.map((r: any) => r.role) || [];
   const profileEntry = profileMapRes.get(userId);

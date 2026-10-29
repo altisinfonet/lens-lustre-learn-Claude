@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { isNetworkError } from "@/lib/offline/retryPolicy";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
@@ -115,6 +116,13 @@ export const useFriendFollow = (targetUserId: string | undefined) => {
               .maybeSingle()
           : Promise.resolve({ data: null } as { data: null }),
       ]);
+
+      // S7b-4: a read that failed on the NETWORK is not "none, 0 friends": this
+      // is kept on the phone, and a blank answer would overwrite the saved copy.
+      // Thrown, React Query retries / pauses and the saved copy stays.
+      for (const r of [adminRes, statsRes, mutualRes, friendshipRes, followRes] as Array<{ error?: unknown }>) {
+        if (r?.error && isNetworkError(r.error)) throw r.error;
+      }
 
       const stats = statsRes.data as
         | { followers_count?: number; following_count?: number; friends_count?: number }
