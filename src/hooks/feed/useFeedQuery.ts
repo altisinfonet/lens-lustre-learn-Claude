@@ -715,12 +715,20 @@ export function isReturnToTheDealOnScreen(
 }
 
 /**
+ * S7b-3: feed sessions whose pages came from the phone (see the queryFn). A
+ * WeakSet on the session object, so a signed-out member's sessions go with
+ * clearFeedSessions().
+ */
+const offlineSessions = new WeakSet<object>();
+
+/**
  * S7b-3: resolves when React Query's online manager says the device is online
  * again; rejects if the fetch is cancelled (unmount, refresh) meanwhile. Used so
  * an offline page with nothing saved makes no request until there is a network.
  */
 export function waitForNetwork(signal?: AbortSignal): Promise<void> {
   if (onlineManager.isOnline()) return Promise.resolve();
+  if (signal?.aborted) return Promise.reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
   return new Promise<void>((resolve, reject) => {
     const stop = onlineManager.subscribe((online) => {
       if (!online) return;
@@ -930,9 +938,27 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
     retry: 3,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
 
-    queryFn: async ({ pageParam, signal }): Promise<FeedPage> => {
+    // `signal` is deliberately NOT read: reading it makes React Query cancel and
+    // revert an in-flight page on unmount (Back), which this feed never did.
+    queryFn: async ({ pageParam }): Promise<FeedPage> => {
       const pageIndex = (pageParam as number | undefined) ?? 0;
       const isFirstPage = pageIndex === 0;
+
+      // S7b-3 · ONE SESSION, ONE SOURCE. Once any page of this session was read
+      // from the phone, every later page of it is too — even if the network is
+      // back. Its exclude lists / server delivery log never saw those pages, so
+      // asking the server for "the next page" would send a wrong cursor (the
+      // server would re-deal from 0 and wipe the session's log). The saved
+      // posts run out → end of feed; pull-to-refresh starts a live session.
+      if (archivedFeed && !isFirstPage && offlineSessions.has(session)) {
+        const saved = await readFeedPage(userId!, pageIndex, PAGE_SIZE);
+        return {
+          posts: saved.posts as FeedPost[],
+          nextCursor: saved.more && saved.posts.length > 0 ? pageIndex + 1 : null,
+          networkIds: networkIdsRef.current ?? [],
+          offline: true,
+        };
+      }
 
       // S7b-3 · NO NETWORK: the "For you" feed scrolls through the posts saved
       // on the phone (up to ~200, in the order they were seen). Nothing saved
@@ -941,6 +967,7 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
         if (archivedFeed) {
           const saved = await readFeedPage(userId!, pageIndex, PAGE_SIZE);
           if (saved.posts.length > 0) {
+            offlineSessions.add(session);
             return {
               posts: saved.posts as FeedPost[],
               nextCursor: saved.more ? pageIndex + 1 : null,
@@ -949,7 +976,7 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
             };
           }
         }
-        await waitForNetwork(signal);
+        await waitForNetwork();
       }
 
       /**
@@ -971,6 +998,8 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
         : null;
       const commitSession = () => {
         if (!fresh) return;
+        // A live page 0 starts a live session: later pages come from the server.
+        offlineSessions.delete(session);
         networkIdsRef.current = fresh.networkIds;
         sessionWatermarkRef.current = fresh.watermark;
         sessionSeedRef.current = fresh.seed;

@@ -8,7 +8,7 @@
  *
  * Runs the REAL useFeedQuery with React Query offline: no request is made.
  */
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import React from "react";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider, onlineManager } from "@tanstack/react-query";
@@ -52,6 +52,20 @@ describe("S7b-3 · offline feed scroll", () => {
     expect(result.current.hasNextPage).toBe(false);
     const all = result.current.data!.pages.flatMap((p) => p.posts.map((x) => x.id));
     expect(new Set(all).size).toBe(25);
+  });
+
+  it("review #548: when the network comes back mid-scroll, the rest of that session still comes from the phone (no wrong cursor)", async () => {
+    const { result } = renderHook(() => useFeedQuery(ME), { wrapper: wrapper() });
+    await waitFor(() => expect(result.current.data?.pages?.[0]?.offline).toBe(true));
+    onlineManager.setOnline(true);
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    await act(async () => { await result.current.fetchNextPage(); });
+    await waitFor(() => expect(result.current.data?.pages).toHaveLength(2));
+    expect(result.current.data!.pages[1].offline).toBe(true);
+    expect(result.current.data!.pages[1].posts[0].id).toBe("s1-0");
+    // no feed request was made for that page
+    expect(fetchSpy.mock.calls.filter(([u]) => String(u).includes("/rpc/"))).toEqual([]);
+    fetchSpy.mockRestore();
   });
 
   it("with nothing saved for a page it waits for the network (no request), then goes on", async () => {

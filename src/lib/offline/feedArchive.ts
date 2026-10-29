@@ -82,11 +82,16 @@ function scheduleSave(userId: string, delayMs: number) {
 }
 
 async function saveNow(userId: string) {
+  const snapshot = posts.slice();
   const chunks = Math.ceil(ARCHIVE_MAX_POSTS / ARCHIVE_CHUNK);
   for (let i = 0; i < chunks; i++) {
-    const part = posts.slice(i * ARCHIVE_CHUNK, (i + 1) * ARCHIVE_CHUNK);
-    // An empty chunk is written too, so a shorter archive never keeps stale tails.
-    await putRecord(userId, [KEY, i], part);
+    if (owner !== userId) return; // signed out meanwhile: write nothing more
+    const part = snapshot.slice(i * ARCHIVE_CHUNK, (i + 1) * ARCHIVE_CHUNK);
+    // An empty chunk is written too, so a shorter archive never keeps stale
+    // tails. A chunk the store refuses (over its size cap) is replaced by an
+    // empty one, so an old chunk never sits beside new ones.
+    const ok = await putRecord(userId, [KEY, i], part);
+    if (!ok && part.length > 0) await putRecord(userId, [KEY, i], []);
   }
 }
 
@@ -106,8 +111,9 @@ function warmPreviews(list: ArchivedPost[]) {
   if (typeof fetch !== "function") return;
   for (const p of list) {
     const u = previewUrl(p);
-    // Same request the image worker stores (CORS, no cookies); a failure is harmless.
-    if (u) fetch(u, { mode: "cors", credentials: "omit" }).catch(() => {});
+    // Same request the image worker stores (CORS, no cookies), at low priority
+    // so it never competes with what is on screen; a failure is harmless.
+    if (u) fetch(u, { mode: "cors", credentials: "omit", priority: "low" } as RequestInit).catch(() => {});
   }
 }
 

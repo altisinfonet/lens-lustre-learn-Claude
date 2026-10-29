@@ -53,6 +53,18 @@ describe("the saved feed", () => {
     expect(ids(await readFeedPage(ME, 1, 10))).toEqual(page("b").map((p) => p.id));
   });
 
+  it("review #548: signing out stops the pending save, so nothing is written back after the wipe", async () => {
+    const store = memoryBackend();
+    setBackend(store);
+    const { wipeMemberDataOnSignOut } = await import("@/lib/offline/signOutWipe");
+    // The save is due well AFTER the wipe has finished — the order a member hits.
+    await recordFeedPage(ME, 0, page("a"), { warm: false, saveDelayMs: 1500 });
+    await wipeMemberDataOnSignOut();
+    expect([...store.map.values()].filter((r) => r.userId === ME)).toEqual([]);
+    await new Promise((r) => setTimeout(r, 1800));
+    expect([...store.map.values()].filter((r) => r.userId === ME)).toEqual([]);
+  });
+
   it("is never shown to a different member on the same phone", async () => {
     await rec(0, page("a"));
     await flushFeedArchive();
