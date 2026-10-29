@@ -4,7 +4,8 @@
 -- the five functions, the index, the constraints and the six worker columns.
 -- Queue ROWS stay (old and new), so nothing queued is forgotten; their
 -- worker bookkeeping (lease, attempts, outcome) is dropped with the columns.
--- No file is touched. Roll back 20261030_0701 first if it is applied.
+-- No file is touched, and videos the sweep already moved to 'deleted' stay
+-- deleted (deleted is final). Roll back 20261030_0701 first if it is applied.
 -- ═══════════════════════════════════════════════════════════════════════════
 
 BEGIN;

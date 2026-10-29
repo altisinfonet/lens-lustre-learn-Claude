@@ -38,7 +38,8 @@
 --        • anything else → leased 10 minutes and returned.
 --   4. public.video_purge_done(_id, _objects, _error) — admin or the converter.
 --      Only a leased, open row. _error → lease released, error kept, retried
---      later. Otherwise closed 'deleted' with the object count. A second call on
+--      after 15 min × attempts (10 attempts at most; then it stays open and
+--      shows in the backlog for an admin). Otherwise closed 'deleted' with the object count. A second call on
 --      a closed row answers 'already' (idempotent).
 --   5. trigger tg_videos_queue_purge — AFTER DELETE on public.videos: queues
 --      the whole prefix unless an open row for it is already there (the purge
@@ -108,14 +109,18 @@ ALTER TABLE public.video_r2_purge_queue
   ADD COLUMN last_error      text,
   ADD COLUMN outcome         text,
   ADD COLUMN objects_deleted integer;
+-- A row someone closed by hand before this file gets an outcome, so the CHECK below holds.
+UPDATE public.video_r2_purge_queue SET outcome = 'deleted' WHERE done_at IS NOT NULL;
 ALTER TABLE public.video_r2_purge_queue
   ADD CONSTRAINT video_r2_purge_queue_outcome CHECK (outcome IN ('deleted', 'kept_referenced', 'bad_prefix')),
   ADD CONSTRAINT video_r2_purge_queue_closed CHECK ((done_at IS NULL) = (outcome IS NULL)),
   ADD CONSTRAINT video_r2_purge_queue_error_len CHECK (last_error IS NULL OR length(last_error) <= 300);
--- New rows only; rows already queued are judged by the claim ('bad_prefix').
+-- An OPEN row must name a well-formed folder. NOT VALID: rows already queued are
+-- judged by the claim, which CLOSES a malformed one ('bad_prefix') — a closed row
+-- passes this CHECK, so that UPDATE is never refused (review #539).
 ALTER TABLE public.video_r2_purge_queue
   ADD CONSTRAINT video_r2_purge_queue_prefix_shape
-  CHECK (prefix ~ '^video/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/(v[1-9][0-9]{0,5}/)?$')
+  CHECK (done_at IS NOT NULL OR prefix ~ '^video/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/(v[1-9][0-9]{0,5}/)?$')
   NOT VALID;
 -- P28: the claim reads open rows by due time; replaces nothing (the 0005 index stays).
 CREATE INDEX idx_video_r2_purge_queue_due ON public.video_r2_purge_queue (not_before, id) WHERE done_at IS NULL;
@@ -219,7 +224,8 @@ BEGIN
   END IF;
   IF _error IS NOT NULL THEN
     UPDATE public.video_r2_purge_queue
-       SET claimed_until = NULL, last_error = left(regexp_replace(_error, '[^A-Za-z0-9 ._:/-]', '', 'g'), 300)
+       SET claimed_until = NULL, not_before = now() + interval '15 minutes' * attempts,
+           last_error = left(regexp_replace(_error, '[^A-Za-z0-9 ._:/-]', '', 'g'), 300)
      WHERE id = _id;
     RETURN 'retry';
   END IF;

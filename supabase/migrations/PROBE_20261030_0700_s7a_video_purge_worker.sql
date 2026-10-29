@@ -70,7 +70,7 @@ DO $g2_g5$
 DECLARE
   a uuid; b uuid; adm uuid;
   va uuid; vb uuid; vgone uuid := gen_random_uuid();
-  q_gone bigint; q_live bigint; q_ver bigint; q_bad bigint; q_later bigint; q_err bigint;
+  q_gone bigint; q_live bigint; q_ver bigint; q_bad bigint; q_later bigint; q_err bigint; q_old bigint;
   refused int := 0; ok boolean; r text; got bigint[]; n int; o record;
 BEGIN
   SELECT p.id INTO a FROM public.profiles p JOIN auth.users u ON u.id = p.id
@@ -146,9 +146,16 @@ BEGIN
   IF (SELECT not_before < now() + interval '23 hours' OR done_at IS NOT NULL FROM public.video_r2_purge_queue WHERE id = q_ver) THEN
     RAISE EXCEPTION 'PROBE FAIL G3: a referenced version row did not wait a day';
   END IF;
-  IF (SELECT claimed_until IS NOT NULL OR last_error IS NULL OR last_error ~ '[<>]' FROM public.video_r2_purge_queue WHERE id = q_err) THEN
-    RAISE EXCEPTION 'PROBE FAIL G3: an error did not release the lease with a clean message';
+  IF (SELECT claimed_until IS NOT NULL OR last_error IS NULL OR last_error ~ '[<>]' OR not_before < now() + interval '14 minutes'
+        FROM public.video_r2_purge_queue WHERE id = q_err) THEN
+    RAISE EXCEPTION 'PROBE FAIL G3: an error did not release the lease with a clean message and a back-off';
   END IF;
+  -- a malformed OPEN row (as an old row could be: the shape CHECK is NOT VALID) closes as bad_prefix
+  ALTER TABLE public.video_r2_purge_queue DROP CONSTRAINT video_r2_purge_queue_prefix_shape;
+  INSERT INTO public.video_r2_purge_queue (video_id, owner_id, prefix, not_before)
+    VALUES (gen_random_uuid(), a, 'video/not-a-folder', '2000-01-01') RETURNING id INTO q_old;
+  ALTER TABLE public.video_r2_purge_queue ADD CONSTRAINT video_r2_purge_queue_prefix_shape
+    CHECK (done_at IS NOT NULL OR prefix ~ '^video/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/(v[1-9][0-9]{0,5}/)?$') NOT VALID;
 
   -- the version row goes once its video is deleted
   UPDATE public.videos SET state = 'deleted' WHERE id = va;
@@ -156,6 +163,9 @@ BEGIN
   SET LOCAL ROLE authenticated;
   SELECT array_agg(c.id) INTO got FROM public.video_purge_claim(50) c;
   RESET ROLE;
+  IF (SELECT outcome FROM public.video_r2_purge_queue WHERE id = q_old) IS DISTINCT FROM 'bad_prefix' THEN
+    RAISE EXCEPTION 'PROBE FAIL G3: an old malformed row did not close as bad_prefix';
+  END IF;
   IF NOT (q_ver = ANY (coalesce(got, '{}'))) THEN RAISE EXCEPTION 'PROBE FAIL G3: the version row of a deleted video was not handed out'; END IF;
   IF q_gone = ANY (coalesce(got, '{}')) OR q_live = ANY (coalesce(got, '{}')) THEN RAISE EXCEPTION 'PROBE FAIL G3: a closed row was handed out again'; END IF;
 
@@ -183,7 +193,7 @@ BEGIN
 
   PERFORM set_config('request.jwt.claims', '', true);
   PERFORM set_config('request.jwt.claim.sub', '', true);
-  RAISE NOTICE 'PROBE PASS 20261030_0700 (lane %): grants closed; member A refused 3/3 (own and cross-member), anon refused; queued → deleted (7 objects, idempotent); referenced → kept; version row waits, then goes once the video is deleted; foreign folder → bad_prefix; not-due held; error releases the lease; deleted video queued once; sweep 30-day rule',
+  RAISE NOTICE 'PROBE PASS 20261030_0700 (lane %): grants closed; member A refused 3/3 (own and cross-member), anon refused; queued → deleted (7 objects, idempotent); referenced → kept; version row waits, then goes once the video is deleted; foreign folder and old malformed row → bad_prefix; not-due held; error releases the lease; deleted video queued once; sweep 30-day rule',
     current_setting('p32.lane', true);
 END
 $g2_g5$;
