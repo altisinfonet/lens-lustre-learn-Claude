@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { declareSignOut } from "@/lib/sessionLossRecorder";
+import { lastKnown, rememberKnown } from "@/lib/offline/lastKnown";
 
 interface S3UploadResult {
   url: string;
@@ -20,8 +21,14 @@ export async function isS3Enabled(): Promise<boolean> {
   // Use the secure RPC function that returns only the boolean flag
   // (the raw s3_storage_settings row is hidden from non-admin users by RLS)
   const { data, error } = await supabase.rpc("is_s3_storage_enabled" as any);
-  cachedS3Enabled = error ? false : !!(data as any);
+  if (error) {
+    // S7b-5b: a failed read (no network) is not "storage is off". Use the last
+    // answer this phone saw (never seen: off), and do not cache the guess.
+    return lastKnown("s3_enabled") ?? false;
+  }
+  cachedS3Enabled = !!(data as any);
   cacheTime = Date.now();
+  rememberKnown("s3_enabled", cachedS3Enabled);
   return cachedS3Enabled;
 }
 

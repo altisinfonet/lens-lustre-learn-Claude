@@ -1,4 +1,6 @@
 import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from "react";
+import PendingPhotoPosts from "@/components/upload/PendingPhotoPosts";
+import { noNetworkForPost, OFFLINE_NOT_SENT } from "@/lib/upload/offlineCompose";
 import { isNetworkError } from "@/lib/offline/retryPolicy";
 import { Link, useSearchParams } from "react-router-dom";
 import { MessageCircle, Send, Globe, Users, Lock, ChevronDown, ImagePlus, X, Tag, CalendarClock, Crop, ArrowLeft } from "lucide-react";
@@ -1314,6 +1316,9 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       // S5-b · the resumable path (switch `photo_upload_resume`, default OFF):
       // the post is kept on the device and finishes even if the app is closed.
       if (await tryResumablePost()) { setPosting(false); return; }
+      // S7b-5b: no network and this post cannot be kept on the phone: say so,
+      // keep the composer as it is (nothing is cleared or uploaded).
+      if (noNetworkForPost()) { toast(OFFLINE_NOT_SENT); setPosting(false); return; }
       const { uploadedUrls, uploadedThumbs, uploadedStored } = await uploadPhotos(correlationId);
       // Phase 3B — Schedule branch: divert INSERT to scheduled_posts (RLS-gated).
       // Window validated by DB trigger validate_scheduled_post_window (5min…90d).
@@ -2452,6 +2457,8 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       {/* ── Posts ── */}
       {!composerOnly && (
         <>
+          {/* S7b-5b: own posts with photos made offline, kept on the phone. */}
+          {isOwnWall && <PendingPhotoPosts />}
           {loading ? (
             <div className="space-y-4">
               {[1, 2, 3].map((i) => <PostCardSkeleton key={i} />)}

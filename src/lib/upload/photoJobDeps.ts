@@ -9,7 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { presignObjects } from "@/lib/s3Upload";
 import { putWithRetry } from "./transport";
 import { isNetworkError } from "@/lib/offline/retryPolicy";
-import { getSiteSetting } from "@/lib/siteSettingsCache";
+import { readSiteSettingState } from "@/lib/siteSettingsCache";
+import { lastKnown, rememberKnown } from "@/lib/offline/lastKnown";
 import {
   publishViaMedia, reportLegacyOnlyPublish, reportMediaPathFailure,
 } from "@/lib/media/postMediaWrite";
@@ -24,7 +25,15 @@ import { PhotoRefused, type PhotoJob, type PhotoJobDeps } from "./photoJobs";
 export const PHOTO_RESUME_KEY = "photo_upload_resume";
 export async function photoResumeOn(): Promise<boolean> {
   try {
-    return (await getSiteSetting(PHOTO_RESUME_KEY, { maxAgeMs: 60_000 })) === "on";
+    const st = await readSiteSettingState(PHOTO_RESUME_KEY, { maxAgeMs: 60_000 });
+    if (st.known) {
+      const on = st.value === "on";
+      rememberKnown(PHOTO_RESUME_KEY, on);
+      return on;
+    }
+    // S7b-5b: could not read (no network) — the last answer this phone saw;
+    // never seen: off. A post made in flight mode then takes the job path.
+    return lastKnown(PHOTO_RESUME_KEY) ?? false;
   } catch {
     return false;
   }
