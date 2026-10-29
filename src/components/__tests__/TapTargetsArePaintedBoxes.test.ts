@@ -43,7 +43,6 @@ import { stripComments } from "@/test-utils/sourceText";
 const read = (p: string) => stripComments(readFileSync(join(process.cwd(), p), "utf8"));
 
 const discoverCard = read("src/components/discover/DiscoverCard.tsx");
-const birthdayStrip = read("src/components/feed/TodaysBirthdayStrip.tsx");
 const capture = readFileSync(join(process.cwd(), "tools/uishot/capture.mjs"), "utf8");
 
 describe("the gate's floor is read from the gate, not restated here", () => {
@@ -69,20 +68,6 @@ describe("/discover row buttons carry a painted box", () => {
   });
 });
 
-describe("the birthday-strip avatar link carries a painted box", () => {
-  const anchor = birthdayStrip.match(/<ProfileLink[^>]*className="([^"]+)"/)?.[1];
-
-  it("is a real 44x44, not tap-44 or tap-44-down", () => {
-    expect(anchor, "the birthday ProfileLink moved — update this test").toBeTruthy();
-    expect(anchor, `the anchor is "${anchor}"`).toMatch(/\bh-11\b/);
-    expect(anchor).toMatch(/\bw-11\b/);
-    expect(anchor, "a ::after pad reports 36x36 to the gate — measured, both variants")
-      .not.toMatch(/tap-44/);
-  });
-
-  it("the avatar inside it is unchanged at 36px", () => {
-    // The box grew; the picture did not. That is the whole point of putting the
-    // 44 on the anchor rather than on the image.
-    expect(birthdayStrip.match(/w-9 h-9 rounded-full/g)?.length).toBe(2);
-  });
-});
+// The birthday-strip half of this file was removed on 2026-10-29 together with
+// the strip itself (Owner: no birthday box above the posts on phones or in the
+// app). See src/__tests__/noBirthdayBoxAboveFeed.test.ts.

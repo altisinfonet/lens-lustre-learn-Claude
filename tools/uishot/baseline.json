@@ -8278,34 +8278,6 @@
       "options": null
     },
     {
-      "path": "a.shrink-0.grid",
-      "w": 44,
-      "h": 44,
-      "reachable": true,
-      "options": null
-    },
-    {
-      "path": "a.text-sm.font-medium",
-      "w": 227,
-      "h": 20,
-      "reachable": null,
-      "options": null
-    },
-    {
-      "path": "a.shrink-0.grid",
-      "w": 44,
-      "h": 44,
-      "reachable": true,
-      "options": null
-    },
-    {
-      "path": "a.text-sm.font-medium",
-      "w": 40,
-      "h": 20,
-      "reachable": null,
-      "options": null
-    },
-    {
       "path": "button.min-h-11.min-w-0",
       "w": 228,
       "h": 44,
@@ -8676,34 +8648,6 @@
       "w": 80,
       "h": 103,
       "reachable": true,
-      "options": null
-    },
-    {
-      "path": "a.shrink-0.grid",
-      "w": 44,
-      "h": 44,
-      "reachable": true,
-      "options": null
-    },
-    {
-      "path": "a.text-sm.font-medium",
-      "w": 227,
-      "h": 20,
-      "reachable": null,
-      "options": null
-    },
-    {
-      "path": "a.shrink-0.grid",
-      "w": 44,
-      "h": 44,
-      "reachable": true,
-      "options": null
-    },
-    {
-      "path": "a.text-sm.font-medium",
-      "w": 40,
-      "h": 20,
-      "reachable": null,
       "options": null
     },
     {
@@ -9688,34 +9632,6 @@
       "w": 80,
       "h": 103,
       "reachable": true,
-      "options": null
-    },
-    {
-      "path": "a.shrink-0.grid",
-      "w": 44,
-      "h": 44,
-      "reachable": true,
-      "options": null
-    },
-    {
-      "path": "a.text-sm.font-medium",
-      "w": 227,
-      "h": 20,
-      "reachable": null,
-      "options": null
-    },
-    {
-      "path": "a.shrink-0.grid",
-      "w": 44,
-      "h": 44,
-      "reachable": true,
-      "options": null
-    },
-    {
-      "path": "a.text-sm.font-medium",
-      "w": 40,
-      "h": 20,
-      "reachable": null,
       "options": null
     },
     {
@@ -13355,34 +13271,6 @@
       "options": null
     },
     {
-      "path": "a.shrink-0.grid",
-      "w": 44,
-      "h": 44,
-      "reachable": true,
-      "options": null
-    },
-    {
-      "path": "a.text-sm.font-medium",
-      "w": 227,
-      "h": 20,
-      "reachable": null,
-      "options": null
-    },
-    {
-      "path": "a.shrink-0.grid",
-      "w": 44,
-      "h": 44,
-      "reachable": true,
-      "options": null
-    },
-    {
-      "path": "a.text-sm.font-medium",
-      "w": 40,
-      "h": 20,
-      "reachable": null,
-      "options": null
-    },
-    {
       "path": "button.min-h-11.min-w-0",
       "w": 228,
       "h": 44,
@@ -13753,34 +13641,6 @@
       "w": 80,
       "h": 103,
       "reachable": true,
-      "options": null
-    },
-    {
-      "path": "a.shrink-0.grid",
-      "w": 44,
-      "h": 44,
-      "reachable": true,
-      "options": null
-    },
-    {
-      "path": "a.text-sm.font-medium",
-      "w": 227,
-      "h": 20,
-      "reachable": null,
-      "options": null
-    },
-    {
-      "path": "a.shrink-0.grid",
-      "w": 44,
-      "h": 44,
-      "reachable": true,
-      "options": null
-    },
-    {
-      "path": "a.text-sm.font-medium",
-      "w": 40,
-      "h": 20,
-      "reachable": null,
       "options": null
     },
     {
@@ -14765,34 +14625,6 @@
       "w": 80,
       "h": 103,
       "reachable": true,
-      "options": null
-    },
-    {
-      "path": "a.shrink-0.grid",
-      "w": 44,
-      "h": 44,
-      "reachable": true,
-      "options": null
-    },
-    {
-      "path": "a.text-sm.font-medium",
-      "w": 227,
-      "h": 20,
-      "reachable": null,
-      "options": null
-    },
-    {
-      "path": "a.shrink-0.grid",
-      "w": 44,
-      "h": 44,
-      "reachable": true,
-      "options": null
-    },
-    {
-      "path": "a.text-sm.font-medium",
-      "w": 40,
-      "h": 20,
-      "reachable": null,
       "options": null
     },
     {
