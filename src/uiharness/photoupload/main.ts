@@ -19,6 +19,7 @@
  * Writes `window.__s5 = { phase, done, error }` for the Node side.
  */
 import { installFakeBackend, HARNESS_USER_ID } from "../fakeBackend";
+import { safeRandomUUID } from "@/lib/safeUuid";
 
 if (!import.meta.env.DEV) throw new Error("photo upload harness is development-only");
 
@@ -63,7 +64,7 @@ async function runJob() {
   const { createPhotoJob, runPhotoJob, runPhotoJobs, photoJobsFor } = await import("@/lib/upload/photoJobs");
   const { realPhotoJobDeps } = await import("@/lib/upload/photoJobDeps");
   if (phase === "start") {
-    const id = crypto.randomUUID();
+    const id = safeRandomUUID();
     await createPhotoJob({ id, userId: HARNESS_USER_ID, files: await photos(), post });
     await runPhotoJob(id, realPhotoJobDeps);
   } else {
@@ -85,7 +86,7 @@ async function runLegacy() {
   for (const file of await photos()) up.push(await uploadImageWithThumbnail({ bucket: "post-images", file, type: "post", userId: HARNESS_USER_ID }));
   const r = await publishViaMedia({
     photos: up.map((u) => ({ url: u.url, thumbnailUrl: u.thumbnailUrl, stored: u.stored ?? null })),
-    ...post, idempotencyKey: crypto.randomUUID(),
+    ...post, idempotencyKey: safeRandomUUID(),
   });
   if (!r.postId) throw new Error(`publish failed: ${r.failure}`);
 }
