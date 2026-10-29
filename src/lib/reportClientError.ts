@@ -134,7 +134,7 @@ export function failureKind(err: unknown): FailureKind | null {
   // 42501 alone is not enough: our own triggers raise member-readable refusals
   // with it ("VID-UP-003: video posts are not enabled for this member") and
   // those must stay. Only Postgres's own wording is replaced.
-  if (status === 403 || /^permission denied for (table|relation|function|schema|view|sequence|column) /i.test(msg) || /^new row violates row-level security policy/i.test(msg)) return "forbidden";
+  if (status === 403 || /^permission denied for \S/i.test(msg) || /^new row violates row-level security policy/i.test(msg)) return "forbidden";
   if (status === 429) return "rate";
   if ((status >= 500 && status <= 599) || name === "FunctionsRelayError") return "server";
   const NET = /^(typeerror: )?(failed to fetch|load failed|networkerror when attempting to fetch resource\.?)$/i;

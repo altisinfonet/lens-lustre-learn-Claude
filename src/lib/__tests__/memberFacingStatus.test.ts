@@ -11,6 +11,10 @@ describe("S11 — a member reads what to DO, not a status code", () => {
     expect(failureKind({ message: "JWT expired", code: "PGRST301" })).toBe("auth");
     expect(failureKind(http(403))).toBe("forbidden");
     expect(failureKind({ message: "permission denied for table posts", code: "42501" })).toBe("forbidden");
+    // Every object kind Postgres names, not a hand-picked few (review of 1a19f06).
+    for (const kind of ["materialized view posts_mv", "foreign table x", "large object 1", "type t", "procedure p", "database postgres", "tablespace pg_default"]) {
+      expect(failureKind({ message: `permission denied for ${kind}`, code: "42501" })).toBe("forbidden");
+    }
     expect(failureKind({ message: "new row violates row-level security policy for table \"posts\"", code: "42501" })).toBe("forbidden");
     // our own trigger's refusal with 42501 keeps its words and its code
     expect(failureKind({ message: "VID-UP-003: video posts are not enabled for this member", code: "42501" })).toBeNull();
