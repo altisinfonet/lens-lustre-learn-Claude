@@ -717,6 +717,23 @@ jobs:
           # successfully and cleared 3 of Play's 4 recommendations.
           sed -i -E 's/(com\.android\.tools\.build:gradle:)[0-9.]+/\18.12.3/' android/build.gradle
           sed -i -E 's#(distributionUrl=.*gradle-)[0-9.]+(-(bin|all)\.zip)#\18.13\2#' android/gradle/wrapper/gradle-wrapper.properties
+          # S11: a sed that matches nothing exits 0. Prove every value above is
+          # really in the file — exactly one line for the key, with that value —
+          # so a template that changed shape stops the build instead of
+          # shipping other SDK levels or another toolchain.
+          exactly () { # file  key-regex  full-line-regex  what
+            local all hit
+            all=$(grep -cE "$2" "$1" || true); hit=$(grep -cE "$3" "$1" || true)
+            if [ "$all" != 1 ] || [ "$hit" != 1 ]; then
+              echo "::error::$1 should hold exactly one line '$4' after the edit ($all line(s) for the key, $hit with the value). The Capacitor template changed shape — refusing to build."
+              exit 1
+            fi
+          }
+          exactly android/variables.gradle '^\s*minSdkVersion\b' '^\s*minSdkVersion = 24$' 'minSdkVersion = 24'
+          exactly android/variables.gradle '^\s*compileSdkVersion\b' '^\s*compileSdkVersion = 36$' 'compileSdkVersion = 36'
+          exactly android/variables.gradle '^\s*targetSdkVersion\b' '^\s*targetSdkVersion = 36$' 'targetSdkVersion = 36'
+          exactly android/build.gradle 'com\.android\.tools\.build:gradle:' "^\s*classpath 'com\.android\.tools\.build:gradle:8\.12\.3'$" 'AGP 8.12.3'
+          exactly android/gradle/wrapper/gradle-wrapper.properties '^distributionUrl=' '^distributionUrl=.*/gradle-8\.13-(bin|all)\.zip$' 'Gradle 8.13'
           echo "--- AGP / Gradle ---"
           grep -n "com.android.tools.build:gradle" android/build.gradle
           grep -n "distributionUrl" android/gradle/wrapper/gradle-wrapper.properties
@@ -728,7 +745,15 @@ jobs:
       - name: Set app version (monotonic versionCode from run number)
         run: |
           VC=$(( 1000 + ${{ github.run_number }} ))
-          sed -i "s/versionCode 1/versionCode ${VC}/" android/app/build.gradle
+          # Anchored (S11): the template's line is exactly `versionCode 1`; an
+          # unanchored edit turned `versionCode 10` into `versionCode ${VC}0`.
+          sed -i -E "s/^(\s*versionCode )1$/\1${VC}/" android/app/build.gradle
+          # The versionName edit below rewrites exactly `versionName "1.0"`; any
+          # other template line would leave the name unbumped, so refuse it now.
+          if [ "$(grep -cxE '\s*versionName "1\.0"' android/app/build.gradle || true)" != 1 ]; then
+            echo "::error::android/app/build.gradle does not hold exactly one template line 'versionName \"1.0\"' — the versionName edit would not apply. Refusing to build."
+            exit 1
+          fi
           # ⚠ MUST DIFFER FROM WHAT IS LIVE. Play production is on 1073 (1.2.2)
           # as of 2026-08-12. Shipping a second release also called "1.2.2"
           # makes the Console, the crash reports and the user's About screen
@@ -881,6 +906,18 @@ jobs:
           echo "versionCode=${VC} versionName=1.2.31 (1.2.30 is spent - versionCode 1133, run 133)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
+          # S11: prove both edits landed — exactly one versionCode, the derived
+          # one; exactly one versionName, x.y.z, never the template's "1.0".
+          CODES=$(grep -E '^\s*versionCode\b' android/app/build.gradle || true)
+          if ! printf '%s\n' "$CODES" | grep -qxE "\s*versionCode ${VC}" || [ "$(printf '%s\n' "$CODES" | grep -c .)" != 1 ]; then
+            echo "::error::android/app/build.gradle must hold exactly 'versionCode ${VC}' — it holds: ${CODES:-nothing}. Refusing to build."
+            exit 1
+          fi
+          NAMES=$(grep -E '^\s*versionName\b' android/app/build.gradle || true)
+          if [ "$(printf '%s\n' "$NAMES" | grep -c .)" != 1 ] || ! printf '%s\n' "$NAMES" | grep -qxE '\s*versionName "[0-9]+\.[0-9]+\.[0-9]+"' || printf '%s\n' "$NAMES" | grep -qF '"1.0"'; then
+            echo "::error::android/app/build.gradle must hold exactly one bumped versionName \"x.y.z\" — it holds: ${NAMES:-nothing}. The template's versionName line changed shape. Refusing to build."
+            exit 1
+          fi
 
       - name: Install Android NDK (needed to package native debug symbols)
         run: |
@@ -986,6 +1023,16 @@ jobs:
           set -euo pipefail
           PUB="android/app/src/main/assets/public"
           test -d "$PUB/assets" || { echo "::error::No synced web assets at $PUB — cap sync did not run?"; exit 1; }
+          # S11 · exact proof first: the web build stamps the commit it was
+          # built from into index.html (scripts/web-build-commit.mjs). The
+          # synced copy must name THIS run's commit — a stale or foreign dist
+          # cannot pass, whatever strings it happens to contain.
+          STAMP=$(grep -oE '<meta name="build-commit" content="[^"]*"' "$PUB/index.html" | sed -E 's/.*content="([^"]*)"/\1/' || true)
+          if ! printf '%s' "${GITHUB_SHA:-}" | grep -qxE '[0-9a-f]{40}' || [ "$STAMP" != "${GITHUB_SHA:-}" ]; then
+            echo "::error::The synced app's build-commit is '${STAMP:-none}', this run builds '${GITHUB_SHA:-none}'. This AAB would not be this commit's app. Refusing to build."
+            exit 1
+          fi
+          echo "OK   build-commit $STAMP is this run's commit"
           check () {
             if grep -rqlF "$1" "$PUB"/assets/*.js; then
               echo "OK   $2"
