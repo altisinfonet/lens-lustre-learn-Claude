@@ -19,6 +19,11 @@ describe("ad spots stay put (Owner 2026-10-29)", () => {
     expect(spotsForNew([], 2)).toEqual([0, 1]);
   });
 
+  it("a library starting above 0 never gets a new picture in front of every ad", () => {
+    expect(spotsForNew([r("a", 3), r("b", 4)], 1)).toEqual([5]);
+    expect(spotsForNew([r("a", 3), r("c", 5)], 1)).toEqual([4]);
+  });
+
   it("the old rule (rows.length) put the new picture after a later ad", () => {
     // Before: sort_order = rows.length = 2, which TIES with "c" (2) and sorts
     // after it (newer created_at) — "c" slid into spot 2 with its own likes.

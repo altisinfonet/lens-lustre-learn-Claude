@@ -26,8 +26,11 @@ export interface SpotRow {
 export const spotsForNew = (rows: readonly SpotRow[], count: number): number[] => {
   const used = new Set(rows.map((r) => r.sort_order));
   const max = rows.length ? Math.max(...rows.map((r) => r.sort_order)) : -1;
+  // Gaps only BETWEEN pictures: a library whose first number is above 0 must
+  // not get a new picture in front of every existing ad.
+  const min = rows.length ? Math.min(...rows.map((r) => r.sort_order)) : 0;
   const out: number[] = [];
-  for (let s = 0; s <= max && out.length < count; s++) if (!used.has(s)) out.push(s);
+  for (let s = min; s <= max && out.length < count; s++) if (!used.has(s)) out.push(s);
   let next = max + 1;
   while (out.length < count) out.push(next++);
   return out;
