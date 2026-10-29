@@ -92,7 +92,23 @@ function deal(body: Row): Row[] {
   ].slice(0, limit);
 }
 
+/** S6-a · get_feed_page's server-side delivery log: session → ids dealt, in order. */
+const deliveryLog = new Map<string, string[]>();
 const l2: FakeRoute = ({ method, path, params, body }) => {
+  if (method === "POST" && path === "/rest/v1/rpc/get_feed_page") {
+    // The same deal, paged by cursor: the server excludes what this session was
+    // dealt before `_after`. `exclude` is that server-side list's length (what
+    // the old call uploaded); `uploaded` is what the client actually sent (0).
+    const b = (body ?? {}) as Row;
+    const seed = String(b._session_seed ?? "hour");
+    const after = Number(b._after ?? 0);
+    const held = (deliveryLog.get(seed) ?? []).slice(0, after);
+    put({ kind: "rpc", seed: b._session_seed ?? null, exclude: held.length, uploaded: ((b._exclude_ids as string[]) ?? []).length, cursor: after, newest: b._newest_first, failed: failRpc });
+    if (failRpc) return { status: 500, body: { code: "XX000", message: "harness: the feed RPC is failing" } };
+    const rows = deal({ ...b, _exclude_ids: held });
+    deliveryLog.set(seed, [...held, ...rows.map((r) => String(r.id))]);
+    return { body: rows.map((r, i) => ({ source: null, caught_up_after: false, ...r, feed_pos: after + i + 1 })) };
+  }
   if (method === "POST" && path === "/rest/v1/rpc/get_broadcast_feed") {
     const b = (body ?? {}) as Row;
     put({ kind: "rpc", seed: b._session_seed ?? null, exclude: ((b._exclude_ids as string[]) ?? []).length, newest: b._newest_first, failed: failRpc });

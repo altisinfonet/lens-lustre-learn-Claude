@@ -97,8 +97,25 @@ const NEWEST_PINNED_ON_FIRST_PAGE = 3;
  * first. Expand/contract — remove with the contract step.
  */
 let sessionSeedRpcMissing = false;
-/** Test seam. */
-export function __resetSessionSeedRpcProbe() { sessionSeedRpcMissing = false; }
+/**
+ * S6-a · set once per app session when the lane does not have get_feed_page
+ * (20261029_0500 not applied, or rolled back): every later page uses the old
+ * `_exclude_ids` calls straight away. Expand/contract, as above.
+ */
+let feedPageRpcMissing = false;
+/**
+ * S6-a · sessions (tab|seed) that had a page served by the OLD call. The
+ * server's log does not hold that page, so the cursor would be ahead of it
+ * (the server refuses that, 22023): the rest of such a session pages the old
+ * way, with the full list the device keeps. A refresh is a new seed.
+ */
+const oldPathSessions = new Set<string>();
+/** Test seam. `cursor: false` makes this app session page the old way (tests that pin the `_exclude_ids` calls). */
+export function __resetSessionSeedRpcProbe(opts: { cursor?: boolean } = {}) {
+  sessionSeedRpcMissing = false;
+  feedPageRpcMissing = opts.cursor === false;
+  oldPathSessions.clear();
+}
 
 /** PostgREST / Postgres: "this function (signature) does not exist". */
 function isMissingFunction(error: { code?: string } | null | undefined): boolean {
@@ -190,6 +207,79 @@ async function fetchTimelinePage(tab: TimelineTab, excludeIds: string[], categor
     throw new Error(`${TIMELINE_RPC[tab]} failed`);
   }
   return data as any[];
+}
+
+/**
+ * S6-a · ONE PAGE BY CURSOR (get_feed_page, 20261029_0500).
+ *
+ * The client used to upload every id it had been dealt this session as
+ * `_exclude_ids` — page 100 sent 990 UUIDs. Now it sends `_after`: how many
+ * rows of this session it holds (the delivery position of its last row). The
+ * server keeps the session's delivery log and evaluates the SAME feed function
+ * with exactly the list the client used to send, so the order, the session
+ * seed, the seen penalty and the variety rules are today's (PROBE G2–G5 prove
+ * it row for row). A refetch of page N sends page N's `_after` again and is
+ * re-dealt exactly as before.
+ *
+ * Returns null when the lane has no get_feed_page (then — and for the rest of
+ * this app session — the old calls are used) or on any other failure (the
+ * caller then tries the next way to serve the page, as it always did).
+ */
+async function fetchPageByCursor(
+  tab: FeedTab,
+  personal: boolean,
+  sessionSeed: string,
+  after: number,
+  newestFirst: number,
+  categories: string[] | null,
+): Promise<any[] | null> {
+  if (feedPageRpcMissing) return null;
+  try {
+    const res = await timedRpc("rpc.get_feed_page", FILE, () => supabase.rpc("get_feed_page" as any, {
+      _tab: tab,
+      _personal: personal,
+      _session_seed: sessionSeed,
+      _after: after,
+      _limit: PAGE_SIZE,
+      _newest_first: newestFirst,
+      _categories: categories,
+    } as any));
+    const error = res?.error as { code?: string; message?: string } | null | undefined;
+    if (isMissingFunction(error)) {
+      feedPageRpcMissing = true;
+      logger.warn({
+        code: "DB-3011",
+        event: "FEED_PAGE_CURSOR_RPC_MISSING",
+        fn: "fetchPageByCursor",
+        file: FILE,
+        message: "get_feed_page is not deployed; the feed pages with the old _exclude_ids calls.",
+        reason: error?.message ?? error?.code ?? "missing function",
+      });
+      return null;
+    }
+    if (error || !Array.isArray(res?.data)) {
+      logger.warn({
+        code: "DB-3011",
+        event: "FEED_PAGE_CURSOR_RPC_FAILED",
+        fn: "fetchPageByCursor",
+        file: FILE,
+        message: "get_feed_page failed; this page was served the next way (the broadcast cursor call, else the old _exclude_ids call).",
+        reason: error ? (error.message ?? error.code ?? String(error)) : "The RPC returned no array",
+      });
+      return null;
+    }
+    return res.data as any[];
+  } catch (e) {
+    logger.warn({
+      code: "DB-3011",
+      event: "FEED_PAGE_CURSOR_RPC_FAILED",
+      fn: "fetchPageByCursor",
+      file: FILE,
+      message: "get_feed_page threw; this page was served the next way.",
+      reason: String((e as Error)?.message ?? e).slice(0, 200),
+    });
+    return null;
+  }
 }
 
 async function fetchBroadcastPage(
@@ -841,15 +931,34 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
       // comes from the same function.
       const personal = fresh ? fresh.personal : personalRef.current;
 
-      const { rows: rawPosts, degraded, personal: servedPersonal } = timeline
+      const newestFirst = timeline ? 0 : isFirstPage ? NEWEST_PINNED_ON_FIRST_PAGE : 0;
+      // S6-a: by cursor first — `_after` is how many rows this session holds
+      // before this page (the old exclude list's length; the list itself stays
+      // on the device only for the fallbacks below). Personal → broadcast on
+      // failure, exactly as before; both share the server's session log.
+      const after = excludeIds.length;
+      const cursorKey = `${timeline ?? "for_you"}|${sessionSeed}`;
+      const cursorOk = !oldPathSessions.has(cursorKey);
+      let served: BroadcastPage | null = null;
+      if (!cursorOk) {
+        // this session already left the cursor (see oldPathSessions)
+      } else if (timeline) {
+        const rows = await fetchPageByCursor(timeline, false, sessionSeed, after, 0, cats);
+        if (rows) served = { rows, degraded: false, personal: false };
+      } else {
+        if (personal) {
+          const rows = await fetchPageByCursor("for_you", true, sessionSeed, after, newestFirst, cats);
+          if (rows) served = { rows, degraded: false, personal: true };
+        }
+        if (!served) {
+          const rows = await fetchPageByCursor("for_you", false, sessionSeed, after, newestFirst, cats);
+          if (rows) served = { rows, degraded: false, personal: false };
+        }
+      }
+      if (!served) oldPathSessions.add(cursorKey);
+      const { rows: rawPosts, degraded, personal: servedPersonal } = served ?? (timeline
         ? { rows: await fetchTimelinePage(timeline, excludeIds, cats), degraded: false, personal: false }
-        : await fetchBroadcastPage(
-            excludeIds,
-            isFirstPage ? NEWEST_PINNED_ON_FIRST_PAGE : 0,
-            cats,
-            sessionSeed,
-            personal,
-          );
+        : await fetchBroadcastPage(excludeIds, newestFirst, cats, sessionSeed, personal));
 
       if (rawPosts.length === 0) {
         // Everything visible has been delivered this session — feed end.

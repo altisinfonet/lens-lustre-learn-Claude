@@ -36,7 +36,9 @@ vi.mock("@/integrations/supabase/client", async () => {
 });
 
 const { default: FeedTabs, useFeedTab, FEED_TAB_STORAGE_KEY } = await import("@/components/feed/FeedTabs");
-const { useFeedQuery } = await import("@/hooks/feed/useFeedQuery");
+const { useFeedQuery, __resetSessionSeedRpcProbe } = await import("@/hooks/feed/useFeedQuery");
+// S6-a: these pin the _exclude_ids calls (feedPageCursor.test.tsx pins the cursor).
+__resetSessionSeedRpcProbe({ cursor: false });
 const { clearFeedSessions } = await import("@/lib/feedSessions");
 const { queryKeys } = await import("@/lib/queryKeys");
 
