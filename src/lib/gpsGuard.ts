@@ -189,3 +189,63 @@ export async function guardOriginalUpload(file: File): Promise<File> {
   });
   return cleanFile;
 }
+
+function readBytes(file: Blob): Promise<Uint8Array> {
+  if (typeof file.arrayBuffer === "function") return file.arrayBuffer().then((a) => new Uint8Array(a));
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(new Uint8Array(r.result as ArrayBuffer));
+    r.onerror = () => reject(r.error);
+    r.readAsArrayBuffer(file);
+  });
+}
+
+/**
+ * The file and its pixel size when it is PROVABLY a plain WebP image; null
+ * otherwise. Reads the RIFF container only — no decode.
+ *
+ * "Provably" means: the RIFF size covers the file EXACTLY (no bytes after it),
+ * every top-level chunk is a still-image chunk (VP8 / VP8L / VP8X / ALPH) or a
+ * real, small ICC colour profile (ICCP with the "acsp" signature, ≤ 4 KB —
+ * Chromium, WebKit and the Android WebView write an sRGB profile into every
+ * canvas WebP) — an allow-list, so EXIF, XMP, animation frames and anything
+ * unknown or renamed are refused), the chunk list ends exactly at the end, and an image chunk states
+ * the size. A browser canvas encode (compressImageToFiles) writes exactly this;
+ * a camera / editor WebP with location data does not pass.
+ *
+ * Why not guardOriginalUpload: its parser (exifr) does not read WebP at all
+ * ("Unknown file format"), so for a WebP it can only ever refuse.
+ */
+export async function metadataFreeWebp(file: File): Promise<{ file: File; width: number; height: number } | null> {
+  try {
+    const b = await readBytes(file);
+    const u32 = (i: number) => (b[i] | (b[i + 1] << 8) | (b[i + 2] << 16) | (b[i + 3] << 24)) >>> 0;
+    const u24 = (i: number) => b[i] | (b[i + 1] << 8) | (b[i + 2] << 16);
+    const tag = (i: number) => String.fromCharCode(b[i], b[i + 1], b[i + 2], b[i + 3]);
+    if (b.length < 20 || tag(0) !== "RIFF" || tag(8) !== "WEBP") return null;
+    if (8 + u32(4) !== b.length) return null; // no bytes after the container, none missing
+    const ALLOWED = new Set(["VP8 ", "VP8L", "VP8X", "ALPH", "ICCP"]);
+    let i = 12;
+    let dims: { width: number; height: number } | null = null;
+    while (i < b.length) {
+      if (i + 8 > b.length) return null;
+      const t = tag(i);
+      const n = u32(i + 4);
+      const d = i + 8;
+      if (!ALLOWED.has(t) || d + n > b.length) return null;
+      if (t === "ICCP" && (n < 40 || n > 4096 || tag(d + 36) !== "acsp")) return null;
+      if (t === "VP8X" && n >= 10) dims = { width: u24(d + 4) + 1, height: u24(d + 7) + 1 };
+      else if (t === "VP8 " && n >= 10 && !dims && b[d + 3] === 0x9d && b[d + 4] === 0x01 && b[d + 5] === 0x2a)
+        dims = { width: (b[d + 6] | (b[d + 7] << 8)) & 0x3fff, height: (b[d + 8] | (b[d + 9] << 8)) & 0x3fff };
+      else if (t === "VP8L" && n >= 5 && !dims && b[d] === 0x2f) {
+        const v = u32(d + 1);
+        dims = { width: (v & 0x3fff) + 1, height: ((v >>> 14) & 0x3fff) + 1 };
+      }
+      i = d + n + (n & 1);
+    }
+    if (i !== b.length || !dims || dims.width <= 0 || dims.height <= 0) return null;
+    return { file, ...dims };
+  } catch {
+    return null;
+  }
+}
