@@ -5,6 +5,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecureHeaders } from "../_shared/secureHeaders.ts";
+import { signedPutHeaders, validateUploadDeclaration } from "../_shared/uploadDeclaration.ts";
 import {
   assertStorageLane,
   s3Endpoint,
@@ -16,7 +17,6 @@ import {
 const TTL_SECONDS = 300; // 5 min
 const RATE_LIMIT_MAX = 60;
 const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
-const MAX_BYTES = 50 * 1024 * 1024; // 50 MB
 
 interface S3Settings {
   enabled: boolean;
@@ -133,9 +133,11 @@ Deno.serve(async (req) => {
     try { body = await req.json(); } catch { return json(400, { error: "Invalid JSON body" }); }
 
     const rawPath = typeof body.path === "string" ? body.path.trim() : "";
-    const contentType = typeof body.contentType === "string" && body.contentType ? body.contentType : "application/octet-stream";
-    const size = typeof body.size === "number" ? body.size : 0;
     const isPrivate = body.private === true;
+    // S11: size and type are validated AND signed (see _shared/uploadDeclaration.ts).
+    const decl = validateUploadDeclaration(body.size, body.contentType);
+    if (!decl.ok) return json(decl.status, { error: decl.error });
+    const contentType = decl.contentType;
 
     if (!rawPath) return json(400, { error: "Missing path" });
     // Strict storage-key grammar (allow-list; replaces the old ".." / scheme /
@@ -143,22 +145,20 @@ Deno.serve(async (req) => {
     // both use this validated key and nothing else.
     const filePath = validateStorageKey(rawPath);
     if (!filePath) return json(400, { error: "Invalid path" });
-    if (size > 0 && size > MAX_BYTES) return json(413, { error: "File too large (max 50MB)" });
 
     // Optional: a paired second file to sign in the same call (halves edge worker pressure)
     let pairPath = "";
-    let pairContentType = "application/octet-stream";
-    let pairSize = 0;
+    let pairDecl: { size: number; contentType: string } | null = null;
     const pairObj = body.pair && typeof body.pair === "object" ? body.pair as { path?: unknown; contentType?: unknown; size?: unknown } : null;
     if (pairObj) {
       const rawPairPath = typeof pairObj.path === "string" ? pairObj.path.trim() : "";
-      pairContentType = typeof pairObj.contentType === "string" && pairObj.contentType ? pairObj.contentType : "application/octet-stream";
-      pairSize = typeof pairObj.size === "number" ? pairObj.size : 0;
+      const pd = validateUploadDeclaration(pairObj.size, pairObj.contentType, "Pair file");
+      if (!pd.ok) return json(pd.status, { error: pd.error });
+      pairDecl = pd;
       if (!rawPairPath) return json(400, { error: "Invalid pair.path" });
       const validPairPath = validateStorageKey(rawPairPath);
       if (!validPairPath) return json(400, { error: "Invalid pair.path" });
       pairPath = validPairPath;
-      if (pairSize > 0 && pairSize > MAX_BYTES) return json(413, { error: "Pair file too large (max 50MB)" });
     }
 
     const adminClient = createClient(
@@ -204,17 +204,18 @@ Deno.serve(async (req) => {
     const scope = `${dateStamp}/${s3.region}/s3/aws4_request`;
     const derivedKey = await signingKey(s3.secret_access_key, dateStamp, s3.region);
 
-    async function signOne(path: string, s3Key: string, isPriv: boolean) {
+    async function signOne(path: string, s3Key: string, isPriv: boolean, d: { size: number; contentType: string }) {
       // Proven to address exactly "/<bucket>/<s3Key>" before it is signed.
       const objectUrl = storageObjectUrl(s3, s3Key);
       const fullUrl = new URL(objectUrl);
+      const { signedHeaders, canonicalHeaders } = signedPutHeaders(fullUrl.host, d);
 
       const params = new URLSearchParams({
         "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
         "X-Amz-Credential": `${s3.access_key_id}/${scope}`,
         "X-Amz-Date": amzDate,
         "X-Amz-Expires": String(TTL_SECONDS),
-        "X-Amz-SignedHeaders": "host",
+        "X-Amz-SignedHeaders": signedHeaders,
       });
       const sortedParams = [...params.entries()]
         .sort(([a], [b]) => a.localeCompare(b))
@@ -225,8 +226,8 @@ Deno.serve(async (req) => {
         "PUT",
         fullUrl.pathname,
         sortedParams,
-        `host:${fullUrl.host}\n`,
-        "host",
+        canonicalHeaders,
+        signedHeaders,
         "UNSIGNED-PAYLOAD",
       ].join("\n");
 
@@ -250,8 +251,8 @@ Deno.serve(async (req) => {
       return { uploadUrl, publicUrl, key: s3Key };
     }
 
-    const primary = await signOne(filePath, primaryKey, isPrivate);
-    const pair = pairPath && pairKey ? await signOne(pairPath, pairKey, isPrivate) : null;
+    const primary = await signOne(filePath, primaryKey, isPrivate, decl);
+    const pair = pairPath && pairKey && pairDecl ? await signOne(pairPath, pairKey, isPrivate, pairDecl) : null;
 
     return json(200, {
       uploadUrl: primary.uploadUrl,
@@ -259,7 +260,7 @@ Deno.serve(async (req) => {
       key: primary.key,
       contentType,
       expiresIn: TTL_SECONDS,
-      ...(pair ? { pair: { uploadUrl: pair.uploadUrl, publicUrl: pair.publicUrl, key: pair.key, contentType: pairContentType } } : {}),
+      ...(pair ? { pair: { uploadUrl: pair.uploadUrl, publicUrl: pair.publicUrl, key: pair.key, contentType: pairDecl?.contentType } } : {}),
     });
   } catch (err: any) {
     console.error("[s3-presign-upload] error:", err);
