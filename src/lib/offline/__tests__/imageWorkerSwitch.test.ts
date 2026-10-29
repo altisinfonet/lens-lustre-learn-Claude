@@ -140,3 +140,43 @@ describe("src/main.tsx goes through the switch", () => {
     expect(main).toContain("applyImageWorkerSwitch(await readImageWorkerSwitch(), imageWorkerUrl(CDN_HOST),");
   });
 });
+
+describe("review #551: a stale cached answer is not a fresh one", () => {
+  it("cached 'no row', then offline past the cache's life: UNKNOWN, not off", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      expect(await readImageWorkerSwitch()).toBe("off"); // no row, cached
+      vi.setSystemTime(Date.now() + 61 * 60_000);
+      db.throws = true;
+      expect(await readImageWorkerSwitch()).toBe("unknown");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("the edge path (a built app reads /config/site-settings first)", () => {
+  let realFetch: typeof fetch;
+  beforeEach(() => {
+    vi.stubEnv("DEV", false);
+    realFetch = globalThis.fetch;
+    settings.resetSiteSettingsEdgeState();
+  });
+  const restore = () => { globalThis.fetch = realFetch; vi.unstubAllEnvs(); settings.resetSiteSettingsEdgeState(); };
+
+  it("the edge answers without the key: off (the edge returns the whole configuration)", async () => {
+    globalThis.fetch = (async () => new Response(JSON.stringify({ version: "v1", settings: { site_logo: "x" } }), { status: 200 })) as typeof fetch;
+    try { expect(await readImageWorkerSwitch()).toBe("off"); } finally { restore(); }
+  });
+
+  it('the edge says "on": on', async () => {
+    globalThis.fetch = (async () => new Response(JSON.stringify({ version: "v1", settings: { app_image_sw: "on" } }), { status: 200 })) as typeof fetch;
+    try { expect(await readImageWorkerSwitch()).toBe("on"); } finally { restore(); }
+  });
+
+  it("edge down AND database down: unknown", async () => {
+    globalThis.fetch = (async () => { throw new TypeError("Failed to fetch"); }) as typeof fetch;
+    db.throws = true;
+    try { expect(await readImageWorkerSwitch()).toBe("unknown"); } finally { restore(); }
+  });
+});

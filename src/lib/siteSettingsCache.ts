@@ -255,6 +255,7 @@ export async function readSiteSettingState<T = unknown>(
   key: string,
   opts?: ReadOpts,
 ): Promise<{ known: boolean; value: T | null }> {
+  const t0 = Date.now();
   try {
     await load([key], opts?.maxAgeMs);
   } catch {
@@ -262,6 +263,9 @@ export async function readSiteSettingState<T = unknown>(
   }
   const c = cache.get(key);
   if (!c) return { known: false, value: null };
+  // Review #551: an expired entry that this read failed to refresh is NOT a
+  // current answer — a failed re-read leaves the old entry in place.
+  if (c.at < t0 && !isFresh(c, Date.now(), opts?.maxAgeMs)) return { known: false, value: null };
   return { known: true, value: c.missing ? null : ((c.value as T) ?? null) };
 }
 
