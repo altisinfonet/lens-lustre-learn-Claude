@@ -163,6 +163,18 @@ describe("review #548 · 'online' but nothing answers", () => {
     expect(feedCalls).toEqual([]);
   }, 30000);
 
+  it("pauses while offline do not use up the network retries (4 real attempts, then the saved posts)", async () => {
+    // Offline with nothing saved: the page pauses (one OfflineNoSavedPageError).
+    onlineManager.setOnline(false);
+    const { result } = mount();
+    await waitFor(() => expect(result.current.fetchStatus).toBe("paused"), { timeout: 4000 });
+    await saveTwoPages();
+    dead = true;
+    await act(async () => { onlineManager.setOnline(true); });
+    await waitFor(() => expect(result.current.data?.pages?.[0]?.offline).toBe(true), { timeout: 20000 });
+    expect(deadFeedAttempts).toBe(4);
+  }, 30000);
+
   it("re-review #548 B1: a pull-to-refresh that fails with posts on screen is NOT swapped for saved posts", async () => {
     await saveTwoPages();
     const wrapper = ({ children }: { children: React.ReactNode }) => React.createElement(QueryClientProvider, { client: qc }, children);

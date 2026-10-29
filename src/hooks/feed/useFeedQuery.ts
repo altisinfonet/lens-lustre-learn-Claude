@@ -943,7 +943,7 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
     // S7b-3: "no network, nothing saved" retries with no delay — React Query
     // pauses it until the device is online — and is never counted out.
     retry: (failureCount, error) => error instanceof OfflineNoSavedPageError || failureCount - offlineThrows(feedKey) < 3,
-    retryDelay: (attempt, error) => (error instanceof OfflineNoSavedPageError ? 0 : Math.min(1000 * 2 ** attempt, 8000)),
+    retryDelay: (attempt, error) => (error instanceof OfflineNoSavedPageError ? 0 : Math.min(1000 * 2 ** (attempt - offlineThrows(feedKey)), 8000)),
 
     // `signal` is deliberately NOT read: reading it makes React Query cancel and
     // revert an in-flight page on unmount (Back), which this feed never did.
