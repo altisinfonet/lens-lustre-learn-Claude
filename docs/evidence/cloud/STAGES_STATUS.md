@@ -1,6 +1,6 @@
 # STAGES runner — status
 
-Updated: 2026-10-29 21:00 UTC · runner branch `status/stages-runner` · never merged.
+Updated: 2026-10-29 21:45 UTC · runner branch `status/stages-runner` · never merged.
 
 ## Done per stage
 
@@ -9,7 +9,7 @@ Updated: 2026-10-29 21:00 UTC · runner branch `status/stages-runner` · never m
 | S0 | 95 | Server half PASS, re-checked live today. Only the Owner's phone test ("Video OK") is left. |
 | S2 Observability | 95 | Live: telemetry SQL, client telemetry, outside monitor + alert, Admin → Health page, and now native crash / OOM / ANR per build (code + SQL live). Left: the reader is inside the app only from the S9 build (its build-file change #562 waits on staging for the S9 bump); Owner reads the page. |
 | S3 Media | 85 | Code live on main (03004ff, 20:32 UTC) and SQL 0100/0101/0102 applied on staging and production, both switches OFF. All PROBEs PASS on both lanes. Left (Owner): backfill secrets (then 1-click backfill to 100 %), PHOTOS binding + Worker route, decisions O-1/O-2, then switch-on and the phone test. |
-| S8 Live debt | 40 | Inventory blocked: SUPABASE_ACCESS_TOKEN not set (run 40941744672, Owner item). Sitemap root cause found (below). |
+| S8 Live debt | 60 | DONE before: F-REV4-2 (prod), one SEO renderer (#508), F-D3-8 SQL 0201 (main #515, prod 40819037088). Today: sitemap root cause fixed (#577, #585) and carry #580 pending; F-AUD-8 rotation SQL on main (#581, nothing run); inventory tools on main (#582); PROBE for places the rotation misses (#586). Old PRs: #323, #130 closed as superseded. Blocked on Owner: SUPABASE_ACCESS_TOKEN (function inventory/deploy, send-push), Vault entries for the rotation, converter password. F-REV4-6: finding text not in the repo (Owner/supervisor to paste it). |
 | S11 Reliability | 0 | Not started. |
 | S10 remainder | 0 | Waits for PR #538 (supervisor). |
 | S12 / S5 | — | Confirm only (switches stay OFF). |
@@ -28,7 +28,17 @@ Updated: 2026-10-29 21:00 UTC · runner branch `status/stages-runner` · never m
 | S3 | PROBE 0102 setup writes without member claims | #573 | staging 9a0f9e1 | staging PROBE 0102 PASS 40946796937 (20:11) | — |
 | S3 | **Carry S3 to main** (#496–#501, #567, #569, #571, #573) | #576 | main 03004ff | production: 0100 PROBE FAIL 40949645431 → apply 40951365749 → PASS 40951832115 · 0101 FAIL 40951913183 → apply 40951975386 → PASS 40952048358 · 0102 FAIL 40952139141 → apply 40952199347 → PASS 40952288920 · coverage 0 % of 507 (40952365255) | 20:32 UTC live; Chromium/Firefox/WebKit home + /feed 200, same text, 0 new console errors. Anonymous GET of a private photo path on the live CDN → 404 (fails closed). PASS |
 
+| S8 | Sitemap: survives a slow generator | #577 | staging fbdb644 | — | carry #580 (with #585) |
+| S8 | Sitemap: held ETag / Range no longer pin the thin file; nosniff + CSP | #585 | CI | — | — |
+| S8 | F-AUD-8 rotation SQL to main (files only) | #581 | main b891559 | not run (Owner Vault step first) | — |
+| S8 | F-REV4-1 inventory tools to main | #582 | main cb21960 | PROBE runs: see below | — |
+| S8 | PROBE: credentials the rotation does not scan | #586 | CI | — | — |
+| S8 | Old open PRs | #323, #130 closed (superseded, comment left) | — | — | — |
+
 ## Findings recorded
+
+- **F-AUD-8 before production:** the rotation scans Vault, cron.job, cron history and function bodies, not webhook trigger arguments, database settings or the pg_net queue (#586 counts these). Its cron-secret rollback only works if the Edge secret CRON_SECRET is also reverted; keep the time between the Owner's step 1 and the run short.
+- **F-REV4-1 inventory:** the DB-caller PROBE does not see Vault-held cron URLs or webhook triggers — never use it alone to remove a function.
 
 - **S8 sitemap #504 "0 vs 12":** not a defect. Staging's static sitemap is empty on purpose (staging tells crawlers to stay out, `scripts/generate-seo-assets.mjs`), and the dynamic route returns the static file when it is empty. Live static has 12 URLs on `50mmretina.com`; live upstream `functions/v1/sitemap` returns 729 URLs on the same host, so on main the dynamic route would serve 729. Carry needs a production-shaped proof, not a staging one.
 - **Other open PR to main:** #305 (head = `staging` itself, never mergeable by rule) and #103 (Sept). Not treated as collisions.
@@ -48,3 +58,8 @@ Updated: 2026-10-29 21:00 UTC · runner branch `status/stages-runner` · never m
 5. **S3 backfill (one time, 2 minutes):** GitHub → repository Settings → Environments → **staging** → Add environment secret: name `MEDIA_WORKER_EMAIL`, value = the converter account's e-mail; again `MEDIA_WORKER_PASSWORD` = its password (the same two the video converter machine uses). Repeat on **production**. Then tell me "secrets added".
 6. **S3 Cloudflare (staging first):** Cloudflare → Workers & Pages → the staging Pages project → Settings → Bindings → Add R2 bucket binding: name `PHOTOS`, bucket = the staging photo bucket → Save → redeploy. Same on the production project later (only when you want to switch photos on).
 7. **S8 edge functions (one time):** Supabase → Account → Access Tokens → Generate new token (name "github-functions"). Then GitHub → Settings → Environments → **staging** → Add environment secret `SUPABASE_ACCESS_TOKEN` = that token; repeat on **production**. Tell me "token added".
+8. **S8 credential rotation (after item 7):** follow `docs/evidence/d1/F-AUD-8/README.md` steps 1–2 (Supabase → Edge Functions → Secrets → new `CRON_SECRET`; Vault → add `faud8_new:cron_secret`), then tell me "vault ready" — I run the rotation within minutes.
+9. **S8 converter password:** Supabase → Authentication → Users → the converter account → Reset password; put the new one in the converter machine's credentials file and in GitHub secret `MEDIA_WORKER_PASSWORD` (item 5).
+10. **S8 F-REV4-6 (award stamps / judge badge):** the finding text is in your claude.ai Project, not in the repository. Paste it to me (or say "skip").
+11. **GitHub (security, 1 minute):** Settings → Environments → **production** → Deployment branches → "Selected branches" → add `main` only. Same for **staging** with `staging`.
+
