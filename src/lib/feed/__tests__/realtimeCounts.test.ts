@@ -99,8 +99,9 @@ describe("⚠ both consumers obey the one-writer rule — checked in their sourc
   }
 
   it("the realtime hook keeps post_reactions and has dropped the other two", () => {
-    const hook = read("src/hooks/feed/useRealtimeFeed.ts");
-    const body = hook.slice(hook.indexOf('.channel("feed-live")'), hook.indexOf(".subscribe()"));
+    // S6-b: the one shared channel lives in feedLive.ts.
+    const hook = read("src/lib/realtime/feedLive.ts");
+    const body = hook.slice(hook.indexOf("supabase.channel(`feed-live:"), hook.indexOf(".subscribe("));
     expect(body).toContain('table: "post_reactions"');   // breakdown has no other source
     expect(body).not.toContain('table: "post_comments"');
     expect(body).not.toContain('table: "post_shares"');

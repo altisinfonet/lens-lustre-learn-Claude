@@ -386,6 +386,13 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     resolution:
       "S12-F5: the tab shows its error state with Retry; For you is unaffected. 'function does not exist' means supabase/migrations/20261018_0004_s12_f5f6_favourites_admin.sql is not applied on this lane (apply it, then its PROBE); anything else is a timeout or the database disagreeing with the client about the row shape.",
   },
+  {
+    code: "DB-3011",
+    severity: "warn",
+    description: "A feed page could not be served by cursor (get_feed_page missing or failed); it was served by the old _exclude_ids call.",
+    resolution:
+      "S6-a: members still see the feed, in the same order. 'function does not exist' means supabase/migrations/20261029_0500_s6a_feed_page_cursor.sql is not applied on this lane (apply it, then its PROBE) — until then every page uploads its exclude list again. Anything else is a timeout or the database disagreeing with the client about the row shape.",
+  },
 
   // ── API ───────────────────────────────────────────────────────────────────
   {

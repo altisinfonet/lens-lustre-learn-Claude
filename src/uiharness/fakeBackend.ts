@@ -328,7 +328,12 @@ export function installFakeBackend(opts: InstallOptions = {}): void {
         this.dispatchEvent(e);
       }, 0);
     }
-    send(): void { /* swallowed: nothing is listening */ }
+    send(data?: unknown): void {
+      // Nothing is listening. Recorded (S6-d) so a harness can read which
+      // channels were joined and with which postgres_changes filters.
+      const w = window as unknown as { __rtFrames?: string[] };
+      (w.__rtFrames ??= []).push(String(data));
+    }
     close(): void {
       this.readyState = 3;
       const e = new Event("close");
