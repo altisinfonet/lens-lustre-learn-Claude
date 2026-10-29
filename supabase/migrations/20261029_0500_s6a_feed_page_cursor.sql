@@ -61,8 +61,15 @@
 -- signed out → no row. Every row comes from the unchanged feed function called
 -- as that viewer, so visibility is exactly today's (PROBE G6: friends-only and
 -- only-me posts of others never appear). The log is read and written only for
--- viewer = auth.uid(); no API role can read or write the table (RLS on, no
--- policy, no grant to anon / authenticated). The seed is hashed into the key,
+-- viewer = auth.uid(); neither anon nor authenticated can read or write the
+-- table (RLS on, no policy, no grant; service_role keeps its usual access).
+-- The delegates are SECURITY DEFINER and filter on auth.uid() in their own
+-- WHERE clauses (PRE-002 asserts prosecdef), so running them as this
+-- function's owner bypasses no RLS they relied on.
+-- DRIFT GUARD: a cursor AHEAD of the log (the client holds rows the log never
+-- dealt — e.g. a page served by the old call) is refused (22023); the client
+-- then pages that session the old way. Calls for one session are serialised
+-- by an advisory transaction lock. The seed is hashed into the key,
 -- never executed.
 --
 -- COST: one DELETE + one INSERT of ≤ 50 rows on the caller's own primary-key
@@ -113,7 +120,12 @@ BEGIN
       'public.get_broadcast_feed(uuid[],integer,integer,text[],text)',
       'public.get_personal_feed(uuid[],integer,integer,text[],text)',
       'public.feed_author_timeline(text,uuid[],integer,text[])']) AS f LOOP
-    IF to_regprocedure(r.f) IS NULL THEN _bad := _bad || E'\n  function ' || r.f || ' missing'; END IF;
+    IF to_regprocedure(r.f) IS NULL THEN _bad := _bad || E'\n  function ' || r.f || ' missing';
+    -- the delegates must filter visibility themselves (auth.uid() in their own
+    -- WHERE clauses, SECURITY DEFINER) — this function runs them as its owner.
+    ELSIF r.f <> 'auth.uid()' AND NOT (SELECT p.prosecdef FROM pg_proc p WHERE p.oid = to_regprocedure(r.f)) THEN
+      _bad := _bad || E'\n  function ' || r.f || ' is not SECURITY DEFINER';
+    END IF;
   END LOOP;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated')
      OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon')
@@ -169,10 +181,12 @@ BEGIN
   IF _tab IS NULL OR _tab NOT IN ('for_you', 'following', 'favourites') THEN
     RAISE EXCEPTION 'get_feed_page: _tab must be for_you, following or favourites' USING ERRCODE = '22023';
   END IF;
-  IF _seed = '' THEN
-    RAISE EXCEPTION 'get_feed_page: _session_seed is required' USING ERRCODE = '22023';
+  IF _seed = '' OR length(btrim(_session_seed)) > 64 THEN
+    RAISE EXCEPTION 'get_feed_page: _session_seed is required (1-64 characters)' USING ERRCODE = '22023';
   END IF;
   _key := md5(_tab || '|' || coalesce(array_to_string(_categories, ',', '~'), '*') || '|' || _seed);
+  -- One page of one session at a time (a refetch overlapping a load-more).
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('feed_page:' || _me::text || ':' || _key, 0));
 
   -- Retention: a new session drops this viewer's log rows older than a day.
   IF _from = 0 THEN
@@ -186,6 +200,13 @@ BEGIN
   SELECT coalesce(array_agg(d.post_id ORDER BY d.pos), '{}'::uuid[]) INTO _ex
     FROM public.feed_session_delivered d
    WHERE d.viewer = _me AND d.session_key = _key;
+  -- The client holds rows this log never dealt (a page served by the old
+  -- _exclude_ids call, or a log already purged): refuse rather than deal from
+  -- an incomplete list — the client then pages the old way, with its full list.
+  IF _from > coalesce(cardinality(_ex), 0) THEN
+    RAISE EXCEPTION 'get_feed_page: cursor % is ahead of this session''s log (%)', _from, coalesce(cardinality(_ex), 0)
+      USING ERRCODE = '22023';
+  END IF;
 
   IF _tab = 'for_you' AND coalesce(_personal, false) THEN
     RETURN QUERY
@@ -282,7 +303,10 @@ BEGIN
     _bad := _bad || E'\n  feed_session_delivered: anon / authenticated hold a privilege';
   END IF;
   -- POST-003 · the old signatures are all still there (none touched).
-  IF (SELECT count(*) FROM pg_proc WHERE pronamespace = 'public'::regnamespace AND proname = 'get_broadcast_feed') <> 4
+  IF to_regprocedure('public.get_broadcast_feed(uuid[],integer)') IS NULL
+     OR to_regprocedure('public.get_broadcast_feed(uuid[],integer,integer)') IS NULL
+     OR to_regprocedure('public.get_broadcast_feed(uuid[],integer,integer,text[])') IS NULL
+     OR to_regprocedure('public.get_broadcast_feed(uuid[],integer,integer,text[],text)') IS NULL
      OR to_regprocedure('public.get_personal_feed(uuid[],integer,integer,text[],text)') IS NULL
      OR to_regprocedure('public.get_following_feed(uuid[],integer,integer,text[],text)') IS NULL
      OR to_regprocedure('public.get_favourites_feed(uuid[],integer,integer,text[],text)') IS NULL THEN

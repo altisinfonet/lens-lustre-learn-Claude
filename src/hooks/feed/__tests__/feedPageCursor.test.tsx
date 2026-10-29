@@ -47,6 +47,7 @@ let calls: Call[];
 let flag: boolean;
 let personalFails: boolean;
 let cursorMissing: boolean;
+let cursorFails: boolean;
 /** the server's delivery log: session key → ids in delivery order */
 let log: Map<string, string[]>;
 let dealt: string[];
@@ -73,6 +74,7 @@ beforeEach(() => {
   flag = false;
   personalFails = false;
   cursorMissing = false;
+  cursorFails = false;
   log = new Map();
   dealt = [];
   h.fetchImpl = async (input, init) => {
@@ -84,6 +86,7 @@ beforeEach(() => {
       if (m[1] === "feature_allowed_me") return json(200, body._feature === "personal_feed" ? flag : false);
       if (m[1] === "get_feed_page") {
         if (cursorMissing) return json(404, { code: "PGRST202", message: "Could not find the function public.get_feed_page" });
+        if (cursorFails) return json(500, { code: "57014", message: "canceling statement due to statement timeout" });
         if (body._personal && personalFails) return json(500, { code: "57014", message: "canceling statement due to statement timeout" });
         return json(200, pageByCursor(body));
       }
@@ -158,5 +161,18 @@ describe("S6-a feed paging by cursor", () => {
     const fc = feedCalls();
     expect(fc.map((c) => c.fn)).toEqual(["get_feed_page", "get_broadcast_feed", "get_broadcast_feed"]);
     expect((fc[2].body._exclude_ids as string[]).length).toBe(10);
+  });
+  it("once a page of a session was served by the old call, the rest of that session pages the old way (the server log lacks that page)", async () => {
+    const { result } = mount();
+    await settled(result);
+    cursorFails = true;
+    await act(async () => { await result.current.fetchNextPage(); });
+    await settled(result);
+    cursorFails = false;
+    await act(async () => { await result.current.fetchNextPage(); });
+    await settled(result);
+    const fc = feedCalls();
+    expect(fc.map((c) => c.fn)).toEqual(["get_feed_page", "get_feed_page", "get_broadcast_feed", "get_broadcast_feed"]);
+    expect((fc[3].body._exclude_ids as string[]).length).toBe(20);
   });
 });

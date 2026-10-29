@@ -103,10 +103,18 @@ let sessionSeedRpcMissing = false;
  * `_exclude_ids` calls straight away. Expand/contract, as above.
  */
 let feedPageRpcMissing = false;
+/**
+ * S6-a · sessions (tab|seed) that had a page served by the OLD call. The
+ * server's log does not hold that page, so the cursor would be ahead of it
+ * (the server refuses that, 22023): the rest of such a session pages the old
+ * way, with the full list the device keeps. A refresh is a new seed.
+ */
+const oldPathSessions = new Set<string>();
 /** Test seam. `cursor: false` makes this app session page the old way (tests that pin the `_exclude_ids` calls). */
 export function __resetSessionSeedRpcProbe(opts: { cursor?: boolean } = {}) {
   sessionSeedRpcMissing = false;
   feedPageRpcMissing = opts.cursor === false;
+  oldPathSessions.clear();
 }
 
 /** PostgREST / Postgres: "this function (signature) does not exist". */
@@ -261,7 +269,15 @@ async function fetchPageByCursor(
       return null;
     }
     return res.data as any[];
-  } catch {
+  } catch (e) {
+    logger.warn({
+      code: "DB-3011",
+      event: "FEED_PAGE_CURSOR_RPC_FAILED",
+      fn: "fetchPageByCursor",
+      file: FILE,
+      message: "get_feed_page threw; this page was served the next way.",
+      reason: String((e as Error)?.message ?? e).slice(0, 200),
+    });
     return null;
   }
 }
@@ -921,8 +937,12 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
       // on the device only for the fallbacks below). Personal → broadcast on
       // failure, exactly as before; both share the server's session log.
       const after = excludeIds.length;
+      const cursorKey = `${timeline ?? "for_you"}|${sessionSeed}`;
+      const cursorOk = !oldPathSessions.has(cursorKey);
       let served: BroadcastPage | null = null;
-      if (timeline) {
+      if (!cursorOk) {
+        // this session already left the cursor (see oldPathSessions)
+      } else if (timeline) {
         const rows = await fetchPageByCursor(timeline, false, sessionSeed, after, 0, cats);
         if (rows) served = { rows, degraded: false, personal: false };
       } else {
@@ -935,6 +955,7 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
           if (rows) served = { rows, degraded: false, personal: false };
         }
       }
+      if (!served) oldPathSessions.add(cursorKey);
       const { rows: rawPosts, degraded, personal: servedPersonal } = served ?? (timeline
         ? { rows: await fetchTimelinePage(timeline, excludeIds, cats), degraded: false, personal: false }
         : await fetchBroadcastPage(excludeIds, newestFirst, cats, sessionSeed, personal));

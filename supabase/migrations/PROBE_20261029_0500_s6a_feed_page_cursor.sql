@@ -23,7 +23,8 @@
 --   G4 · RETRY: page 3 asked again with the same cursor (after pages 3–10 were
 --        dealt) returns page 3 again; page 4 after it returns page 4 again.
 --        FALLBACK: a personal page then a broadcast page in ONE session never
---        repeat a post (one log per session).
+--        repeat a post (one log per session). DRIFT: a cursor ahead of the
+--        log is refused (22023), never dealt from a short list.
 --   G5 · FOLLOWING = OLD ORDER: A follows three authors (rolled back); 5 pages
 --        of get_feed_page('following') = get_following_feed with _exclude_ids.
 --   G6 · PRIVACY (member B, real JWT role): B follows the author of a
@@ -171,6 +172,12 @@ BEGIN
   ELSE
     _bad := _bad || format(E'\n  G4 needs 40 personal rows (got %s)', np);
   END IF;
+  -- drift guard: a cursor ahead of the log is refused, never served from a short list
+  BEGIN
+    PERFORM count(*) FROM public.get_feed_page('for_you', true, 'probe-s6a-p', np + 10, 10, 0, NULL);
+    _bad := _bad || E'\n  G4 a cursor ahead of the session log was served';
+  EXCEPTION WHEN invalid_parameter_value THEN NULL;
+  END;
   -- fallback inside one session: personal page 1, broadcast page 2
   SELECT coalesce(array_agg(f.id ORDER BY f.feed_pos), '{}') INTO pg_ids
     FROM public.get_feed_page('for_you', true, 'probe-s6a-m', 0, 10, 3, NULL) f;
