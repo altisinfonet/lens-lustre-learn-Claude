@@ -1,0 +1,176 @@
+/**
+ * S7b-3 · THE SAVED FEED. The last ~200 "For you" posts, in the order the
+ * member saw them, kept on the phone so the feed can be scrolled with no
+ * network (Owner 2026-10-29: "Instagram with no network … better than
+ * Instagram"; OFF-5 G1/G2: saved first, age is a label, never a reason to hide).
+ *
+ * WHY ITS OWN STORE. The feed query keeps at most 5 pages (50 posts) in memory
+ * on purpose (S6 `maxPages: 5`), and OFF-1 persists only its first page. So the
+ * query can never hold 200 posts; this archive is filled page by page as the
+ * member scrolls online, and read page by page when they scroll offline.
+ *
+ * ORDER. Page 0 of a new session goes to the front; every later page of that
+ * session goes right after the pages before it, so archive page N is what the
+ * member saw as page N. Older posts follow, de-duplicated, then the cap.
+ *
+ * STORAGE. OFF-1's device store (IndexedDB, per member, wiped on sign-out —
+ * OFF-5 G6), in chunks of 50 posts so no record nears MAX_RECORD_BYTES.
+ *
+ * PHOTOS. Each newly saved post's small preview is fetched once in the
+ * background on a good connection, so S7b-1's photo cache holds a picture for
+ * posts the member scrolled past too quickly to load. Never on a slow link or
+ * Data Saver.
+ */
+import { putRecord, readAll } from "./deviceStore";
+import { getNetState } from "./networkQuality";
+
+export const ARCHIVE_MAX_POSTS = 200;
+export const ARCHIVE_CHUNK = 50;
+const KEY = "feed-archive";
+
+type ArchivedPost = { id: string; thumbnail_urls?: (string | null)[] | null; image_urls?: (string | null)[] | null; image_url?: string | null };
+
+let owner: string | null = null;
+let posts: ArchivedPost[] = [];
+let sessionLen = 0;
+let loaded: Promise<void> | null = null;
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+function reset(userId: string) {
+  owner = userId;
+  posts = [];
+  sessionLen = 0;
+  loaded = null;
+}
+
+function dedupe(list: ArchivedPost[]): ArchivedPost[] {
+  const seen = new Set<string>();
+  const out: ArchivedPost[] = [];
+  for (const p of list) {
+    if (!p || typeof p.id !== "string" || seen.has(p.id)) continue;
+    seen.add(p.id);
+    out.push(p);
+  }
+  return out;
+}
+
+/** Read this member's saved feed from the phone (once per app session). */
+function ensureLoaded(userId: string): Promise<void> {
+  if (owner !== userId) reset(userId);
+  if (!loaded) {
+    loaded = readAll(userId)
+      .then((records) => {
+        const chunks = records
+          .filter((r) => Array.isArray(r.key) && r.key[0] === KEY && typeof r.key[1] === "number")
+          .sort((a, b) => (a.key[1] as number) - (b.key[1] as number))
+          .flatMap((r) => (Array.isArray(r.data) ? (r.data as ArchivedPost[]) : []));
+        // Anything recorded while the read was in flight stays in front.
+        posts = dedupe([...posts, ...chunks]).slice(0, ARCHIVE_MAX_POSTS);
+      })
+      .catch(() => {});
+  }
+  return loaded;
+}
+
+function scheduleSave(userId: string, delayMs: number) {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    if (owner !== userId) return;
+    void saveNow(userId);
+  }, delayMs);
+}
+
+async function saveNow(userId: string) {
+  const chunks = Math.ceil(ARCHIVE_MAX_POSTS / ARCHIVE_CHUNK);
+  for (let i = 0; i < chunks; i++) {
+    const part = posts.slice(i * ARCHIVE_CHUNK, (i + 1) * ARCHIVE_CHUNK);
+    // An empty chunk is written too, so a shorter archive never keeps stale tails.
+    await putRecord(userId, [KEY, i], part);
+  }
+}
+
+/** The small preview of a post's first photo, else its first photo. */
+export function previewUrl(p: ArchivedPost): string | null {
+  const t = p.thumbnail_urls?.find((u) => typeof u === "string" && u);
+  if (t) return t;
+  const i = p.image_urls?.find((u) => typeof u === "string" && u) ?? p.image_url ?? null;
+  return typeof i === "string" && i ? i : null;
+}
+
+function warmPreviews(list: ArchivedPost[]) {
+  const net = getNetState();
+  if (!net.online || net.slow) return;
+  const conn = (globalThis.navigator as { connection?: { saveData?: boolean } } | undefined)?.connection;
+  if (conn?.saveData) return;
+  if (typeof fetch !== "function") return;
+  for (const p of list) {
+    const u = previewUrl(p);
+    // Same request the image worker stores (CORS, no cookies); a failure is harmless.
+    if (u) fetch(u, { mode: "cors", credentials: "omit" }).catch(() => {});
+  }
+}
+
+/**
+ * Record one page the member was just served online. `pageIndex` 0 starts a
+ * new session at the front of the archive.
+ */
+export async function recordFeedPage(
+  userId: string,
+  pageIndex: number,
+  page: ArchivedPost[],
+  opts: { saveDelayMs?: number; warm?: boolean } = {},
+): Promise<void> {
+  if (!userId || !Array.isArray(page) || page.length === 0) return;
+  await ensureLoaded(userId);
+  if (owner !== userId) return;
+  const before = new Set(posts.map((p) => p.id));
+  if (pageIndex === 0) {
+    posts = dedupe([...page, ...posts]);
+    sessionLen = Math.min(page.length, posts.length);
+  } else {
+    const head = posts.slice(0, sessionLen);
+    const fresh = page.filter((p) => !head.some((h) => h.id === p.id));
+    posts = dedupe([...head, ...fresh, ...posts.slice(sessionLen)]);
+    sessionLen = Math.min(head.length + fresh.length, posts.length);
+  }
+  posts = posts.slice(0, ARCHIVE_MAX_POSTS);
+  sessionLen = Math.min(sessionLen, posts.length);
+  scheduleSave(userId, opts.saveDelayMs ?? 1000);
+  if (opts.warm !== false) warmPreviews(page.filter((p) => !before.has(p.id)));
+}
+
+/** Saved page `pageIndex` (size `pageSize`), and whether more saved posts follow. */
+export async function readFeedPage(
+  userId: string,
+  pageIndex: number,
+  pageSize: number,
+): Promise<{ posts: ArchivedPost[]; more: boolean }> {
+  if (!userId) return { posts: [], more: false };
+  await ensureLoaded(userId);
+  if (owner !== userId) return { posts: [], more: false };
+  const start = pageIndex * pageSize;
+  const slice = posts.slice(start, start + pageSize);
+  return { posts: slice, more: start + pageSize < posts.length };
+}
+
+/** How many posts are saved for this member. */
+export async function savedFeedCount(userId: string): Promise<number> {
+  await ensureLoaded(userId);
+  return owner === userId ? posts.length : 0;
+}
+
+/** Write any pending change now (tests; sign-out never needs it — the store is wiped). */
+export async function flushFeedArchive(): Promise<void> {
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+  if (owner) await saveNow(owner);
+}
+
+/** Forget the in-memory copy (sign-out, tests). The device copy is wiped by signOutWipe. */
+export function resetFeedArchiveMemory(): void {
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+  owner = null;
+  posts = [];
+  sessionLen = 0;
+  loaded = null;
+}

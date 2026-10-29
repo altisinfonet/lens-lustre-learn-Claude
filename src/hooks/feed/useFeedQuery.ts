@@ -3,6 +3,7 @@ import { useMemo, useCallback, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPostAttachments, attachmentsFor } from "@/lib/posts/postAttachments";
 import { persistFeedPage, getCachedFeed } from "@/lib/feedCache";
+import { readFeedPage, recordFeedPage } from "@/lib/offline/feedArchive";
 import { feedSessionFor, startFeedSessionOver } from "@/lib/feedSessions";
 import { fetchProfileMap } from "@/lib/profileMapCache";
 import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
@@ -713,6 +714,28 @@ export function isReturnToTheDealOnScreen(
   return !!pages && pages.length > 0 && pages.every((p) => p.sessionSeed === liveSeed);
 }
 
+/**
+ * S7b-3: resolves when React Query's online manager says the device is online
+ * again; rejects if the fetch is cancelled (unmount, refresh) meanwhile. Used so
+ * an offline page with nothing saved makes no request until there is a network.
+ */
+export function waitForNetwork(signal?: AbortSignal): Promise<void> {
+  if (onlineManager.isOnline()) return Promise.resolve();
+  return new Promise<void>((resolve, reject) => {
+    const stop = onlineManager.subscribe((online) => {
+      if (!online) return;
+      stop();
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    });
+    const onAbort = () => {
+      stop();
+      reject(signal?.reason ?? new DOMException("Aborted", "AbortError"));
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
 export interface FeedPage {
   posts: FeedPost[];
   nextCursor: number | null;
@@ -723,6 +746,8 @@ export interface FeedPage {
   sessionSeed?: string;
   /** Stage L2 (page 0 only): see fetchWatermark. */
   watermark?: string | null;
+  /** S7b-3: this page was read from the posts saved on the phone (no network). */
+  offline?: boolean;
 }
 
 /**
@@ -743,6 +768,8 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
   // S12-F5: Following / Favourites — their own cache entry and their own session.
   const timeline: TimelineTab | null = tab === "following" || tab === "favourites" ? tab : null;
   const feedKey = queryKeys.feed(cats, timeline);
+  // S7b-3: the saved-on-the-phone feed is the main "For you" feed (no category filter).
+  const archivedFeed = !timeline && !cats;
   /**
    * L1 · B1 — the session lives in feedSessions.ts, not in this component's
    * refs: Back from a post REMOUNTS the feed (sibling routes), and a session
@@ -873,8 +900,19 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
      * does check on resume) is how the member learns there is more. A fresh
      * visit to /feed still deals a new hand; Back does not (`refetchOnMount`).
      */
+    // S7b-3 keeps this rule for saved pages too: when the network comes back,
+    // the saved posts on screen stay; pull-to-refresh or the "N new posts"
+    // pill brings the live feed (Instagram does the same).
     refetchOnWindowFocus: refetchOnlyAfterFailure,
     refetchOnReconnect: refetchOnlyAfterFailure,
+
+    /**
+     * S7b-3 · run the page function even with no network, so a page can be
+     * read from the posts saved on the phone (`feedArchive`). With nothing
+     * saved for a page, it makes NO request and waits for the network
+     * (`waitForNetwork`), the same as React Query's own offline pause.
+     */
+    networkMode: "offlineFirst",
 
     /**
      * THREE ATTEMPTS, BACKING OFF — because the failure being recovered from is
@@ -892,9 +930,27 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
     retry: 3,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
 
-    queryFn: async ({ pageParam }): Promise<FeedPage> => {
+    queryFn: async ({ pageParam, signal }): Promise<FeedPage> => {
       const pageIndex = (pageParam as number | undefined) ?? 0;
       const isFirstPage = pageIndex === 0;
+
+      // S7b-3 · NO NETWORK: the "For you" feed scrolls through the posts saved
+      // on the phone (up to ~200, in the order they were seen). Nothing saved
+      // for this page: no request — wait for the network, then go on below.
+      if (!onlineManager.isOnline()) {
+        if (archivedFeed) {
+          const saved = await readFeedPage(userId!, pageIndex, PAGE_SIZE);
+          if (saved.posts.length > 0) {
+            return {
+              posts: saved.posts as FeedPost[],
+              nextCursor: saved.more ? pageIndex + 1 : null,
+              networkIds: networkIdsRef.current ?? [],
+              offline: true,
+            };
+          }
+        }
+        await waitForNetwork(signal);
+      }
 
       /**
        * Stage L2 · A NEW SESSION IS PREPARED HERE AND COMMITTED ONLY WHEN ITS
@@ -992,6 +1048,10 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
       // Persist first page to localStorage for instant load next visit
       if (isFirstPage && ordered.length > 0 && !timeline) {
         persistFeedPage(ordered, networkIds, userId!);
+      }
+      // S7b-3: every "For you" page served online is saved for no-network use.
+      if (archivedFeed && ordered.length > 0) {
+        void recordFeedPage(userId!, pageIndex, ordered);
       }
 
       return {

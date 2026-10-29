@@ -81,7 +81,11 @@ describe("F-D3-13 · the real feed hook, cold start, no network", () => {
 
     expect(result.current.data?.pages[0].posts.map((p) => p.id)).toEqual(posts.map((p) => p.id));
     expect(result.current.isPlaceholderData).toBe(true);
-    expect(result.current.fetchStatus).toBe("paused");
+    // S7b-3 (2026-10-29): the feed runs offline ("offlineFirst") so it can read
+    // the posts saved on the phone; with nothing saved it WAITS for the network
+    // itself (waitForNetwork) instead of React Query pausing it. The contract is
+    // unchanged — saved posts on screen, still waiting, and NO request at all.
+    expect(result.current.fetchStatus).not.toBe("idle");
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
