@@ -218,8 +218,8 @@ const adsRoute: FakeRoute = ({ method, path, params }) => {
   if (method === "GET" && path === "/rest/v1/ad_creatives") {
     adLibraryReads++;
     (window as unknown as { __adLibraryReads: number }).__adLibraryReads = adLibraryReads;
-    adNetworkDownUntil ??= Date.now() + AD_NETWORK_DOWN_MS;
-    if (ADS === "flaky" && Date.now() < adNetworkDownUntil) {
+    if (ADS === "flaky") adNetworkDownUntil ??= Date.now() + AD_NETWORK_DOWN_MS;
+    if (adNetworkDownUntil !== null && Date.now() < adNetworkDownUntil) {
       return { status: 503, body: { code: "PGRST000", message: "upstream connect error", details: null, hint: null } };
     }
     return { body: [{ id: AD_CREATIVE_ID, zone: "story-card", image_url: fixtureImage(22, "advert"), click_url: "", alt_text: "Library advert",

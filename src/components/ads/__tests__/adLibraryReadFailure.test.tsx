@@ -117,7 +117,7 @@ describe("ads bug 1 — a sponsored card never shows without its like and commen
     await waitFor(() => expect(pictures(card)).toContain(LIBRARY), { timeout: 5000 });
     expect(hasBar(card), "the library picture is drawn without its like / comment bar").toBe(true);
     expect(pictures(card)).not.toContain(SINGLE);
-  });
+  }, 15_000); // real timers: the first retry waits ~1 s (retryPolicy.retryDelay)
 
   it("the library is read with the bar when the read works the first time", async () => {
     setAnswers([{ data: [libraryRow], error: null }]);

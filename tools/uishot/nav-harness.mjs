@@ -815,12 +815,19 @@ journey("native (Android stub): app open ON the feed → push tap → post → B
  */
 const sponsoredCards = (page) => page.evaluate(() =>
   [...document.querySelectorAll('img[alt="Library advert"], img[alt="Zone single picture"]')].map((img) => {
-    let card = img;
-    while (card.parentElement && !(card.textContent || "").includes("Sponsored")) card = card.parentElement;
+    // The ad card marks itself (data-ad-zone). Code without the mark: climb to
+    // the element that says "Sponsored" — never as far as the page, whose
+    // posts carry Like and Comment of their own.
+    let card = img.closest("[data-ad-zone]");
+    if (!card) {
+      card = img;
+      while (card && card !== document.body && !(card.textContent || "").includes("Sponsored")) card = card.parentElement;
+      if (card === document.body) card = null;
+    }
     return {
       picture: img.getAttribute("alt"),
-      like: !!card.querySelector('button[aria-label="Like"]'),
-      comment: !!card.querySelector('button[aria-label="Comment"]'),
+      like: !!card?.querySelector('button[aria-label="Like"]'),
+      comment: !!card?.querySelector('button[aria-label="Comment"]'),
     };
   }));
 
