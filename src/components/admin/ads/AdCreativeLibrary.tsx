@@ -217,11 +217,13 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
         spot = rows.findIndex((r) => r.id === row.id);
       }
       // The card text this screen does not show — carried over unchanged.
-      const { data: extra } = await supabase
+      const { data: extra, error: readErr } = await supabase
         .from("ad_creatives" as never)
         .select("headline, subtext, cta")
         .eq("id", row.id)
         .maybeSingle();
+      // Never replace with the card text silently blanked.
+      if (readErr) throw readErr;
       const { webpFile } = await compressImageToFiles(file, `ad-${zone}`, { maxDimension: 1600 });
       const path = generateImagePath({ type: "ad", ext: "webp" });
       const { url } = await uploadImage({
