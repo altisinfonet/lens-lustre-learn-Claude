@@ -8,11 +8,19 @@
  * step with the phone's events from the very start. Safe to call more than once.
  */
 import { onlineManager } from "@tanstack/react-query";
+import { isNativeCapacitorApp } from "@/lib/native/authDeepLink";
 
 let wired = false;
 
-export function seedOnlineManager(): void {
+/** `asNativeApp`: the offline CI harness stands in for the installed app. */
+export function seedOnlineManager(opts: { asNativeApp?: boolean } = {}): void {
   if (typeof window === "undefined" || typeof navigator === "undefined") return;
+  // Only inside the installed app: there the WebView's navigator.onLine is
+  // reliable. On a desktop browser it can read false while connected (VPNs,
+  // virtual adapters) and no "online" event ever follows — seeding from it
+  // froze every query on the website (carry review #563). The website keeps
+  // React Query's own default.
+  if (!opts.asNativeApp && !isNativeCapacitorApp()) return;
   if (navigator.onLine === false) onlineManager.setOnline(false);
   if (wired) return;
   wired = true;
