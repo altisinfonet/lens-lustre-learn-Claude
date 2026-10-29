@@ -67,3 +67,60 @@ describe("/sitemap.xml edge function", () => {
     expect(cache.m.size).toBe(0);
   });
 });
+
+describe("/sitemap.xml edge function — a generator slower than the 4 s visitor budget (production: ~4.7 s, 2026-10-29)", () => {
+  afterEach(() => vi.useRealTimers());
+
+  function slowUpstream(ms: number) {
+    fetchMock.mockImplementation((_u: unknown, init?: { signal?: AbortSignal }) =>
+      new Promise<Response>((resolve, reject) => {
+        const t = setTimeout(() => resolve(new Response(DYN, { status: 200 })), ms);
+        init?.signal?.addEventListener("abort", () => { clearTimeout(t); reject(new Error("aborted")); });
+      }));
+  }
+  const callWith = (waits: Promise<unknown>[], staticXml = STATIC) =>
+    onRequest({
+      request: new Request("https://x.example/sitemap.xml"),
+      env: { SUPABASE_PROJECT_REF: "ref" },
+      next: async () => new Response(staticXml, { status: 200, headers: { "content-type": "application/xml" } }),
+      waitUntil: (p: Promise<unknown>) => { waits.push(p); },
+    });
+
+  it("the visitor gets the static file within the budget, the slow answer still fills the cache, the next visitor gets it", async () => {
+    vi.useFakeTimers();
+    slowUpstream(4700);
+    const waits: Promise<unknown>[] = [];
+    const first = callWith(waits);
+    await vi.advanceTimersByTimeAsync(4100);
+    const a = await first;
+    expect(a.headers.get("x-sitemap-source")).toBe("static-fallback");
+    await vi.advanceTimersByTimeAsync(1000);
+    await Promise.all(waits);
+    expect(cache.m.size).toBe(1);
+    const b = await callWith([]);
+    expect(b.headers.get("x-sitemap-source")).toBe("dynamic-cached");
+    expect(await b.text()).toBe(DYN);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("a stale entry is refreshed in the background even when the generator takes ~5 s", async () => {
+    vi.useFakeTimers();
+    await callWith([]); // fast upstream (default mock): stores
+    expect(cache.m.size).toBe(1);
+    const [key, res] = [...cache.m.entries()][0];
+    const old = new Response(await res.clone().text(), { headers: { ...Object.fromEntries(res.headers), "x-cached-at": String(Date.now() - 2 * 3600 * 1000) } });
+    cache.m.set(key, old);
+    const fresher = DYN.replace("</urlset>", "<url><loc>https://a/new</loc></url></urlset>");
+    fetchMock.mockImplementation((_u: unknown, init?: { signal?: AbortSignal }) =>
+      new Promise<Response>((resolve, reject) => {
+        const t = setTimeout(() => resolve(new Response(fresher, { status: 200 })), 5000);
+        init?.signal?.addEventListener("abort", () => { clearTimeout(t); reject(new Error("aborted")); });
+      }));
+    const waits: Promise<unknown>[] = [];
+    const r = await callWith(waits);
+    expect(r.headers.get("x-sitemap-source")).toBe("dynamic-cached");
+    await vi.advanceTimersByTimeAsync(5100);
+    await Promise.all(waits);
+    expect(await (await cache.match(new Request(key))).text()).toBe(fresher);
+  });
+});

@@ -32,7 +32,16 @@ interface Ctx { request: Request; env: Env; next: () => Promise<Response>; waitU
 
 export const FRESH_S = 3600;
 export const STALE_S = 86400;
-const UPSTREAM_TIMEOUT_MS = 4000;
+/** The most a visitor (or crawler) waits for the generator before getting the static file. */
+export const VISITOR_BUDGET_MS = 4000;
+/**
+ * The most a BACKGROUND read may take. Production's generator answers in ~4.7 s
+ * (measured 2026-10-29), longer than the visitor budget: with one 4 s limit for
+ * everything the dynamic sitemap was never served and the cache never filled
+ * (and a stale entry was never refreshed). Pages keeps waitUntil work alive
+ * for 30 s after the response.
+ */
+export const BACKGROUND_TIMEOUT_MS = 25000;
 const CACHED_AT = "x-cached-at";
 
 export function locCount(xml: string): number {
@@ -45,9 +54,9 @@ export function firstLocHost(xml: string): string | null {
   return m ? m[1].toLowerCase() : null;
 }
 
-async function fetchUpstream(url: string, minLocs: number, host: string | null): Promise<string | null> {
+async function fetchUpstream(url: string, minLocs: number, host: string | null, timeoutMs: number): Promise<string | null> {
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), UPSTREAM_TIMEOUT_MS);
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const r = await fetch(url, { signal: ctrl.signal, headers: { accept: "application/xml" } });
     if (!r.ok) return null;
@@ -112,7 +121,7 @@ export const onRequest = async (context: Ctx): Promise<Response> => {
         const xml = await hit.text();
         if (at > 0 && age >= 0 && locCount(xml) >= minLocs && firstLocHost(xml) === host) {
           if (age > FRESH_S && waitUntil) {
-            waitUntil(fetchUpstream(url, minLocs, host).then((x) => (x ? store(cache, key, x) : undefined)));
+            waitUntil(fetchUpstream(url, minLocs, host, BACKGROUND_TIMEOUT_MS).then((x) => (x ? store(cache, key, x) : undefined)));
           }
           return xmlResponse(xml, "dynamic-cached");
         }
@@ -120,7 +129,22 @@ export const onRequest = async (context: Ctx): Promise<Response> => {
     } catch { /* an unreadable cache is a miss */ }
   }
 
-  const xml = await fetchUpstream(url, minLocs, host);
+  // ONE upstream read with the background limit; the visitor waits for it at most
+  // VISITOR_BUDGET_MS. Slower than that: the visitor gets the static file now and
+  // the same read, still running under waitUntil, fills the cache for the next one.
+  const read = fetchUpstream(url, minLocs, host, waitUntil ? BACKGROUND_TIMEOUT_MS : VISITOR_BUDGET_MS);
+  const SLOW = Symbol("slow");
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const first = await Promise.race([
+    read,
+    new Promise<typeof SLOW>((r) => { timer = setTimeout(() => r(SLOW), VISITOR_BUDGET_MS); }),
+  ]);
+  clearTimeout(timer);
+  if (first === SLOW) {
+    if (cache && waitUntil) waitUntil(read.then((x) => (x ? store(cache, key, x) : undefined)));
+    return xmlResponse(staticXml, "static-fallback");
+  }
+  const xml = first;
   if (!xml) return xmlResponse(staticXml, "static-fallback");
   if (cache) {
     const p = store(cache, key, xml);
