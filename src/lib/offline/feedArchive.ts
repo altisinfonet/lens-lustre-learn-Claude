@@ -205,6 +205,14 @@ export async function readFeedPage(
   return { posts: slice, more: start + pageSize < posts.length };
 }
 
+/** S7b-4: one post as saved in the feed (a post page opened with no network). */
+export async function findSavedFeedPost(userId: string, postId: string): Promise<ArchivedPost | null> {
+  if (!userId) return null;
+  await ensureLoaded(userId);
+  if (owner !== userId) return null;
+  return posts.find((p) => p.id === postId) ?? null;
+}
+
 /** How many posts are saved for this member. */
 export async function savedFeedCount(userId: string): Promise<number> {
   await ensureLoaded(userId);

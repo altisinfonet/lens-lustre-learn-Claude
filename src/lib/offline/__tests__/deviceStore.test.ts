@@ -32,7 +32,9 @@ describe("deviceStore", () => {
   });
 
   it(`keeps at most ${MAX_RECORDS_PER_USER} records per member, evicting the oldest`, async () => {
-    for (let i = 0; i <= MAX_RECORDS_PER_USER; i++) await putRecord("u1", ["profile-core", `p${i}`], { i }, 1000 + i);
+    // A kind with no cap of its own (S7b-4 gave "profile-core" a stricter one,
+    // GROUP_CAPS): the shared cap still holds, oldest out first.
+    for (let i = 0; i <= MAX_RECORDS_PER_USER; i++) await putRecord("u1", ["ungrouped-kind", `p${i}`], { i }, 1000 + i);
     const all = await readAll("u1", 5000);
     expect(all).toHaveLength(MAX_RECORDS_PER_USER);
     expect(all.some((r) => (r.data as { i: number }).i === 0)).toBe(false);
