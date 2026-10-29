@@ -32,8 +32,10 @@ import { Suspense, lazy, useEffect } from "react";
 import { Link, Route, Routes, useNavigate } from "react-router-dom";
 import { installFakeBackend, type FakeRoute } from "../fakeBackend";
 import { fixtureRoutes } from "../fixtureRoutes";
-import { posts } from "../fixtures";
+import { posts, postComments } from "../fixtures";
+import { notificationEntryState } from "@/lib/navigationContract";
 import PushNotificationsGate from "@/components/PushNotificationsGate";
+import NotificationBell from "@/components/NotificationBell";
 import { Toaster } from "@/components/ui/toaster";
 import "../../index.css";
 
@@ -80,7 +82,100 @@ const dealBySeed: FakeRoute = ({ method, path, body }) => {
   deliveryLog.set(seed, [...held, ...page.map((p) => p.id)]);
   return { body: page.map((p, i) => ({ source: null, caught_up_after: false, ...p, feed_pos: after + i + 1 })) };
 };
-installFakeBackend({ routes: [dealBySeed, ...fixtureRoutes], signedIn: true });
+/**
+ * S4-a · "MORE POSTS FROM <name>" NEEDS AN AUTHOR WITH MORE THAN ONE POST.
+ * The shared fixture gives every author exactly one, so here — and only here,
+ * the screenshot gate keeps its fixed set — the first post's author has two
+ * more (copies of the other fixture posts, re-authored, with their own ids).
+ * They are answered for the author's wall read and for their own /post/<id>;
+ * they are never dealt into the feed, so every feed journey is unchanged.
+ */
+const morePosts = posts.slice(1).map((p, i) => ({
+  ...p,
+  id: `aaaaaaa1-0000-4000-8000-00000000010${i + 1}`,
+  user_id: posts[0].user_id,
+  created_at: new Date(Date.parse(posts[0].created_at) - (i + 1) * 86_400_000).toISOString(),
+}));
+const authorWall: FakeRoute = ({ method, path, params }) => {
+  if (method !== "GET" || path !== "/rest/v1/posts") return undefined;
+  if (params.get("user_id") === `eq.${posts[0].user_id}`) return { body: [posts[0], ...morePosts] };
+  const extra = morePosts.find((p) => params.get("id") === `eq.${p.id}`);
+  return extra ? { body: extra } : undefined;
+};
+/**
+ * S4-b · A COMMENT NOTIFICATION LANDS ON ITS COMMENT, EVEN DEEP IN A THREAD.
+ * The first post's thread is made long here (30 more comments), and the
+ * comment a "post_comment" notification names is a REPLY whose parent is not
+ * in the first page either: they are answered only when asked for by id —
+ * exactly how a comment past the first 200 reaches the screen. The member's
+ * own notification rows (user_notifications, RLS-own) carry the dedup_key
+ * naming the comment, as the database writes it.
+ */
+const FAR_PARENT = "ccccccc1-0000-4000-8000-000000000900";
+const FAR_REPLY = "ccccccc1-0000-4000-8000-000000000901";
+const filler = Array.from({ length: 30 }, (_, i) => ({
+  ...postComments[0],
+  id: `ccccccc1-0000-4000-8000-000000000${String(100 + i)}`,
+  content: `Comment ${i + 1} on the long thread.`,
+  created_at: new Date(Date.parse(postComments[0].created_at) + (i + 1) * 60_000).toISOString(),
+}));
+const farComments = [
+  { ...postComments[0], id: FAR_PARENT, content: "An early question, long scrolled away.", created_at: "2026-08-14T04:40:00.000Z" },
+  { ...postComments[1], id: FAR_REPLY, parent_id: FAR_PARENT, content: "The answer the notification is about.", created_at: "2026-08-15T09:00:00.000Z" },
+];
+const longThread: FakeRoute = ({ method, path, params }) => {
+  if (method !== "GET" || path !== "/rest/v1/post_comments") return undefined;
+  const byId = farComments.find((c) => params.get("id") === `eq.${c.id}`);
+  if (byId) return { body: [byId] };
+  if (params.get("post_id") === `eq.${posts[0].id}` && !params.has("id")) return { body: [...postComments, ...filler] };
+  return undefined;
+};
+const ownNotifications: FakeRoute = ({ method, path, params }) => {
+  if (path !== "/rest/v1/user_notifications") return undefined;
+  if (method !== "GET") return { body: [] }; // marking read
+
+  const type = params.get("type");
+  if (type === "eq.post_comment") return { body: [{ dedup_key: `post_comment:${FAR_REPLY}:owner` }] };
+  if (type === "eq.comment_reply") return { body: [{ dedup_key: `post_comment:${postComments[1].id}:reply` }] };
+  return { body: [] };
+};
+(window as unknown as { __navComments: Record<string, string> }).__navComments = { far: FAR_REPLY, reply: postComments[1].id };
+
+/**
+ * S4-c · THE REAL BELL AND THE REAL NOTIFICATIONS PAGE, each holding one comment
+ * notification about the first post (the row a member taps). Unread, so the
+ * bell has a badge and the tap marks it read, as on a phone.
+ */
+const BELL_ACTOR = "Noor Abadi";
+const commentGroup = {
+  group_key: "g-nav-comment",
+  type: "post_comment",
+  notification_ids: ["nav-n1"],
+  actor_ids: ["99999999-9999-4999-8999-999999999999"],
+  actor_names: [BELL_ACTOR],
+  actor_usernames: [""],
+  actor_avatars: [""],
+  actor_known: [true],
+  actor_count: 1,
+  event_count: 1,
+  unread_count: 1,
+  total_unread: 1,
+  reference_id: posts[0].id,
+  thumbnail_url: null,
+  title: "New Comment",
+  message: `${BELL_ACTOR} commented on your post`,
+  latest_at: "2026-08-15T09:00:00.000Z",
+};
+const notificationGroups: FakeRoute = ({ method, path }) => {
+  if (method !== "POST") return undefined;
+  if (path === "/rest/v1/rpc/get_my_unread_notifications_grouped" || path === "/rest/v1/rpc/get_my_notifications_grouped") {
+    return { body: [commentGroup] };
+  }
+  return undefined;
+};
+(window as unknown as { __navBellActor: string }).__navBellActor = BELL_ACTOR;
+
+installFakeBackend({ routes: [dealBySeed, authorWall, longThread, ownNotifications, notificationGroups, ...fixtureRoutes], signedIn: true });
 
 const start = new URLSearchParams(window.location.search).get("start") || "/below";
 window.history.replaceState(null, "", start);
@@ -93,6 +188,7 @@ const handle: NavHandle = { postId: POST_ID };
 const AppShell = lazy(() => import("../AppShell"));
 const Feed = lazy(() => import("@/pages/Feed"));
 const PostDetail = lazy(() => import("@/pages/PostDetail"));
+const Notifications = lazy(() => import("@/pages/Notifications"));
 
 /** Hands the router's own `navigate` to the journey — an in-app PUSH with no click. */
 const Bridge = () => {
@@ -105,8 +201,13 @@ const Bridge = () => {
 
 const Links = () => (
   <nav data-testid="harness-links" style={{ display: "flex", gap: 16, padding: 8 }}>
+    {/* S4-c: the REAL bell, on every page with links — a dropdown over the page the member is on. */}
+    <NotificationBell />
+    <Link to="/below" data-testid="to-below">Go to the page below</Link>
     <Link to="/feed" data-testid="to-feed">Go to the feed</Link>
     <Link to={`/post/${POST_ID}`} data-testid="to-post">Open the post (as the notification bell does)</Link>
+    {/* S4-b: a COMMENT notification row — the same link and the same entry state the bell and the Notifications page give it. */}
+    <Link to={`/post/${POST_ID}`} state={notificationEntryState("post_comment")} data-testid="to-post-comment">A comment notification</Link>
   </nav>
 );
 
@@ -126,6 +227,7 @@ const Pages = () => (
       <Route path="/below" element={<main data-testid="below"><h1>The page below</h1><Links /></main>} />
       <Route path="/feed" element={<><Links /><Feed /></>} />
       <Route path="/post/:postId" element={<PostDetail />} />
+      <Route path="/notifications" element={<Notifications />} />
     </Routes>
   </>
 );

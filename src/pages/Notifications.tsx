@@ -21,6 +21,8 @@ import { useAuth } from "@/hooks/core/useAuth";
 import { useT } from "@/i18n/I18nContext";
 import { useToggleFollow } from "@/hooks/social/useFriendshipMutations";
 import { getNotifLink } from "@/lib/notificationLinks";
+import { goBackOrFeed, notificationEntryState } from "@/lib/navigationContract";
+import { inAppHistoryDepth } from "@/hooks/core/useAndroidBackButton";
 import { queryKeys } from "@/lib/queryKeys";
 import {
   useNotificationHistory,
@@ -262,11 +264,13 @@ const Notifications = () => {
       }
     }
     // F-95 — a person-destination notification opens their NAME url.
+    // S4-b: the row's type rides along, so a comment notification opens the
+    // post on that comment.
     navigate(getNotifLink({
       type: group.type,
       reference_id: group.reference_id,
       handle: notifHandles.get(group.reference_id || ""),
-    }));
+    }), { state: notificationEntryState(group.type) });
   };
 
   /**
@@ -300,7 +304,11 @@ const Notifications = () => {
     <div className="max-w-2xl mx-auto pb-16">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-border">
         <button
-          onClick={() => navigate(-1)}
+          // S4-c: a cold link straight to /notifications has nothing of ours
+          // beneath it — `navigate(-1)` left the site (a blank page in the
+          // app). The one rule every page's own Back follows: one step back
+          // when there is in-app history, otherwise the feed (replacing).
+          onClick={() => goBackOrFeed(navigate, inAppHistoryDepth())}
           aria-label={t("common.back", "Back")}
           /*
            * F-103 — Back. 28x28 to a finger, measured twice independently: the

@@ -213,7 +213,7 @@ describe("a notification tapped at cold start (no in-app history)", () => {
     expect(exitApp).toHaveBeenCalledTimes(1);
   });
 
-  it("with in-app history already there, a tap opens the post on top of it and tells the page the feed was NOT put beneath", async () => {
+  it("S4-c: with the app already open on another page, a tap puts the FEED beneath the post — Back → feed → the page that was open", async () => {
     coldStartAt("/feed");
     app(<GoTo to="/profile/someone" />);
     // The listener registers ONCE per app start (push.ts's `started` flag), so
@@ -226,10 +226,35 @@ describe("a notification tapped at cold start (no in-app history)", () => {
     // The post page reads this to decide where a post that is gone should land
     // (src/pages/__tests__/postDetailBackAndGonePost.test.tsx).
     expect((window.history.state as { usr?: unknown } | null)?.usr, "the entry says how it was reached")
-      .toEqual({ from: "notification", feedBeneath: false });
+      .toEqual({ from: "notification", feedBeneath: true, type: "post_comment" });
 
     await press();
+    await waitFor(() => expect(where()).toBe("/feed"));
+    await press();
     await waitFor(() => expect(where()).toBe("/profile/someone"));
+    expect(exitApp).not.toHaveBeenCalled();
+    // #510 review: the feed AND the post were pushed in one tick — the count
+    // must hold both, or this Back would leave the app with the start beneath.
+    await press();
+    await waitFor(() => expect(where()).toBe("/feed"));
+    expect(exitApp, "Back left the app with the start screen still beneath").not.toHaveBeenCalled();
+    await press();
+    expect(exitApp).toHaveBeenCalledTimes(1);
+  });
+
+  it("S4-c: with the app already open ON the feed, a tap opens the post straight on it — Back → that feed, no second one", async () => {
+    coldStartAt("/start");
+    app(<GoTo to="/feed" />);
+    await waitFor(() => expect(tapListener).not.toBeNull());
+    fireEvent.click(screen.getByText("go /feed"));
+    await waitFor(() => expect(where()).toBe("/feed"));
+    await act(async () => { tapNotification({ type: "post_reaction", reference_id: "post-1" }); });
+    await waitFor(() => expect(where()).toBe("/post/post-1"));
+    await press();
+    await waitFor(() => expect(where()).toBe("/feed"));
+    await press();
+    await waitFor(() => expect(where()).toBe("/start"));
+    expect(exitApp).not.toHaveBeenCalled();
   });
 });
 

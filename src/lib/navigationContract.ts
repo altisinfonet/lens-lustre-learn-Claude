@@ -90,30 +90,54 @@ export function overlayCloseStep(
 export interface NotificationEntryState {
   from: "notification";
   feedBeneath: boolean;
+  /** S4-b: the notification's type, so the target page can open on the comment it is about. */
+  type?: string;
 }
+
+/** The state an in-app notification row (the bell, the Notifications page) carries onto its target. */
+export const notificationEntryState = (type?: string): NotificationEntryState => ({
+  from: "notification",
+  feedBeneath: false,
+  ...(type ? { type } : {}),
+});
 
 export function isNotificationEntry(state: unknown): state is NotificationEntryState {
   return !!state && (state as { from?: unknown }).from === "notification";
 }
 
 /**
- * Open a notification's target.
+ * Open a PUSH notification's target (the bell and the Notifications page are
+ * ordinary in-app links — Back from them returns to the page they were on).
  *
- * With in-app history beneath (`depth > 0`) the target simply opens on top —
- * Back returns to wherever the member was. With none (cold start from the
- * notification, depth 0) the current entry is first REPLACED by the feed, then
- * the target is pushed, so Back lands on the feed and the next Back leaves the
- * app (useAndroidBackButton counts the REPLACE as nothing, the push as one).
+ * S4-c · a push or an outside link is not "a page the member was on": Back
+ * from what it opened goes to the FEED, whatever was open before (Facebook,
+ * Instagram). So:
+ *   · cold start (depth 0): the current entry is REPLACED by the feed, then
+ *     the target is pushed — Back lands on the feed, the next Back leaves the
+ *     app (useAndroidBackButton counts the REPLACE as nothing, the push as one);
+ *   · app already open (depth > 0) on the feed: the target is pushed on it;
+ *   · app already open anywhere else: the feed is pushed, then the target —
+ *     Back lands on the feed, and Back again on the page the member had open
+ *     (nothing they had is thrown away).
+ * Every case tells the target the feed is directly beneath it (`feedBeneath`),
+ * so a post that is gone steps back onto it instead of stacking another.
  */
-export function openNotificationTarget(navigate: NavigateFunction, target: string, depth: number): void {
+export function openNotificationTarget(
+  navigate: NavigateFunction,
+  target: string,
+  depth: number,
+  type?: string,
+  here?: string,
+): void {
+  const typed = type ? { type } : {};
+  const state = { from: "notification", feedBeneath: true, ...typed } satisfies NotificationEntryState;
   if (depth > 0) {
-    navigate(target, { state: { from: "notification", feedBeneath: false } satisfies NotificationEntryState });
+    if (here !== "/feed") navigate("/feed");
+    if (target !== "/feed") navigate(target, { state });
     return;
   }
   navigate("/feed", { replace: true });
-  if (target !== "/feed") {
-    navigate(target, { state: { from: "notification", feedBeneath: true } satisfies NotificationEntryState });
-  }
+  if (target !== "/feed") navigate(target, { state });
 }
 
 /** A page's own "← Back": one step back when there is in-app history beneath, otherwise the feed. */

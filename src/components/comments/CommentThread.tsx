@@ -59,7 +59,7 @@
  *   slots, so a conditional hook there corrupts the hook order. It uses none,
  *   and src/__tests__/noComponentDefinedInRender.test.ts holds it to that.
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ProfileLink from "@/components/ProfileLink";
 import { Link } from "react-router-dom";
 import { MoreHorizontal, Trash2, Flag, Ban, Pin, Pencil, ChevronDown, Heart, SmilePlus } from "lucide-react";
@@ -222,6 +222,13 @@ export interface CommentThreadProps {
    * and a reply-to-a-reply would simply never be drawn.
    */
   maxReplyDepth?: number;
+  /**
+   * S4-b: the comment a notification points at. It is scrolled into the middle
+   * of the thread once it has drawn and stays marked (Instagram's tinted row)
+   * while the thread is open. Replies are always drawn, so a reply needs no
+   * expanding first.
+   */
+  highlightId?: string | null;
 
   /**
    * Post the comment. The box is cleared immediately — that is the post
@@ -311,6 +318,7 @@ const CommentThread = ({
   onTogglePin,
   onReport,
   onBlockUser,
+  highlightId = null,
 }: CommentThreadProps) => {
   const canReact = features?.reactions ?? true;
   const canPinHere = (features?.pinning ?? true) && canPin;
@@ -327,6 +335,17 @@ const CommentThread = ({
   const [sortMode, setSortMode] = useState<"relevant" | "newest">("relevant");
   /** Which comment's emoji-reaction popover is open, if any. One at a time. */
   const [reactionPickerId, setReactionPickerId] = useState<string | null>(null);
+
+  // S4-b: bring the highlighted comment into view ONCE, when it has drawn.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const scrolledTo = useRef<string | null>(null);
+  useEffect(() => {
+    if (!highlightId || loading || scrolledTo.current === highlightId) return;
+    const el = rootRef.current?.querySelector<HTMLElement>(`[data-comment-id="${CSS.escape(highlightId)}"]`);
+    if (!el) return;
+    scrolledTo.current = highlightId;
+    el.scrollIntoView({ block: "center" });
+  });
 
   const sortedComments = [...comments].sort((a, b) => {
     // Pinned first
@@ -392,7 +411,13 @@ const CommentThread = ({
       // cannot carry a key. Without it React re-uses the wrong node when a
       // comment is deleted mid-list.
       <div key={comment.id} className={depth > 0 ? "ml-11" : ""}>
-        <div className="flex gap-3 group/comment py-2">
+        <div
+          data-comment-id={comment.id}
+          data-highlighted={comment.id === highlightId ? "true" : undefined}
+          // #509 review: the mark is not colour alone — assistive tech hears it too.
+          aria-current={comment.id === highlightId ? "true" : undefined}
+          className={`flex gap-3 group/comment py-2 ${comment.id === highlightId ? "-mx-2 px-2 rounded-md bg-primary/10" : ""}`}
+        >
           <ProfileLink userId={comment.user_id} handle={comment.author_handle} className="shrink-0 mt-0.5 flex min-w-8 justify-center">
             <Avatar src={comment.author_avatar} name={comment.author_name} size={depth > 0 ? "xs" : "sm"} userId={comment.user_id} />
           </ProfileLink>
@@ -814,7 +839,7 @@ const CommentThread = ({
   const totalCount = comments.reduce((acc, c) => acc + 1 + c.replies.length, 0);
 
   return (
-    <div className="px-3 py-2 relative">
+    <div ref={rootRef} className="px-3 py-2 relative">
       {/* Closes the reaction picker on an outside click/tap without a
           document-level listener — one transparent layer under the popover
           (which carries its own z-10) and above everything else in the thread. */}

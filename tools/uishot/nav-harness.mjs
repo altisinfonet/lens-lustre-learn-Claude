@@ -21,6 +21,9 @@
  *   --base http://127.0.0.1:5196   use a dev server that is already running
  *   --json <file>                  write the reading
  *   --only <text>                  run only the journeys whose name contains <text> (for debugging one)
+ *   --origin https://localhost     S4-c: serve the page AT the Android app's origin (the Capacitor
+ *                                  shell loads https://localhost) — every request to that origin,
+ *                                  the dev server's socket included, is answered by the dev server
  *
  * Starts its own Vite dev server unless --base is given; exit code = verdict.
  * What it cannot prove (a real phone must): the FEEL of the Android Back
@@ -36,6 +39,7 @@ const arg = (name, dflt) => (process.argv.includes(name) ? process.argv[process.
 const BROWSER = arg("--browser", "chromium");
 const out = arg("--json", null);
 const ONLY = arg("--only", null);
+const ORIGIN = arg("--origin", null);
 /** 5196: 5197 is the encoder harness, 5198 the offline harness, 5199 the UI gate. */
 const PORT = 5196;
 const BASE = arg("--base", null) || `http://127.0.0.1:${PORT}`;
@@ -121,7 +125,11 @@ async function waitWhere(page, expected, timeout = 8000) {
 
 async function startAt(page, start, native = false) {
   const q = `${native ? "native=1&" : ""}start=${encodeURIComponent(start)}`;
-  await page.goto(`${BASE}/navharness.html?${q}`, { waitUntil: "domcontentloaded", timeout: 240000 });
+  await page.goto(`${ORIGIN || BASE}/navharness.html?${q}`, { waitUntil: "domcontentloaded", timeout: 240000 });
+  if (ORIGIN) {
+    const o = await page.evaluate(() => location.origin);
+    if (o !== ORIGIN.replace(/\/$/, "")) throw new Error(`the page is at ${o}, not the app's origin ${ORIGIN}`);
+  }
 }
 
 async function openFeedFromBelow(page) {
@@ -273,10 +281,72 @@ async function feedQuiet(page, quietMs = 1000, timeout = 20000) {
   throw new Error("the feed never stopped loading pages");
 }
 
+/**
+ * Tap a row once it has stopped moving — as a person does, who taps what they
+ * see, not what is still zooming in. The bell's panel opens with a short scale
+ * animation; measured in Firefox, the row settles within ~7 frames and then
+ * holds still, but a click aimed at it MID-zoom is refused there ("element is
+ * not stable") and never retried into success.
+ */
+async function tapSettled(page, locator, timeout = 30000) {
+  await locator.waitFor({ state: "visible", timeout });
+  let last = "";
+  let since = Date.now();
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeout) {
+    const b = await locator.boundingBox();
+    const key = b ? [b.x, b.y, b.width, b.height].map((v) => v.toFixed(1)).join(",") : "";
+    if (key !== last) { last = key; since = Date.now(); }
+    else if (key && Date.now() - since >= 300) break;
+    await page.waitForTimeout(50);
+  }
+  await locator.click({ timeout });
+}
+
+/** An in-app PUSH, as a link inside the app does — once the router has handed over its navigate. */
+async function inApp(page, to) {
+  await page.waitForFunction(() => typeof window.__nav?.navigate === "function", null, { timeout: 120000 });
+  await page.evaluate((t) => window.__nav.navigate(t), to);
+}
+
 const nativeReady = (page) => page.waitForFunction(
   () => !!(window.__navNative && window.__navNative.back && window.__navNative.tapped), null, { timeout: 120000 });
 const pressBack = async (page) => { await page.evaluate(() => window.__navNative.pressBack()); await settle(page, 500); };
 const exits = (page) => page.evaluate(() => window.__navNative.exits);
+
+/**
+ * S4-c · THE APP'S ORIGIN. The Android app is this same web app loaded from
+ * https://localhost inside a WebView. Here every request the page makes to
+ * that origin is fetched from the dev server and handed back as if
+ * https://localhost had answered — so `location.origin`, secure-context rules
+ * and history all behave as in the app. The dev server's own socket
+ * (wss://localhost) is joined to the real one, so the page does not reload.
+ */
+/** The dev server's answers, kept for the run: its modules do not change while it runs, and re-proxying hundreds of them per journey is minutes. */
+const originCache = new Map();
+async function serveAtOrigin(ctx) {
+  const origin = ORIGIN.replace(/\/$/, "");
+  await ctx.route(`${origin}/**`, async (route) => {
+    const req = route.request();
+    const url = BASE + req.url().slice(origin.length);
+    const cacheable = req.method() === "GET" && !url.includes("/navharness.html");
+    try {
+      let hit = cacheable ? originCache.get(url) : undefined;
+      if (!hit) {
+        const res = await route.fetch({ url });
+        hit = { status: res.status(), headers: res.headers(), body: await res.body() };
+        if (cacheable && hit.status === 200) originCache.set(url, hit);
+      }
+      await route.fulfill(hit);
+    } catch {
+      await route.abort();
+    }
+  });
+  const wsOrigin = origin.replace(/^https/, "wss").replace(/^http/, "ws");
+  await ctx.routeWebSocket((u) => u.href.startsWith(wsOrigin), (ws) => {
+    ws.connectToServer(BASE.replace(/^http/, "ws") + ws.url().slice(wsOrigin.length));
+  });
+}
 
 /** Each journey: a fresh browser context (fresh history), its own verdict. */
 const JOURNEYS = [];
@@ -491,11 +561,125 @@ control("feed scroll position: a FRESH visit to the feed starts at the top and i
   return { scrollOnFreshVisit: y, dealsBefore, dealsAfter };
 });
 
+// S4-a · UNDER A POST, THE INSTAGRAM WAY: "More posts from <name>" (the
+// author's other posts, never the one on screen) and the feed beneath — and
+// neither is a dead end: a post opened from there comes Back to this post,
+// and Back again to the feed. The post page reads the feed's CURRENT deal; it
+// must not ask the server for a new one behind the member's back.
+journey("post page: More posts from <name> + the feed beneath → open one → Back → the post → Back → feed", DESKTOP, async (page) => {
+  await openFeedFromBelow(page);
+  await feedQuiet(page);
+  const postId = await page.evaluate(() => window.__nav.postId);
+  const dealsBefore = await deals(page);
+  await page.getByTestId("to-post").click();
+  await waitWhere(page, `/post/${postId}`);
+  const more = page.getByTestId("more-posts-from");
+  await more.waitFor({ timeout: 60000 });
+  if (!/More posts from/i.test(await more.getByRole("heading").innerText())) throw new Error("the section has no \"More posts from\" heading");
+  const tiles = more.getByRole("button");
+  const tileCount = await tiles.count();
+  if (tileCount < 1) throw new Error("More posts from <name> shows no posts");
+  const beneath = page.getByTestId("post-page-feed");
+  await beneath.waitFor({ timeout: 60000 });
+  const feedIds = await beneath.locator("[data-post-id]").evaluateAll((els) => els.map((e) => e.getAttribute("data-post-id")));
+  if (feedIds.length < 1) throw new Error("the feed beneath the post is empty");
+  if (feedIds.includes(postId)) throw new Error("the feed beneath repeats the post on screen");
+  if (new Set(feedIds).size !== feedIds.length) throw new Error(`the feed beneath repeats a post: [${feedIds}]`);
+  if ((await deals(page)) !== dealsBefore) throw new Error("the post page asked the feed for a new deal");
+  // The wall's grid: the first tap shows the counts, the second opens the post.
+  await tiles.first().click();
+  await tiles.first().click();
+  const t0 = Date.now();
+  let other = await where(page);
+  while ((other === `/post/${postId}` || !other.startsWith("/post/")) && Date.now() - t0 < 8000) { await page.waitForTimeout(100); other = await where(page); }
+  if (!other.startsWith("/post/") || other === `/post/${postId}`) throw new Error(`a tile under the post opened ${other}`);
+  await page.getByRole("button", { name: "Back", exact: true }).waitFor({ timeout: 60000 });
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await waitWhere(page, `/post/${postId}`);
+  await page.goBack();
+  await waitWhere(page, "/feed");
+  return { tiles: tileCount, beneath: feedIds.length, opened: other };
+});
+
+// S4-b · A COMMENT NOTIFICATION OPENS THE POST ON THAT COMMENT: the thread
+// opens by itself, the comment is in it (even past the first page, a reply
+// whose parent is not loaded either), it is marked, and it is ON SCREEN —
+// inside the thread's own scrolling band, not merely somewhere in the DOM.
+// Back closes the thread and Back again leaves the post, as for any thread.
+async function highlighted(page, commentId, label) {
+  const row = dialog(page).locator(`[data-comment-id="${commentId}"]`);
+  try { await row.waitFor({ state: "attached", timeout: 20000 }); } catch { throw new Error(`${label}: the comment ${commentId} is not in the thread`); }
+  if ((await row.getAttribute("data-highlighted")) !== "true") throw new Error(`${label}: the comment is in the thread but not marked`);
+  const t0 = Date.now();
+  let seen = null;
+  while (Date.now() - t0 < 6000) {
+    seen = await row.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      let band = el.parentElement;
+      while (band && !/(auto|scroll)/.test(getComputedStyle(band).overflowY)) band = band.parentElement;
+      const b = band ? band.getBoundingClientRect() : { top: 0, bottom: innerHeight };
+      return { top: Math.round(r.top), bottom: Math.round(r.bottom), bandTop: Math.round(b.top), bandBottom: Math.round(b.bottom) };
+    });
+    if (seen.top >= seen.bandTop - 1 && seen.bottom <= seen.bandBottom + 1) return seen;
+    await page.waitForTimeout(150);
+  }
+  throw new Error(`${label}: the marked comment is off screen (${JSON.stringify(seen)})`);
+}
+
+journey("bell / Notifications row: comment notification → the post opens on that comment (past the first page, a reply) → Back closes → Back → feed", DESKTOP, async (page) => {
+  await openFeedFromBelow(page);
+  const postId = await page.evaluate(() => window.__nav.postId);
+  const far = await page.evaluate(() => window.__navComments.far);
+  await page.getByTestId("to-post-comment").click();
+  await dialog(page).waitFor({ state: "visible", timeout: 60000 });
+  await waitWhere(page, `/post/${postId}?comments=${postId}`);
+  const at = await highlighted(page, far, "from the bell");
+  await page.goBack();
+  await waitWhere(page, `/post/${postId}`);
+  await noDialog(page, "after the first Back");
+  await page.goBack();
+  await waitWhere(page, "/feed");
+  await noDialog(page, "after the second Back");
+  return at;
+});
+
+control("a post opened WITHOUT a comment notification does not open its comments", DESKTOP, async (page) => {
+  await openFeedFromBelow(page);
+  const postId = await page.evaluate(() => window.__nav.postId);
+  await page.getByTestId("to-post").click();
+  await waitWhere(page, `/post/${postId}`);
+  await commentButtons(page).first().waitFor({ timeout: 60000 });
+  await settle(page, 1500);
+  if (await dialog(page).first().isVisible().catch(() => false)) throw new Error("the comments opened on their own");
+});
+
+journey("native (Android stub): cold start → reply notification tap → post on that reply, marked → Back ×2 → feed → Back leaves", PHONE, async (page) => {
+  await startAt(page, "/", true);
+  await nativeReady(page);
+  const postId = await page.evaluate(() => window.__nav.postId);
+  const reply = await page.evaluate(() => window.__navComments.reply);
+  await page.evaluate((id) => window.__navNative.tap({ type: "comment_reply", reference_id: id }), postId);
+  await dialog(page).waitFor({ state: "visible", timeout: 60000 });
+  await waitWhere(page, `/post/${postId}?comments=${postId}`);
+  const at = await highlighted(page, reply, "from the push");
+  await pressBack(page);
+  await waitWhere(page, `/post/${postId}`);
+  await noDialog(page, "after the first Back");
+  await pressBack(page);
+  await waitWhere(page, "/feed");
+  if ((await exits(page)) !== 0) throw new Error("Back left the app instead of landing on the feed");
+  await pressBack(page);
+  if ((await exits(page)) !== 1) throw new Error(`on the feed with nothing beneath, Back must leave the app once (asked ${await exits(page)} times)`);
+  return at;
+});
+
 journey("native (Android stub): cold start → notification tap → post → comments → Back ×2 → feed → Back leaves the app", PHONE, async (page) => {
   await startAt(page, "/", true);
   await nativeReady(page);
   const postId = await page.evaluate(() => window.__nav.postId);
-  await page.evaluate((id) => window.__navNative.tap({ type: "post_comment", reference_id: id }), postId);
+  // A REACTION notification: the post opens with its comments closed (S4-b:
+  // a COMMENT notification opens them by itself — its own journey above).
+  await page.evaluate((id) => window.__navNative.tap({ type: "post_reaction", reference_id: id }), postId);
   await waitWhere(page, `/post/${postId}`);
   await commentButtons(page).first().waitFor({ timeout: 60000 });
   await openComments(page);
@@ -527,15 +711,118 @@ journey("native (Android stub): cold start → notification for a post that is g
   if ((await where(page)) !== "/feed") throw new Error(`ended on ${await where(page)}`);
 });
 
-const result = { at: new Date().toISOString(), browser: BROWSER, version: null, journeys: [], verdict: "FAIL" };
+/** The one comment notification the harness bell and Notifications page hold (src/uiharness/nav/main.tsx). */
+const BELL_ACTOR = "Noor Abadi";
+
+// S4-c · BACK PER ENTRY. Where Back goes depends on how the member arrived:
+//   · the bell (a dropdown on top of whatever page they were on) → Back
+//     returns to THAT page;
+//   · the Notifications page → Back returns to the Notifications page, and
+//     the post's own ← Back does too;
+//   · a push notification or an outside link → Back goes to the feed, warm
+//     or cold — never out of the app, never to a blank page.
+// The bell and the Notifications page here are the REAL components.
+// A CONTROL: the bell's row was already an in-app Link, so Back already
+// returned to the page beneath — it must STAY so now that the row carries state.
+control("bell → a comment notification → the post → Back → the page the member was on (and the bell is closed)", DESKTOP, async (page) => {
+  await startAt(page, "/below");
+  await page.getByRole("button", { name: "Notifications" }).first().click({ timeout: 120000 });
+  await tapSettled(page, page.getByText(BELL_ACTOR).first());
+  const postId = await page.evaluate(() => window.__nav.postId);
+  await waitWhere(page, `/post/${postId}?comments=${postId}`);
+  await page.goBack();
+  await waitWhere(page, `/post/${postId}`);
+  await page.goBack();
+  await waitWhere(page, "/below");
+  await noDialog(page, "after Back");
+});
+
+// A CONTROL: the Notifications page already pushed the post on top of itself.
+control("Notifications page → a notification → the post → Back → the Notifications page; the post's ← Back too", DESKTOP, async (page) => {
+  await startAt(page, "/below");
+  await inApp(page, "/notifications");
+  await waitWhere(page, "/notifications");
+  const postId = await page.evaluate(() => window.__nav.postId);
+  await tapSettled(page, page.getByText(BELL_ACTOR).first(), 120000);
+  await waitWhere(page, `/post/${postId}?comments=${postId}`);
+  await page.goBack();
+  await waitWhere(page, `/post/${postId}`);
+  await page.goBack();
+  await waitWhere(page, "/notifications");
+  await tapSettled(page, page.getByText(BELL_ACTOR).first());
+  await waitWhere(page, `/post/${postId}?comments=${postId}`);
+  await page.goBack();
+  await waitWhere(page, `/post/${postId}`);
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await waitWhere(page, "/notifications");
+});
+
+journey("outside link straight to /notifications → its ← Back → the feed, no extra step (never a blank page)", DESKTOP, async (page) => {
+  await startAt(page, "/notifications");
+  const back = page.getByRole("button", { name: "Back", exact: true });
+  await back.waitFor({ timeout: 120000 });
+  const before = await histLen(page);
+  await back.click();
+  await waitWhere(page, "/feed");
+  if ((await histLen(page)) !== before) throw new Error("the fallback to the feed must REPLACE, not push");
+});
+
+journey("native (Android stub): app OPEN on another page → push tap → post → Back → the feed (not the page it was on) → Back → that page", PHONE, async (page) => {
+  await startAt(page, "/", true);
+  await nativeReady(page);
+  await inApp(page, "/below");
+  await waitWhere(page, "/below");
+  const postId = await page.evaluate(() => window.__nav.postId);
+  await page.evaluate((id) => window.__navNative.tap({ type: "post_reaction", reference_id: id }), postId);
+  await waitWhere(page, `/post/${postId}`);
+  await commentButtons(page).first().waitFor({ timeout: 60000 });
+  await pressBack(page);
+  await waitWhere(page, "/feed");
+  if ((await exits(page)) !== 0) throw new Error("Back left the app");
+  await pressBack(page);
+  await waitWhere(page, "/below");
+  if ((await exits(page)) !== 0) throw new Error("Back left the app");
+  // #510 review: the feed and the post were pushed in ONE tick — Back's count
+  // must hold both, or this Back would leave the app with the start beneath.
+  await pressBack(page);
+  await waitWhere(page, "/");
+  if ((await exits(page)) !== 0) throw new Error("Back left the app with the start screen still beneath");
+  await pressBack(page);
+  if ((await exits(page)) !== 1) throw new Error(`at the start, Back must leave the app once (asked ${await exits(page)} times)`);
+});
+
+journey("native (Android stub): app open ON the feed → push tap → post → Back → the feed, once (no second feed beneath)", PHONE, async (page) => {
+  await startAt(page, "/", true);
+  await nativeReady(page);
+  await inApp(page, "/feed");
+  await waitWhere(page, "/feed");
+  await commentButtons(page).first().waitFor({ timeout: 60000 });
+  const postId = await page.evaluate(() => window.__nav.postId);
+  await page.evaluate((id) => window.__navNative.tap({ type: "post_reaction", reference_id: id }), postId);
+  await waitWhere(page, `/post/${postId}`);
+  await commentButtons(page).first().waitFor({ timeout: 60000 });
+  await pressBack(page);
+  await waitWhere(page, "/feed");
+  await pressBack(page);
+  await waitWhere(page, "/");
+  if ((await exits(page)) !== 0) throw new Error("Back left the app");
+});
+
+const result = { at: new Date().toISOString(), browser: BROWSER, origin: ORIGIN || BASE, version: null, journeys: [], verdict: "FAIL" };
 let code = 1;
 let browser;
 try {
   if (ownServer) await waitUp();
   browser = await launch();
   result.version = browser.version();
-  for (const j of ONLY ? JOURNEYS.filter((x) => x.name.includes(ONLY)) : JOURNEYS) {
+  // At the app's origin: the journeys about how the APP is entered and left —
+  // push taps and Android Back, the bell, the Notifications page, outside links.
+  const APP_JOURNEY = /native|bell|Notifications|outside link|external link/;
+  const chosen = (ONLY ? JOURNEYS.filter((x) => x.name.includes(ONLY)) : JOURNEYS).filter((x) => !ORIGIN || APP_JOURNEY.test(x.name));
+  if (chosen.length === 0) throw new Error("no journey matched — a run that measures nothing is not a pass");
+  for (const j of chosen) {
     const ctx = await browser.newContext({ viewport: j.viewport });
+    if (ORIGIN) await serveAtOrigin(ctx);
     const page = await ctx.newPage();
     const consoleErrors = [];
     page.on("pageerror", (e) => consoleErrors.push(String(e)));
@@ -562,6 +849,6 @@ try {
   await browser?.close().catch(() => {});
   stop();
 }
-console.log(`${result.verdict}  ${BROWSER} ${result.version ?? ""}: ${result.journeys.filter((r) => r.pass).length}/${result.journeys.length} journeys`);
+console.log(`${result.verdict}  ${BROWSER} ${result.version ?? ""} at ${ORIGIN || BASE}: ${result.journeys.filter((r) => r.pass).length}/${result.journeys.length} journeys`);
 if (out) writeFileSync(out, JSON.stringify(result, null, 2));
 process.exit(code);

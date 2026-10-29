@@ -256,6 +256,12 @@ export function handleBackPress(opts: {
 let depth = 0;
 /** The router entry the count last saw — a POP back to the SAME entry is not a screen (see below). */
 let lastKey: string | null = null;
+/** React Router's own position on the browser stack (`history.state.idx`) the count last saw. */
+let lastIdx: number | null = null;
+const routerIdx = (): number | null => {
+  const idx = (typeof window !== "undefined" ? (window.history.state as { idx?: unknown } | null)?.idx : undefined);
+  return typeof idx === "number" ? idx : null;
+};
 
 /** Router pushes still on our own stack: 0 = nothing of ours beneath this screen. */
 export function inAppHistoryDepth(): number {
@@ -274,6 +280,7 @@ export function useAndroidBackButton() {
   useEffect(() => {
     depth = 0;
     lastKey = null;
+    lastIdx = routerIdx();
   }, []);
 
   useEffect(() => {
@@ -284,7 +291,14 @@ export function useAndroidBackButton() {
     // that still had somewhere to go back to.
     const sameEntry = location.key === lastKey;
     lastKey = location.key;
-    if (navigationType === "PUSH") depth += 1;
+    // S4-c: TWO pushes in one tick (a push tap with the app open: the feed,
+    // then the post) render ONCE, so this effect runs once for two entries.
+    // The router numbers its entries (`history.state.idx`), so a push counts
+    // the entries it really added; without an index (a memory router) it is one.
+    const idx = routerIdx();
+    const added = idx !== null && lastIdx !== null && idx - lastIdx >= 1 ? idx - lastIdx : 1;
+    if (idx !== null) lastIdx = idx;
+    if (navigationType === "PUSH") depth += added;
     else if (navigationType === "POP" && !sameEntry) depth = Math.max(0, depth - 1);
   }, [navigationType, location.key]);
 

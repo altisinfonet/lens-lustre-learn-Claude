@@ -12,6 +12,7 @@ import { motion } from "framer-motion";
 import { useNotificationsQuery, type UserNotificationGroup } from "@/hooks/notifications/useNotificationsQuery";
 import { useNotificationSound } from "@/hooks/core/useNotificationSound";
 import { getNotifLink } from "@/lib/notificationLinks";
+import { notificationEntryState } from "@/lib/navigationContract";
 import { useDismissOnRouteChange } from "@/hooks/core/useDismissOnRouteChange";
 import { useIsPrimaryInstance } from "@/hooks/core/useIsPrimaryInstance";
 import { describeNotification, relativeAge } from "@/lib/notifications/describe";
@@ -537,7 +538,7 @@ const NotificationBell = () => {
                           const described = describeNotification(subjectFromGroup(group, adminIds));
                           return (
                             <div key={group.group_key} className="flex items-center gap-3 px-4 py-3 border-b border-border/50 hover:bg-muted/20 transition-colors">
-                              <Link to={link} onClick={() => dismissUserGroup(group)} className="shrink-0">
+                              <Link to={link} state={notificationEntryState(group.type)} onClick={() => dismissUserGroup(group)} className="shrink-0">
                                 {avatar ? (
                                   <div className="relative">
                                     <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={avatar} alt="" className="w-9 h-9 rounded-full object-cover" />
@@ -555,7 +556,7 @@ const NotificationBell = () => {
                                 {/* `line-clamp-2`, not `truncate`: this column is
                                     about 200px wide and a one-line clip cut names
                                     mid-word ("Partha Dalal started following y…"). */}
-                                <Link to={link} onClick={() => dismissUserGroup(group)} className="text-xs hover:text-primary transition-colors block line-clamp-2" style={bodyFont}>
+                                <Link to={link} state={notificationEntryState(group.type)} onClick={() => dismissUserGroup(group)} className="text-xs hover:text-primary transition-colors block line-clamp-2" style={bodyFont}>
                                   {described.text}
                                 </Link>
                                 <span className="text-[9px] text-muted-foreground" style={headingFont}>{timeAgoFn(group.latest_at)}</span>

@@ -18,6 +18,10 @@ import RichContentRenderer from "@/components/RichContentRenderer";
 import TranslateBar from "@/components/post/TranslateBar";
 import PostCommentsSection from "@/components/PostCommentsSection";
 import PostCard from "@/components/post/PostCard";
+import PostPageMore from "@/components/post/PostPageMore";
+import { useCommentsOverlay } from "@/contexts/CommentsOverlayContext";
+import { isCommentId, isCommentNotificationType, resolveNotifiedCommentId } from "@/lib/notificationComment";
+import { useScrollRestoreOnReturn } from "@/hooks/core/useScrollRestoreOnReturn";
 import type { UnifiedPost } from "@/types/post";
 import FacebookPhotoGrid from "@/components/FacebookPhotoGrid";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
@@ -57,6 +61,64 @@ interface PostData {
   video?: FeedVideo | null;
 }
 
+/** S4-b: history entries whose comment focus has already been opened (see below). */
+const focusHandled = new Set<string>();
+
+/**
+ * S4-b · A COMMENT NOTIFICATION OPENS ON ITS COMMENT (Instagram/Facebook).
+ *
+ * Arriving from a comment notification (bell, Notifications page, push — the
+ * entry state carries its type) or from a link carrying `?comment=<id>`, the
+ * post opens with its comments open on that comment — loaded even beyond the
+ * first page, scrolled to and marked (src/lib/notificationComment.ts names
+ * the comment). Opening the thread is the ordinary rule-1 push, so Back closes
+ * it (the post is beneath) and Back again leaves the post: nothing new to
+ * learn about Back.
+ *
+ * ONCE per history entry: the entry is remembered, so Back from the thread
+ * (a traversal INTO this same entry) never opens it again — the L1 loop.
+ * Rendered only beside the card, i.e. only once the post is on screen.
+ */
+const CommentNotificationFocus = ({
+  post,
+  onCommentCountChange,
+}: {
+  post: UnifiedPost;
+  onCommentCountChange: (postId: string, delta: number) => void;
+}) => {
+  const location = useLocation();
+  const { openPostComments } = useCommentsOverlay();
+  const search = new URLSearchParams(location.search);
+  const focusParam = search.get("comment");
+  const state = isNotificationEntry(location.state) ? location.state : null;
+  const notifType = state?.type ?? null;
+  const wantsFocus = isCommentId(focusParam) || isCommentNotificationType(notifType);
+  const entryKey = location.key;
+  const onThreadEntry = search.has("comments");
+  useEffect(() => {
+    if (!wantsFocus || onThreadEntry || focusHandled.has(entryKey)) return;
+    focusHandled.add(entryKey);
+    let live = true;
+    let opened = false;
+    void (async () => {
+      const commentId = isCommentId(focusParam)
+        ? focusParam
+        : await resolveNotifiedCommentId(post.id, notifType!).catch(() => null);
+      if (!live) return; // the member moved on while the comment was looked up
+      opened = true;
+      openPostComments(post, onCommentCountChange, { commentId });
+    })();
+    return () => {
+      live = false;
+      // Not opened yet (left mid-lookup, or StrictMode's rehearsal unmount):
+      // this entry has not had its open, so a later mount may still give it one.
+      if (!opened) focusHandled.delete(entryKey);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [post.id, entryKey, wantsFocus, onThreadEntry]);
+  return null;
+};
+
 const PostDetail = () => {
   const { postId } = useParams<{ postId: string }>();
   const { user } = useAuth();
@@ -68,6 +130,9 @@ const PostDetail = () => {
   const { downloading, download: downloadImg } = useDownloadImage();
 
   const { blockedIds } = useBlockedUsers();
+  // S4-a: the page now scrolls on into the author's posts and the feed — Back
+  // from a post opened down there returns to the same place, as on /feed.
+  useScrollRestoreOnReturn();
   const reactMutation = useReactToPost();
   const unreactMutation = useUnreactToPost();
 
@@ -361,8 +426,23 @@ const PostDetail = () => {
             }
             onContentChange={(_, content) => setPost((p) => (p ? { ...p, content } : p))}
           />
+          <CommentNotificationFocus
+            post={unifiedPost}
+            onCommentCountChange={(_, delta) =>
+              setPost((p) => (p ? { ...p, comment_count: Math.max(0, p.comment_count + delta) } : p))
+            }
+          />
 
         </div>
+
+        <PostPageMore
+          key={post.id}
+          postId={post.id}
+          authorId={post.user_id}
+          authorName={post.author_name}
+          authorHandle={post.author_handle}
+          currentUserId={user?.id}
+        />
       </div>
     </>
   );
