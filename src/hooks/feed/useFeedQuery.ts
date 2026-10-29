@@ -729,6 +729,19 @@ const offlineSessions = new WeakSet<object>();
  * a paused page that is cancelled or refreshed leaves nothing running — so the
  * network coming back makes exactly one request, never one per refresh.
  */
+/**
+ * S7b-3 (review #548): pauses for "no network, nothing saved" count as React
+ * Query failures, but they are not the network failing. Counted per feed key,
+ * so they never use up the 3 retries a weak signal gets.
+ */
+const offlineThrowCounts = new Map<string, number>();
+const offlineThrows = (key: readonly unknown[]) => offlineThrowCounts.get(JSON.stringify(key)) ?? 0;
+const noteOfflineThrow = (key: readonly unknown[]) => offlineThrowCounts.set(JSON.stringify(key), offlineThrows(key) + 1);
+const resetOfflineThrows = (key: readonly unknown[]) => offlineThrowCounts.delete(JSON.stringify(key));
+
+/** S7b-3: the seed of a session read from the phone — never sent to the server. */
+export const isOfflineSeed = (seed: string | null | undefined): boolean => typeof seed === "string" && seed.startsWith("offline:");
+
 export class OfflineNoSavedPageError extends Error {
   constructor() {
     super("No network and no saved posts for this page");
@@ -929,7 +942,7 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
      */
     // S7b-3: "no network, nothing saved" retries with no delay — React Query
     // pauses it until the device is online — and is never counted out.
-    retry: (failureCount, error) => error instanceof OfflineNoSavedPageError || failureCount < 3,
+    retry: (failureCount, error) => error instanceof OfflineNoSavedPageError || failureCount - offlineThrows(feedKey) < 3,
     retryDelay: (attempt, error) => (error instanceof OfflineNoSavedPageError ? 0 : Math.min(1000 * 2 ** attempt, 8000)),
 
     // `signal` is deliberately NOT read: reading it makes React Query cancel and
@@ -941,16 +954,24 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
       // Review #548: asked when the request STARTS, handed back when the page
       // is saved — a member who signed out meanwhile gets nothing saved.
       const archiveEpoch = feedArchiveEpoch();
+      // A fresh fetch (failure count 0) starts the count of offline pauses over.
+      if ((qc.getQueryState(feedKey)?.fetchFailureCount ?? 0) === 0) resetOfflineThrows(feedKey);
       /** Saved page `pageIndex` from the phone; marks this session as served from it. */
       const fromPhone = async (): Promise<FeedPage | null> => {
-        const saved = await readFeedPage(userId!, pageIndex, PAGE_SIZE);
+        const saved = await readFeedPage(userId!, pageIndex, PAGE_SIZE, { epoch: archiveEpoch });
         if (saved.posts.length === 0) return null;
         offlineSessions.add(session);
         // Review #548 (N1): a session served from the phone has its own seed,
         // stamped on its pages, so Back from a post returns to it (L1 · B1)
         // instead of dealing a new hand under the member. Later pages of this
         // session never reach the server, so the seed is never sent.
-        if (isFirstPage || !sessionSeedRef.current) sessionSeedRef.current = `offline:${newFeedSessionSeed()}`;
+        if (isFirstPage) sessionSeedRef.current = `offline:${newFeedSessionSeed()}`;
+        else if (!sessionSeedRef.current) {
+          // A later page with no seed (a fresh visit whose refresh failed): it
+          // continues the pages already on screen, so it carries THEIR seed.
+          const held = qc.getQueryData<InfiniteData<FeedPage, number>>(feedKey)?.pages?.[0]?.sessionSeed;
+          sessionSeedRef.current = held ?? `offline:${newFeedSessionSeed()}`;
+        }
         return {
           posts: saved.posts as FeedPost[],
           nextCursor: saved.more ? pageIndex + 1 : null,
@@ -979,6 +1000,7 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
       if (!onlineManager.isOnline()) {
         const saved = archivedFeed ? await fromPhone() : null;
         if (saved) return saved;
+        noteOfflineThrow(feedKey);
         throw new OfflineNoSavedPageError();
       }
 
@@ -992,7 +1014,7 @@ export function useFeedQuery(userId: string | undefined, categories?: string[] |
         // before — the posts stay and "Couldn't refresh" says so — and later
         // pages of a live session keep retrying.
         const nothingOnScreen = !(qc.getQueryData<InfiniteData<FeedPage, number>>(feedKey)?.pages?.length);
-        const lastAttempt = (qc.getQueryState(feedKey)?.fetchFailureCount ?? 0) >= 3;
+        const lastAttempt = (qc.getQueryState(feedKey)?.fetchFailureCount ?? 0) - offlineThrows(feedKey) >= 3;
         if (archivedFeed && isFirstPage && nothingOnScreen && lastAttempt && isNetworkError(error)) {
           const saved = await fromPhone();
           if (saved) return saved;
@@ -1187,7 +1209,10 @@ export function usePostPageFeed(userId: string | undefined, postId: string | und
       const held = client.getQueryData<InfiniteData<{ seen: string[] }, number>>(queryKey);
       const prev = held ? held.pageParams.indexOf(pageIndex - 1) : -1;
       const before = pageIndex === 0 || !held || prev < 0 ? [postId!] : held.pages[prev].seen;
-      const seed = session.seed.current ?? (postPageSeeds.get(postId!) ?? postPageSeeds.set(postId!, newFeedSessionSeed()).get(postId!)!);
+      // S7b-3: a session read from the phone has an "offline:" seed that is
+      // never a server deal — this page then uses its own per-post seed.
+      const liveSeed = isOfflineSeed(session.seed.current) ? null : session.seed.current;
+      const seed = liveSeed ?? (postPageSeeds.get(postId!) ?? postPageSeeds.set(postId!, newFeedSessionSeed()).get(postId!)!);
       const networkIds = session.networkIds.current.length ? session.networkIds.current : await fetchRelevantUsers(userId!);
       const { rows } = await fetchBroadcastPage(before, 0, null, seed, session.personal.current);
       const fresh = rows.filter((r: { id: string }) => !before.includes(r.id));

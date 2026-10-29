@@ -187,8 +187,12 @@ export async function readFeedPage(
   userId: string,
   pageIndex: number,
   pageSize: number,
+  opts: { epoch?: number } = {},
 ): Promise<{ posts: ArchivedPost[]; more: boolean }> {
   if (!userId) return { posts: [], more: false };
+  // A request that started before a sign-out reads nothing (and never loads
+  // the departed member's posts back into memory).
+  if (opts.epoch !== undefined && opts.epoch !== epoch) return { posts: [], more: false };
   await ensureLoaded(userId);
   if (owner !== userId) return { posts: [], more: false };
   const start = pageIndex * pageSize;

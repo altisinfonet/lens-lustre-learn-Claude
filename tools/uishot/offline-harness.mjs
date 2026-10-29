@@ -137,6 +137,11 @@ try {
   }));
   // the pre-OFF-1 cache must not be what answers next
   await page.evaluate(() => localStorage.removeItem("feed_cache_v1"));
+  // Leave the live app (review #548): its saved-feed write is debounced, so
+  // deleting those records while it still runs could race a late write back.
+  // A static file of the same site: same IndexedDB, no app running.
+  await waitForRecords(page, "feed-archive");
+  await page.goto(`${BASE}/robots.txt`, { waitUntil: "load" });
 
   // 2) the app starts with no data network. Only OFF-1's record may answer:
   // S7b-3's saved feed is removed here too (review #548), so this run and the
@@ -203,6 +208,7 @@ try {
   await page.goto(`${BASE}/offlineharness.html?phase=seed`, { waitUntil: "load" });
   await page.getByText(SENTINEL, { exact: false }).first().waitFor({ timeout: 60_000 });
   result.archiveStored = await waitForRecords(page, "feed-archive");
+  await page.goto(`${BASE}/robots.txt`, { waitUntil: "load" }); // no app running while deleting
   await page.evaluate(() => localStorage.removeItem("feed_cache_v1"));
   await deviceRecords(page, "feed", true);
   await page.goto(`${BASE}/offlineharness.html?phase=offline&nobridge=1`, { waitUntil: "load" });

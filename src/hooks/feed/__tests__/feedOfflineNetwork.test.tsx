@@ -34,7 +34,7 @@ vi.mock("@/integrations/supabase/client", async () => {
   };
 });
 
-const { useFeedQuery, useFeedRefresh, isReturnToTheDealOnScreen, __resetSessionSeedRpcProbe } = await import("@/hooks/feed/useFeedQuery");
+const { useFeedQuery, useFeedRefresh, usePostPageFeed, __resetSessionSeedRpcProbe } = await import("@/hooks/feed/useFeedQuery");
 const { clearFeedSessions } = await import("@/lib/feedSessions");
 const { memoryBackend, setBackend } = await import("@/lib/offline/deviceStore");
 const { recordFeedPage, resetFeedArchiveMemory } = await import("@/lib/offline/feedArchive");
@@ -50,6 +50,9 @@ const POOL = Array.from({ length: 60 }, (_, i) => ({
 
 let feedCalls: Record<string, unknown>[];
 let dead: boolean;
+/** get_feed_page requests that reached the (dead) network. */
+let deadFeedAttempts: number;
+let broadcastSeeds: unknown[];
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
@@ -63,11 +66,16 @@ beforeEach(async () => {
   setBackend(memoryBackend());
   feedCalls = [];
   dead = false;
+  deadFeedAttempts = 0;
+  broadcastSeeds = [];
   onLine = true;
   Object.defineProperty(navigator, "onLine", { configurable: true, get: () => onLine });
   h.fetchImpl = async (input, init) => {
-    if (dead) throw new TypeError("Failed to fetch");
     const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+    if (dead) {
+      if (url.pathname.endsWith("/rpc/get_feed_page")) deadFeedAttempts++;
+      throw new TypeError("Failed to fetch");
+    }
     const body = typeof init?.body === "string" ? (JSON.parse(init.body) as Record<string, unknown>) : {};
     const m = url.pathname.match(/^\/rest\/v1\/rpc\/(.+)$/);
     if (m?.[1] === "get_feed_page") {
@@ -76,6 +84,7 @@ beforeEach(async () => {
       return json(200, POOL.slice(after, after + Number(body._limit)).map((p, i) => ({ ...p, source: null, caught_up_after: false, feed_pos: after + i + 1 })));
     }
     if (m?.[1] === "feature_allowed_me") return json(200, false);
+    if (m?.[1] === "get_broadcast_feed") { broadcastSeeds.push(body._session_seed); return json(200, POOL.slice(0, 5)); }
     if (url.pathname === "/rest/v1/posts" && url.searchParams.get("select") === "created_at") return json(200, [{ created_at: POOL[0].created_at }]);
     return json(200, []);
   };
@@ -144,6 +153,8 @@ describe("review #548 · 'online' but nothing answers", () => {
     const { result } = mount();
     await waitFor(() => expect(result.current.data?.pages?.[0]?.offline).toBe(true), { timeout: 20000 });
     expect(result.current.isError).toBe(false);
+    // only after the first try AND its 3 retries failed (re-review #548)
+    expect(deadFeedAttempts).toBe(4);
     // the rest of that session comes from the phone too (one session, one source)
     dead = false;
     await act(async () => { await result.current.fetchNextPage(); });
@@ -172,13 +183,31 @@ describe("review #548 · 'online' but nothing answers", () => {
 });
 
 describe("re-review #548 N1 · Back returns to a session read from the phone", () => {
-  it("saved pages carry their session's seed, so Back keeps them on screen", async () => {
+  it("Back (POP) after a post keeps the saved pages: no new deal, same posts", async () => {
     await saveTwoPages();
     onlineManager.setOnline(false);
-    const { result } = mount();
-    await waitFor(() => expect(result.current.data?.pages?.[0]?.offline).toBe(true));
-    const seed = result.current.data!.pages[0].sessionSeed;
-    expect(typeof seed).toBe("string");
-    expect(isReturnToTheDealOnScreen("POP", { status: "success", data: result.current.data }, seed as string)).toBe(true);
+    const wrapper = ({ children }: { children: React.ReactNode }) => React.createElement(QueryClientProvider, { client: qc }, children);
+    const first = renderHook(() => useFeedQuery(ME), { wrapper });
+    await waitFor(() => expect(first.result.current.data?.pages?.[0]?.offline).toBe(true));
+    const shown = first.result.current.data!.pages[0].posts.map((p) => p.id);
+    first.unmount(); // the member opens a post
+    onlineManager.setOnline(true); // the network comes back meanwhile
+    const back = renderHook(() => useFeedQuery(ME, null, "POP"), { wrapper });
+    await new Promise((r) => setTimeout(r, 300));
+    expect(back.result.current.data!.pages[0].posts.map((p) => p.id)).toEqual(shown);
+    expect(feedCalls).toEqual([]);
+  });
+
+  it("the phone session's seed is never sent to the server (the post page's 'more posts')", async () => {
+    await saveTwoPages();
+    onlineManager.setOnline(false);
+    const wrapper = ({ children }: { children: React.ReactNode }) => React.createElement(QueryClientProvider, { client: qc }, children);
+    const feed = renderHook(() => useFeedQuery(ME), { wrapper });
+    await waitFor(() => expect(feed.result.current.data?.pages?.[0]?.offline).toBe(true));
+    onlineManager.setOnline(true);
+    const more = renderHook(() => usePostPageFeed(ME, "saved-0"), { wrapper });
+    await waitFor(() => expect(broadcastSeeds.length).toBeGreaterThan(0));
+    expect(String(broadcastSeeds[0]).startsWith("offline:")).toBe(false);
+    more.unmount();
   });
 });
