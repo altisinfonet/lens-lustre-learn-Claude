@@ -277,6 +277,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // once, high in the tree.
     installVisibilityObserver();
 
+    /**
+     * Deferred sign-in work (profile name, referral link, auth / device log)
+     * is scheduled through `later`, so the cleanup below can cancel whatever
+     * has not run yet. A bare setTimeout outlived the provider: Android Build
+     * run 40943931632 (1.2.31) failed its unit gate when linkReferral fired
+     * after a test had torn its environment down.
+     */
+    const pending = new Set<ReturnType<typeof setTimeout>>();
+    const later = (fn: () => void, ms: number) => {
+      const id = setTimeout(() => {
+        pending.delete(id);
+        if (isMounted) fn();
+      }, ms);
+      pending.add(id);
+    };
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -382,7 +398,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const u = session.user;
           const metaName = normalizeFullName(u.user_metadata?.full_name || u.user_metadata?.name || null);
           if (metaName) {
-            setTimeout(async () => {
+            later(async () => {
               try {
                 const { data: existing } = await supabase
                   .from("profiles")
@@ -402,7 +418,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               } catch {}
             }, 200);
           }
-          setTimeout(() => linkReferral(session.user), 100);
+          later(() => linkReferral(session.user), 100);
           /**
            * Only for a sign-in we have not already logged. `last_sign_in_at`
            * changes when somebody actually authenticates and stays put through
@@ -414,17 +430,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const signInAt = session.user.last_sign_in_at ?? null;
           if (signInAt !== lastLoggedSignInRef.current) {
             lastLoggedSignInRef.current = signInAt;
-            setTimeout(() => logAuthEvent(session.user.id, "login", signInAt), 0);
+            later(() => logAuthEvent(session.user.id, "login", signInAt), 0);
           }
-          setTimeout(() => logDeviceSignIn(session.user.id), 50);
+          later(() => logDeviceSignIn(session.user.id), 50);
         }
         if (_event === "USER_UPDATED") {
-          setTimeout(() => logAuthEvent(session.user.id, "profile_updated"), 0);
+          later(() => logAuthEvent(session.user.id, "profile_updated"), 0);
         }
         if (_event === "PASSWORD_RECOVERY") {
           (window as any).__passwordRecoveryActive = true;
           sessionStorage.setItem("password_recovery_active", "true");
-          setTimeout(() => logAuthEvent(session.user.id, "password_recovery"), 0);
+          later(() => logAuthEvent(session.user.id, "password_recovery"), 0);
         }
       } else {
         hasInitializedRef.current = false;
@@ -524,6 +540,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       isMounted = false;
+      for (const id of pending) clearTimeout(id);
+      pending.clear();
       subscription.unsubscribe();
       if (realtimeChannel) supabase.removeChannel(realtimeChannel);
     };
