@@ -59,6 +59,7 @@ import type { UnifiedPost } from "@/types/post";
 import { postMedia } from "@/lib/posts/subjectMedia";
 import VideoPoster from "@/components/video/VideoPoster";
 import { formatClock } from "@/components/video/FeedVideoCard";
+import FeedCardWindow from "@/components/feed/FeedCardWindow";
 
 interface Props {
   posts: UnifiedPost[];
@@ -368,11 +369,20 @@ const ProfilePostGrid = ({ posts }: Props) => (
    * Android, and the feed card already pays that cost once.
    */
   <div className="relative left-1/2 w-screen -translate-x-1/2 md:left-0 md:w-full md:translate-x-0 grid grid-cols-3 gap-0 md:gap-1">
+    {/* S6-c · PROFILE WINDOWING: the feed's own FeedCardWindow (not a copy) —
+        each tile's contents (its <img>/<video> poster and decoded bitmap)
+        exist only near the viewport; the wrapper stays, at its measured
+        height, so the grid never shifts. The wrapper is the grid item, so the
+        showcase's full width is set on it. */}
     {posts.map((post, i) =>
       isShowcase(i) ? (
-        <ShowcaseTile key={post.id} post={post} />
+        <FeedCardWindow key={post.id} className="col-span-3">
+          <ShowcaseTile post={post} />
+        </FeedCardWindow>
       ) : (
-        <GridTile key={post.id} post={post} />
+        <FeedCardWindow key={post.id}>
+          <GridTile post={post} />
+        </FeedCardWindow>
       ),
     )}
   </div>

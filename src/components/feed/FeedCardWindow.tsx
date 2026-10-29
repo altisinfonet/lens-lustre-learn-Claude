@@ -92,9 +92,14 @@ interface FeedCardWindowProps {
   children: ReactNode;
   /** Never window this card. Used for the first EAGER_CARDS. */
   eager?: boolean;
+  /**
+   * S6-c · classes for the wrapper itself — in a CSS grid (the profile grid)
+   * the wrapper IS the grid item, so a full-width tile's `col-span-3` goes here.
+   */
+  className?: string;
 }
 
-export default function FeedCardWindow({ children, eager = false }: FeedCardWindowProps) {
+export default function FeedCardWindow({ children, eager = false, className }: FeedCardWindowProps) {
   const ref = useRef<HTMLDivElement>(null);
   // Starts mounted, always. A card must render at least once before anything
   // can know how tall it is.
@@ -141,7 +146,13 @@ export default function FeedCardWindow({ children, eager = false }: FeedCardWind
   }, [eager]);
 
   return (
-    <div ref={ref} style={mounted ? undefined : { height: placeholderHeight ?? undefined }}>
+    <div
+      ref={ref}
+      className={className}
+      // S6-d counts mounted cards by this attribute (≤ 15 after 30 pages).
+      data-feed-window={mounted ? "mounted" : "placeholder"}
+      style={mounted ? undefined : { height: placeholderHeight ?? undefined }}
+    >
       {mounted ? children : null}
     </div>
   );
