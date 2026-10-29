@@ -77,18 +77,27 @@ export function startQueryPersistence(
     schedule(() => {
       pending.delete(id);
       const data = qc.getQueryData(key);
-      if (data === undefined || currentUser !== user) return;
+      // null is never written over what the device holds. On a poor network a
+      // fetcher that reads "no row" from a failed request resolves null as a
+      // SUCCESS; storing that wiped the member's own name, and the app then
+      // said "Photographer" offline (Owner 2026-10-29, app 1.2.29).
+      if (data === undefined || data === null || currentUser !== user) return;
       void putRecord(user, key as unknown[], trimForStorage(data));
     }, WRITE_DEBOUNCE_MS);
   });
 }
 
-/** Put this member's stored data into the cache where the cache is empty. Resolves to the keys restored. */
+/**
+ * Put this member's stored data into the cache where the cache is empty (no
+ * data, or null — a failed request read as "nothing"). Resolves to the keys restored.
+ */
 export async function hydrateFromDevice(qc: QueryClient, userId: string): Promise<string[]> {
   const restored: string[] = [];
   for (const r of await readAll(userId)) {
     if (!isPersisted(r.key, userId)) continue;
-    if (qc.getQueryData(r.key) !== undefined) continue;
+    if (r.data === null || r.data === undefined) continue;
+    const now = qc.getQueryData(r.key);
+    if (now !== undefined && now !== null) continue;
     qc.setQueryData(r.key, r.data, { updatedAt: r.updatedAt });
     restored.push(JSON.stringify(r.key));
   }
