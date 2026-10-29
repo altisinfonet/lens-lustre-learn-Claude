@@ -35,8 +35,10 @@ export function validateUploadDeclaration(size: unknown, contentType: unknown, l
     return { ok: false, status: 400, error: `${label} size must be declared (a whole number of bytes above 0)` };
   }
   if (size > UPLOAD_MAX_BYTES) return { ok: false, status: 413, error: `${label} too large (max 50MB)` };
-  const ct = typeof contentType === "string" && contentType.trim() ? contentType.trim().toLowerCase() : "application/octet-stream";
-  if (!ALLOWED.some((r) => r.test(ct))) return { ok: false, status: 415, error: `${label} type not allowed` };
+  // Checked case-insensitively, but SIGNED exactly as the client will send it
+  // (trimmed only): storage compares the signature with the header it receives.
+  const ct = typeof contentType === "string" && contentType.trim() ? contentType.trim() : "application/octet-stream";
+  if (!ALLOWED.some((r) => r.test(ct.toLowerCase()))) return { ok: false, status: 415, error: `${label} type not allowed` };
   return { ok: true, size, contentType: ct };
 }
 

@@ -23,6 +23,10 @@ describe("S11 presigned photo PUT — the declared size and type are checked and
       expect(validateUploadDeclaration(10, t), t).toMatchObject({ ok: true, contentType: t });
     }
     expect(validateUploadDeclaration(10, "")).toMatchObject({ ok: true, contentType: "application/octet-stream" });
+    // checked without regard to case, signed exactly as sent (trimmed): "image/JPEG" stays "image/JPEG"
+    expect(validateUploadDeclaration(10, " image/JPEG ")).toMatchObject({ ok: true, contentType: "image/JPEG" });
+    expect(validateUploadDeclaration(10, "TEXT/HTML")).toMatchObject({ ok: false, status: 415 });
+    expect(validateUploadDeclaration(10, "image/svg+xml; charset=utf-8")).toMatchObject({ ok: false, status: 415 });
   });
 
   it("signs content-length, content-type and host, in SigV4 order", () => {
