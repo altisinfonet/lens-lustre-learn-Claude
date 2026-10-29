@@ -39,10 +39,11 @@ afterEach(() => { vi.useRealTimers(); });
 describe("AuthProvider deferred sign-in work", () => {
   it("runs while the provider is mounted", async () => {
     const { AuthProvider } = await import("@/hooks/core/useAuth");
-    render(<AuthProvider><span /></AuthProvider>);
+    const view = render(<AuthProvider><span /></AuthProvider>);
     await act(async () => { h.cb!("SIGNED_IN", { user: { id: "u1", user_metadata: {} } }); });
     await act(async () => { vi.advanceTimersByTime(500); });
     expect(h.referralReads).toBe(1);
+    view.unmount();
   });
 
   it("is cancelled when the provider unmounts (never fires after teardown)", async () => {
