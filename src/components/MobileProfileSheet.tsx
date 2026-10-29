@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { memberPath, CLAIM_URL_PATH } from "@/lib/urlHelpers";
 import { useAuth } from "@/hooks/core/useAuth";
+import { ownDisplayName } from "@/lib/ownDisplayName";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { useUserRoles } from "@/hooks/profile/useUserRoles";
 import { resolveAdminSubRoles } from "@/lib/adminRoleAccess";
@@ -68,7 +69,7 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
   const ownPath = memberPath(profileCore?.custom_url);
   const wallPath = ownPath ? `${ownPath}?section=wall` : CLAIM_URL_PATH;
   const avatarUrl = profileCore?.avatar_url ?? null;
-  const fullName = profileCore?.full_name || "Photographer";
+  const fullName = ownDisplayName(profileCore?.full_name, user);
   const hasAdminPanelAccess = resolveAdminSubRoles(roles).length > 0;
 
   if (!user) return null;

@@ -36,6 +36,11 @@ async function fetchProfileCore(userId: string): Promise<ProfileCoreData | null>
     getAdminIds(),
   ]);
 
+  // A failed request is an ERROR, not "this member has no profile". Returning
+  // null here on a poor network replaced the member's own name with
+  // "Photographer" and wiped the copy kept on the phone (Owner 2026-10-29,
+  // app 1.2.29). Thrown, React Query keeps the last good data and retries.
+  if (profileRes.error) throw profileRes.error;
   if (!profileRes.data) return null;
 
   const isAdmin = isAdminUser(userId, adminIds);
