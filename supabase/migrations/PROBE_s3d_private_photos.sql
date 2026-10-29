@@ -58,7 +58,7 @@ BEGIN
   -- PROBE is shaped the same on both lanes and seeds no real data.
   IF post IS NULL THEN
     SELECT p.id, p.user_id INTO post, author
-      FROM public.posts p
+      FROM public.posts p JOIN auth.users u ON u.id = p.user_id
      WHERE NOT public.has_role(p.user_id, 'admin'::public.app_role)
        AND NOT EXISTS (SELECT 1 FROM public.post_media pm WHERE pm.post_id = p.id)
      ORDER BY p.created_at LIMIT 1;
@@ -122,7 +122,7 @@ BEGIN
                              '1440', public.media_derivative_key(mo.owner_id, mo.id, 'public', 1440))
    WHERE mo.id IN (SELECT media_id FROM public.post_media WHERE post_id = post);
   SET LOCAL ROLE authenticated;
-  SELECT count(*), count(*) FILTER (WHERE r.url LIKE '%/photo/%' OR r.url NOT LIKE '%/d/%')
+  SELECT count(*), count(*) FILTER (WHERE r.url LIKE '%/photo/%' OR r.url NOT LIKE origin || '/post-images/' || author || '/d/%')
     INTO n, n_bad FROM public.post_media_resolved_for(ARRAY[post]) r;
   RESET ROLE;
   IF n = 0 OR n % 3 <> 0 OR n_bad <> 0 THEN
