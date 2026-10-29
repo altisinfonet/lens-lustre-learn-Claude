@@ -49,7 +49,10 @@ Browser check: nav harness journeys "sponsored card: …" (Chromium/Firefox/WebK
   **merged main `ffebce1`** (~19:12 UTC); live bundle index-BbC-6DOG.js + live sw-image-cache.js carry it;
   live re-check on the new build: Chromium/Firefox/WebKit × normal/weak network — 6/6 PASS.
 - Posts missing offline: covered by the S7b runner (#547 → main #557; #548 → main carry #563 open). Not touched.
-- Android bump: PR #568 → staging (1.2.30 → 1.2.31; 1.2.30 = versionCode 1133, run 133, spent).
+- Android bump: #568 → staging `ac4981c` (1.2.30 → 1.2.31; 1.2.30 = versionCode 1133, run 133, spent);
+  carry #570 → **main `4a84a7e`** (main re-read right before: still 1.2.30). Both: CI green, independent
+  reviews "nothing blocking". The push fired **Android Build run ID 40943931632** (run #134 → versionCode 1134).
+  That main also carries the S7b runner's #563 (posts offline), #557 (photo worker, switch OFF) and #561.
 - **Live check (2026-10-29 ~18:35–18:41 UTC, www.50mmretina.com, the deployed bundle, REAL production ad data):**
   Chromium 153, Firefox 153, WebKit 26.5 — `/` 200, `/feed` 200, the sponsored card shows the real library ad
   `1793264198326-0v8kgqyk809o.webp` WITH Like + Comment in all three; also PASS with the ad library made
@@ -59,7 +62,7 @@ Browser check: nav harness journeys "sponsored card: …" (Chromium/Firefox/WebK
   Console: no new errors from the ad code. Seen: X-Frame-Options-in-meta and Cloudflare beacon CSP (both
   present before this deploy), 401s from the public key on signed-in reads (test setup), a Dialog a11y warning
   (not in this diff), WebKit "access control checks" on the test's own faked feed replies (test setup).
-- Android build run ID: —
+- Android build run ID: 40943931632 (running)
 
 ## For the Owner (plain words)
 The like and comment buttons disappeared when the phone could not load the ad list for a moment (weak or no network).
