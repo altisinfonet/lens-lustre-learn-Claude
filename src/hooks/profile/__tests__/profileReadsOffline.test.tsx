@@ -11,10 +11,14 @@ import { describe, it, expect, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+// fetchUserEntries and fetchProfileMap read through their own modules; here
+// they answer, so ONLY the profile-extras reads below are on a dead network.
+vi.mock("@/hooks/competition/useUserEntries", async (o) => ({ ...(await o<Record<string, unknown>>()), fetchUserEntries: async () => [] }));
+vi.mock("@/lib/profileMapCache", async (o) => ({ ...(await o<Record<string, unknown>>()), fetchProfileMap: async () => new Map() }));
 vi.mock("@/integrations/supabase/client", () => {
   const dead = { data: null, error: { message: "TypeError: Failed to fetch", code: "" }, count: null };
   const chain: Record<string, unknown> = {};
-  for (const m of ["select", "eq", "in", "order", "limit", "or", "not", "is"]) chain[m] = () => chain;
+  for (const m of ["select", "eq", "in", "order", "limit", "or", "not", "is", "range"]) chain[m] = () => chain;
   chain.maybeSingle = async () => dead;
   chain.single = async () => dead;
   chain.then = (r: (v: unknown) => unknown) => Promise.resolve(dead).then(r);
@@ -33,6 +37,6 @@ describe("profile reads on a dead network", () => {
     await waitFor(() => expect(qc.getQueryState(["friend-follow", "someone", "me-1"])?.status).toBe("error"));
   });
   it("profile extras: the read fails, it is not empty", async () => {
-    await expect(fetchProfileExtended("someone", "me-1")).rejects.toBeTruthy();
+    await expect(fetchProfileExtended("someone", "me-1")).rejects.toMatchObject({ message: expect.stringMatching(/Failed to fetch/) });
   });
 });
