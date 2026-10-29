@@ -784,6 +784,10 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
+          # 2026-10-29: bumped 1.2.25 -> 1.2.26. 1.2.25 (versionCode 1128) was built from main
+          # f5eae3e0 on 2026-10-18 and its Play status is unknown, so the name is treated as spent.
+          # 1.2.26 carries today's live web code into the app: blank feed cards on fast scroll fixed
+          # (#512/#513), no birthday box above the posts (#511/#514), S2 telemetry (#495).
           # 2026-10-18 (later): bumped 1.2.24 -> 1.2.25. 1.2.24 is spent (versionCode 1127, on Play
           # production, Owner 2026-10-18). 1.2.25 carries BUG-VID-HOME (video in the home preview and
           # notification thumbnails) and S12 personal feed client (signals, For you / Following /
@@ -843,8 +847,8 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
-          sed -i 's/versionName "1.0"/versionName "1.2.25"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.25 (1.2.24 is spent - versionCode 1127, Play production 2026-10-18)"
+          sed -i 's/versionName "1.0"/versionName "1.2.26"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.26 (1.2.25 is spent - versionCode 1128, built 2026-10-18)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
