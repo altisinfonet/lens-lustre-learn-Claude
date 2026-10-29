@@ -133,6 +133,8 @@ const PostDetail = () => {
   const [reloadTick, setReloadTick] = useState(0);
   const offlineRef = useRef(false);
   const savedRef = useRef(false);
+  /** Which post, for which member, is on screen (review #564). */
+  const shownRef = useRef<{ postId: string; viewer: string | null } | null>(null);
   offlineRef.current = offline;
   const [showComments, setShowComments] = useState(true);
   const { downloading, download: downloadImg } = useDownloadImage();
@@ -240,11 +242,14 @@ const PostDetail = () => {
       };
     };
     const load = async () => {
-      setLoading(true);
+      // Review #564: the post on screen stays only if it is THIS post for THIS
+      // member (never the previous post under a new address, never member A's
+      // copy for member B); then it stays visible while it reloads (no flash).
+      const viewer = user?.id ?? null;
+      const keep = !!shownRef.current && shownRef.current.postId === postId && shownRef.current.viewer === viewer;
+      if (!keep) { setPost(null); setLoading(true); }
       setOffline(false);
       setNotFound(false);
-      // Review #564: never show the previous post under a new address.
-      setPost((p) => (p && p.id === postId ? p : null));
       // S7b-4: no network → the copy saved on the phone (src/lib/posts/postPageLoad.ts).
       const result = await loadPostPage(postId, user?.id, {
         online: () => onlineManager.isOnline(),
@@ -255,9 +260,15 @@ const PostDetail = () => {
       });
       if (!live) return;
       savedRef.current = result.kind === "post" && result.saved;
-      if (result.kind === "post") setPost(result.post as PostData);
-      else if (result.kind === "offline") setOffline(true);
-      else setNotFound(true);
+      if (result.kind === "post") {
+        setPost(result.post as PostData);
+        shownRef.current = { postId, viewer };
+      } else {
+        setPost(null);
+        shownRef.current = null;
+        if (result.kind === "offline") setOffline(true);
+        else setNotFound(true);
+      }
       setLoading(false);
     };
     load();

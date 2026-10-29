@@ -152,17 +152,23 @@ export const GROUP_CAPS: Readonly<Record<string, number>> = {
 const PROTECTED = new Set<string>(["feed-archive"]);
 
 const groupOf = (r: StoredRecord) => (Array.isArray(r.key) && typeof r.key[0] === "string" ? r.key[0] : "");
+/**
+ * Review #564: the member's OWN records (their wall, profile, notifications —
+ * key[1] is their id) are never evicted by other members' records, and the
+ * saved feed never by anything: those are what OFF-1 promises offline.
+ */
+const isKept = (r: StoredRecord) => PROTECTED.has(groupOf(r)) || (Array.isArray(r.key) && r.key[1] === r.userId);
 
 async function enforceCap(b: Backend, userId: string, group: string) {
   const mine = (await b.getAll()).filter((r) => r.userId === userId).sort((x, y) => y.updatedAt - x.updatedAt);
   const gone = new Set<string>();
   const cap = GROUP_CAPS[group];
   if (cap !== undefined) {
-    for (const r of mine.filter((x) => groupOf(x) === group).slice(cap)) { await b.delete(r.id); gone.add(r.id); }
+    for (const r of mine.filter((x) => groupOf(x) === group && !isKept(x)).slice(cap)) { await b.delete(r.id); gone.add(r.id); }
   }
   const left = mine.filter((r) => !gone.has(r.id));
   if (left.length <= MAX_RECORDS_PER_USER) return;
-  const evictable = left.filter((r) => !PROTECTED.has(groupOf(r)));
+  const evictable = left.filter((r) => !isKept(r));
   for (const r of evictable.slice(Math.max(0, evictable.length - (left.length - MAX_RECORDS_PER_USER)))) await b.delete(r.id);
 }
 

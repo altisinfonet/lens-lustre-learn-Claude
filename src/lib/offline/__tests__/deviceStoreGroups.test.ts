@@ -35,4 +35,30 @@ describe("the saved feed survives everything else the member opens", () => {
     expect(posts).toHaveLength(GROUP_CAPS["seen-post"]);
     expect(posts.some((r) => r.key[1] === "p0")).toBe(false);
   });
+
+  it("review #564: the member's OWN wall and profile survive browsing many other members", async () => {
+    let t = 1000;
+    await putRecord(ME, ["user-wall-posts", ME], { mine: true }, t++);
+    await putRecord(ME, ["profile-core", ME], { full_name: "Me" }, t++);
+    for (let i = 0; i < 80; i++) {
+      await putRecord(ME, ["user-wall-posts", `u${i}`], {}, t++);
+      await putRecord(ME, ["profile-core", `u${i}`], {}, t++);
+    }
+    const all = await readAll(ME, t);
+    expect(all.some((r) => r.key[0] === "user-wall-posts" && r.key[1] === ME)).toBe(true);
+    expect(all.some((r) => r.key[0] === "profile-core" && r.key[1] === ME)).toBe(true);
+  });
+
+  it("review #564: the shared cap never takes the saved feed or own records, only others' (both caps together)", async () => {
+    let t = 1000;
+    for (let i = 0; i < 4; i++) await putRecord(ME, ["feed-archive", i], [{ id: `f${i}` }], t++);
+    await putRecord(ME, ["notifications", ME], { n: 1 }, t++);
+    // kinds with no cap of their own fill the store past the shared cap
+    for (let i = 0; i < 230; i++) await putRecord(ME, ["ungrouped-kind", `x${i}`], {}, t++);
+    const all = await readAll(ME, t);
+    expect(all.length).toBeLessThanOrEqual(205);
+    expect(all.filter((r) => r.key[0] === "feed-archive")).toHaveLength(4);
+    expect(all.some((r) => r.key[0] === "notifications")).toBe(true);
+  });
 });
+
