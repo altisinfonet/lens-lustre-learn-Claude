@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { memberPath, CLAIM_URL_PATH } from "@/lib/urlHelpers";
 import { formatUSDFixed } from "@/lib/currencyFormat";
 import { useAuth } from "@/hooks/core/useAuth";
+import { ownDisplayName } from "@/lib/ownDisplayName";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { useUserRoles } from "@/hooks/profile/useUserRoles";
 import { resolveAdminSubRoles } from "@/lib/adminRoleAccess";
@@ -59,7 +60,7 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
 
   if (!user) return null;
 
-  const fullName = profileCore?.full_name || "Photographer";
+  const fullName = ownDisplayName(profileCore?.full_name, user);
   const initials = fullName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
 
   const roleBadge = hasRole("admin") ? (

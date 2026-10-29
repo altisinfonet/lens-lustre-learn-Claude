@@ -75,6 +75,29 @@ describe("write and restore", () => {
     expect(mem.map.size).toBe(0);
   });
 
+  it("a null result never overwrites what the device holds (poor network: own name kept)", async () => {
+    // Owner 2026-10-29, app 1.2.29: offline the account sheet said "Photographer".
+    await putRecord("me", ["profile-core", "me"], { full_name: "Neil" }, Date.now() - 60_000);
+    const qc = new QueryClient();
+    const runs: (() => void)[] = [];
+    setPersistenceUser("me");
+    startQueryPersistence(qc, (fn) => runs.push(fn));
+    await qc.fetchQuery({ queryKey: ["profile-core", "me"], queryFn: async () => null });
+    runs.forEach((f) => f());
+    await new Promise((r) => setTimeout(r, 0));
+    const stored = (await readAll("me")).find((r) => JSON.stringify(r.key) === JSON.stringify(["profile-core", "me"]));
+    expect(stored?.data).toEqual({ full_name: "Neil" });
+  });
+
+  it("restore also fills a query that holds null (a failed request read as 'nothing')", async () => {
+    await putRecord("me", ["profile-core", "me"], { full_name: "Neil" }, Date.now() - 60_000);
+    const qc = new QueryClient();
+    qc.setQueryData(["profile-core", "me"], null);
+    const restored = await hydrateFromDevice(qc, "me");
+    expect(restored).toEqual([JSON.stringify(["profile-core", "me"])]);
+    expect(qc.getQueryData(["profile-core", "me"])).toEqual({ full_name: "Neil" });
+  });
+
   it("restore fills only empty queries, as OLD data (so it refreshes)", async () => {
     const then = Date.now() - 60_000;
     await putRecord("me", ["notifications", "me"], { n: "stored" }, then);
