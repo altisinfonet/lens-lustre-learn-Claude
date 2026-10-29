@@ -92,5 +92,19 @@ describe("loadPostPage", () => {
     await new Promise((res) => setTimeout(res, 10));
     expect(await savedPost(ME, "p1")).toBeNull();
   });
+
+  it("review #564: a phone store that never answers (WebView quirk) ends in 'offline', never endless loading", async () => {
+    vi.useFakeTimers();
+    try {
+      const { setBackend: set } = await import("@/lib/offline/deviceStore");
+      set({ getAll: () => new Promise(() => {}), put: async () => {}, delete: async () => {}, clear: async () => {} });
+      resetFeedArchiveMemory();
+      const p = loadPostPage("zz", ME, deps({ online: () => false }));
+      await vi.advanceTimersByTimeAsync(5000);
+      expect((await p).kind).toBe("offline");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 

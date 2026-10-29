@@ -78,7 +78,17 @@ function fromFeedPost(p: Record<string, unknown>): PostPageData {
   };
 }
 
-async function fromPhone(postId: string, viewerId: string | null | undefined): Promise<PostPageResult> {
+/** Review #564: a phone store that never answers must not mean endless "Loading…". */
+export const PHONE_READ_TIMEOUT_MS = 3000;
+
+function fromPhone(postId: string, viewerId: string | null | undefined): Promise<PostPageResult> {
+  return Promise.race([
+    readFromPhone(postId, viewerId),
+    new Promise<PostPageResult>((resolve) => setTimeout(() => resolve({ kind: "offline" }), PHONE_READ_TIMEOUT_MS)),
+  ]);
+}
+
+async function readFromPhone(postId: string, viewerId: string | null | undefined): Promise<PostPageResult> {
   if (viewerId) {
     const page = await savedPost<PostPageData>(viewerId, postId);
     if (page) return { kind: "post", post: page, saved: true };
