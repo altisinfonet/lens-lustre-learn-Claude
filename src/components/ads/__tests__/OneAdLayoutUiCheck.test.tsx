@@ -65,7 +65,8 @@ vi.mock("@/lib/ads/adZonesV2", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/ads/adZonesV2")>();
   const zones = Object.fromEntries(real.ALL_ZONES.map((z) => [z, real.defaultZoneConfig(z)]));
   zones["story-card"] = { ...zones["story-card"], mode: "own" };
-  return { ...real, fetchAdZonesEnabled: async () => true, fetchAdZones: async () => zones, fetchAdFrequency: async () => ({}) };
+  return { ...real, fetchAdZonesEnabled: async () => true, fetchAdZones: async () => zones, fetchAdFrequency: async () => ({}),
+    fetchAdZoneSettings: async () => ({ enabled: true, zones }) };
 });
 vi.mock("@/lib/ads/adCreatives", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/ads/adCreatives")>()),

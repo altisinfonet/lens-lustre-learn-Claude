@@ -21,7 +21,7 @@
  * the v2 system is verified and the feature flag is switched on.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { getSiteSetting } from "@/lib/siteSettingsCache";
+import { getSiteSetting, getSiteSettings } from "@/lib/siteSettingsCache";
 
 /**
  * Ad settings are the one group an admin edits live and expects members to see
@@ -240,21 +240,24 @@ export const normalizeFrequency = (raw: unknown): AdFrequencyConfig => {
 
 /* ── Read helpers (fetch from site_settings) ── */
 
-export async function fetchAdZones(): Promise<Record<AdZoneId, AdZoneConfig>> {
+/** Every zone's config from the stored `ad_zones_v2` value (null / unset → the safe defaults). */
+export function zonesFromStored(value: unknown): Record<AdZoneId, AdZoneConfig> {
   const out = {} as Record<AdZoneId, AdZoneConfig>;
-  for (const z of ALL_ZONES) out[z] = defaultZoneConfig(z);
+  const stored = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
+  for (const z of ALL_ZONES) out[z] = stored[z] ? normalizeZone(stored[z], z) : defaultZoneConfig(z);
+  return out;
+}
+
+export async function fetchAdZones(): Promise<Record<AdZoneId, AdZoneConfig>> {
   try {
     // Batched + cached: <AdZone> mounts once per ad slot and the feed renders
     // several, so a direct query here was 3 requests x every slot on screen.
     const value = await getSiteSetting(AD_ZONES_KEY, { maxAgeMs: AD_SETTING_MAX_AGE_MS });
-    const stored = (value ?? {}) as Record<string, unknown>;
-    for (const z of ALL_ZONES) {
-      if (stored[z]) out[z] = normalizeZone(stored[z], z);
-    }
+    return zonesFromStored(value);
   } catch {
     /* keep safe defaults on any error */
+    return zonesFromStored(null);
   }
-  return out;
 }
 
 export async function fetchAdFrequency(): Promise<AdFrequencyConfig> {
@@ -263,6 +266,34 @@ export async function fetchAdFrequency(): Promise<AdFrequencyConfig> {
   } catch {
     return defaultFrequencyConfig();
   }
+}
+
+/**
+ * The master flag and every zone's config in ONE read, or null when they could
+ * not be read. Unlike fetchAdZonesEnabled / fetchAdZones (which fall back to
+ * "off" / defaults), this lets a caller tell "ads are off" from "unknown":
+ * the settings reader answers null both for an unset key and for a failed
+ * request, and both keys are set on every lane that shows ads, so null is
+ * unknown (ads bug 2, 2026-10-29: a weak-network read must not be saved on
+ * the phone as "ads off" over the last good settings).
+ */
+export async function fetchAdZoneSettings(): Promise<{ enabled: boolean; zones: Record<AdZoneId, AdZoneConfig> } | null> {
+  let flag: unknown;
+  let stored: unknown;
+  try {
+    [flag, stored] = await getSiteSettings([AD_ZONES_FLAG_KEY, AD_ZONES_KEY], { maxAgeMs: AD_SETTING_MAX_AGE_MS });
+  } catch {
+    return null;
+  }
+  // A malformed config degrades to the safe defaults, as fetchAdZones does —
+  // it is not a network problem, so it must not read as "unknown".
+  const zones = () => {
+    try { return zonesFromStored(stored); } catch { return zonesFromStored(null); }
+  };
+  // An explicit "off" is a definite answer even when no zone was ever saved.
+  if (flag === false) return { enabled: false, zones: zones() };
+  if (flag === null || stored === null) return null;
+  return { enabled: flag === true, zones: zones() };
 }
 
 /** Master flag — while false, v2 stays fully dormant. Defaults to false. */
