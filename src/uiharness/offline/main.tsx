@@ -26,7 +26,7 @@
  */
 import { createRoot } from "react-dom/client";
 import { Suspense, lazy } from "react";
-import { onlineManager } from "@tanstack/react-query";
+import { seedOnlineManager } from "@/lib/offline/onlineSeed";
 import { installFakeBackend } from "../fakeBackend";
 import { fixtureRoutes } from "../fixtureRoutes";
 import { createFakeTables, CONSTRAINTS, toResponse } from "../fakeTables";
@@ -49,7 +49,10 @@ if (phase === "offline") {
     return fakeFetch(input, init);
   };
   Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
-  onlineManager.setOnline(false);
+  // The phone says offline; the app's own start-up seed (App.tsx) tells React
+  // Query — the harness does not force it (review #548). The seed acts only in
+  // the installed app (carry review #563); this harness stands in for it.
+  seedOnlineManager({ asNativeApp: true });
 }
 if (phase === "reconnect") {
   const server = createFakeTables();

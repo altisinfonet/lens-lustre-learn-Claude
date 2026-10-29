@@ -12,7 +12,11 @@
  * is started again with NO data network. The fixture post's caption must be on
  * screen. CONTROL: the same offline start WITHOUT the OFF-1 bridge must NOT
  * show it — if the control shows it, the harness is measuring the wrong thing
- * and fails.
+ * and fails. S7b-3 added a SECOND reader of the same device store (the saved
+ * feed, `feedArchive`, keys ["feed-archive", n]); the control removes those
+ * records too, so it still tests exactly one thing: OFF-1's record present,
+ * its reader off. LEG 1b (S7b-3): OFF-1's records removed, the bridge off, only
+ * the saved feed left — the post must still be on screen (fails before S7b-3).
  *
  * LEG 2 (OFF-2): with no data network, the member taps Like on the fixture
  * post through the REAL Feed screen (twice: the fixture post is already liked,
@@ -61,6 +65,7 @@ async function waitUp() {
 }
 
 const result = { at: new Date().toISOString(), seedShown: false, storedFeed: false, offlineShown: false, controlShown: null,
+  archiveStored: false, archiveOnlyShown: false,
   offlineLike: { tapped: false, queuedOnDevice: null, serverRows: null, sends: null, outboxLeft: null, log: null }, verdict: "FAIL" };
 
 const readOutbox = (page) => page.evaluate(() => new Promise((resolve) => {
@@ -74,6 +79,38 @@ const readOutbox = (page) => page.evaluate(() => new Promise((resolve) => {
     all.onerror = () => resolve([]);
   };
 }));
+// Device-store records whose key starts with `prefix` ("feed" = OFF-1's query
+// page, "feed-archive" = S7b-3's saved feed): count them, or delete them.
+const deviceRecords = (page, prefix, del = false) => page.evaluate(([prefix, del]) => new Promise((resolve) => {
+  const req = indexedDB.open("retina-offline");
+  req.onerror = () => resolve(0);
+  req.onsuccess = () => {
+    const db = req.result;
+    if (!db.objectStoreNames.contains("kv")) return resolve(0);
+    const tx = db.transaction("kv", del ? "readwrite" : "readonly");
+    const store = tx.objectStore("kv");
+    const all = store.getAll();
+    let n = 0;
+    all.onsuccess = () => {
+      for (const r of all.result) {
+        if (!Array.isArray(r.key) || r.key[0] !== prefix) continue;
+        if (Array.isArray(r.data) && r.data.length === 0) continue; // empty archive chunk
+        n++;
+        if (del) store.delete(r.id);
+      }
+    };
+    tx.oncomplete = () => { db.close(); resolve(n); };
+    tx.onerror = () => resolve(0);
+  };
+}), [prefix, del]);
+const waitForRecords = async (page, prefix) => {
+  for (let i = 0; i < 20; i++) {
+    if ((await deviceRecords(page, prefix)) > 0) return true;
+    await page.waitForTimeout(500);
+  }
+  return false;
+};
+
 let code = 1;
 try {
   await waitUp();
@@ -100,13 +137,25 @@ try {
   }));
   // the pre-OFF-1 cache must not be what answers next
   await page.evaluate(() => localStorage.removeItem("feed_cache_v1"));
+  // Leave the live app (review #548): its saved-feed write is debounced, so
+  // deleting those records while it still runs could race a late write back.
+  // A static file of the same site: same IndexedDB, no app running.
+  await waitForRecords(page, "feed-archive");
+  await page.goto(`${BASE}/robots.txt`, { waitUntil: "load" });
 
-  // 2) the app starts with no data network
+  // 2) the app starts with no data network. Only OFF-1's record may answer:
+  // S7b-3's saved feed is removed here too (review #548), so this run and the
+  // control below differ in ONE thing — the bridge — and leg 1 still proves
+  // OFF-1's reader on its own. Leg 1b proves the saved feed on its own.
+  await deviceRecords(page, "feed-archive", true);
   await page.goto(`${BASE}/offlineharness.html?phase=offline`, { waitUntil: "load" });
   result.offlineShown = await page.getByText(SENTINEL, { exact: false }).first().waitFor({ timeout: 20_000 }).then(() => true, () => false);
 
-  // 3) control: same start without the bridge
+  // 3) control: same start without the bridge (S7b-3's saved feed, the other
+  // reader of this store, removed as in step 2 — the step 2 run may have
+  // written nothing new, as it was offline)
   await page.evaluate(() => localStorage.removeItem("feed_cache_v1"));
+  await deviceRecords(page, "feed-archive", true);
   await page.goto(`${BASE}/offlineharness.html?phase=offline&nobridge=1`, { waitUntil: "load" });
   await page.waitForTimeout(6000);
   result.controlShown = (await page.getByText(SENTINEL, { exact: false }).count()) > 0;
@@ -153,12 +202,27 @@ try {
   result.offlineLike.sends = server ? server.log.filter((l) => l.startsWith("POST post_reactions")).length : null;
   result.offlineLike.outboxLeft = (await readOutbox(page)).length;
 
+  // 6) LEG 1b (S7b-3) — last, so legs 1 and 2 stay independent. Online once
+  // more so the saved feed is written, then OFF-1's record removed and the
+  // bridge off: only the saved feed is left to show the post.
+  await page.goto(`${BASE}/offlineharness.html?phase=seed`, { waitUntil: "load" });
+  await page.getByText(SENTINEL, { exact: false }).first().waitFor({ timeout: 60_000 });
+  result.archiveStored = await waitForRecords(page, "feed-archive");
+  await page.goto(`${BASE}/robots.txt`, { waitUntil: "load" }); // no app running while deleting
+  await page.evaluate(() => localStorage.removeItem("feed_cache_v1"));
+  await deviceRecords(page, "feed", true);
+  await page.goto(`${BASE}/offlineharness.html?phase=offline&nobridge=1`, { waitUntil: "load" });
+  result.archiveOnlyShown = await page.getByText(SENTINEL, { exact: false }).first().waitFor({ timeout: 20_000 }).then(() => true, () => false);
+
   await browser.close();
   const leg1 = result.seedShown && result.storedFeed && result.offlineShown && result.controlShown === false;
+  const leg1b = result.archiveStored && result.archiveOnlyShown;
   const L = result.offlineLike;
   const leg2 = L.tapped && L.queuedOnDevice && L.serverRows === 1 && L.sends >= 3 && L.outboxLeft === 0;
-  result.verdict = leg1 && leg2 ? "PASS (leg 1 + leg 2)" : `FAIL (leg 1 ${leg1 ? "pass" : "FAIL"}, leg 2 ${leg2 ? "pass" : "FAIL"})`;
-  code = leg1 && leg2 ? 0 : 1;
+  const ok = leg1 && leg1b && leg2;
+  result.verdict = ok ? "PASS (leg 1 + leg 1b + leg 2)"
+    : `FAIL (leg 1 ${leg1 ? "pass" : "FAIL"}, leg 1b ${leg1b ? "pass" : "FAIL"}, leg 2 ${leg2 ? "pass" : "FAIL"})`;
+  code = ok ? 0 : 1;
 } catch (e) {
   result.error = String(e && e.message ? e.message : e);
 } finally {
