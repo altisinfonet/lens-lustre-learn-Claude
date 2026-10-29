@@ -153,6 +153,21 @@ describe("photos from our CDN are saved on the phone", () => {
     expect(w.seen.filter((s) => s.url === LIVE).map((s) => s.mode)).toEqual(["cors", "no-cors"]);
   });
 
+  it("ads bug 2: the feed's sponsored picture (journal-images/ads) is kept and shown with no network", async () => {
+    const AD = "https://cdn.50mmretina.com/journal-images/ads/1793264198326-0v8kgqyk809o.webp";
+    const w = loadWorker();
+    expect(await w.fetchImage(AD)).not.toBeNull();
+    expect(w.entries()).toContain(AD);
+    w.setOnline(false);
+    expect((await w.fetchImage(AD))?.status).toBe(200);
+  });
+
+  it("ads bug 2: only the ads folder of journal-images, not the whole bucket", async () => {
+    const w = loadWorker();
+    expect(await w.fetchImage("https://cdn.50mmretina.com/journal-images/articles/a.webp")).toBeNull();
+    expect(w.entries()).toEqual([]);
+  });
+
   it("other hosts and our own app files are left alone", async () => {
     const w = loadWorker();
     expect(await w.fetchImage("https://example.com/post-images/a/b.webp")).toBeNull();

@@ -96,6 +96,10 @@ const OUR_CDN_HOSTS = (() => {
   }
 })();
 
+/** Where the feed's sponsored pictures live (AdCreativeLibrary.tsx uploads them as type "ad"). */
+const AD_BUCKET = "journal-images";
+const AD_FOLDER = "ads";
+
 /** Query parameters that mean "this URL carries a pass or a signature". */
 const PRIVATE_PARAMS = ["t", "token", "sig", "signature", "Signature", "Expires", "X-Amz-Signature", "X-Amz-Credential"];
 
@@ -118,6 +122,10 @@ function isGalleryImage(url) {
   if (OUR_CDN_HOSTS.includes(u.hostname)) {
     const parts = u.pathname.replace(/^\//, "").split("/");
     if (parts.length >= 2 && THUMB_BUCKETS.includes(parts[0])) return true;
+    // Ads bug 2 (2026-10-29, "On no network ad is not showing"): the feed's
+    // sponsored pictures are kept like feed photos. Only the ads folder of
+    // journal-images (public, admin-placed), not the whole bucket.
+    if (parts.length >= 3 && parts[0] === AD_BUCKET && parts[1] === AD_FOLDER) return true;
   }
 
   // Supabase Storage public OR render endpoint
