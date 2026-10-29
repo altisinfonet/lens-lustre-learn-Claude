@@ -160,3 +160,45 @@ export async function guardOriginalUpload(file: File): Promise<File> {
   });
   return cleanFile;
 }
+
+/**
+ * The file itself, when it is PROVABLY a WebP with no metadata chunk; null
+ * otherwise (not WebP, malformed, or carrying EXIF / XMP). Reads the RIFF chunk
+ * list only — no decode. A browser canvas encode (compressImageToFiles) never
+ * writes EXIF or XMP, so its output passes; a camera / editor WebP with
+ * location data does not.
+ *
+ * Why not guardOriginalUpload: its parser (exifr) does not read WebP at all
+ * ("Unknown file format"), so for a WebP it can only ever refuse.
+ */
+function readBytes(file: Blob): Promise<Uint8Array> {
+  if (typeof file.arrayBuffer === "function") return file.arrayBuffer().then((a) => new Uint8Array(a));
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(new Uint8Array(r.result as ArrayBuffer));
+    r.onerror = () => reject(r.error);
+    r.readAsArrayBuffer(file);
+  });
+}
+
+export async function metadataFreeWebp(file: File): Promise<File | null> {
+  try {
+    const b = await readBytes(file);
+    const tag = (i: number) => String.fromCharCode(b[i], b[i + 1], b[i + 2], b[i + 3]);
+    if (b.length < 20 || tag(0) !== "RIFF" || tag(8) !== "WEBP") return null;
+    const riffEnd = Math.min(b.length, 8 + (b[4] | (b[5] << 8) | (b[6] << 16) | (b[7] << 24)) >>> 0);
+    let i = 12;
+    let sawImage = false;
+    while (i + 8 <= riffEnd) {
+      const t = tag(i);
+      const n = (b[i + 4] | (b[i + 5] << 8) | (b[i + 6] << 16) | (b[i + 7] << 24)) >>> 0;
+      if (t === "EXIF" || t === "XMP ") return null;
+      if (t === "VP8 " || t === "VP8L" || t === "ANMF") sawImage = true;
+      i += 8 + n + (n & 1);
+    }
+    if (i !== riffEnd && i !== riffEnd + 1) return null; // truncated / overlong chunk list: not provable
+    return sawImage ? file : null;
+  } catch {
+    return null;
+  }
+}
