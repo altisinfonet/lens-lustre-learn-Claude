@@ -45,10 +45,11 @@ describe("the feed realtime channel is a singleton per client", () => {
     expect(feedHook).toMatch(/addFeedLiveConsumer\(/);
   });
 
-  it("the shared module opens exactly one channel object, per user, and removes the previous one first", () => {
+  it("the shared module opens exactly one channel object, per user, and removes the previous one once the new one is subscribed", () => {
     expect(live.match(/supabase\.channel\(/g) ?? []).toHaveLength(1);
     expect(live).toMatch(/supabase\.channel\(`feed-live:\$\{f\.userId\}:/);
-    expect(live.indexOf("removeChannel(channel)")).toBeLessThan(live.indexOf("supabase.channel("));
+    expect(live).toMatch(/if \(status === "SUBSCRIBED"\) dropPrev\(\);/);
+    expect(live).toMatch(/setTimeout\(dropPrev, PREV_GRACE_MS\)/);
   });
 
   it("the notification bell keeps its own guard — this change must not remove it", () => {

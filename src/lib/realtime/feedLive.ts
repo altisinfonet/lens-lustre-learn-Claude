@@ -44,6 +44,8 @@ export interface FeedLiveConsumer {
 
 const MAX_IN = 100; // Supabase realtime `in` filter limit
 const REBUILD_MS = 1500;
+/** The old channel is removed when the new one is subscribed, or after this at the latest. */
+const PREV_GRACE_MS = 5000;
 const consumers = new Set<FeedLiveConsumer>();
 let channel: RealtimeChannel | null = null;
 let generation = 0;
@@ -63,12 +65,17 @@ const uuidOnly = (ids: Iterable<string>) => {
   return out;
 };
 
+/** Round-robin across consumers, so one long list cannot starve the others of the 100 slots. */
+function* interleave(lists: string[][]): Generator<string> {
+  for (let i = 0; lists.some((l) => i < l.length); i++) for (const l of lists) if (i < l.length) yield l[i];
+}
+
 /** The filters the current consumers need. Exported for the tests. */
 export function feedLiveFilters(): { userId: string | null; authors: string[]; posts: string[] } {
   const list = [...consumers];
   const userId = list[0]?.userId ?? null;
-  const authors = uuidOnly([...(userId ? [userId] : []), ...list.flatMap((c) => c.authorIds())]);
-  const posts = uuidOnly(list.flatMap((c) => c.postIds()));
+  const authors = uuidOnly([...(userId ? [userId] : []), ...interleave(list.map((c) => c.authorIds()))]);
+  const posts = uuidOnly(interleave(list.map((c) => c.postIds())));
   return { userId, authors, posts };
 }
 
@@ -78,14 +85,16 @@ function build() {
   const next = f.userId ? JSON.stringify(f) : "";
   if (next === signature) return;
   signature = next;
-  if (channel) {
-    void supabase.removeChannel(channel);
-    channel = null;
-  }
-  if (!f.userId) return;
-  const live = [...consumers];
+  // The previous channel stays until the new one is SUBSCRIBED (no window
+  // in which events are lost); at rest exactly one is open.
+  const prev = channel;
+  channel = null;
+  const drop = (old: RealtimeChannel | null) => { if (old) void supabase.removeChannel(old); };
+  if (!f.userId) { drop(prev); return; }
+  // Every event goes to the consumers registered NOW (a consumer added after
+  // this build, with the same filters, must not be deaf).
   const fan = (pick: (c: FeedLiveConsumer) => (row: any) => void) => (payload: { new: any }) => {
-    for (const c of live) if (consumers.has(c)) pick(c)(payload.new);
+    for (const c of [...consumers]) pick(c)(payload.new);
   };
   generation += 1;
   let ch = supabase.channel(`feed-live:${f.userId}:${generation}`);
@@ -97,7 +106,15 @@ function build() {
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "posts", filter: `id=in.(${f.posts.join(",")})` }, fan((c) => c.onUpdate))
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "post_reactions", filter: `post_id=in.(${f.posts.join(",")})` }, fan((c) => c.onReaction));
   }
-  channel = ch.subscribe((status) => recordRealtime(status));
+  let dropped = false;
+  const dropPrev = () => { if (!dropped) { dropped = true; drop(prev); } };
+  const mine = ch;
+  channel = ch.subscribe((status) => {
+    if (channel !== mine) return; // a replaced channel's CLOSED is not a disconnect
+    recordRealtime(status);
+    if (status === "SUBSCRIBED") dropPrev();
+  });
+  setTimeout(dropPrev, PREV_GRACE_MS);
 }
 
 /** Ask for the channel to match the consumers again (debounced). */
@@ -120,6 +137,7 @@ export function addFeedLiveConsumer(c: FeedLiveConsumer): () => void {
 
 /** Test seam. */
 export function __resetFeedLive() {
+  // (a pending PREV_GRACE_MS removal only removes an already-replaced channel)
   if (timer) clearTimeout(timer);
   timer = null;
   consumers.clear();

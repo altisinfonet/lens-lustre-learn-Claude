@@ -5,16 +5,16 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
-  channels: [] as Array<{ topic: string; bindings: Array<{ event: string; table: string; filter?: string }>; removed: boolean; status?: (s: string) => void }>,
+  channels: [] as Array<{ topic: string; bindings: Array<{ event: string; table: string; filter?: string; cb: (p: { new: unknown }) => void }>; removed: boolean; status?: (s: string) => void }>,
   realtime: [] as string[],
 }));
 
 vi.mock("@/integrations/supabase/client", () => {
   const make = (topic: string) => {
-    const rec = { topic, bindings: [] as Array<{ event: string; table: string; filter?: string }>, removed: false, status: undefined as undefined | ((s: string) => void) };
+    const rec = { topic, bindings: [] as Array<{ event: string; table: string; filter?: string; cb: (p: { new: unknown }) => void }>, removed: false, status: undefined as undefined | ((s: string) => void) };
     h.channels.push(rec);
     const ch = {
-      on: (_t: string, cfg: { event: string; table: string; filter?: string }) => { rec.bindings.push(cfg); return ch; },
+      on: (_t: string, cfg: { event: string; table: string; filter?: string }, cb: (p: { new: unknown }) => void) => { rec.bindings.push({ ...cfg, cb }); return ch; },
       subscribe: (cb: (s: string) => void) => { rec.status = cb; return ch; },
       __rec: rec,
     };
@@ -44,6 +44,7 @@ describe("S6-b feed-live", () => {
     addFeedLiveConsumer(consumer([id(3)], [ME]));
     addFeedLiveConsumer(consumer([], []));
     refreshFeedLive(true);
+    open()[open().length - 1].status!("SUBSCRIBED");
     expect(open()).toHaveLength(1);
     const ch = open()[0];
     expect(ch.topic.startsWith(`feed-live:${ME}:`)).toBe(true);
@@ -53,8 +54,8 @@ describe("S6-b feed-live", () => {
     }
     expect(ch.bindings.map((b) => `${b.table} ${b.event} ${b.filter}`)).toEqual([
       `posts INSERT user_id=in.(${ME},${id(50)})`,
-      `posts UPDATE id=in.(${id(1)},${id(2)},${id(3)})`,
-      `post_reactions INSERT post_id=in.(${id(1)},${id(2)},${id(3)})`,
+      `posts UPDATE id=in.(${id(1)},${id(3)},${id(2)})`,
+      `post_reactions INSERT post_id=in.(${id(1)},${id(3)},${id(2)})`,
     ]);
   });
 
@@ -63,9 +64,33 @@ describe("S6-b feed-live", () => {
     addFeedLiveConsumer(consumer(posts, []));
     for (let n = 2; n <= 150; n++) posts.push(id(n));
     refreshFeedLive(true);
+    // the old channel stays until the new one is subscribed — no lost events
+    expect(open()).toHaveLength(2);
+    open()[1].status!("SUBSCRIBED");
     expect(open()).toHaveLength(1);
     const f = open()[0].bindings.find((b) => b.table === "posts" && b.event === "UPDATE")!.filter!;
     expect(f.split(",")).toHaveLength(100);
+  });
+
+  it("a consumer registered AFTER the build, with the same filters, still receives events (review #520 B1)", () => {
+    const feed = consumer([id(1)], []);
+    addFeedLiveConsumer(feed);
+    const composer = consumer([], []);
+    addFeedLiveConsumer(composer);
+    refreshFeedLive(true); // same signature: no rebuild
+    expect(h.channels).toHaveLength(1);
+    const upd = open()[0].bindings.find((b) => b.table === "posts" && b.event === "UPDATE")!;
+    upd.cb({ new: { id: id(1) } });
+    expect(feed.onUpdate).toHaveBeenCalledTimes(1);
+    expect(composer.onUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("the 100 slots are shared round-robin between consumers", () => {
+    addFeedLiveConsumer(consumer(Array.from({ length: 150 }, (_, n) => id(n)), []));
+    addFeedLiveConsumer(consumer([id(900)], []));
+    refreshFeedLive(true);
+    const ch = open()[open().length - 1];
+    expect(ch.bindings.find((b) => b.table === "posts" && b.event === "UPDATE")!.filter).toContain(id(900));
   });
 
   it("subscribe status goes to S2 telemetry; the last consumer gone = no channel", () => {
