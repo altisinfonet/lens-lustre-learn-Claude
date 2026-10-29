@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { presignObjects } from "@/lib/s3Upload";
 import { putWithRetry } from "./transport";
 import { isNetworkError } from "@/lib/offline/retryPolicy";
-import { readSiteSettingState } from "@/lib/siteSettingsCache";
+import { readSiteSettingState, siteSettingFailure } from "@/lib/siteSettingsCache";
 import { lastKnown, rememberKnown } from "@/lib/offline/lastKnown";
 import {
   publishViaMedia, reportLegacyOnlyPublish, reportMediaPathFailure,
@@ -31,8 +31,10 @@ export async function photoResumeOn(): Promise<boolean> {
       rememberKnown(PHOTO_RESUME_KEY, on);
       return on;
     }
-    // S7b-5b: could not read (no network) — the last answer this phone saw;
-    // never seen: off. A post made in flight mode then takes the job path.
+    // S7b-5b: could not read because the network is lost — the last answer
+    // this phone saw; never seen: off. A post made in flight mode then takes
+    // the job path. A refusal with the network up reads off (review #583).
+    if (siteSettingFailure(PHOTO_RESUME_KEY) !== "network") return false;
     return lastKnown(PHOTO_RESUME_KEY) ?? false;
   } catch {
     return false;

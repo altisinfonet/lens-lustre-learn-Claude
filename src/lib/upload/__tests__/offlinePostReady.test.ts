@@ -9,7 +9,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-const db = vi.hoisted(() => ({ s3: true as boolean | null, s3Fails: false, s3Refused: false, rows: [] as { key: string; value: unknown }[], settingsFail: false }));
+const db = vi.hoisted(() => ({ s3: true as boolean | null, s3Fails: false, s3Refused: false, rows: [] as { key: string; value: unknown }[], settingsFail: false, settingsRefused: false }));
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     rpc: async () => (db.s3Fails ? { data: null, error: { message: "TypeError: Failed to fetch" } }
@@ -17,6 +17,7 @@ vi.mock("@/integrations/supabase/client", () => ({
       : { data: db.s3, error: null }),
     from: () => ({ select: () => ({ in: async () => {
       if (db.settingsFail) throw new TypeError("Failed to fetch");
+      if (db.settingsRefused) return { data: null, error: { message: "permission denied for table site_settings", code: "42501" } };
       return { data: db.rows, error: null };
     } }) }),
   },
@@ -30,7 +31,7 @@ beforeEach(() => {
   localStorage.clear();
   clearS3Cache();
   invalidateSiteSetting();
-  db.s3 = true; db.s3Fails = false; db.s3Refused = false; db.rows = []; db.settingsFail = false;
+  db.s3 = true; db.s3Fails = false; db.s3Refused = false; db.rows = []; db.settingsFail = false; db.settingsRefused = false;
 });
 
 describe("storage switch offline", () => {
@@ -66,6 +67,18 @@ describe("photo_upload_resume offline", () => {
     db.rows = [{ key: "photo_upload_resume", value: "on" }];
     expect(await photoResumeOn()).toBe(true);
     invalidateSiteSetting();
+    db.settingsFail = true;
+    expect(await photoResumeOn()).toBe(true);
+  });
+  it("review #583: a server refusal with the network up is off — only a lost network uses the last answer", async () => {
+    db.rows = [{ key: "photo_upload_resume", value: "on" }];
+    expect(await photoResumeOn()).toBe(true);
+    invalidateSiteSetting();
+    db.settingsRefused = true;
+    expect(await photoResumeOn()).toBe(false);
+    // and a lost network after that still uses the last answer seen (on)
+    invalidateSiteSetting();
+    db.settingsRefused = false;
     db.settingsFail = true;
     expect(await photoResumeOn()).toBe(true);
   });
