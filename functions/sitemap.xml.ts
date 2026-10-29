@@ -28,7 +28,7 @@
  */
 
 interface Env { SUPABASE_PROJECT_REF?: string }
-interface Ctx { request: Request; env: Env; next: () => Promise<Response>; waitUntil?: (p: Promise<unknown>) => void }
+interface Ctx { request: Request; env: Env; next: (input?: Request) => Promise<Response>; waitUntil?: (p: Promise<unknown>) => void }
 
 export const FRESH_S = 3600;
 export const STALE_S = 86400;
@@ -123,13 +123,22 @@ function xmlResponse(xml: string, source: string): Response {
       "content-type": "application/xml; charset=utf-8",
       "cache-control": `public, max-age=${FRESH_S}`,
       "x-sitemap-source": source,
+      // A Function's own response does not get the site's _headers rules.
+      "x-content-type-options": "nosniff",
+      "content-security-policy": "default-src 'none'",
     },
   });
 }
 
 export const onRequest = async (context: Ctx): Promise<Response> => {
-  const fallback = await context.next();
-  if (context.request.method !== "GET" || !fallback.ok) return fallback;
+  // The static file is read WITHOUT the crawler's conditional headers: with them,
+  // a crawler holding the static file's ETag gets a 304 and keeps the thin copy
+  // forever (the static file rebuilds with the same ETag).
+  const plain = new Headers(context.request.headers);
+  for (const h of ["if-none-match", "if-modified-since", "if-match", "if-unmodified-since", "if-range", "range"]) plain.delete(h);
+  const fallback = await context.next(new Request(context.request.url, { method: context.request.method, headers: plain }));
+  // Only a whole (200) static file may set the floor; a 206 or anything else passes through.
+  if (context.request.method !== "GET" || fallback.status !== 200) return fallback;
 
   const staticXml = await fallback.clone().text();
   const minLocs = locCount(staticXml);
