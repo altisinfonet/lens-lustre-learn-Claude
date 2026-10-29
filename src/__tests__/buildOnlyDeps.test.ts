@@ -5,8 +5,9 @@
  * so a build-only package listed there inflates (or hides inside) that count.
  *   sharp           — used only by tools/media-derivatives (the backfill), run with devDeps installed
  *   vite-plugin-pwa — not imported anywhere (the service worker is hand-written)
- *   vite-plugin-image-optimizer — vite.config.ts only (build time); it is also why sharp
- *                     was "devOptional": its optional peer kept sharp in the shipped tree
+ *   vite-plugin-image-optimizer — vite.config.ts only (build time). It must move
+ *                     with sharp: it names sharp as an optional peer, so while it
+ *                     stayed in `dependencies`, sharp stayed in the shipped tree
  */
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
