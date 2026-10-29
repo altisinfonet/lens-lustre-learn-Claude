@@ -1,4 +1,5 @@
 import { UserPlus, UserMinus, UserCheck, Users, Heart, Clock } from "lucide-react";
+import PendingMark from "@/components/offline/PendingMark";
 import { useFriendFollow } from "@/hooks/social/useFriendFollow";
 import { useNavigate, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -265,6 +266,8 @@ export const FriendFollowButtons = ({ targetUserId }: Props) => {
         <Heart className={`h-3.5 w-3.5 ${isFollowing ? "fill-current" : ""}`} />
         {isFollowing ? "Following" : "Follow"}
       </button>
+      {/* S7b-5: a follow made with no network, kept on the phone until sent. */}
+      <PendingMark subject={`follow:${targetUserId}`} />
     </div>
   );
 };

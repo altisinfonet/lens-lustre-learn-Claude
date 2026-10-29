@@ -1,4 +1,5 @@
 import { useAuth } from "@/hooks/core/useAuth";
+import { ownDisplayName } from "@/lib/ownDisplayName";
 import { memberPath } from "@/lib/urlHelpers";
 import { publicUrl } from "@/lib/publicUrl";
 import FeaturedPhotos from "./FeaturedPhotos";
@@ -42,7 +43,7 @@ const ProfileLeftSidebar = () => {
   // the id url shown, printed and scanned.
   const ownPath = memberPath(profile?.custom_url);
   const profileUrl = ownPath ? publicUrl(ownPath) : null;
-  const displayName = profile?.full_name || "Photographer";
+  const displayName = ownDisplayName(profile?.full_name, user);
 
   return (
     <div className="space-y-5">
