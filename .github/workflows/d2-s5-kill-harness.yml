@@ -31,9 +31,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # The subject: the S5-b resumable photo job, 8/8 clean.
           - name: "8-point kill test (chromium)"
-            args: "--impl legacy"
+            args: "--impl job"
             out: s5-kill-chromium
+          # The same at the Android app's origin (the Capacitor shell loads https://localhost).
+          - name: "8-point kill test (app origin https://localhost)"
+            args: "--impl job --origin https://localhost"
+            out: s5-kill-app-origin
+          # CONTROL: the pre-S5 pipeline must FAIL somewhere, or the harness cannot see the defect.
+          - name: "8-point kill test control (pre-S5 pipeline must fail)"
+            args: "--impl legacy --expect-fail"
+            out: s5-kill-control
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

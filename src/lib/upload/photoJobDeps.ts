@@ -30,6 +30,8 @@ export async function photoResumeOn(): Promise<boolean> {
   }
 }
 
+const RETRYABLE_DB_CODES = new Set(["57014", "55P03", "40001", "40P01"]);
+
 async function publish(j: PhotoJob): Promise<string> {
   const photos = j.slots.map((sl) => ({ url: sl.objects[0].url!, thumbnailUrl: sl.objects[1].url!, stored: sl.stored }));
   const via = await publishViaMedia({ photos, ...j.post, idempotencyKey: j.id });
@@ -51,7 +53,11 @@ async function publish(j: PhotoJob): Promise<string> {
     { data: legacy.data as { id: string } | null, error: legacy.error }, j.userId, j.id,
   );
   if (settled.data) return settled.data.id;
-  if (!settled.error || isNetworkError(settled.error)) throw new Error(settled.error?.message ?? "publish: no answer");
+  // Network, or Postgres saying "try again" (timeout, lock, serialisation, deadlock — the
+  // same set as the video runner): back off and retry. Anything else is a refusal.
+  if (!settled.error || isNetworkError(settled.error) || RETRYABLE_DB_CODES.has(settled.error.code ?? "")) {
+    throw new Error(settled.error?.message ?? "publish: no answer");
+  }
   throw new PhotoRefused(settled.error.message);
 }
 
