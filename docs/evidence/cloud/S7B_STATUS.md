@@ -28,6 +28,6 @@ Updated: 2026-10-29 ~21:35 UTC · branch `status/s7b-runner` (draft, never merge
 
 ## Owner list (click-only, plain words)
 
-- Later, your decision: when to turn on "app_image_sw" (photos kept on the phone for no network) on the live site. Before that, a check of the photo server's sharing headers is needed (I will do it and tell you).
+- Your decision: when to turn on "app_image_sw" (photos kept on the phone for no network) on the live site. The photo server's sharing headers were checked and are ready (cdn.50mmretina.com answers the app and the website correctly).
 - Your decision: new posts with photos made with no network need the switch "photo_upload_resume" (S5, today OFF). Until it is on, a post made offline shows a clear message instead of being kept.
 - For the database team (D1), not a click: liking a comment offline can only be queued after "post_comment_reactions" is added to their exactly-once list; until then it says "needs a connection".
