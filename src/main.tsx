@@ -10,6 +10,7 @@ import { initNativeAuthDeepLink, isNativeCapacitorApp, isNativeIOSApp } from "./
 import { applyImageWorkerSwitch, imageWorkerDecision, imageWorkerUrl, readImageWorkerSwitch } from "./lib/offline/imageWorkerRegistration";
 import { CDN_HOST } from "./lib/env";
 import { installZoomPolicy } from "./lib/native/zoomPolicy";
+import { installStaleChunkReload } from "./lib/staleChunkReload";
 
 import "./index.css";
 
@@ -86,6 +87,8 @@ installImageErrorReporter();
 // app starts, batched every 15 s through record_client_telemetry. Installed
 // once, before the app mounts, on the website and in the app's WebView.
 installTelemetry();
+// A deploy must not break an open tab: any lazy chunk that is gone reloads once.
+installStaleChunkReload();
 
 /**
  * "after just a touch report content entire screen got freezed. until app

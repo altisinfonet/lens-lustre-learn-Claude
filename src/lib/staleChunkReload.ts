@@ -78,42 +78,51 @@ export function isStaleChunkError(reason: unknown): boolean {
   );
 }
 
-/** Reload once, and only once, per tab per cooldown window. */
-function reloadOnce(): void {
+/** Reload once, and only once, per tab per cooldown window. True when a reload was started. */
+function reloadOnce(): boolean {
   try {
     const last = Number(sessionStorage.getItem(RELOAD_MARK) || "0");
     if (last && Date.now() - last < COOLDOWN_MS) {
       // Already tried. Something else is wrong — let the error boundary speak
       // rather than spinning.
-      return;
+      return false;
     }
     sessionStorage.setItem(RELOAD_MARK, String(Date.now()));
   } catch {
     // Private mode with storage disabled: without storage we cannot loop-guard,
     // so we do not reload at all. A dead screen the member can fix with their
     // own reload button beats a reload loop they cannot escape.
-    return;
+    return false;
   }
   window.location.reload();
+  return true;
 }
 
-export function installStaleChunkReload(): void {
-  if (typeof window === "undefined") return;
+let installed = false;
 
-  // Vite's own signal, fired when a preloaded chunk cannot be fetched.
+/**
+ * Installed once from main.tsx (2026-10-29, S11: it had been written but never
+ * installed, so only the ~50 route chunks in App.tsx's lazyRetry recovered;
+ * the ~86 other lazy chunks — admin tabs, modals, judge views — showed the
+ * error screen after every deploy).
+ */
+export function installStaleChunkReload(): void {
+  if (typeof window === "undefined" || installed) return;
+  installed = true;
+
+  // Vite's own signal, fired for EVERY dynamic import whose chunk (or one of
+  // its preloads) cannot be fetched. Cancel the error ONLY when the page is
+  // actually reloading; inside the cooldown it must reach the error boundary,
+  // or the import would resolve to nothing and the screen would break silently.
   window.addEventListener("vite:preloadError", (event) => {
-    event.preventDefault(); // stop it becoming an unhandled error as well
-    reloadOnce();
+    if (reloadOnce()) event.preventDefault();
   });
 
   // The same failure arriving as a rejected dynamic import — this is the shape
   // the owner's console actually showed:
   //   "TypeError: Failed to fetch dynamically imported module: …UsersModule…"
   window.addEventListener("unhandledrejection", (event) => {
-    if (isStaleChunkError(event.reason)) {
-      event.preventDefault();
-      reloadOnce();
-    }
+    if (isStaleChunkError(event.reason) && reloadOnce()) event.preventDefault();
   });
 
   // And as a plain error, which is how some browsers report it.
