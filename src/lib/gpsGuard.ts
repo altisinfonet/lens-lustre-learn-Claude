@@ -86,21 +86,40 @@ export function stripJpegMetadata(bytes: Uint8Array): Uint8Array {
 }
 
 /**
+ * P13: exifr (~74 KB) is loaded when a photo is checked, not with the app.
+ */
+const loadExifr = () => import("exifr").then((m) => m.default);
+
+/**
  * Gate an ORIGINAL (non-re-encoded) file before it may be uploaded.
  * Returns the file to upload (original, or a stripped copy).
  * Throws GpsPrivacyError when the file must not be uploaded at all.
  */
-/**
- * P13: exifr (~74 KB) is loaded when a photo is checked, not with the app. A
- * failed load throws inside the same try as a parse failure, so it takes the
- * same fail-closed path.
- */
-const loadExifr = () => import("exifr").then((m) => m.default);
-
 export async function guardOriginalUpload(file: File): Promise<File> {
+  // Loaded ONCE, before any check (review #587): without the reader neither
+  // "no location" nor "stripping removed it" can be proven, and an unprovable
+  // file does not go to a public CDN.
+  let exifr: Awaited<ReturnType<typeof loadExifr>>;
+  try {
+    exifr = await loadExifr();
+  } catch (e) {
+    logger.warn({
+      code: "FILE-5013",
+      event: "GPS_GUARD_READER_UNAVAILABLE",
+      fn: "guardOriginalUpload",
+      file: FILE,
+      message: "The EXIF reader could not be loaded; the original upload was refused.",
+      reason: e instanceof Error ? e.message : String(e),
+      expected: "The on-demand exifr chunk loads",
+      actual: "Load failed (offline web, or a stale deploy)",
+      nextStep: "Fails closed by design. The member can retry once the page can load its files again.",
+      detail: { fileType: file.type, fileSizeBytes: file.size },
+    });
+    throw new GpsPrivacyError(GPS_REFUSAL_MESSAGE);
+  }
   let hasGps: boolean;
   try {
-    const gps = await (await loadExifr()).gps(file);
+    const gps = await exifr.gps(file);
     hasGps = !!gps && typeof gps.latitude === "number" && typeof gps.longitude === "number";
   } catch {
     // exifr could not parse the container at all. For JPEG we can still strip
@@ -135,7 +154,7 @@ export async function guardOriginalUpload(file: File): Promise<File> {
   // failure on the stripped copy means the metadata container is gone, which
   // is the outcome we wanted — only a POSITIVE GPS read fails the guard.
   try {
-    const still = await (await loadExifr()).gps(cleanFile);
+    const still = await exifr.gps(cleanFile);
     if (still && typeof still.latitude === "number") {
       logger.error({
         code: "FILE-5007",
