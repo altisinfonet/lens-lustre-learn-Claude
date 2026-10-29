@@ -126,16 +126,57 @@ export async function putRecord(userId: string, key: readonly unknown[], data: u
     const bytes = json.length * 2; // UTF-16 upper bound; good enough for a cap
     if (bytes > MAX_RECORD_BYTES) return false;
     await b.put({ id: recordId(userId, key), userId, key: [...key], data: JSON.parse(json), updatedAt: now, bytes });
-    await enforceCap(b, userId);
+    await enforceCap(b, userId, typeof key[0] === "string" ? key[0] : "");
     return true;
   } catch {
     return false;
   }
 }
 
-async function enforceCap(b: Backend, userId: string) {
+/**
+ * S7b-4 (review #564): each kind of "what the member opened" record has its OWN
+ * cap and evicts only its own kind, oldest first. One shared cap let 100 opened
+ * posts push the saved feed out of the store. The caps add up to well under
+ * MAX_RECORDS_PER_USER, so the shared cap below is a last resort only.
+ */
+export const GROUP_CAPS: Readonly<Record<string, number>> = {
+  "seen-post": 40,
+  "seen-thread": 40,
+  "user-wall-posts": 20,
+  "user-own-posts": 15,
+  "profile-extended": 20,
+  "friend-follow": 20,
+  "profile-core": 30,
+};
+/** Never evicted by the shared cap: the saved feed (S7b-3), at most a few chunks. */
+const PROTECTED = new Set<string>(["feed-archive"]);
+
+const groupOf = (r: StoredRecord) => (Array.isArray(r.key) && typeof r.key[0] === "string" ? r.key[0] : "");
+/**
+ * Review #564: the member's OWN records (their wall, profile, notifications —
+ * key[1] is their id) are never evicted by other members' records, and the
+ * saved feed never by anything: those are what OFF-1 promises offline.
+ */
+const isKept = (r: StoredRecord) => PROTECTED.has(groupOf(r)) || (Array.isArray(r.key) && r.key[1] === r.userId);
+
+async function enforceCap(b: Backend, userId: string, group: string) {
   const mine = (await b.getAll()).filter((r) => r.userId === userId).sort((x, y) => y.updatedAt - x.updatedAt);
-  for (const r of mine.slice(MAX_RECORDS_PER_USER)) await b.delete(r.id);
+  const gone = new Set<string>();
+  const cap = GROUP_CAPS[group];
+  if (cap !== undefined) {
+    for (const r of mine.filter((x) => groupOf(x) === group && !isKept(x)).slice(cap)) { await b.delete(r.id); gone.add(r.id); }
+  }
+  const left = mine.filter((r) => !gone.has(r.id));
+  if (left.length <= MAX_RECORDS_PER_USER) return;
+  const evictable = left.filter((r) => !isKept(r));
+  for (const r of evictable.slice(Math.max(0, evictable.length - (left.length - MAX_RECORDS_PER_USER)))) await b.delete(r.id);
+}
+
+/** Delete one record of one member. Never throws. */
+export async function deleteRecord(userId: string, key: readonly unknown[]): Promise<void> {
+  const b = backend();
+  if (!b || !userId) return;
+  try { await b.delete(recordId(userId, key)); } catch { /* nothing to do */ }
 }
 
 /** Every fresh record for this member, newest first. Expired records are deleted on the way. */

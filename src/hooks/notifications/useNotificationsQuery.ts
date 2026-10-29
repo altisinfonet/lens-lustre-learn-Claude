@@ -198,6 +198,11 @@ async function fetchNotifications(
     }),
   ]);
 
+  // S7b-4: the grouped notifications are the bell. Their read failing is not
+  // "nothing new": thrown, React Query keeps what is on screen (and OFF-1 never
+  // writes an empty bell over the notifications saved on the phone).
+  if (groupsRes.error) throw groupsRes.error;
+
   let adminNotifications: AdminNotification[] = [];
   if (isAdmin) {
     const { data: adminData } = await supabase
@@ -488,3 +493,6 @@ export function useNotificationsQuery(
     cache,
   };
 }
+
+/** S7b-4: the bell's reader, for tests. */
+export { fetchNotifications as fetchBellNotifications };

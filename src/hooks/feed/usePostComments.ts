@@ -24,6 +24,10 @@ import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
 import { useAddComment } from "@/hooks/feed/useAddComment";
 import type { ThreadComment } from "@/components/comments/CommentThread";
 import { createThreadCache, threadCacheKey } from "@/lib/comments/threadCache";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
+import { rememberThread, savedThread, seenContentEpoch, type SavedAuthor } from "@/lib/offline/seenContent";
+import type { ProfileMapEntry } from "@/lib/profileMapCache";
 
 /** One post_comments row as the thread reads it, its reactions embedded. */
 interface CommentRow {
@@ -191,6 +195,9 @@ export function usePostComments(
   const [editSubmitting, setEditSubmitting] = useState(false);
 
   const { profileMap } = useProfileMap(commentUserIds);
+  const qc = useQueryClient();
+  /** S7b-4: rows this screen just read ONLINE, waiting for their authors' names to be saved. */
+  const onlineRowsRef = useRef<{ key: string; rows: CommentRow[]; epoch: number } | null>(null);
 
   // WHOSE thread the state on screen is: this viewer's copy of this post.
   // A member change (A signs out, B signs in, the component never unmounted)
@@ -263,6 +270,7 @@ export function usePostComments(
     // Only a thread with nothing to show says "Loading comments…". A cached
     // one stays on screen while it refreshes.
     if (!THREAD_CACHE.has(viewerId, postId)) setLoading(true);
+    const epochAtStart = seenContentEpoch();
     const [rows] = await Promise.all([fetchThreadRows(postId, focusCommentId), getAdminIds()]);
 
     // The selected post, or the member, moved on while this was in flight:
@@ -271,11 +279,48 @@ export function usePostComments(
 
     if (rows) {
       THREAD_CACHE.set(viewerId, postId, rows);
+      onlineRowsRef.current = { key: requestedFor, rows, epoch: epochAtStart };
       applyRows(rows, viewerId);
+    } else if (viewerId && !THREAD_CACHE.has(viewerId, postId)) {
+      // S7b-4: the read failed (no network) and nothing is in memory: the
+      // thread as this member last read it online, with its authors' names.
+      const saved = await savedThread<CommentRow>(viewerId, postId);
+      if (requestedFor !== threadKeyRef.current) return;
+      if (saved && saved.rows.length > 0) {
+        const ids = [...new Set(saved.rows.map((r) => r.user_id))].sort();
+        if (!qc.getQueryData(queryKeys.profileMap(ids))) {
+          const entries = ids.map((id): [string, ProfileMapEntry] => {
+            const a: SavedAuthor | undefined = saved.authors[id];
+            return [id, {
+              id, full_name: a?.full_name ?? null, avatar_url: a?.avatar_url ?? null, badges: a?.badges ?? [], roles: [],
+              last_active_at: null, custom_url: a?.custom_url ?? null,
+            } as ProfileMapEntry];
+          });
+          // Old data (updatedAt 0): the live names replace it once online.
+          qc.setQueryData(queryKeys.profileMap(ids), new Map(entries), { updatedAt: 0 });
+        }
+        applyRows(saved.rows, viewerId);
+      }
     }
     setLoading(false);
     setLoaded(true);
-  }, [postId, viewerId, applyRows, focusCommentId]);
+  }, [postId, viewerId, applyRows, focusCommentId, qc]);
+
+  // S7b-4: a thread read online is kept on the phone with its authors' names
+  // (once they have arrived), so it opens with no network next time.
+  useEffect(() => {
+    const o = onlineRowsRef.current;
+    if (!o || o.key !== threadKey || !viewerId || !postId) return;
+    const ids = [...new Set(o.rows.map((r) => r.user_id))];
+    if (!ids.every((id) => profileMap[id])) return; // names not here yet
+    const authors: Record<string, SavedAuthor> = {};
+    for (const id of ids) {
+      const p = profileMap[id];
+      authors[id] = { full_name: p.full_name ?? null, avatar_url: p.avatar_url ?? null, custom_url: p.custom_url ?? null, badges: p.badges ?? [] };
+    }
+    onlineRowsRef.current = null;
+    void rememberThread(viewerId, postId, o.rows, authors, { epoch: o.epoch });
+  }, [profileMap, threadKey, viewerId, postId, rawComments]);
 
   // Build comment tree reactively when rawComments or profileMap changes
   useEffect(() => {
