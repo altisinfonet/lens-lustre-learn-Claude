@@ -9,8 +9,10 @@
  *
  * FALLBACK IS DELIBERATE
  *   When a zone has no rows in `ad_creatives`, callers fall back to the single
- *   `ad_zones_v2` picture. So this file adds a capability without taking one
- *   away — an existing single-image zone keeps working untouched.
+ *   `ad_zones_v2` picture — only when the library is KNOWN to be empty, never
+ *   because it could not be read (see fetchAdCreatives). So this file adds a
+ *   capability without taking one away — an existing single-image zone keeps
+ *   working untouched.
  *
  * PLACEMENT RULE (owner decision 2026-08-01) — FIXED, never rotated.
  *   Creatives are ordered by `sort_order`. Picture #1 always appears after 2
@@ -58,7 +60,7 @@ export interface AdCreative {
 const CACHE_TTL_MS = 60_000;
 
 const cache = new Map<string, { at: number; rows: AdCreative[] }>();
-const inflight = new Map<string, Promise<AdCreative[]>>();
+const inflight = new Map<string, Promise<AdCreative[] | null>>();
 
 /** Clear the memo so an admin's change shows up without a reload. */
 export const invalidateAdCreatives = (): void => {
@@ -66,19 +68,35 @@ export const invalidateAdCreatives = (): void => {
   inflight.clear();
 };
 
+/** PostgREST's "this table does not exist" — the library migration has not run on this lane. */
+const TABLE_MISSING = new Set(["42P01", "PGRST205"]);
+
 /**
  * Active creatives for a zone, cheapest-first: memo → in-flight → network.
- * Never throws; an error is an empty library, which means "fall back to the
- * single zone picture", never a blank screen.
+ * Never throws.
+ *
+ * THREE ANSWERS, NOT TWO (ads bug runner, 2026-10-29). Owner, latest Android
+ * app: "From Feed ad comment and like section vanished". This used to return
+ * `[]` for ANY failure — offline, a timeout on a weak link, an expired session
+ * — and cache that `[]` for a minute. `[]` means "the zone has no library",
+ * so the feed card fell back to the zone's single picture, which has no
+ * ad_creatives row and therefore no like / comment bar (AdZone.tsx), and the
+ * mounted card never asked again. Now:
+ *
+ *   rows   the library (possibly empty: there are no active pictures);
+ *   []     also when the table itself is missing (migration not run) — a lane
+ *          without the library really has none, so the single picture is right;
+ *   null   the library could NOT BE READ. Not cached, so the next call asks
+ *          again; the caller must not treat it as "no library".
  */
-export const fetchAdCreatives = async (zone: AdZoneId): Promise<AdCreative[]> => {
+export const fetchAdCreatives = async (zone: AdZoneId): Promise<AdCreative[] | null> => {
   const hit = cache.get(zone);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.rows;
 
   const running = inflight.get(zone);
   if (running) return running;
 
-  const req = (async (): Promise<AdCreative[]> => {
+  const req = (async (): Promise<AdCreative[] | null> => {
     try {
       const { data, error } = await supabase
         .from("ad_creatives" as never)
@@ -87,7 +105,14 @@ export const fetchAdCreatives = async (zone: AdZoneId): Promise<AdCreative[]> =>
         .eq("is_active", true)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true });
-      if (error) throw error;
+      if (error) {
+        if (TABLE_MISSING.has((error as { code?: string }).code ?? "")) {
+          // No library on this lane: the zone's single picture is correct.
+          cache.set(zone, { at: Date.now(), rows: [] });
+          return [];
+        }
+        return null;
+      }
       const base = ((data as unknown as AdCreative[]) || [])
         .filter((r) => typeof r?.image_url === "string" && r.image_url.trim().length > 0);
       // VID-5: which of these creatives have a playable video (one batched read).
@@ -106,9 +131,8 @@ export const fetchAdCreatives = async (zone: AdZoneId): Promise<AdCreative[]> =>
       cache.set(zone, { at: Date.now(), rows });
       return rows;
     } catch {
-      // Table missing (migration not yet run) or offline → behave as "no library".
-      cache.set(zone, { at: Date.now(), rows: [] });
-      return [];
+      // Offline, aborted, or anything unexpected: unknown, never "no library".
+      return null;
     } finally {
       inflight.delete(zone);
     }

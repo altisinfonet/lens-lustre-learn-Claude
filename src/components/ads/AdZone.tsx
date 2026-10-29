@@ -14,6 +14,7 @@
  * they get their own components.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import DOMPurify from "dompurify";
 import { cn } from "@/lib/utils";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
@@ -24,12 +25,11 @@ import {
   type AdZoneConfig,
   type AdDevice,
   ZONE_META,
-  fetchAdZones,
-  fetchAdFrequency,
-  fetchAdZonesEnabled,
 } from "@/lib/ads/adZonesV2";
 import { detectDevice, trackZoneEvent } from "@/lib/ads/adTrackV2";
-import { type AdCreative, fetchAdCreatives, pickCreativeForSlot } from "@/lib/ads/adCreatives";
+import { invalidateAdCreatives, pickCreativeForSlot } from "@/lib/ads/adCreatives";
+import { adZoneQueryKey, loadAdZoneData } from "@/lib/ads/adZoneData";
+import { retryDelay } from "@/lib/offline/retryPolicy";
 import AdEngagementBar from "@/components/ads/AdEngagementBar";
 import FeedVideoCard from "@/components/video/FeedVideoCard";
 import { adMedia } from "@/lib/posts/subjectMedia";
@@ -151,57 +151,50 @@ const CreativeOverlay = ({ headline, subtext, cta }: { headline: string; subtext
 const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
   const { isAdmin } = useIsAdmin();
   const siteLogo = useSiteLogo();
-  const [enabled, setEnabled] = useState<boolean | null>(null);
-  const [config, setConfig] = useState<AdZoneConfig | null>(null);
-  const [creatives, setCreatives] = useState<AdCreative[] | null>(null);
-  const [publisherId, setPublisherId] = useState<string>("");
   const [device, setDevice] = useState<AdDevice>(() => detectDevice(typeof window === "undefined" ? 1280 : window.innerWidth));
   const containerRef = useRef<HTMLDivElement>(null);
   const impressionTracked = useRef(false);
-  /**
-   * Bumped when the admin saves in Ad Spots ("ad-slots-updated"), so every
-   * mounted zone in THAT session refetches immediately instead of holding its
-   * mount-time snapshot. Other sessions are covered by the 60s read cap in
-   * adZonesV2/adCreatives.
-   */
-  const [reloadTick, setReloadTick] = useState(0);
+  const queryClient = useQueryClient();
 
+  /**
+   * Flag, config and picture library — one query per zone (src/lib/ads/
+   * adZoneData.ts). A library that could not be read is an ERROR here, never
+   * an empty library: the query keeps what it had, retries, and asks again
+   * when the network returns. That is what keeps the feed card from falling
+   * back to the zone's single picture, which has no like / comment bar
+   * (Owner, 2026-10-29: "From Feed ad comment and like section vanished").
+   * The 60s staleness matches the reads underneath (adZonesV2 / adCreatives).
+   */
+  const { data } = useQuery({
+    queryKey: adZoneQueryKey(zone),
+    queryFn: () => loadAdZoneData(zone),
+    staleTime: 60_000,
+    retry: 3,
+    retryDelay,
+    refetchOnReconnect: true,
+  });
+  const enabled = data ? data.enabled : null;
+  const config: AdZoneConfig | null = data ? data.config : null;
+  const creatives = data ? data.creatives : null;
+  const publisherId = data?.publisherId ?? "";
+
+  /**
+   * The admin saved in Ad Spots ("ad-slots-updated"): every mounted zone in
+   * THAT session refetches immediately instead of holding what it has. Other
+   * sessions are covered by the 60s read cap in adZonesV2/adCreatives.
+   */
   useEffect(() => {
-    const onUpdated = () => setReloadTick((t) => t + 1);
+    const onUpdated = () => {
+      invalidateAdCreatives();
+      void queryClient.invalidateQueries({ queryKey: adZoneQueryKey(zone) });
+    };
     window.addEventListener("ad-slots-updated", onUpdated);
     return () => window.removeEventListener("ad-slots-updated", onUpdated);
-  }, []);
+  }, [queryClient, zone]);
 
-  // Load flag + config on mount and again on every admin save event.
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      const [flag, zones, freq, lib] = await Promise.all([
-        fetchAdZonesEnabled(),
-        fetchAdZones(),
-        fetchAdFrequency(),
-        // The picture library. Empty (or table absent) → fall back to the
-        // single `ad_zones_v2` image, which is the pre-library behaviour.
-        fetchAdCreatives(zone),
-      ]);
-      if (!alive) return;
-      setEnabled(flag);
-      setConfig(zones[zone]);
-      setCreatives(lib);
-      // Publisher id lives in the legacy adsense_config; reuse it read-only.
-      void freq; // reserved (not needed for inline zones)
-      try {
-        const { supabase } = await import("@/integrations/supabase/client");
-        const { data } = await supabase.from("site_settings").select("value").eq("key", "adsense_config").maybeSingle();
-        const pub = (data?.value as any)?.publisher_id;
-        if (alive && typeof pub === "string") {
-          setPublisherId(pub);
-          if (pub && zones[zone].mode === "google") ensureAdsenseScript(pub);
-        }
-      } catch { /* ignore */ }
-    })();
-    return () => { alive = false; };
-  }, [zone, reloadTick]);
+    if (publisherId && config?.mode === "google") ensureAdsenseScript(publisherId);
+  }, [publisherId, config?.mode]);
 
   useEffect(() => {
     const onResize = () => setDevice(detectDevice(window.innerWidth));
@@ -418,7 +411,7 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
   }
 
   return (
-    <div ref={containerRef} className={cn(frame.wrapper, className)}>
+    <div ref={containerRef} className={cn(frame.wrapper, className)} data-ad-zone={zone}>
       {/* ── THE AD HAS A POST HEADER, BECAUSE INSTAGRAM'S DOES ──
 
           Owner, 2026-08-10, with our feed beside Instagram's: "our site vs
@@ -590,6 +583,11 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
           synthetic id and silently merging every zone's legacy image into one
           shared thread. Move the picture into the library from
           /admin/advertisements and the row appears.
+
+          So the single picture may show ONLY when the library is known to be
+          empty. A library that could not be read is not empty (2026-10-29:
+          a failed read showed the single picture with no bar — the Owner's
+          "ad comment and like section vanished"); see src/lib/ads/adZoneData.ts.
 
           Only the story card gets it: the sidebar and lightbox zones are small
           banners beside content, not posts in a feed. */}
