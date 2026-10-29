@@ -66,7 +66,8 @@ const SURFACES: Record<string, { what: string; must: RegExp[] }> = {
  * reason. A new entry here needs a reason a reviewer can check.
  */
 const NOT_DRAWING_POST_MEDIA: Record<string, string> = {
-  "src/pages/MyPhotos.tsx": "photographs-only page by design: both queries keep only rows with image_url (.not(\"image_url\", \"is\", null)), so a video post is never drawn as an empty tile",
+  "src/pages/MyPhotos.tsx": "photographs-only page by design: its uploads query keeps only rows with image_url (.not(\"image_url\", \"is\", null)), so a video post is never drawn as an empty tile",
+  "src/lib/profile/taggedPhotos.ts": "MyPhotos' Tagged tab query (moved here, S11): keeps only rows with image_url (.not(\"image_url\", \"is\", null)) and drops any without one, so a video post is never drawn as an empty tile",
 };
 
 /** A read of the posts table whose select names a media column (or every column). */
@@ -124,6 +125,7 @@ describe("BUG-VID-HOME sweep — no file reads post media without video support"
   it("positive control: the sweep sees the known post readers, and no exception is stale", () => {
     const seen = sourceFiles().filter((f) => [...read(f).matchAll(READS_POST_MEDIA)].some((m) => MEDIA_COL.test(m[1])));
     expect(seen).toEqual(expect.arrayContaining(["src/hooks/feed/useFeedQuery.ts", "src/pages/PostDetail.tsx", "src/pages/Index.tsx", ...Object.keys(NOT_DRAWING_POST_MEDIA)]));
-    expect(read("src/pages/MyPhotos.tsx").match(/\.not\("image_url", "is", null\)/g)).toHaveLength(2);
+    expect(read("src/pages/MyPhotos.tsx").match(/\.not\("image_url", "is", null\)/g)).toHaveLength(1);
+    expect(read("src/lib/profile/taggedPhotos.ts").match(/\.not\("image_url", "is", null\)/g)).toHaveLength(1);
   });
 });
