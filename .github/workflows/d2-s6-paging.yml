@@ -1,0 +1,59 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# D2 · S6 paging & realtime harness (v2 Phase 4, S6-d)
+# The S6 gate, measured in Chromium against the real /feed and a fake backend
+# (tools/uishot/s6-paging-harness.mjs, /s6harness.html):
+#   "_exclude_ids at page 100 = 0 · 1 channel · 0 unfiltered hot bindings ·
+#    ≤ 15 mounted cards after 30 pages"
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+name: D2 · S6 paging and realtime harness
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  s6-paging:
+    name: S6 gate (30 pages <= 15 cards, page 100 no _exclude_ids, 1 channel, 0 unfiltered)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Clean install
+        run: npm ci --no-audit --no-fund
+      - name: Cache the Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium for Playwright
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            if npx playwright install chromium; then exit 0; fi
+            sleep $((attempt * 15))
+          done
+          exit 1
+      - name: The S6 paging and realtime harness
+        env:
+          VITE_SUPABASE_URL: https://testprojectref0000x.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: test-publishable-key-not-real
+          VITE_SUPABASE_PROJECT_ID: testprojectref0000x
+        run: node tools/uishot/s6-paging-harness.mjs --browsers chromium --json /tmp/s6-paging.json
+      - name: Upload the reading
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s6-paging-harness
+          path: /tmp/s6-paging.json
+          if-no-files-found: warn
+          retention-days: 30
