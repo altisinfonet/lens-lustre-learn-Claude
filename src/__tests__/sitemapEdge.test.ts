@@ -217,4 +217,19 @@ describe("/sitemap.xml edge function — conditional requests and headers", () =
     expect(r.headers.get("x-content-type-options")).toBe("nosniff");
     expect(r.headers.get("content-security-policy")).toBe("default-src 'none'");
   });
+
+  it("a Range request still gets the whole sitemap (the static file is read whole)", async () => {
+    let seen: Request | undefined;
+    const req = new Request("https://x.example/sitemap.xml", { headers: { range: "bytes=0-40" } });
+    const r = await onRequest({
+      request: req, env: { SUPABASE_PROJECT_REF: "ref" }, waitUntil: () => {},
+      next: async (input?: Request) => {
+        seen = input ?? req;
+        if (seen.headers.get("range")) return new Response(STATIC.slice(0, 41), { status: 206 });
+        return new Response(STATIC, { status: 200 });
+      },
+    });
+    expect(seen?.headers.get("range")).toBeNull();
+    expect(r.headers.get("x-sitemap-source")).toBe("dynamic");
+  });
 });

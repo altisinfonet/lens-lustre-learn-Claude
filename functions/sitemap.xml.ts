@@ -135,9 +135,10 @@ export const onRequest = async (context: Ctx): Promise<Response> => {
   // a crawler holding the static file's ETag gets a 304 and keeps the thin copy
   // forever (the static file rebuilds with the same ETag).
   const plain = new Headers(context.request.headers);
-  for (const h of ["if-none-match", "if-modified-since", "if-match", "if-unmodified-since", "if-range"]) plain.delete(h);
+  for (const h of ["if-none-match", "if-modified-since", "if-match", "if-unmodified-since", "if-range", "range"]) plain.delete(h);
   const fallback = await context.next(new Request(context.request.url, { method: context.request.method, headers: plain }));
-  if (context.request.method !== "GET" || !fallback.ok) return fallback;
+  // Only a whole (200) static file may set the floor; a 206 or anything else passes through.
+  if (context.request.method !== "GET" || fallback.status !== 200) return fallback;
 
   const staticXml = await fallback.clone().text();
   const minLocs = locCount(staticXml);
