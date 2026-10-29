@@ -162,10 +162,19 @@ async function handle(request) {
     // S7b-1: an <img> without crossorigin asks "no-cors", and its OPAQUE answer
     // is never stored (see below). Our CDN sends Access-Control-Allow-Origin
     // for the site and the app, so ask it for a CORS answer, which can be kept.
-    const netRequest = isOurCdn(request.url)
-      ? new Request(request.url, { mode: "cors", credentials: "omit" })
-      : request;
-    const response = await fetch(netRequest);
+    // If that CORS request fails for any reason (an object served without the
+    // header, a CORS error), the photo is fetched exactly as the page asked —
+    // shown, just not kept. A photo must never break because of this worker.
+    let response;
+    if (isOurCdn(request.url)) {
+      try {
+        response = await fetch(new Request(request.url, { mode: "cors", credentials: "omit" }));
+      } catch {
+        response = await fetch(request);
+      }
+    } else {
+      response = await fetch(request);
+    }
     if (response.ok) {
       // Only `ok` responses are cached, exactly as before OFF-4. An OPAQUE
       // response (an <img> without crossorigin) is still not cached: Chromium

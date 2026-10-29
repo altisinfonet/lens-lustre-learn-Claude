@@ -22,6 +22,7 @@ function loadWorker() {
   const seen: { url: string; mode: string }[] = [];
   let online = true;
   let storageBroken = false;
+  let corsRefused = false;
   const caches = {
     async open(name: string) {
       if (storageBroken) throw new DOMException("QuotaExceededError");
@@ -47,6 +48,7 @@ function loadWorker() {
     fetch: async (r: Request) => {
       seen.push({ url: r.url, mode: r.mode });
       if (!online) throw new TypeError("Failed to fetch");
+      if (corsRefused && r.mode === "cors") throw new TypeError("CORS: no Access-Control-Allow-Origin");
       return new Response(new Uint8Array(30 * 1024), { status: 200, headers: { "content-type": "image/webp" } });
     },
   });
@@ -65,6 +67,7 @@ function loadWorker() {
     fetchImage, entries, seen,
     setOnline: (v: boolean) => { online = v; },
     breakStorage: () => { storageBroken = true; },
+    refuseCors: () => { corsRefused = true; },
   };
 }
 
@@ -127,6 +130,13 @@ describe("photos from our CDN are saved on the phone", () => {
     const w = loadWorker();
     w.breakStorage();
     expect((await w.fetchImage(LIVE))?.status).toBe(200);
+  });
+
+  it("if the CDN refuses CORS, the photo is still shown (fetched as the page asked), just not kept", async () => {
+    const w = loadWorker();
+    w.refuseCors();
+    expect((await w.fetchImage(LIVE))?.status).toBe(200);
+    expect(w.seen.filter((s) => s.url === LIVE).map((s) => s.mode)).toEqual(["cors", "no-cors"]);
   });
 
   it("other hosts and our own app files are left alone", async () => {
