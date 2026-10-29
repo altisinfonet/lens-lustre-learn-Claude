@@ -42,10 +42,14 @@ Browser check: nav harness journeys "sponsored card: …" (Chromium/Firefox/WebK
 - Bug 1 carry to main: PR #559 (cherry-pick of fc3ceea only onto main c027545; diff byte-identical to #556),
   26/26 checks green, independent diff-only review "nothing blocking" → **merged main `f09dbee`**
   (2026-10-29 ~18:31 UTC). Live bundle carries the fix (index-ChXD_VgF.js contains the new code) within ~2 min.
-- Bug 2 (ads offline): PR #558 → staging (persist ["ad-zone", zone]; unreadable settings ≠ "ads off").
-  Fail-first 3/3; independent review "nothing blocking"; review points fixed in f066073. CI running.
-- Ad PICTURE offline: needs `journal-images` added to the photo worker's buckets (#547, now on staging behind
-  `app_image_sw`, default OFF — not switched on). Separate small PR after Bug 2.
+- Bug 2 (ads offline): #558 (ad data persisted; unreadable settings ≠ "ads off") → **staging `a02fda9`**;
+  #560 (photo worker keeps journal-images/ads pictures; worker still behind `app_image_sw`, default OFF,
+  not switched on) → **staging `07b72b8`**. Both: CI green, independent reviews "nothing blocking", fail-first.
+- Bug 2 carry to main: PR #565 (cherry-picks of a02fda9 + 07b72b8 only) → 26/26 green, reviewed →
+  **merged main `ffebce1`** (~19:12 UTC); live bundle index-BbC-6DOG.js + live sw-image-cache.js carry it;
+  live re-check on the new build: Chromium/Firefox/WebKit × normal/weak network — 6/6 PASS.
+- Posts missing offline: covered by the S7b runner (#547 → main #557; #548 → main carry #563 open). Not touched.
+- Android bump: PR #568 → staging (1.2.30 → 1.2.31; 1.2.30 = versionCode 1133, run 133, spent).
 - **Live check (2026-10-29 ~18:35–18:41 UTC, www.50mmretina.com, the deployed bundle, REAL production ad data):**
   Chromium 153, Firefox 153, WebKit 26.5 — `/` 200, `/feed` 200, the sponsored card shows the real library ad
   `1793264198326-0v8kgqyk809o.webp` WITH Like + Comment in all three; also PASS with the ad library made
