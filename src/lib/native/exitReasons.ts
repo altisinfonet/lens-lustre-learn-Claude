@@ -85,16 +85,16 @@ function defaultStorage(): KV | null {
   }
 }
 
-/**
- * Reads the plugin once and calls `record(metric, build)` for each new bad exit.
- * Returns how many were recorded. Always stores the current build for next time.
- */
 let ranThisLoad = false;
 /** Tests only. */
 export function __resetNativeExits(): void {
   ranThisLoad = false;
 }
 
+/**
+ * Reads the plugin once and calls `record(metric, build)` for each new bad exit.
+ * Returns how many were recorded. Always stores the current build for next time.
+ */
 export async function reportNativeExits(
   currentBuild: string,
   record: (metric: string, build: string) => void,
