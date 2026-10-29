@@ -34,8 +34,9 @@
  * Apply both and the count is wrong by one whenever the absolute lands first.
  * Mapping the absolute counts is therefore only safe once the delta handlers
  * have stopped touching those fields. That is not tidying, it is the thing that
- * makes this correct — and it is why `assertNoLikeCountDelta` exists below and
- * why the test suite asserts it against both callers' source.
+ * makes this correct — and it is why `applyReactionDelta` below never returns
+ * like_count, and why realtimeCounts.test.ts asserts both callers' source
+ * never hand-rolls a like_count delta.
  *
  * So, after this change:
  *
