@@ -202,8 +202,18 @@ export function participantKeyForJudgingTag(label: string | null | undefined): s
  * placement-consuming surface must route through this before any
  * PLACEMENT_CONFIG / label lookup. Returns null for unknown values.
  */
+/**
+ * S11 · "Honorary", "Honourable" and "Honorable" Mention are ONE award; the
+ * database has written all three spellings. Every surface compares the
+ * canonical key, honorary_mention. Any other value is returned unchanged.
+ */
+export function canonicalMention(status: string): string {
+  return status === "honourable_mention" || status === "honorable_mention" ? "honorary_mention" : status;
+}
+
 export function normalizePlacementKey(placement: string | null | undefined): string | null {
   if (!placement) return null;
+  placement = canonicalMention(placement);
   if (PARTICIPANT_PLACEMENT_LABELS[placement]) return placement;
   return participantKeyForJudgingTag(placement);
 }

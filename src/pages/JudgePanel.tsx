@@ -43,6 +43,7 @@ import ResumeSessionDialog from "@/components/judge/ResumeSessionDialog";
 
 import type { CriteriaScores, FlatPhoto, SidebarView } from "@/hooks/judging/types";
 import { SOW_ROUND4_CRITERIA_KEYS } from "@/hooks/judging/types";
+import { canonicalMention } from "@/lib/judging/participantStageLabels";
 
 const hasAllSowCriteria = (criteria?: CriteriaScores | null) =>
   !!criteria && SOW_ROUND4_CRITERIA_KEYS.every((key) => typeof criteria[key] === "number");
@@ -316,7 +317,7 @@ const JudgePanel = () => {
       // Placement-based filters remain global (set by admin)
       case "runner_up_1": return allPhotos.filter((p) => p.entry.placement === "runner_up_1" || p.entry.placement === "1st_runner_up");
       case "runner_up_2": return allPhotos.filter((p) => p.entry.placement === "runner_up_2" || p.entry.placement === "2nd_runner_up");
-      case "honorary_mention": return allPhotos.filter((p) => p.entry.placement === "honorary_mention" || p.entry.placement === "honourable_mention");
+      case "honorary_mention": return allPhotos.filter((p) => canonicalMention(p.entry.placement ?? "") === "honorary_mention");
       case "special_jury": return allPhotos.filter((p) => p.entry.placement === "special_jury");
       case "completed": return allPhotos.filter((p) => {
         const d = getDecision(p);
@@ -570,7 +571,7 @@ const JudgePanel = () => {
       // Placement counts remain global (set by admin, not per-judge)
       if (p === "runner_up_1" || p === "1st_runner_up") runner_up_1++;
       if (p === "runner_up_2" || p === "2nd_runner_up") runner_up_2++;
-      if (p === "honorary_mention" || p === "honourable_mention") honorary_mention++;
+      if (canonicalMention(p ?? "") === "honorary_mention") honorary_mention++;
       if (p === "special_jury") special_jury++;
     }
     return { accepted, shortlisted, needsReview, rejected, qualified, finalist, winner, runner_up_1, runner_up_2, honorary_mention, special_jury, unjudged, total: allPhotos.length };
