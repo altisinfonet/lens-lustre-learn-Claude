@@ -1,0 +1,82 @@
+name: D2 · S5 upload kill harness
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING. HOLDS NO SECRET. The server is the harness's own
+# stand-in (tools/uishot/photo-kill-harness.mjs), in the runner's Node process.
+#
+# S5 gate (master plan): "v2 8-point kill test: at all 8 kill points → exactly
+# 1 post, 0 orphans, 0 duplicate media". Each point kills the page mid-upload,
+# relaunches on the same browser profile, resumes, then counts the server.
+# Design: docs/evidence/d2/S5/DESIGN.md.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  kill:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The subject: the S5-b resumable photo job, 8/8 clean.
+          - name: "8-point kill test (chromium)"
+            args: "--impl job"
+            out: s5-kill-chromium
+          # The same at the Android app's origin (the Capacitor shell loads https://localhost).
+          - name: "8-point kill test (app origin https://localhost)"
+            args: "--impl job --origin https://localhost"
+            out: s5-kill-app-origin
+          # CONTROL: the pre-S5 pipeline must FAIL somewhere, or the harness cannot see the defect.
+          - name: "8-point kill test control (pre-S5 pipeline must fail)"
+            args: "--impl legacy --expect-fail"
+            out: s5-kill-control
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Clean install
+        run: npm ci --no-audit --no-fund
+      - name: Cache the Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium for Playwright
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            if npx playwright install chromium; then exit 0; fi
+            sleep $((attempt * 15))
+          done
+          exit 1
+      - name: The kill harness
+        env:
+          VITE_SUPABASE_URL: https://testprojectref0000x.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: test-publishable-key-not-real
+          VITE_SUPABASE_PROJECT_ID: testprojectref0000x
+          HARNESS_ARGS: ${{ matrix.args }}
+        run: |
+          # shellcheck disable=SC2086
+          node tools/uishot/photo-kill-harness.mjs $HARNESS_ARGS --json /tmp/s5-kill.json
+      - name: Upload the reading
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.out }}
+          path: /tmp/s5-kill.json
+          if-no-files-found: warn
+          retention-days: 30

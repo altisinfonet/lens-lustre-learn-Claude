@@ -76,3 +76,29 @@ The resumable photo job is user-visible (a post can appear after a relaunch),
 so it ships behind `site_settings.photo_upload_resume = "on"`, default OFF.
 Off = today's path, plus the pure reliability fixes: shared PUT
 retry/timeout/progress, and the key on the fallback insert.
+
+## 6. Decisions recorded while building (2026-10-29)
+
+1. **S5-c (server) not shipped: not needed for the gate.** The kill harness
+   (S5-d) passes 8/8 on the existing server guarantees (§4.1–4.3). No SQL in
+   S5. The reference-counted sweep for *abandoned* jobs (§4.4) is deferred to
+   its own unit. It deletes storage, so it is data-loss-critical. R2 deletion
+   today is only `purge-s3-orphans`, which is admin-gated, unscheduled and
+   limited to `competition-photos/`. Draft and scheduled rows also hold media
+   ids that a sweep must count as references. That needs its own inspection,
+   PROBE and rollback, not a rider on this stage.
+2. **The harness server is a contract stand-in in Node, not a database.** It
+   implements only the UNIQUE/idempotency rules of §4, and its state survives
+   the page kill. The legacy pipeline runs in the same harness as a permanent
+   control that must fail (`--expect-fail`), so the harness can show that it
+   sees the defect.
+3. **10/50/90 % kill points** close the page at the PUT during which the
+   cumulative bytes sent cross that fraction of the post's total, measured by
+   a no-kill calibration run. A PUT is atomic, so the interrupted object is
+   simply absent.
+4. **Video** was already resumable (VID-1). It now runs on the same transport
+   and store. The 8-point matrix is defined on the photo post (v2 §4 is a
+   photo design).
+5. **Failed jobs** keep their bytes on the device until sign-out (review LOW
+   on #517). A "discard / retry" card is a visible change, so it is left for
+   the switch-on follow-up.
