@@ -17,9 +17,13 @@ export default function PendingPhotoPosts() {
   useEffect(() => {
     if (!userId) { setJobs([]); return; }
     let live = true;
+    // Only the newest read may answer: an older one that finishes last would
+    // bring back a post already published (review #583).
+    let latest = 0;
     const read = () => {
+      const mine = ++latest;
       void photoJobsFor(userId).then((all) => {
-        if (live) setJobs(all.filter((j) => j.step !== "published" && j.step !== "failed"));
+        if (live && mine === latest) setJobs(all.filter((j) => j.step !== "published" && j.step !== "failed"));
       });
     };
     read();

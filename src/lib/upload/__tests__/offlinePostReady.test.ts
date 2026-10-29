@@ -9,10 +9,12 @@
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-const db = vi.hoisted(() => ({ s3: true as boolean | null, s3Fails: false, rows: [] as { key: string; value: unknown }[], settingsFail: false }));
+const db = vi.hoisted(() => ({ s3: true as boolean | null, s3Fails: false, s3Refused: false, rows: [] as { key: string; value: unknown }[], settingsFail: false }));
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
-    rpc: async () => (db.s3Fails ? { data: null, error: { message: "TypeError: Failed to fetch" } } : { data: db.s3, error: null }),
+    rpc: async () => (db.s3Fails ? { data: null, error: { message: "TypeError: Failed to fetch" } }
+      : db.s3Refused ? { data: null, error: { message: "permission denied for function is_s3_storage_enabled", code: "42501" } }
+      : { data: db.s3, error: null }),
     from: () => ({ select: () => ({ in: async () => {
       if (db.settingsFail) throw new TypeError("Failed to fetch");
       return { data: db.rows, error: null };
@@ -28,7 +30,7 @@ beforeEach(() => {
   localStorage.clear();
   clearS3Cache();
   invalidateSiteSetting();
-  db.s3 = true; db.s3Fails = false; db.rows = []; db.settingsFail = false;
+  db.s3 = true; db.s3Fails = false; db.s3Refused = false; db.rows = []; db.settingsFail = false;
 });
 
 describe("storage switch offline", () => {
@@ -42,6 +44,21 @@ describe("storage switch offline", () => {
     db.s3Fails = true;
     expect(await isS3Enabled()).toBe(false);
   });
+  it("review #583: a server refusal with the network up is off, as before — only a lost network uses the last answer", async () => {
+    expect(await isS3Enabled()).toBe(true);
+    clearS3Cache();
+    db.s3Refused = true;
+    expect(await isS3Enabled()).toBe(false);
+  });
+  it("seen on, then read off, then offline: off", async () => {
+    expect(await isS3Enabled()).toBe(true);
+    clearS3Cache();
+    db.s3 = false;
+    expect(await isS3Enabled()).toBe(false);
+    clearS3Cache();
+    db.s3Fails = true;
+    expect(await isS3Enabled()).toBe(false);
+  });
 });
 
 describe("photo_upload_resume offline", () => {
@@ -51,6 +68,16 @@ describe("photo_upload_resume offline", () => {
     invalidateSiteSetting();
     db.settingsFail = true;
     expect(await photoResumeOn()).toBe(true);
+  });
+  it("seen on, then read off, then offline: off", async () => {
+    db.rows = [{ key: "photo_upload_resume", value: "on" }];
+    expect(await photoResumeOn()).toBe(true);
+    invalidateSiteSetting();
+    db.rows = [];
+    expect(await photoResumeOn()).toBe(false);
+    invalidateSiteSetting();
+    db.settingsFail = true;
+    expect(await photoResumeOn()).toBe(false);
   });
   it("off stays off; never seen + failed read: off", async () => {
     db.settingsFail = true;
