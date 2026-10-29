@@ -125,7 +125,10 @@ describe("review #548 · offline with nothing saved", () => {
   }, 15000);
 });
 
-describe("review #548 · flight-mode cold start", () => {
+describe("review #548 · flight-mode cold start (the installed app)", () => {
+  beforeEach(() => { (window as unknown as { Capacitor: unknown }).Capacitor = { isNativePlatform: () => true, getPlatform: () => "android" }; });
+  afterEach(() => { delete (window as unknown as { Capacitor?: unknown }).Capacitor; });
+
   it("the phone says offline at start: the saved posts, no request", async () => {
     await saveTwoPages();
     onLine = false;

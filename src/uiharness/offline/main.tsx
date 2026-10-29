@@ -50,8 +50,9 @@ if (phase === "offline") {
   };
   Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
   // The phone says offline; the app's own start-up seed (App.tsx) tells React
-  // Query — the harness does not force it (review #548).
-  seedOnlineManager();
+  // Query — the harness does not force it (review #548). The seed acts only in
+  // the installed app (carry review #563); this harness stands in for it.
+  seedOnlineManager({ asNativeApp: true });
 }
 if (phase === "reconnect") {
   const server = createFakeTables();
