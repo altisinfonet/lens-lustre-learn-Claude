@@ -20,7 +20,7 @@ Updated: 2026-10-29 (UTC). Runner branch for Bug 1: `claude/ads-engagement-bar-f
   for all ad code). The defect dates from the library's introduction (2026-08-01); it became visible on 2026-10-29 when
   the zone's single picture was filled in, on a phone that was being tested on poor / no network (#546, offline work).
 
-**Fix (PR pending):** a failed library read is "unknown", never "empty"; AdZone reads through React Query (retry,
+**Fix — PR #556 (merged to staging as `fc3ceea`, 2026-10-29 ~18:07 UTC):** a failed library read is "unknown", never "empty"; AdZone reads through React Query (retry,
 refetch on reconnect / return to app); the single picture is used only when the library is known to be empty.
 
 **Fail-first:** `src/components/ads/__tests__/adLibraryReadFailure.test.tsx` — 2 of 5 fail on the old code
@@ -32,14 +32,18 @@ Browser check: nav harness journeys "sponsored card: …" (Chromium/Firefox/WebK
 - **Posts missing offline:** cause = the persisted feed keeps its FIRST page only (`queryPersistence.ts` `trimForStorage`),
   and the feed query pauses offline. **Covered by S7b PR #548** (~200 posts saved, offline paging). Photos: **#547**.
   Not touched by this runner.
-- **Ad missing offline:** ad flag/settings/library are not persisted; follow-up PR after Bug 1 (persist the ad-zone
-  query via queryPersistence). The ad picture lives in the `journal-images` bucket, which the photo worker (even with
+- **Ad missing offline:** ad flag/settings/library were not persisted → PR #558. The ad picture lives in the `journal-images` bucket, which the photo worker (even with
   #547) does not keep — to be coordinated with #547.
 
 ## PRs / merges / live / app build
-- Bug 1 PR: pending
-- Merged staging sha: —
-- Carry to main: —
+- Bug 1: PR #556 → staging, all CI green on d652e31 (incl. Back-returns-to-feed chromium/firefox/webkit with the
+  new "sponsored card" journeys, and App origin journey https://localhost 13/13), independent diff-only review
+  "nothing blocking" → **merged staging `fc3ceea`**.
+- Bug 1 carry to main: PR #559 (cherry-pick of fc3ceea only onto main c027545) — CI running.
+- Bug 2 (ads offline): PR #558 → staging (persist ["ad-zone", zone]; unreadable settings ≠ "ads off").
+  Fail-first 3/3; independent review "nothing blocking"; review points fixed in f066073. CI running.
+- Ad PICTURE offline: needs `journal-images` added to the photo worker's buckets (#547, now on staging behind
+  `app_image_sw`, default OFF — not switched on). Separate small PR after Bug 2.
 - Live check: —
 - Android build run ID: —
 
