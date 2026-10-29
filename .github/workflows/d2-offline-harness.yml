@@ -15,6 +15,12 @@ name: D2 · OFF-6 offline harness
 #   restarted online against a fake PostgREST that enforces staging's unique
 #   constraints and loses the first two answers → exactly 1 row after >= 3
 #   sends, and the device outbox is empty. Fails on the pre-OFF-2 app (0 rows).
+#   Leg 3 (enforced, S7b-7): post page and profile seen online, then in flight
+#   mode: the post (never "Post not found"), the photographer's name, the "No
+#   internet — showing saved" bar on feed/post/profile, and no error screen or
+#   "Photographer" placeholder anywhere.
+#   Leg 4 (enforced, S7b-7): Follow tapped offline → kept on the device and
+#   marked "Will send when online" → exactly 1 follows row after >= 3 sends.
 #
 # ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
 # ═══════════════════════════════════════════════════════════════════════════
