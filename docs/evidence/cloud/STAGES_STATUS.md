@@ -1,6 +1,6 @@
 # STAGES runner — status
 
-Updated: 2026-10-29 21:45 UTC · runner branch `status/stages-runner` · never merged.
+Updated: 2026-10-29 22:10 UTC · runner branch `status/stages-runner` · never merged.
 
 ## Done per stage
 
@@ -10,7 +10,7 @@ Updated: 2026-10-29 21:45 UTC · runner branch `status/stages-runner` · never m
 | S2 Observability | 95 | Live: telemetry SQL, client telemetry, outside monitor + alert, Admin → Health page, and now native crash / OOM / ANR per build (code + SQL live). Left: the reader is inside the app only from the S9 build (its build-file change #562 waits on staging for the S9 bump); Owner reads the page. |
 | S3 Media | 85 | Code live on main (03004ff, 20:32 UTC) and SQL 0100/0101/0102 applied on staging and production, both switches OFF. All PROBEs PASS on both lanes. Left (Owner): backfill secrets (then 1-click backfill to 100 %), PHOTOS binding + Worker route, decisions O-1/O-2, then switch-on and the phone test. |
 | S8 Live debt | 60 | DONE before: F-REV4-2 (prod), one SEO renderer (#508), F-D3-8 SQL 0201 (main #515, prod 40819037088). Today: sitemap root cause fixed (#577, #585) and carry #580 pending; F-AUD-8 rotation SQL on main (#581, nothing run); inventory tools on main (#582); PROBE for places the rotation misses (#586). Old PRs: #323, #130 closed as superseded. Blocked on Owner: SUPABASE_ACCESS_TOKEN (function inventory/deploy, send-push), Vault entries for the rotation, converter password. F-REV4-6: finding text not in the repo (Owner/supervisor to paste it). |
-| S11 Reliability | 0 | Not started. |
+| S11 Reliability | 20 | Re-verified all 28 code items on staging (8 highest-impact listed below). In review / CI: #589 stale-chunk recovery, #590 competition single encode, #591 upload size+type signed (deploy needs item 7), #592 profile refresh + Tagged photos errors. Staging CI is red from another runner's change (#574, entry chunk +68 B); their fix #587 is ready. Drills D1–D9 and M2 need the Supabase token (item 7). |
 | S10 remainder | 0 | Waits for PR #538 (supervisor). |
 | S12 / S5 | — | Confirm only (switches stay OFF). |
 | S9 Release | 0 | Last. |
@@ -35,7 +35,15 @@ Updated: 2026-10-29 21:45 UTC · runner branch `status/stages-runner` · never m
 | S8 | PROBE: credentials the rotation does not scan | #586 | CI | — | — |
 | S8 | Old open PRs | #323, #130 closed (superseded, comment left) | — | — | — |
 
+| S11 | Stale-chunk recovery installed | #589 | review: nothing blocking; waits for staging CI | — | — |
+| S11 | Competition photo encoded once (WebP proof) | #590 | review: nothing blocking (3 rounds) | — | — |
+| S11 | Photo presign signs size + type | #591 | review: nothing blocking | — | deploy needs SUPABASE_ACCESS_TOKEN |
+| S11 | Admin profile edit refresh; Tagged photos errors | #592 | in review | — | — |
+| S12/S5 | Switch-state PROBE (confirm OFF) | #588 | review: nothing blocking | — | `photo_upload_resume` has no row on live = OFF |
+
 ## Findings recorded
+
+- **S11 re-verification (staging fbdb644):** still true — photo presign signs no size/type; competition photos encoded twice at full size; accepted-file lists disagree; no 401/403/429/5xx member messages; stale-chunk reload never installed; judge tap targets 20–40 px; admin profile edit invalidates the wrong key; Tagged photos hides errors; qrcode in the entry chunk; trackPosition / PlacementBoard not wired; 6 hard-coded AAB marker strings; unguarded sed in the app build; stale root android-build.yml; sharp / vite-plugin-pwa in dependencies; deprecated react-mentions; doc drift (queryKeys, realtimeCounts). Already fine: get_broadcast_feed ambiguity (fixed 2026-08-14), native gallery picker wired, refetch storm (staleTime 5 min). Drafts: marked at 7 days but never purged (no purge function in git).
 
 - **F-AUD-8 before production:** the rotation scans Vault, cron.job, cron history and function bodies, not webhook trigger arguments, database settings or the pg_net queue (#586 counts these). Its cron-secret rollback only works if the Edge secret CRON_SECRET is also reverted; keep the time between the Owner's step 1 and the run short.
 - **F-REV4-1 inventory:** the DB-caller PROBE does not see Vault-held cron URLs or webhook triggers — never use it alone to remove a function.
