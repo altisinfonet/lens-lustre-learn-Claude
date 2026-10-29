@@ -110,7 +110,12 @@ export default function FeedCardWindow({ children, eager = false }: FeedCardWind
 
     const io = new IntersectionObserver(
       (entries) => {
-        const entry = entries[0];
+        // The NEWEST entry, not the first. On a fast scroll or fling the
+        // browser batches several entries for this one card into one call,
+        // oldest first; acting on entries[0] hid cards that were on screen and
+        // nothing ever brought them back (Owner 2026-10-29: "many posts are not
+        // coming, showing black"). Guarded in FeedCardWindow.test.tsx.
+        const entry = entries[entries.length - 1];
         if (!entry) return;
 
         if (entry.isIntersecting) {
