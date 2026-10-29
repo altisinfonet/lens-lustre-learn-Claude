@@ -31,6 +31,7 @@ import { setPersistenceUser } from "./queryPersistence";
 import { clearFeedCache } from "@/lib/feedCache";
 import { clearFeedSessions } from "@/lib/feedSessions";
 import { resetFeedArchiveMemory } from "./feedArchive";
+import { resetSeenContent } from "./seenContent";
 import { clearCommentThreadCaches } from "@/lib/comments/threadCache";
 import { clearOutbox } from "./outbox";
 import { clearVideoUploads } from "@/lib/video/uploadJobs";
@@ -57,6 +58,8 @@ export async function wipeMemberDataOnSignOut(): Promise<WipeResult> {
   // S7b-3 review: the saved feed's pending save must stop BEFORE the device
   // store is wiped, or its timer writes the signed-out member's posts back.
   resetFeedArchiveMemory();
+  // S7b-4 review: a post page / thread loading now is not saved after the wipe.
+  resetSeenContent();
   const [imageCaches, deviceStore, outbox, videoUploads] = await Promise.all([
     purgeImageCache().catch(() => null),
     clearDeviceStore().catch(() => false),

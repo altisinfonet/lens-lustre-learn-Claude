@@ -47,9 +47,11 @@ async function fetchAndEnrich(
     ownQuery,
     ownOnly ? Promise.resolve({ data: [] as any[], error: null }) : shareQuery,
   ]);
-  if (ownRes.error && shareRes.error) {
-    return { posts: [], nextCursor: null };
-  }
+  // S7b-4: a read that FAILED is not an empty wall. Answering it with an empty
+  // page as a success said "no posts" and let OFF-1 write that empty page over
+  // the copy saved on the phone; thrown, React Query retries / pauses and the
+  // saved wall stays. (Own posts failing with shares fine: shares are shown.)
+  if (ownRes.error && (ownOnly || shareRes.error)) throw ownRes.error;
 
   const ownRows = (ownRes.data || []).map((p: any) => ({ ...p }));
 
@@ -249,3 +251,6 @@ export function flattenUserPosts(pages: UserPostsPage[] | undefined): UnifiedPos
   }
   return result;
 }
+
+/** S7b-4: the page reader, for tests. */
+export { fetchAndEnrich as fetchUserPostsPage };
