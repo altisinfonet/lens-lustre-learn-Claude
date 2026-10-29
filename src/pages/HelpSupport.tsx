@@ -7,7 +7,8 @@ import { storageSafeExtension } from "@/lib/storageSafeName";
 import { toast } from "@/hooks/core/use-toast";
 import { motion } from "framer-motion";
 import { Plus, Send, MessageSquare, Clock, CheckCircle, XCircle, ChevronDown, ChevronUp, Paperclip, FileText, Image, Loader2, X, FileSpreadsheet } from "lucide-react";
-import { scanFileWithToast } from "@/lib/fileSecurityScanner";
+import { acceptAttributeFor } from "@/lib/fileSecurityScanner";
+import { prepareSupportAttachment } from "@/lib/supportAttachment";
 import FileUploadDropZone, { type UploadedFile } from "@/components/FileUploadDropZone";
 import { useT } from "@/i18n/I18nContext";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
@@ -92,12 +93,17 @@ const HelpSupport = () => {
   };
 
   const uploadAttachment = async (file: File): Promise<{ url: string; name: string } | null> => {
-    const safe = await scanFileWithToast(file, toast, { allowedTypes: "image+pdf+document", maxSize: 50 * 1024 * 1024 });
-    if (!safe) return null;
+    // Scan + GPS guard (S11): replies upload the original bytes, so an image's
+    // location must be stripped or the upload refused, exactly as the drop zone does.
+    const prepared = await prepareSupportAttachment(file, "image+pdf+document");
+    if (!prepared.ok) {
+      toast({ title: prepared.gps ? "Photo not uploaded" : "Security check failed", description: prepared.reason, variant: "destructive" });
+      return null;
+    }
     const ext = storageSafeExtension(file.name, "bin");
     const path = generateImagePath({ userId: user!.id, type: "support", ext });
     try {
-      const result = await uploadImage({ bucket: "support-attachments", file, path, type: "support", fileName: file.name });
+      const result = await uploadImage({ bucket: "support-attachments", file: prepared.file, path, type: "support", fileName: file.name });
       return { url: result.url, name: file.name };
     } catch (error: any) {
       toast({ title: t("mp.uploadFailed"), description: error.message, variant: "destructive" });
@@ -433,7 +439,7 @@ const HelpSupport = () => {
                             />
                             <label className="cursor-pointer self-end p-2 text-muted-foreground hover:text-foreground transition-colors">
                               <Paperclip className="h-4 w-4" />
-                              <input type="file" accept="image/jpeg,image/jpg,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={(e) => e.target.files?.[0] && setReplyFiles((prev) => ({ ...prev, [ticket.id]: e.target.files![0] }))} />
+                              <input type="file" accept={acceptAttributeFor("image+pdf+document")} className="hidden" onChange={(e) => e.target.files?.[0] && setReplyFiles((prev) => ({ ...prev, [ticket.id]: e.target.files![0] }))} />
                             </label>
                             <button
                               onClick={() => handleSendReply(ticket.id)}

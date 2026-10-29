@@ -8,7 +8,8 @@ import { toast } from "@/hooks/core/use-toast";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { useConfirmAction } from "@/hooks/admin/useConfirmAction";
 import { Send, Clock, CheckCircle, MessageSquare, XCircle, ChevronDown, ChevronUp, Paperclip, FileText, Image, X, Trash2, ArrowUpDown } from "lucide-react";
-import { scanFileWithToast } from "@/lib/fileSecurityScanner";
+import { acceptAttributeFor } from "@/lib/fileSecurityScanner";
+import { prepareSupportAttachment } from "@/lib/supportAttachment";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useT } from "@/i18n/I18nContext";
 
@@ -100,12 +101,17 @@ const AdminSupportTickets = ({ user }: Props) => {
   };
 
   const uploadAttachment = async (file: File): Promise<{ url: string; name: string } | null> => {
-    const safe = await scanFileWithToast(file, toast, { allowedTypes: "image+pdf", maxSize: 50 * 1024 * 1024 });
-    if (!safe) return null;
+    // Scan + GPS guard (S11): replies upload the original bytes, so an image's
+    // location must be stripped or the upload refused, exactly as the drop zone does.
+    const prepared = await prepareSupportAttachment(file, "image+pdf");
+    if (!prepared.ok) {
+      toast({ title: prepared.gps ? "Photo not uploaded" : "Security check failed", description: prepared.reason, variant: "destructive" });
+      return null;
+    }
     const ext = storageSafeExtension(file.name, "bin");
     const path = generateImagePath({ userId: user.id, type: "support", ext });
     try {
-      const result = await uploadImage({ bucket: "support-attachments", file, path, type: "support", fileName: file.name });
+      const result = await uploadImage({ bucket: "support-attachments", file: prepared.file, path, type: "support", fileName: file.name });
       return { url: result.url, name: file.name };
     } catch (error: any) {
       toast({ title: t("mp.uploadFailed"), description: error.message, variant: "destructive" });
@@ -426,7 +432,7 @@ const AdminSupportTickets = ({ user }: Props) => {
                       <div className="flex flex-col gap-2 self-end">
                         <label className="cursor-pointer p-2 text-muted-foreground hover:text-foreground transition-colors border border-border hover:border-primary">
                           <Paperclip className="h-4 w-4" />
-                          <input type="file" accept="image/jpeg,image/jpg,application/pdf" className="hidden" onChange={(e) => e.target.files?.[0] && setReplyFiles((prev) => ({ ...prev, [ticket.id]: e.target.files![0] }))} />
+                          <input type="file" accept={acceptAttributeFor("image+pdf")} className="hidden" onChange={(e) => e.target.files?.[0] && setReplyFiles((prev) => ({ ...prev, [ticket.id]: e.target.files![0] }))} />
                         </label>
                         <button
                           onClick={() => handleSendReply(ticket.id)}

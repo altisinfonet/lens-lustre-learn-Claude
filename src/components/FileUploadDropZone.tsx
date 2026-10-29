@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { Upload, FolderOpen, FileText, Image, FileSpreadsheet, X, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
-import { scanFileWithToast, type AllowedFileType } from "@/lib/fileSecurityScanner";
+import { acceptAttributeFor, scanFileWithToast, type AllowedFileType } from "@/lib/fileSecurityScanner";
 import { compressImageToFiles } from "@/lib/imageCompression";
 import { GpsPrivacyError, guardOriginalUpload } from "@/lib/gpsGuard";
 import { uploadImage } from "@/lib/imageUpload";
@@ -43,14 +43,6 @@ interface FileUploadDropZoneProps {
   /** Custom label */
   label?: string;
 }
-
-const ACCEPT_MAP: Record<AllowedFileType, string> = {
-  image: "image/jpeg,image/png,image/webp,image/gif,image/bmp,image/tiff,image/heic",
-  pdf: "application/pdf",
-  "image+pdf": "image/jpeg,image/png,image/webp,image/gif,application/pdf",
-  document: "application/msword,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "image+pdf+document": "image/jpeg,image/png,image/webp,image/gif,application/pdf,application/msword,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-};
 
 function getFileIcon(name: string) {
   const lower = name.toLowerCase();
@@ -240,7 +232,7 @@ const FileUploadDropZone = ({
         <input
           ref={fileInputRef}
           type="file"
-          accept={ACCEPT_MAP[allowedTypes]}
+          accept={acceptAttributeFor(allowedTypes)}
           multiple={multiple}
           className="hidden"
           onChange={handleFileSelect}

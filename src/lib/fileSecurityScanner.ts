@@ -237,6 +237,39 @@ function validateImageDecodable(file: File): Promise<boolean> {
 
 export type AllowedFileType = "image" | "pdf" | "image+pdf" | "document" | "image+pdf+document";
 
+const IMAGE_MIMES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp", "image/tiff", "image/heic", "image/heif"];
+const PDF_MIMES = ["application/pdf"];
+const DOC_MIMES = [
+  "application/msword",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+];
+
+function kinds(t: AllowedFileType) {
+  return {
+    includesImages: ["image", "image+pdf", "image+pdf+document"].includes(t),
+    includesPdf: ["pdf", "image+pdf", "image+pdf+document"].includes(t),
+    includesDocs: ["document", "image+pdf+document"].includes(t),
+  };
+}
+
+/**
+ * S11 · the ONE list of types an upload of this kind accepts. scanFile checks
+ * against it and every file picker offers it (acceptAttributeFor), so a picker
+ * can no longer hide a type the scanner would take (support replies offered
+ * only JPEG while a ticket's first message took PNG screenshots).
+ */
+export function allowedMimesFor(t: AllowedFileType): string[] {
+  const k = kinds(t);
+  return [...(k.includesImages ? IMAGE_MIMES : []), ...(k.includesPdf ? PDF_MIMES : []), ...(k.includesDocs ? DOC_MIMES : [])];
+}
+
+/** The `accept` attribute for a file input of this kind — allowedMimesFor, comma-joined. */
+export function acceptAttributeFor(t: AllowedFileType): string {
+  return allowedMimesFor(t).join(",");
+}
+
 interface ScanOptions {
   /** Which file types to allow. Default: "image" */
   allowedTypes?: AllowedFileType;
@@ -265,29 +298,9 @@ export async function scanFile(file: File, options?: ScanOptions): Promise<ScanR
   // Normalize filename early for all checks
   const fileName = file.name.toLowerCase();
 
-  // 2. MIME type whitelist
-  const allowedMimes: string[] = [];
-  const includesImages = ["image", "image+pdf", "image+pdf+document"].includes(allowedTypes);
-  const includesPdf = ["pdf", "image+pdf", "image+pdf+document"].includes(allowedTypes);
-  const includesDocs = ["document", "image+pdf+document"].includes(allowedTypes);
-
-  if (includesImages) {
-    allowedMimes.push(
-      "image/jpeg", "image/png", "image/webp", "image/gif",
-      "image/bmp", "image/tiff", "image/heic", "image/heif"
-    );
-  }
-  if (includesPdf) {
-    allowedMimes.push("application/pdf");
-  }
-  if (includesDocs) {
-    allowedMimes.push(
-      "application/msword",
-      "application/vnd.ms-excel",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    );
-  }
+  // 2. MIME type whitelist — the same list the file pickers offer (acceptAttributeFor)
+  const allowedMimes = allowedMimesFor(allowedTypes);
+  const { includesImages, includesPdf, includesDocs } = kinds(allowedTypes);
 
   // Allow files where MIME is in whitelist, OR where extension matches an allowed type
   // (some browsers/devices don't set file.type correctly, causing false rejections)
