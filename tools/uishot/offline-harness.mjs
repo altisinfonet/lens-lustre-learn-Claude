@@ -30,6 +30,20 @@
  * sends, outbox empty. Fails first on the pre-OFF-2 app: React Query pauses
  * the like in memory, the restart loses it, and the server gets 0 rows.
  *
+ * LEG 3 (S7b-7, flight mode beyond the feed): a post page and a
+ * photographer's profile are opened once online; then, with no data network,
+ * the post page must show the post (never "Post not found"), the profile the
+ * photographer's name, every screen (feed, post, profile) the "No internet —
+ * showing saved" bar, and no screen an error, a "gone" verdict or the
+ * placeholder name "Photographer". Fails before S7b-4 (post page: "Post not
+ * found") and before S7b-5 (no bar).
+ *
+ * LEG 4 (S7b-7, OFF-2 for follows): on that profile, offline, the member taps
+ * Follow. It must be kept on the device, marked "Will send when online", and
+ * after a restart online with the first two answers lost (`lose=2`) reach the
+ * server EXACTLY ONCE (fakeTables enforces follows' unique key). Fails before
+ * S7b-5 (the follow is not kept: 0 rows).
+ *
  * Starts its own Vite dev server like gate.mjs; exit code = the verdict.
  */
 import { spawn } from "node:child_process";
@@ -40,6 +54,14 @@ import { chromium } from "playwright";
 const PORT = 5198;
 const BASE = `http://127.0.0.1:${PORT}`;
 const SENTINEL = "Morning fog on the river";
+// S7b-7 fixtures: the fixture post (by the member) and another photographer.
+const POST_ID = "aaaaaaa1-0000-4000-8000-000000000001";
+const AUTHOR_ID = "22222222-2222-4222-8222-222222222222";
+const AUTHOR_NAME = "Ranjana Bhattacharya Chowdhury";
+const OFFLINE_BAR = "No internet — showing saved";
+// Words that must never be on a screen in flight mode: an error screen, a
+// "gone" verdict for something the phone has seen, or a placeholder name.
+const FORBIDDEN = ["Something went wrong", "Post not found", "This profile doesn't exist", "Photographer"];
 const out = process.argv.includes("--json") ? process.argv[process.argv.indexOf("--json") + 1] : null;
 
 function chromePath() {
@@ -66,6 +88,8 @@ async function waitUp() {
 
 const result = { at: new Date().toISOString(), seedShown: false, storedFeed: false, offlineShown: false, controlShown: null,
   archiveStored: false, archiveOnlyShown: false,
+  pages: { postSeeded: false, profileSeeded: false, postOffline: false, profileOffline: false, bar: { feed: false, post: false, profile: false }, forbiddenSeen: [] },
+  offlineFollow: { tapped: false, marked: false, queuedOnDevice: null, serverRows: null, sends: null, outboxLeft: null, log: null },
   offlineLike: { tapped: false, queuedOnDevice: null, serverRows: null, sends: null, outboxLeft: null, log: null }, verdict: "FAIL" };
 
 const readOutbox = (page) => page.evaluate(() => new Promise((resolve) => {
@@ -110,6 +134,13 @@ const waitForRecords = async (page, prefix) => {
   }
   return false;
 };
+
+const screenText = (page) => page.evaluate(() => document.body.innerText);
+const forbiddenIn = (text) => FORBIDDEN.filter((w) => text.includes(w));
+// Visible copies only: the profile renders its header twice (phone and desktop
+// layouts, one hidden by CSS), so the first match in the page can be hidden.
+const shows = (page, text, timeout = 20_000) =>
+  page.getByText(text, { exact: false }).locator("visible=true").first().waitFor({ timeout }).then(() => true, () => false);
 
 let code = 1;
 try {
@@ -214,14 +245,73 @@ try {
   await page.goto(`${BASE}/offlineharness.html?phase=offline&nobridge=1`, { waitUntil: "load" });
   result.archiveOnlyShown = await page.getByText(SENTINEL, { exact: false }).first().waitFor({ timeout: 20_000 }).then(() => true, () => false);
 
+  // 7) LEG 3 (S7b-4/S7b-5) — flight mode beyond the feed. Online: the post
+  // page and a photographer's profile are opened once (so the phone has seen
+  // them). Then with no data network: the post page shows the post (never "Post
+  // not found"), the profile shows the photographer's name, every screen
+  // carries the "No internet — showing saved" bar, and no screen shows an error
+  // or a placeholder name.
+  const P = result.pages;
+  await page.goto(`${BASE}/offlineharness.html?phase=seed&route=post&id=${POST_ID}`, { waitUntil: "load" });
+  P.postSeeded = await shows(page, SENTINEL, 60_000);
+  await page.waitForTimeout(2000); // device-store writes are debounced
+  await page.goto(`${BASE}/offlineharness.html?phase=seed&route=profile&id=${AUTHOR_ID}`, { waitUntil: "load" });
+  P.profileSeeded = await shows(page, AUTHOR_NAME, 60_000);
+  await page.waitForTimeout(2000);
+  const seen = new Set();
+  const offlineScreen = async (key, query, expect) => {
+    await page.goto(`${BASE}/offlineharness.html?phase=offline${query}`, { waitUntil: "load" });
+    const ok = await shows(page, expect);
+    P.bar[key] = await shows(page, OFFLINE_BAR, 10_000);
+    await page.waitForTimeout(1500); // let any late error state render
+    for (const w of forbiddenIn(await screenText(page))) seen.add(`${key}: ${w}`);
+    return ok;
+  };
+  await offlineScreen("feed", "", SENTINEL);
+  P.postOffline = await offlineScreen("post", `&route=post&id=${POST_ID}`, SENTINEL);
+  P.profileOffline = await offlineScreen("profile", `&route=profile&id=${AUTHOR_ID}`, AUTHOR_NAME);
+
+  // 8) LEG 4 (S7b-5) — on that profile, still with no network, the member taps
+  // Follow. It must be kept on the device and marked "Will send when online";
+  // after a restart ONLINE, with the server losing its first two answers, the
+  // follow must reach it EXACTLY ONCE (fakeTables enforces follows' unique key).
+  const F = result.offlineFollow;
+  const follow = page.getByRole("button", { name: /^Follow$/ }).locator("visible=true").first();
+  F.tapped = await follow.waitFor({ timeout: 10_000 }).then(() => follow.click()).then(() => true, () => false);
+  F.marked = await page.getByTestId("pending-mark").locator("visible=true").first().waitFor({ timeout: 5_000 }).then(() => true, () => false);
+  await page.waitForTimeout(1500);
+  for (const w of forbiddenIn(await screenText(page))) seen.add(`follow: ${w}`);
+  const fq = await readOutbox(page);
+  F.queuedOnDevice = fq.length === 1 && fq[0].kind === "follow";
+  await page.goto(`${BASE}/offlineharness.html?phase=reconnect&lose=2&route=profile&id=${AUTHOR_ID}`, { waitUntil: "load" });
+  await shows(page, AUTHOR_NAME);
+  for (let i = 0; i < 30; i++) {
+    if ((await readOutbox(page)).length === 0) break;
+    await page.waitForTimeout(1000);
+  }
+  await page.waitForTimeout(500);
+  const fs = await page.evaluate(() => {
+    const s = window.__off6server;
+    return s ? { rows: s.rows("follows").length, log: [...s.log] } : null;
+  });
+  F.serverRows = fs ? fs.rows : null;
+  F.log = fs ? fs.log : null;
+  F.sends = fs ? fs.log.filter((l) => l.startsWith("POST follows")).length : null;
+  F.outboxLeft = (await readOutbox(page)).length;
+  P.forbiddenSeen = [...seen];
+
   await browser.close();
   const leg1 = result.seedShown && result.storedFeed && result.offlineShown && result.controlShown === false;
   const leg1b = result.archiveStored && result.archiveOnlyShown;
   const L = result.offlineLike;
   const leg2 = L.tapped && L.queuedOnDevice && L.serverRows === 1 && L.sends >= 3 && L.outboxLeft === 0;
-  const ok = leg1 && leg1b && leg2;
-  result.verdict = ok ? "PASS (leg 1 + leg 1b + leg 2)"
-    : `FAIL (leg 1 ${leg1 ? "pass" : "FAIL"}, leg 1b ${leg1b ? "pass" : "FAIL"}, leg 2 ${leg2 ? "pass" : "FAIL"})`;
+  const leg3 = P.postSeeded && P.profileSeeded && P.postOffline && P.profileOffline
+    && P.bar.feed && P.bar.post && P.bar.profile && P.forbiddenSeen.length === 0;
+  const leg4 = F.tapped && F.marked && F.queuedOnDevice && F.serverRows === 1 && F.sends >= 3 && F.outboxLeft === 0;
+  const ok = leg1 && leg1b && leg2 && leg3 && leg4;
+  const legs = { "1": leg1, "1b": leg1b, "2": leg2, "3": leg3, "4": leg4 };
+  result.verdict = ok ? "PASS (legs 1, 1b, 2, 3, 4)"
+    : `FAIL (${Object.entries(legs).map(([k, v]) => `leg ${k} ${v ? "pass" : "FAIL"}`).join(", ")})`;
   code = ok ? 0 : 1;
 } catch (e) {
   result.error = String(e && e.message ? e.message : e);
