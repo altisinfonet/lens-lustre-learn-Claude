@@ -784,6 +784,10 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
+          # 2026-10-29 (night): bumped 1.2.28 -> 1.2.29. 1.2.28 (versionCode 1131) is spent (built,
+          # not uploaded). 1.2.29 carries S4 (post page, comment links, Back per entry), S5 (shared
+          # upload layer, resume switch OFF) and S6 (cursor paging, one feed-live channel) into the
+          # app (#533/#534/#535).
           # 2026-10-29 (evening): bumped 1.2.27 -> 1.2.28. 1.2.27 is spent (built, not uploaded).
           # 1.2.28 adds the blank posts 1-2 fix: a culled card that becomes eager shows again
           # (#529/#530), on top of 1.2.27's admin ad library fix.
@@ -853,8 +857,8 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
-          sed -i 's/versionName "1.0"/versionName "1.2.28"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.28 (1.2.27 is spent - built 2026-10-29, not uploaded)"
+          sed -i 's/versionName "1.0"/versionName "1.2.29"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.29 (1.2.28 is spent - versionCode 1131, built 2026-10-29, not uploaded)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
