@@ -8,7 +8,6 @@
  * Mandatory keys (per audit): camera, iso, aperture, shutter, date_taken.
  * Extra keys (lens, focal_length, make, model) are stored when available.
  */
-import exifr from "exifr";
 
 import { logger } from "@/lib/logger";
 
@@ -60,6 +59,8 @@ const PICK = [
 export async function extractExif(file: File): Promise<ExifReadResult> {
   try {
     // exifr handles JPEG, HEIC, TIFF, PNG (limited), WebP (very limited).
+    // P13: loaded on demand (~74 KB); a failed load is "no EXIF", like a parse failure.
+    const { default: exifr } = await import("exifr");
     const raw = await exifr.parse(file, { pick: PICK as unknown as string[] });
 
     if (!raw || typeof raw !== "object") {
