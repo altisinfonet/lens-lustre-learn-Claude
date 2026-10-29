@@ -21,7 +21,7 @@ import EngagementFooter from "@/components/EngagementFooter";
 import ImageEngagement from "@/components/ImageEngagement";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import { buildCompetitionPhotoPath } from "@/lib/competitionVotingPhotos";
-import { participantKeyForJudgingTag, participantStageLabel, PARTICIPANT_PLACEMENT_LABELS, normalizePlacementKey } from "@/lib/judging/participantStageLabels";
+import { participantKeyForJudgingTag, participantStageLabel, PARTICIPANT_PLACEMENT_LABELS, normalizePlacementKey, canonicalMention } from "@/lib/judging/participantStageLabels";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 // Verification workflow removed (Spec v3 Apr 2026) — Needs Review is handled
 // via email + in-app notification on round publish. No per-photo override here.
@@ -171,7 +171,8 @@ const EntryCard: React.FC<EntryCardProps> = ({
   const normalizedPublicPlacement = normalizePlacementKey(publicPlacement);
   const gatedPlacement: string | null =
     normalizedPublicPlacement && PARTICIPANT_PLACEMENT_LABELS[normalizedPublicPlacement] ? normalizedPublicPlacement : null;
-  const effectivePlacement: string | null = photoPlacement ?? gatedPlacement;
+  // S11: canonicalMention — any Mention spelling renders as the one award.
+  const effectivePlacement: string | null = (photoPlacement ? canonicalMention(photoPlacement) : null) ?? gatedPlacement;
   // BUG-040 / Audit v6 P-01: render ONLY from the gated publicStatus prop.
   // The old chain consulted entry._visibleStatus (raw status once any round
   // was published) ahead of the gate, leaking unpublished outcomes; the raw
@@ -275,7 +276,6 @@ const EntryCard: React.FC<EntryCardProps> = ({
               "1st_runner_up":    { icon: "🥈", classes: "bg-gradient-to-r from-[hsl(0_0%_62%)] to-[hsl(0_0%_75%)] text-background shadow-md",                                  sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
               "2nd_runner_up":    { icon: "🥉", classes: "bg-gradient-to-r from-amber-700 to-amber-600 text-background shadow-md",                                              sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
               honorary_mention:   { icon: "🎖", classes: "bg-gradient-to-r from-teal-600 to-teal-500 text-white shadow-md",                                                    sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
-              honourable_mention: { icon: "🎖", classes: "bg-gradient-to-r from-teal-600 to-teal-500 text-white shadow-md",                                                    sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
               special_jury:       { icon: "⚖️", classes: "bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md",                                                sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
               top_50:             { icon: "🌟", classes: "bg-gradient-to-r from-fuchsia-600 to-pink-500 text-white shadow-md",                                                  sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },
               top_100:            { icon: "✨", classes: "bg-gradient-to-r from-violet-600 to-purple-500 text-white shadow-md",                                                 sizeClasses: "top-2 left-2 text-[9px] tracking-[0.2em] font-semibold px-3 py-1.5 rounded-sm" },

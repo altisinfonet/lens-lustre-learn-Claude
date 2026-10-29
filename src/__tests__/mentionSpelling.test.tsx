@@ -42,6 +42,10 @@ describe("one award, three spellings", () => {
     expect(dash).not.toMatch(/"honourable_mention",/);
     expect(dash).toMatch(/PLACEMENT_AWARDS\.has\(canonicalMention\(placement\)\)/);
   });
+  it("the entry card canonicalises the per-photo placement too", () => {
+    const card = readFileSync(join(process.cwd(), "src/components/EntryCard.tsx"), "utf8");
+    expect(card).toMatch(/photoPlacement \? canonicalMention\(photoPlacement\)/);
+  });
   it("the admin semantics audit lists all three label spellings", () => {
     const audit = readFileSync(join(process.cwd(), "src/pages/admin/AdminTagSemanticsAudit.tsx"), "utf8");
     for (const l of LABELS) expect(audit.toLowerCase()).toContain(`"${l.toLowerCase()}"`);
