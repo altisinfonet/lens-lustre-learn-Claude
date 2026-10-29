@@ -195,3 +195,26 @@ describe("/sitemap.xml edge function — a generator slower than the 4 s visitor
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("/sitemap.xml edge function — conditional requests and headers", () => {
+  /** Like Pages: next() with no argument re-serves the ORIGINAL request (a matching ETag → 304). */
+  const pagesNext = (original: Request) => async (input?: Request) => {
+    const r = input ?? original;
+    if (r.headers.get("if-none-match") === '"static-etag"') return new Response(null, { status: 304 });
+    return new Response(STATIC, { status: 200, headers: { etag: '"static-etag"', "content-type": "application/xml" } });
+  };
+
+  it("a crawler holding the static file's ETag still gets the dynamic sitemap, not a 304 of the old one", async () => {
+    const req = new Request("https://x.example/sitemap.xml", { headers: { "if-none-match": '"static-etag"' } });
+    const r = await onRequest({ request: req, env: { SUPABASE_PROJECT_REF: "ref" }, next: pagesNext(req), waitUntil: () => {} });
+    expect(r.status).toBe(200);
+    expect(r.headers.get("x-sitemap-source")).toBe("dynamic");
+    expect(await r.text()).toBe(DYN);
+  });
+
+  it("every XML answer carries nosniff and a no-script CSP", async () => {
+    const r = await call();
+    expect(r.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(r.headers.get("content-security-policy")).toBe("default-src 'none'");
+  });
+});
