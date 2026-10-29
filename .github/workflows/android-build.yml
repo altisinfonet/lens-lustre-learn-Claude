@@ -784,6 +784,9 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
+          # 2026-10-29 (evening): bumped 1.2.27 -> 1.2.28. 1.2.27 is spent (built, not uploaded).
+          # 1.2.28 adds the blank posts 1-2 fix: a culled card that becomes eager shows again
+          # (#529/#530), on top of 1.2.27's admin ad library fix.
           # 2026-10-29 (later): bumped 1.2.26 -> 1.2.27. 1.2.26 (versionCode 1129) is spent (built,
           # not uploaded). 1.2.27 adds the admin ad library fix: a new picture takes the freed spot,
           # Replace picture, Move up/down (#525/#526).
@@ -850,8 +853,8 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
-          sed -i 's/versionName "1.0"/versionName "1.2.27"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.27 (1.2.26 is spent - versionCode 1129, built 2026-10-29)"
+          sed -i 's/versionName "1.0"/versionName "1.2.28"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.28 (1.2.27 is spent - built 2026-10-29, not uploaded)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
