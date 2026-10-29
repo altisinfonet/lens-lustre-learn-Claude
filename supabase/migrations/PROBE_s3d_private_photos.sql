@@ -105,6 +105,8 @@ BEGIN
   IF n <> 0 THEN RAISE EXCEPTION 'PROBE FAIL G2b: member B got % rows of an only-me post', n; END IF;
 
   -- c. private switch off
+  PERFORM set_config('request.jwt.claims', '', true);
+  PERFORM set_config('request.jwt.claim.sub', '', true);
   UPDATE public.feature_access SET mode = 'off' WHERE feature = 'media_private_photos';
   PERFORM set_config('request.jwt.claims', json_build_object('sub', author, 'role', 'authenticated')::text, true);
   PERFORM set_config('request.jwt.claim.sub', author::text, true);
@@ -116,6 +118,11 @@ BEGIN
   -- d. public again, with a complete PUBLIC ladder (seeded here, rolled back) →
   --    rows come back, 3 per slide, every one under /d/, none under /photo/.
   --    Requiring rows keeps this from passing vacuously.
+  -- Fixture writes run with NO member claims: with the author's claims still set
+  -- (from c), enforce_post_caption_only_update refuses a privacy change
+  -- ("Only the caption can be edited", staging run 40944009785).
+  PERFORM set_config('request.jwt.claims', '', true);
+  PERFORM set_config('request.jwt.claim.sub', '', true);
   UPDATE public.feature_access SET mode = 'everyone' WHERE feature = 'media_private_photos';
   UPDATE public.posts SET privacy = 'public' WHERE id = post;
   UPDATE public.media_objects mo
@@ -124,6 +131,8 @@ BEGIN
                              '1080', public.media_derivative_key(mo.owner_id, mo.id, 'public', 1080),
                              '1440', public.media_derivative_key(mo.owner_id, mo.id, 'public', 1440))
    WHERE mo.id IN (SELECT media_id FROM public.post_media WHERE post_id = post);
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', author, 'role', 'authenticated')::text, true);
+  PERFORM set_config('request.jwt.claim.sub', author::text, true);
   SET LOCAL ROLE authenticated;
   SELECT count(*), count(*) FILTER (WHERE r.url LIKE '%/photo/%' OR r.url NOT LIKE origin || '/post-images/' || author || '/d/%')
     INTO n, n_bad FROM public.post_media_resolved_for(ARRAY[post]) r;
