@@ -69,6 +69,9 @@ describe("review #574: cold start offline", () => {
     // an item saved in an earlier session, before this app start
     await store.put({ key: "k1", userId: U, action: { kind: "follow", targetId: "t9" }, createdAt: 1, seq: 1, attempts: 0, nextAt: 0 });
     const { result } = renderHook(() => useOutboxPendingSubjects());
+    // the first read happens before any member is known (as at app start)
+    await act(async () => { await new Promise((r) => setTimeout(r, 200)); });
+    expect(result.current.has("follow:t9")).toBe(false);
     await act(async () => { startOutbox(U, async () => ({ ok: true })); });
     await waitFor(() => expect(result.current.has("follow:t9")).toBe(true));
   });
