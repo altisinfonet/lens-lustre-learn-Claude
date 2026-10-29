@@ -46,7 +46,8 @@ describe("where the photo-saving worker runs", () => {
   it("main.tsx uses this one rule", () => {
     const main = readFileSync("src/main.tsx", "utf8");
     expect(main).toContain("imageWorkerDecision(");
-    expect(main).toContain("register(imageWorkerUrl(CDN_HOST))");
+    // S7b-1b: registered through the Owner's switch, still with this lane's CDN host
+    expect(main).toContain("applyImageWorkerSwitch(await readImageWorkerSwitch(), imageWorkerUrl(CDN_HOST),");
     expect(main).not.toMatch(/window\.location\.hostname === "localhost"/);
   });
 });

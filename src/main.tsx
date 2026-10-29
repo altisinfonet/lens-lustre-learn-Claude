@@ -7,7 +7,7 @@ import { installImageErrorReporter } from "./lib/reportImageError";
 import { installTelemetry } from "./lib/telemetry";
 import { installOverlayUnfreeze } from "./lib/unfreezeStuckOverlay";
 import { initNativeAuthDeepLink, isNativeCapacitorApp, isNativeIOSApp } from "./lib/native/authDeepLink";
-import { imageWorkerDecision, imageWorkerUrl } from "./lib/offline/imageWorkerRegistration";
+import { applyImageWorkerSwitch, imageWorkerDecision, imageWorkerUrl, readImageWorkerSwitch } from "./lib/offline/imageWorkerRegistration";
 import { CDN_HOST } from "./lib/env";
 import { installZoomPolicy } from "./lib/native/zoomPolicy";
 
@@ -164,8 +164,15 @@ if ("serviceWorker" in navigator) {
 
         // S7b-1: the worker learns this lane's CDN host from its URL (never
         // written in the worker file — lane isolation, R8).
-        navigator.serviceWorker.register(imageWorkerUrl(CDN_HOST)).catch(() => {
-          // SW registration failed — images will load normally without caching
+        // S7b-1b: only when the Owner's switch (site_settings `app_image_sw`)
+        // says "on"; no row / "off" removes the worker and its caches; a
+        // switch that cannot be read (no network) leaves everything as it is.
+        // A failure means images simply load without the worker.
+        await applyImageWorkerSwitch(await readImageWorkerSwitch(), imageWorkerUrl(CDN_HOST), {
+          register: (url) => navigator.serviceWorker.register(url),
+          getRegistrations: () => navigator.serviceWorker.getRegistrations(),
+          cacheKeys: () => ("caches" in window ? caches.keys() : Promise.resolve([])),
+          deleteCache: (name) => caches.delete(name),
         });
       })();
     });
