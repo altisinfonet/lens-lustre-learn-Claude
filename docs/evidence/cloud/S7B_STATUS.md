@@ -1,8 +1,8 @@
 # S7b offline runner — status
 
-Updated: 2026-10-29 ~19:30 UTC · branch `status/s7b-runner` (draft, never merged)
+Updated: 2026-10-29 ~20:25 UTC · branch `status/s7b-runner` (draft, never merged)
 
-**S7b done: ~55 %** (S7b-2, weak photos, S7b-1/1b live; S7b-3 merged on staging, carry #563 in CI; S7b-4 #564 reviewed; S7b-5a built)
+**S7b done: ~70 %** (S7b-1/1b, S7b-2, S7b-3, S7b-4 live; S7b-5a/5b in review; S7b-6 waits for #539–#542; S7b-7 harness pending)
 
 | Part | PR | State | merged sha (staging / main) | SQL runs | Live check |
 |---|---|---|---|---|---|
@@ -10,10 +10,10 @@ Updated: 2026-10-29 ~19:30 UTC · branch `status/s7b-runner` (draft, never merge
 | Weak-network photos | #545 / #546 | live (app 1.2.30) | d3d1ff5 / 262d4cf | none | done earlier |
 | S7b-1 photos kept on the phone | #547 → landed in #551; carry #557 | live (switch OFF) | abd26ea / 3f980ba | none | PASS 18:18Z: home + /feed 200 in Chromium, Firefox, WebKit; same text; no new console errors; no photo worker registered (OFF) |
 | S7b-1b remote switch `app_image_sw` (default OFF) | #551; carry #557 | live, OFF | abd26ea / 3f980ba | none (row absent = OFF) | as above |
-| S7b-3 ~200 feed posts offline | #548 + follow-up #566; carry #563 | staging merged; carry CI running | a244d90 + f5a69ec / — | none | baseline taken 19:20Z |
-| S7b-4 profiles / post pages / comments / notifications offline | #564 | 3 review rounds, last: nothing blocking; CI running after rebase | — | none | — |
-| S7b-5a offline follows, reports, pending marks, offline bar, own name | branch s7b/offline-actions | built, tests pass; PR after #564 | — | none | — |
-| S7b-5b new posts with photos made offline | — | needs Owner switch photo_upload_resume (see list) | — | — | — |
+| S7b-3 ~200 feed posts offline | #548 + #566 / carry #563 | live | a244d90 + f5a69ec / 9e14592 | none | PASS 19:49Z: 3 browsers 200, same content, no new console errors (a pre-existing 'Slow connection' bar appeared from this sandbox's slow link) |
+| S7b-4 profiles / post pages / comments / notifications offline | #564 (+ follow-up #575) / carry #572 | live; #575 in CI | 9551368 / 0a8ab79 | none | PASS 20:24Z: 3 browsers 200, same text, no new console errors |
+| S7b-5a offline follows, reports, pending marks, offline bar, own name | #574 | review nothing blocking (round 2); CI | — | none | — |
+| S7b-5b new posts with photos made offline | branch s7b/offline-posts (PR after #574) | built; works only with Owner switch photo_upload_resume ON | — | none | — |
 | S7b-6 videos offline | — | waits for S7 video PRs #539–#542 on staging | — | — | — |
 | S7b-7 flight-mode harness in CI + OFF-2 PROBE on live | — | PROBE done: production PASS, run 40930361884 (18:27Z); harness part pending | — | PROBE_off2_idempotency production PASS 18:27Z | — |
 
