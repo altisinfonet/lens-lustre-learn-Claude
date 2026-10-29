@@ -106,7 +106,9 @@ describe("the composer actually uses the rebuilt file", () => {
     // Two scan calls: the original attempt and exactly one retry. A loop here
     // would hide a genuine problem behind endless retries.
     const scans = code.match(/scanFileWithToast\(/g) || [];
-    expect(scans.length).toBe(2);
+    // S5-b: plus ONE in the resumable path, which never retries — a scan that
+    // throws there hands the post to the path above (and its single recovery).
+    expect(scans.length).toBe(3);
   });
 
   it("keeps the catch as a safety net for when caching itself failed", () => {
