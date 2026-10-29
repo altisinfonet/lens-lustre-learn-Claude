@@ -784,6 +784,10 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
+          # 2026-10-29 (late night): bumped 1.2.29 -> 1.2.30. 1.2.29 (versionCode 1132) is spent (on
+          # the Owner's phone). 1.2.30 adds: own name never "Photographer" offline (#544) and poor
+          # network photos — 3g/weak links slow, phones get 1080 px (#546). Offline S7b (#547/#548)
+          # is NOT in it (paused by the Owner).
           # 2026-10-29 (night): bumped 1.2.28 -> 1.2.29. 1.2.28 (versionCode 1131) is spent (built,
           # not uploaded). 1.2.29 carries S4 (post page, comment links, Back per entry), S5 (shared
           # upload layer, resume switch OFF) and S6 (cursor paging, one feed-live channel) into the
@@ -857,8 +861,8 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
-          sed -i 's/versionName "1.0"/versionName "1.2.29"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.29 (1.2.28 is spent - versionCode 1131, built 2026-10-29, not uploaded)"
+          sed -i 's/versionName "1.0"/versionName "1.2.30"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.30 (1.2.29 is spent - versionCode 1132, on the Owner's phone)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
