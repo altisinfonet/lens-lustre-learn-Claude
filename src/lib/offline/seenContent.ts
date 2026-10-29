@@ -11,7 +11,15 @@
  * by the store's own caps (oldest first). A thread keeps its authors' names and
  * pictures with it, so the names are right offline too (never "Photographer").
  */
-import { putRecord, readAll } from "./deviceStore";
+import { deleteRecord, putRecord, readAll } from "./deviceStore";
+
+/**
+ * Review #564: bumped by the sign-out wipe. A page that started loading before
+ * a sign-out hands back the epoch it started with, and is not saved after it.
+ */
+let epoch = 0;
+export const seenContentEpoch = () => epoch;
+export function resetSeenContent(): void { epoch++; }
 
 const POST = "seen-post";
 const THREAD = "seen-thread";
@@ -28,8 +36,9 @@ async function readOne<T>(userId: string, key: unknown[]): Promise<T | null> {
 }
 
 /** Keep the post page the member just opened online. Never throws. */
-export function rememberPost<T extends { id: string }>(userId: string | null | undefined, post: T): Promise<boolean> {
+export function rememberPost<T extends { id: string }>(userId: string | null | undefined, post: T, opts: { epoch?: number } = {}): Promise<boolean> {
   if (!userId || !post?.id) return Promise.resolve(false);
+  if (opts.epoch !== undefined && opts.epoch !== epoch) return Promise.resolve(false);
   return putRecord(userId, [POST, post.id], post).catch(() => false);
 }
 
@@ -44,8 +53,10 @@ export function rememberThread(
   postId: string,
   rows: unknown[],
   authors: Record<string, SavedAuthor>,
+  opts: { epoch?: number } = {},
 ): Promise<boolean> {
   if (!userId || !postId || !Array.isArray(rows)) return Promise.resolve(false);
+  if (opts.epoch !== undefined && opts.epoch !== epoch) return Promise.resolve(false);
   return putRecord(userId, [THREAD, postId], { rows, authors }).catch(() => false);
 }
 
@@ -55,4 +66,11 @@ export function savedThread<R = unknown>(
   postId: string,
 ): Promise<{ rows: R[]; authors: Record<string, SavedAuthor> } | null> {
   return userId ? readOne<{ rows: R[]; authors: Record<string, SavedAuthor> }>(userId, [THREAD, postId]).catch(() => null) : Promise.resolve(null);
+}
+
+/** Review #564: the server says this post is gone for this member — drop the saved copy and thread. */
+export async function forgetPost(userId: string | null | undefined, postId: string): Promise<void> {
+  if (!userId) return;
+  await deleteRecord(userId, [POST, postId]);
+  await deleteRecord(userId, [THREAD, postId]);
 }

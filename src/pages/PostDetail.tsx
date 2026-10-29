@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { timedRpc } from "@/lib/logger";
 import { onlineManager } from "@tanstack/react-query";
 import { loadPostPage, type PostRow } from "@/lib/posts/postPageLoad";
@@ -130,6 +130,10 @@ const PostDetail = () => {
   const [notFound, setNotFound] = useState(false);
   /** S7b-4: no network and this post is not saved on the phone. */
   const [offline, setOffline] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
+  const offlineRef = useRef(false);
+  const savedRef = useRef(false);
+  offlineRef.current = offline;
   const [showComments, setShowComments] = useState(true);
   const { downloading, download: downloadImg } = useDownloadImage();
 
@@ -238,6 +242,9 @@ const PostDetail = () => {
     const load = async () => {
       setLoading(true);
       setOffline(false);
+      setNotFound(false);
+      // Review #564: never show the previous post under a new address.
+      setPost((p) => (p && p.id === postId ? p : null));
       // S7b-4: no network → the copy saved on the phone (src/lib/posts/postPageLoad.ts).
       const result = await loadPostPage(postId, user?.id, {
         online: () => onlineManager.isOnline(),
@@ -247,6 +254,7 @@ const PostDetail = () => {
         readDetails,
       });
       if (!live) return;
+      savedRef.current = result.kind === "post" && result.saved;
       if (result.kind === "post") setPost(result.post as PostData);
       else if (result.kind === "offline") setOffline(true);
       else setNotFound(true);
@@ -254,7 +262,13 @@ const PostDetail = () => {
     };
     load();
     return () => { live = false; };
-  }, [postId, user?.id]);
+  }, [postId, user?.id, reloadTick]);
+
+  // Review #564: "it will open when you're back online" — so it does: when the
+  // network returns, a page shown offline (or from the saved copy) reloads.
+  useEffect(() => onlineManager.subscribe((online) => {
+    if (online && (offlineRef.current || savedRef.current)) setReloadTick((n) => n + 1);
+  }), []);
 
   const handleReact = (reactionType: ReactionType) => {
     if (!user || !post || reactMutation.isPending) return;

@@ -72,4 +72,25 @@ describe("loadPostPage", () => {
     const r = await loadPostPage("p1", ME, deps({ readPost: async () => ({ data: null, error: { message: "permission denied", code: "42501" } }) }));
     expect(r.kind).toBe("gone");
   });
+
+  it("review #564: a post the server says is gone stops opening offline", async () => {
+    await loadPostPage("p1", ME, deps());
+    await new Promise((res) => setTimeout(res, 10));
+    expect((await loadPostPage("p1", ME, deps({ readPost: async () => ({ data: null, error: null }) }))).kind).toBe("gone");
+    await new Promise((res) => setTimeout(res, 10));
+    expect((await loadPostPage("p1", ME, deps({ online: () => false }))).kind).toBe("offline");
+  });
+
+  it("review #564: a page that was loading when the member signed out is not saved after the wipe", async () => {
+    const { wipeMemberDataOnSignOut } = await import("@/lib/offline/signOutWipe");
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const p = loadPostPage("p1", ME, deps({ readPost: async () => { await gate; return { data: row, error: null }; } }));
+    await wipeMemberDataOnSignOut();
+    release();
+    await p;
+    await new Promise((res) => setTimeout(res, 10));
+    expect(await savedPost(ME, "p1")).toBeNull();
+  });
 });
+

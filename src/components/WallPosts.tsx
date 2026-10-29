@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from "react";
+import { isNetworkError } from "@/lib/offline/retryPolicy";
 import { Link, useSearchParams } from "react-router-dom";
 import { MessageCircle, Send, Globe, Users, Lock, ChevronDown, ImagePlus, X, Tag, CalendarClock, Crop, ArrowLeft } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -109,6 +110,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     data,
     isLoading: loading,
     isError: wallFailed,
+    error: wallError,
     fetchStatus: wallFetchStatus,
     isFetchingNextPage: loadingMore,
     hasNextPage: hasMore,
@@ -2461,7 +2463,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
               </div>
               <p className="text-sm text-muted-foreground">
                 {/* S7b-4: no network (paused) or a read that failed is NOT an empty wall. */}
-                {wallFailed || wallFetchStatus === "paused"
+                {(wallFailed && isNetworkError(wallError)) || wallFetchStatus === "paused"
                   ? "No internet. These posts will show when you're back online."
                   : isOwnWall ? "Your wall is empty. Share your first photo above!" : "No posts to show yet."}
               </p>

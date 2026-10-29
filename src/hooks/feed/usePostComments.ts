@@ -26,7 +26,7 @@ import type { ThreadComment } from "@/components/comments/CommentThread";
 import { createThreadCache, threadCacheKey } from "@/lib/comments/threadCache";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
-import { rememberThread, savedThread, type SavedAuthor } from "@/lib/offline/seenContent";
+import { rememberThread, savedThread, seenContentEpoch, type SavedAuthor } from "@/lib/offline/seenContent";
 import type { ProfileMapEntry } from "@/lib/profileMapCache";
 
 /** One post_comments row as the thread reads it, its reactions embedded. */
@@ -197,7 +197,7 @@ export function usePostComments(
   const { profileMap } = useProfileMap(commentUserIds);
   const qc = useQueryClient();
   /** S7b-4: rows this screen just read ONLINE, waiting for their authors' names to be saved. */
-  const onlineRowsRef = useRef<{ key: string; rows: CommentRow[] } | null>(null);
+  const onlineRowsRef = useRef<{ key: string; rows: CommentRow[]; epoch: number } | null>(null);
 
   // WHOSE thread the state on screen is: this viewer's copy of this post.
   // A member change (A signs out, B signs in, the component never unmounted)
@@ -270,6 +270,7 @@ export function usePostComments(
     // Only a thread with nothing to show says "Loading comments…". A cached
     // one stays on screen while it refreshes.
     if (!THREAD_CACHE.has(viewerId, postId)) setLoading(true);
+    const epochAtStart = seenContentEpoch();
     const [rows] = await Promise.all([fetchThreadRows(postId, focusCommentId), getAdminIds()]);
 
     // The selected post, or the member, moved on while this was in flight:
@@ -278,7 +279,7 @@ export function usePostComments(
 
     if (rows) {
       THREAD_CACHE.set(viewerId, postId, rows);
-      onlineRowsRef.current = { key: requestedFor, rows };
+      onlineRowsRef.current = { key: requestedFor, rows, epoch: epochAtStart };
       applyRows(rows, viewerId);
     } else if (viewerId && !THREAD_CACHE.has(viewerId, postId)) {
       // S7b-4: the read failed (no network) and nothing is in memory: the
@@ -318,7 +319,7 @@ export function usePostComments(
       authors[id] = { full_name: p.full_name ?? null, avatar_url: p.avatar_url ?? null, custom_url: p.custom_url ?? null, badges: p.badges ?? [] };
     }
     onlineRowsRef.current = null;
-    void rememberThread(viewerId, postId, o.rows, authors);
+    void rememberThread(viewerId, postId, o.rows, authors, { epoch: o.epoch });
   }, [profileMap, threadKey, viewerId, postId, rawComments]);
 
   // Build comment tree reactively when rawComments or profileMap changes

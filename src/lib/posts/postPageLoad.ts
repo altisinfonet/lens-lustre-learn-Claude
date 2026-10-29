@@ -15,7 +15,7 @@
  */
 import { isNetworkError } from "@/lib/offline/retryPolicy";
 import { findSavedFeedPost } from "@/lib/offline/feedArchive";
-import { rememberPost, savedPost } from "@/lib/offline/seenContent";
+import { forgetPost, rememberPost, savedPost, seenContentEpoch } from "@/lib/offline/seenContent";
 
 /** The fields PostDetail renders (it owns the full type). */
 export interface PostPageData {
@@ -94,6 +94,7 @@ export async function loadPostPage(
   deps: PostPageDeps,
 ): Promise<PostPageResult> {
   if (!deps.online()) return fromPhone(postId, viewerId);
+  const epoch = seenContentEpoch();
   let read: { data: PostRow | null; error: unknown };
   try {
     read = await deps.readPost(postId);
@@ -101,7 +102,12 @@ export async function loadPostPage(
     read = { data: null, error: e };
   }
   if (read.error) return isNetworkError(read.error) ? fromPhone(postId, viewerId) : { kind: "gone" };
-  if (!read.data) return { kind: "gone" };
+  if (!read.data) {
+    // Review #564: gone for this member (deleted, hidden, made private): the
+    // saved copy must not keep opening offline.
+    void forgetPost(viewerId, postId);
+    return { kind: "gone" };
+  }
   let post: PostPageData | null;
   try {
     post = await deps.readDetails(read.data);
@@ -109,7 +115,7 @@ export async function loadPostPage(
     if (isNetworkError(e)) return fromPhone(postId, viewerId);
     throw e;
   }
-  if (!post) return { kind: "gone" };
-  void rememberPost(viewerId, post);
+  if (!post) { void forgetPost(viewerId, postId); return { kind: "gone" }; }
+  void rememberPost(viewerId, post, { epoch });
   return { kind: "post", post, saved: false };
 }
