@@ -161,7 +161,8 @@ const Feed = () => {
     return new Set([...bufferedIds, ...polledIds].filter((id) => !inFeed.has(id))).size;
   }, [bufferedIds, polledNew, posts, blockedIds, feedTab]);
   /** A page on screen came from the DB-3004 chronological fallback: it is not the feed, so say so. */
-  const servedStale = data?.pages?.some((p) => p.degraded === true) ?? false;
+  // S7b-3: posts read from the phone are the saved ones, not the live feed.
+  const servedStale = data?.pages?.some((p) => p.degraded === true || p.offline === true) ?? false;
 
   const reactMutation = useReactToPost();
   const unreactMutation = useUnreactToPost();
