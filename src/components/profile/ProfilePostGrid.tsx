@@ -77,8 +77,8 @@ export const SQUARES_PER_BLOCK = 9;
  */
 export const BLOCK = SQUARES_PER_BLOCK + 1;
 
-/** S6-c · tiles never windowed: the first two blocks (the opening screen on any width). */
-export const EAGER_TILES = BLOCK * 2;
+/** S6-c · tiles never windowed: the first three blocks (≥ the opening screen on any width; on a phone 30 tiles ≈ the 1600 px window margin anyway). */
+export const EAGER_TILES = BLOCK * 3;
 
 /** Is the post at this index the full-width one? The 10th of every block. */
 export function isShowcase(index: number): boolean {
@@ -377,7 +377,7 @@ const ProfilePostGrid = ({ posts }: Props) => (
         exist only near the viewport; the wrapper stays, at its measured
         height, so the grid never shifts. The wrapper is the grid item, so the
         showcase's full width is set on it. The tile fills its wrapper
-        (block w-full), as it filled its grid cell before. The first two
+        (block w-full), as it filled its grid cell before. The first three
         blocks are never windowed — the opening screen on every width, as the
         feed's EAGER_CARDS. */}
     {posts.map((post, i) =>
