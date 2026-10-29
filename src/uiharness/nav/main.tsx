@@ -32,7 +32,7 @@ import { Suspense, lazy, useEffect } from "react";
 import { Link, Route, Routes, useNavigate } from "react-router-dom";
 import { installFakeBackend, type FakeRoute } from "../fakeBackend";
 import { fixtureRoutes } from "../fixtureRoutes";
-import { posts, postComments } from "../fixtures";
+import { fixtureImage, posts, postComments, siteSettings } from "../fixtures";
 import { notificationEntryState } from "@/lib/navigationContract";
 import PushNotificationsGate from "@/components/PushNotificationsGate";
 import NotificationBell from "@/components/NotificationBell";
@@ -175,7 +175,63 @@ const notificationGroups: FakeRoute = ({ method, path }) => {
 };
 (window as unknown as { __navBellActor: string }).__navBellActor = BELL_ACTOR;
 
-installFakeBackend({ routes: [dealBySeed, authorWall, longThread, ownNotifications, notificationGroups, ...fixtureRoutes], signedIn: true });
+/**
+ * ADS BUG 1 (2026-10-29) · THE FEED'S SPONSORED CARD — only with `?ads=…`, so
+ * every other journey reads the same feed as before.
+ *
+ * Production's shape: ads on, the story-card zone has ONE library picture AND
+ * a single picture of its own. `?ads=flaky` makes every library read fail (503)
+ * for the first 3 s, as a weak or missing network does. Owner, latest Android app: "From
+ * Feed ad comment and like section vanished" — the failed read showed the
+ * zone's single picture, which has no like / comment bar.
+ */
+const ADS = new URLSearchParams(window.location.search).get("ads");
+const AD_CREATIVE_ID = "adadadad-0000-4000-8000-000000000001";
+const adSettings: Record<string, unknown> = {
+  ad_zones_v2_enabled: true,
+  ad_zones_v2: {
+    "story-card": {
+      zone: "story-card", mode: "own", devices: ["desktop", "mobile", "tablet"], start_date: "", end_date: "",
+      own: { image_source: "upload", image_url: fixtureImage(21, "single"), ad_code: "", click_url: "", alt_text: "Zone single picture",
+        creative_headline: "", creative_subtext: "", creative_cta: "" },
+      google: { adsense_slot_id: "", adsense_format: "auto", admob_unit_id: "" },
+    },
+  },
+};
+let adLibraryReads = 0;
+/** `?ads=flaky`: every library read fails for this long after the first one — a weak link, not one lost packet. */
+const AD_NETWORK_DOWN_MS = 3000;
+let adNetworkDownUntil: number | null = null;
+const adsRoute: FakeRoute = ({ method, path, params }) => {
+  if (!ADS) return undefined;
+  // By table name, as fixtureRoutes.ts answers tables: this ANSWERS requests, it reads nothing.
+  const table = path.startsWith("/rest/v1/") ? path.slice("/rest/v1/".length) : "";
+  if (method === "GET" && table === "site_settings") {
+    const f = params.get("key") ?? "";
+    const wanted = f.startsWith("eq.") ? [f.slice(3)] : (f.match(/^in\.\((.*)\)$/)?.[1] ?? "").split(",").map((k) => k.replace(/^"|"$/g, ""));
+    const rows = [
+      ...siteSettings.filter((r) => wanted.includes(r.key) && !(r.key in adSettings)),
+      ...Object.entries(adSettings).filter(([k]) => wanted.includes(k)).map(([key, value]) => ({ key, value })),
+    ];
+    return { body: rows };
+  }
+  if (method === "GET" && path === "/rest/v1/ad_creatives") {
+    adLibraryReads++;
+    (window as unknown as { __adLibraryReads: number }).__adLibraryReads = adLibraryReads;
+    if (ADS === "flaky") adNetworkDownUntil ??= Date.now() + AD_NETWORK_DOWN_MS;
+    if (adNetworkDownUntil !== null && Date.now() < adNetworkDownUntil) {
+      return { status: 503, body: { code: "PGRST000", message: "upstream connect error", details: null, hint: null } };
+    }
+    return { body: [{ id: AD_CREATIVE_ID, zone: "story-card", image_url: fixtureImage(22, "advert"), click_url: "", alt_text: "Library advert",
+      headline: "", subtext: "", cta: "", advertiser_name: null, advertiser_logo_url: null, sort_order: 1 }] };
+  }
+  if (method === "GET" && path === "/rest/v1/ad_videos") return { body: [] };
+  if (method === "POST" && path === "/rest/v1/rpc/get_ad_engagement") return { body: [] };
+  if (method === "POST" && path === "/rest/v1/ad_impressions") return { status: 201, body: [] };
+  return undefined;
+};
+
+installFakeBackend({ routes: [adsRoute, dealBySeed, authorWall, longThread, ownNotifications, notificationGroups, ...fixtureRoutes], signedIn: true });
 
 const start = new URLSearchParams(window.location.search).get("start") || "/below";
 window.history.replaceState(null, "", start);
