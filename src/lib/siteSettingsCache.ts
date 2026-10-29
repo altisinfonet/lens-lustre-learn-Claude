@@ -44,6 +44,17 @@ import { supabase } from "@/integrations/supabase/client";
 
 import { logger } from "@/lib/logger";
 import { SITE_API, siteFetch } from "@/lib/net/siteApi";
+import { isNetworkError } from "@/lib/offline/retryPolicy";
+
+/**
+ * S7b-5b · why the last read of a key failed: the network was lost, or the
+ * server answered with a refusal. Cleared by the next good read. Lets a switch
+ * keep its last answer through a lost network while a refusal still reads off.
+ */
+const lastFailure = new Map<string, "network" | "refused">();
+export function siteSettingFailure(key: string): "network" | "refused" | null {
+  return lastFailure.get(key) ?? null;
+}
 
 const FILE = "src/lib/siteSettingsCache.ts";
 
@@ -171,6 +182,7 @@ async function flush(): Promise<void> {
         const now = Date.now();
         for (const k of keys) {
           if (!cache.has(k)) cache.set(k, { value: null, at: now, missing: true });
+          lastFailure.delete(k);
         }
         return;
       }
@@ -184,10 +196,16 @@ async function flush(): Promise<void> {
         for (const row of (res?.data as any[]) || []) got.set(row.key, row.value);
         for (const k of keys) {
           cache.set(k, { value: got.has(k) ? got.get(k) : null, at: now, missing: !got.has(k) });
+          lastFailure.delete(k);
         }
+      } else {
+        const how = isNetworkError(res.error) ? "network" : "refused";
+        for (const k of keys) lastFailure.set(k, how);
       }
     }
   } catch (err) {
+    const how = isNetworkError(err) ? "network" : "refused";
+    for (const k of keys) lastFailure.set(k, how);
     logger.warn({
       code: "SYS-9011",
       event: "SITE_SETTINGS_LOAD_FAILED",
@@ -271,8 +289,8 @@ export async function readSiteSettingState<T = unknown>(
 
 /** Drop a cached setting after a write. No argument = drop everything. */
 export function invalidateSiteSetting(key?: string) {
-  if (key) cache.delete(key);
-  else cache.clear();
+  if (key) { cache.delete(key); lastFailure.delete(key); }
+  else { cache.clear(); lastFailure.clear(); }
   // The version describes the whole payload, so it stops being true the moment
   // any key is dropped. Leaving it set would report a configuration the cache
   // no longer holds.
