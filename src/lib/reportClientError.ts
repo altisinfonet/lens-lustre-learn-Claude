@@ -99,9 +99,44 @@ export function describeThrown(err: unknown): string {
  * "Unknown error".
  */
 export function memberFacingMessage(err: unknown): string {
+  const kind = failureKind(err);
+  if (kind) return KIND_SENTENCE[kind];
   const m = (err as { message?: unknown } | null)?.message;
   if (typeof m === "string" && m.trim() !== "") return m;
   return describeThrown(err);
+}
+
+/**
+ * S11 (2026-10-29): transport and HTTP-status failures, read from the status,
+ * the PostgREST / Postgres code or the transport's own signature — never shown
+ * raw ("Edge Function returned a non-2xx status code", "permission denied for
+ * table …", a 429 body). null = not one of these: a message the database wrote
+ * for people ("You are posting too quickly") is left alone.
+ */
+export type FailureKind = "auth" | "forbidden" | "rate" | "server" | "offline";
+
+const KIND_SENTENCE: Record<FailureKind, string> = {
+  auth: "Your sign-in has expired. Please sign in again.",
+  forbidden: "You don't have permission to do that.",
+  rate: "Too many tries in a short time. Please wait a minute and try again.",
+  server: "The service is busy right now. Nothing was lost — please try again in a moment.",
+  offline: "Couldn't reach the service. Check your connection and try again.",
+};
+
+export function failureKind(err: unknown): FailureKind | null {
+  if (err == null || typeof err !== "object") return null;
+  const e = err as { name?: unknown; message?: unknown; status?: unknown; statusCode?: unknown; code?: unknown; context?: { status?: unknown } };
+  const status = Number(e.status ?? e.statusCode ?? e.context?.status);
+  const code = typeof e.code === "string" ? e.code : "";
+  const name = typeof e.name === "string" ? e.name : "";
+  const msg = typeof e.message === "string" ? e.message : "";
+  if (status === 401 || code === "PGRST301" || code === "PGRST302" || /\bjwt (expired|is expired)\b|invalid jwt/i.test(msg)) return "auth";
+  if (status === 403 || code === "42501" || /^permission denied for /i.test(msg)) return "forbidden";
+  if (status === 429) return "rate";
+  if (status >= 500 && status <= 599) return "server";
+  if (name === "FunctionsFetchError" || name === "FunctionsRelayError") return "offline";
+  if (name === "TypeError" && /^(failed to fetch|load failed|networkerror when attempting to fetch resource\.?)$/i.test(msg.trim())) return "offline";
+  return null;
 }
 
 /**
@@ -133,6 +168,8 @@ export function memberFacingMessage(err: unknown): string {
  * same code.
  */
 export function memberFacingFailure(err: unknown, code: string): string {
+  const kind = failureKind(err);
+  if (kind) return `${KIND_SENTENCE[kind]} (${code})`;
   const raw = (err as { message?: unknown } | null)?.message;
   const msg = typeof raw === "string" ? raw.trim() : "";
 
