@@ -645,6 +645,17 @@ jobs:
       - name: Add Android platform
         run: npx cap add android
 
+      # S2 (2026-10-29): this app's OWN native plugins, kept in
+      # resources/android/java and copied into the generated project.
+      # ExitInfoPlugin hands JavaScript Android's own record of why the app's
+      # earlier processes ended (crash, native crash, out-of-memory on screen,
+      # ANR) for the Admin -> Health crash rate per build. The script registers
+      # it in MainActivity before super.onCreate and REFUSES (fails the build)
+      # if MainActivity is no longer Capacitor's template — a copied but
+      # unregistered plugin is undefined at runtime with every test green.
+      - name: Install this app's own native plugins (S2 crash / OOM reasons)
+        run: node scripts/android-native-plugins.mjs android
+
       # The app autoplays video WITH SOUND (Owner 2026-10-18, src/lib/video/playback.ts
       # autoplayWithSound). That needs the WebView to let media start without a
       # tap — and Capacitor already does that itself: Bridge.initWebView() calls
@@ -1357,6 +1368,21 @@ jobs:
       # which libraries are present, which is the information needed to decide
       # whether the symbols can be produced or must be sourced another way.
       # ─────────────────────────────────────────────────────────────────────
+      # S2: the crash / OOM reader must be in what ships, under its own name
+      # (R8 keeps com.fiftymmretina.app.** — see the proguard step).
+      - name: Prove the ExitInfo plugin is inside the RELEASE bundle (blocking)
+        run: |
+          set -euo pipefail
+          AAB=android/app/build/outputs/bundle/release/app-release.aab
+          test -f "$AAB" || { echo "::error::no release AAB was produced"; exit 1; }
+          found=0
+          for d in $(unzip -Z1 "$AAB" | grep -E '^base/dex/classes[0-9]*\.dex$'); do
+            if unzip -p "$AAB" "$d" | grep -a -q "Lcom/fiftymmretina/app/ExitInfoPlugin;"; then
+              echo "OK: ExitInfoPlugin is in $d"; found=1
+            fi
+          done
+          test "$found" = 1 || { echo "::error::ExitInfoPlugin is not in the release bundle - crash / OOM reasons would never reach Admin -> Health"; exit 1; }
+
       - name: Prove native debug symbols are in the bundle (blocking)
         run: |
           set -euo pipefail
