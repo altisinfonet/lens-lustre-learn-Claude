@@ -77,6 +77,20 @@ describe("every support attachment is scanned and GPS-guarded before upload", ()
     await prepareSupportAttachment(file("p.jpg", "", MAGIC["image/jpeg"]), "image+pdf");
     expect(guard).toHaveBeenCalledTimes(1);
   });
+  it.each([
+    ["application/octet-stream", "p.jpg", "image+pdf"],
+    ["application/msword", "p.doc", "image+pdf+document"],
+    ["application/vnd.ms-excel", "P.XLS", "image+pdf+document"],
+  ] as const)("a JPEG labelled %s (%s) is still guarded — mislabelling cannot skip it", async (type, name, kind) => {
+    await prepareSupportAttachment(file(name, type, MAGIC["image/jpeg"]), kind);
+    expect(guard).toHaveBeenCalledTimes(1);
+  });
+  it("an Office document with Office bytes is not guarded", async () => {
+    const doc = file("r.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", [0x50, 0x4b, 0x03, 0x04]);
+    const out = await prepareSupportAttachment(doc, "image+pdf+document");
+    expect(guard).not.toHaveBeenCalled();
+    expect(out.ok && out.file).toBe(doc);
+  });
   it("a PDF is not an image: scanned, not guarded, returned as is", async () => {
     const pdf = file("a.pdf", "application/pdf");
     const out = await prepareSupportAttachment(pdf, "image+pdf");
@@ -94,6 +108,13 @@ describe("every support attachment is scanned and GPS-guarded before upload", ()
     const out = await prepareSupportAttachment(file("p.png", "image/png"), "image+pdf+document");
     expect(out).toEqual({ ok: false, reason: GPS_REFUSAL_MESSAGE, gps: true });
     expect(out.file).toBeUndefined();
+  });
+  it("the drop zone (a ticket's first message) decides 'image' by type, name or bytes too", async () => {
+    const src = readFileSync(join(process.cwd(), "src/components/FileUploadDropZone.tsx"), "utf8");
+    expect(src).toMatch(/const isImage = await looksLikeImage\(file\);/);
+    const { looksLikeImage } = await import("@/lib/fileSecurityScanner");
+    expect(await looksLikeImage(file("p.bin", "application/octet-stream", MAGIC["image/jpeg"]))).toBe(true);
+    expect(await looksLikeImage(file("a.pdf", "application/pdf"))).toBe(false);
   });
   it("both support pages upload only what prepareSupportAttachment returned", () => {
     for (const f of ["src/pages/HelpSupport.tsx", "src/components/admin/AdminSupportTickets.tsx"]) {

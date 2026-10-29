@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { Upload, FolderOpen, FileText, Image, FileSpreadsheet, X, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
-import { acceptAttributeFor, scanFileWithToast, type AllowedFileType } from "@/lib/fileSecurityScanner";
+import { acceptAttributeFor, looksLikeImage, scanFileWithToast, type AllowedFileType } from "@/lib/fileSecurityScanner";
 import { compressImageToFiles } from "@/lib/imageCompression";
 import { GpsPrivacyError, guardOriginalUpload } from "@/lib/gpsGuard";
 import { uploadImage } from "@/lib/imageUpload";
@@ -75,7 +75,9 @@ const FileUploadDropZone = ({
     const safe = await scanFileWithToast(file, toast, { allowedTypes, maxSize });
     if (!safe) return;
 
-    const isImage = file.type.startsWith("image/");
+    // Type, name or bytes (S11): a JPEG labelled octet-stream is still an image
+    // and must reach the GPS guard below.
+    const isImage = await looksLikeImage(file);
     const baseName = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
     try {

@@ -237,6 +237,7 @@ function validateImageDecodable(file: File): Promise<boolean> {
 
 export type AllowedFileType = "image" | "pdf" | "image+pdf" | "document" | "image+pdf+document";
 
+const IMAGE_EXTENSIONS = /\.(jpg|jpeg|png|webp|gif|bmp|tiff|tif|heic|heif)$/i;
 const IMAGE_MIMES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp", "image/tiff", "image/heic", "image/heif"];
 const PDF_MIMES = ["application/pdf"];
 const DOC_MIMES = [
@@ -263,6 +264,18 @@ function kinds(t: AllowedFileType) {
 export function allowedMimesFor(t: AllowedFileType): string[] {
   const k = kinds(t);
   return [...(k.includesImages ? IMAGE_MIMES : []), ...(k.includesPdf ? PDF_MIMES : []), ...(k.includesDocs ? DOC_MIMES : [])];
+}
+
+/**
+ * True when ANY signal says this file is an image — its type, its name, or its
+ * first bytes — the same three signals scanFile uses. A JPEG the picker labels
+ * application/octet-stream (or an allowed Office type) is still an image here,
+ * so nothing can reach storage unguarded by being mislabelled.
+ */
+export async function looksLikeImage(file: File): Promise<boolean> {
+  if (file.type.startsWith("image/") || IMAGE_EXTENSIONS.test(file.name.toLowerCase())) return true;
+  const head = await readFileBytes(file, 32);
+  return ["image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp", "image/tiff", "image/heic"].some((m) => verifyMagicBytes(head, m));
 }
 
 /** The `accept` attribute for a file input of this kind — allowedMimesFor, comma-joined. */
@@ -335,7 +348,6 @@ export async function scanFile(file: File, options?: ScanOptions): Promise<ScanR
 
   // Robust image detection: check MIME type, file extension, AND magic bytes
   // file.type can be empty on some browsers/devices, causing false positives
-  const IMAGE_EXTENSIONS = /\.(jpg|jpeg|png|webp|gif|bmp|tiff|tif|heic|heif)$/i;
   const isImageByMime = file.type.startsWith("image/");
   const isImageByExt = IMAGE_EXTENSIONS.test(fileName);
   const isImageByMagic = (
