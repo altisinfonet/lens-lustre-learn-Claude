@@ -59,6 +59,43 @@ const clearPosition = (compId: string) => {
   try { localStorage.removeItem(POSITION_KEY(compId)); } catch { /* noop */ }
 };
 
+/**
+ * S11 · the AMBIENT position ("the photo the judge last looked at") has its own
+ * key and never leaves this device. It is not the bookmark: the bookmark is
+ * intentional (JudgePanel), lives in judge_sessions.last_* and is what the
+ * heartbeat writes. Sharing storage made trackPosition move the bookmark.
+ */
+const AMBIENT_KEY = (compId: string) => `judge_ambient_${compId}`;
+export const readAmbientPosition = (compId: string): PersistedPosition | null => {
+  try {
+    const raw = localStorage.getItem(AMBIENT_KEY(compId));
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    if (typeof p?.entry_id !== "string" || !p.entry_id) return null;
+    return { entry_id: p.entry_id, entry_index: Number(p.entry_index) || 0, photo_index: Number(p.photo_index) || 0, ts: Number(p.ts) || 0 };
+  } catch { return null; }
+};
+const clearAmbient = (compId: string) => {
+  try { localStorage.removeItem(AMBIENT_KEY(compId)); } catch { /* noop */ }
+};
+
+export type ResumeTarget = { kind: "bookmark" | "ambient"; entryId: string; entryIndex: number; photoIndex: number };
+/**
+ * What the resume dialog offers. A bookmark always wins. With no bookmark, the
+ * ambient position is offered only when `ambientOn` (site setting
+ * judge_resume_ambient = "on"; no row = OFF, so live behaves exactly as before).
+ */
+export function resumeTarget(session: JudgeSession | null | undefined, ambient: PersistedPosition | null, ambientOn: boolean): ResumeTarget | null {
+  if (!session || session.status === "completed") return null;
+  if (session.last_entry_id) {
+    return { kind: "bookmark", entryId: session.last_entry_id, entryIndex: session.last_entry_index ?? 0, photoIndex: session.last_photo_index ?? 0 };
+  }
+  if (ambientOn && ambient) {
+    return { kind: "ambient", entryId: ambient.entry_id, entryIndex: ambient.entry_index, photoIndex: ambient.photo_index };
+  }
+  return null;
+}
+
 export function useJudgeSession(
   competitionId: string | null,
   userId: string | undefined,
@@ -287,7 +324,7 @@ export function useJudgeSession(
       .eq("id", session.id);
     // Phase 9: clearing an intentional bookmark ALSO wipes the ambient mirror.
     positionRef.current = null;
-    if (competitionId) clearPosition(competitionId);
+    if (competitionId) { clearPosition(competitionId); clearAmbient(competitionId); }
     qc.invalidateQueries({ queryKey });
   }, [session?.id, competitionId, qc, queryKey]);
 
@@ -306,18 +343,22 @@ export function useJudgeSession(
   }, [session?.id, session?.last_entry_id, session?.last_photo_index, bookmark, clearBookmark]);
 
   /**
-   * Phase 9: AMBIENT position tracker — distinct from intentional bookmark.
-   * Callers SHOULD call this on every photo selection change. The update is
-   * synchronous into memory + localStorage (no network round-trip), and the
-   * heartbeat effect flushes to DB at most every 30 s. Also piggybacks on
-   * beforeunload via keepalive PATCH. This closes the crash-recovery gap when
-   * the judge has not intentionally bookmarked.
+   * AMBIENT position tracker — distinct from the intentional bookmark.
+   * JudgePanel calls it on every photo selection change while the
+   * judge_resume_ambient switch is on. S11: it writes ONE local key on this
+   * device and nothing else — no network, no bookmark mirror, nothing the
+   * heartbeat or beforeunload flush. (Until S11 it wrote the shared position
+   * the heartbeat sends into last_entry_id, i.e. it would have moved the
+   * judge's bookmark.) resumeTarget() offers it only when there is no bookmark.
    */
   const trackPosition = useCallback(
     (entryId: string, entryIndex: number, photoIndex: number = 0) => {
       if (!competitionId || !entryId) return;
-      positionRef.current = { entry_id: entryId, entry_index: entryIndex, photo_index: photoIndex };
-      writePosition(competitionId, positionRef.current);
+      // S11: ambient only — NOT positionRef (the heartbeat writes that into the
+      // bookmark columns) and NOT the bookmark's local mirror.
+      try {
+        localStorage.setItem(AMBIENT_KEY(competitionId), JSON.stringify({ entry_id: entryId, entry_index: entryIndex, photo_index: photoIndex, ts: Date.now() }));
+      } catch { /* quota — non-fatal */ }
     },
     [competitionId],
   );
@@ -419,6 +460,8 @@ export function useJudgeSession(
     clearBookmark,
     toggleBookmark,
     trackPosition,
+    /** S11: this device's last-viewed photo for the competition (never sent anywhere). */
+    ambientPosition: competitionId ? readAmbientPosition(competitionId) : null,
     updateSessionRound,
     resetIdleTimer,
     hasResumeData:
