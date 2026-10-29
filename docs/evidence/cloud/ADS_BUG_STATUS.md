@@ -62,7 +62,13 @@ Browser check: nav harness journeys "sponsored card: …" (Chromium/Firefox/WebK
   Console: no new errors from the ad code. Seen: X-Frame-Options-in-meta and Cloudflare beacon CSP (both
   present before this deploy), 401s from the public key on signed-in reads (test setup), a Dialog a11y warning
   (not in this diff), WebKit "access control checks" on the test's own faked feed replies (test setup).
-- Android build run ID: 40943931632 (running)
+- Android build run ID: 40943931632 — **attempt 1 FAILED** (20:12 UTC) in its unit-test gate: 4661/4661 tests
+  passed but Vitest caught 1 unhandled error, `ReferenceError: sessionStorage is not defined` from
+  `linkReferral` ← a `setTimeout` in `useAuth.tsx:405` firing after `signOutWipeWiring.test.tsx` tore down.
+  Not caused by the version bump or the ads code; intermittent (the Unit tests job PASSED on the same commit,
+  run 448). Root cause: AuthProvider's six deferred sign-in timers were never cleared on unmount.
+  → re-ran the failed job once (allowed: same check passed on this exact commit); attempt 2 running.
+  → root-cause fix PR #578 (timers cleared on unmount; fail-first test; full vitest 4706 passed, 0 errors).
 
 ## For the Owner (plain words)
 The like and comment buttons disappeared when the phone could not load the ad list for a moment (weak or no network).
