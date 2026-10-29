@@ -33,6 +33,7 @@ import { clearFeedSessions } from "@/lib/feedSessions";
 import { clearCommentThreadCaches } from "@/lib/comments/threadCache";
 import { clearOutbox } from "./outbox";
 import { clearVideoUploads } from "@/lib/video/uploadJobs";
+import { clearPhotoUploads } from "@/lib/upload/photoJobs";
 
 export interface WipeResult {
   imageCaches: string[] | null;
@@ -57,6 +58,7 @@ export async function wipeMemberDataOnSignOut(): Promise<WipeResult> {
     clearDeviceStore().catch(() => false),
     clearOutbox().catch(() => false),
     clearVideoUploads().catch(() => false),
+    clearPhotoUploads().catch(() => false), // S5-b: the photo twin
   ]);
   return { imageCaches, deviceStore, feedCache, outbox, videoUploads };
 }

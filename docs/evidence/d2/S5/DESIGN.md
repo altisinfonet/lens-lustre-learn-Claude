@@ -18,12 +18,12 @@ exactly those 8.
 |---|---|---|---|
 | 1 | before presign | job + encoded bytes in IndexedDB, nothing sent | resume from presign |
 | 2 | after presign | as 1, presign answered (URL may expire) | re-presign the **same keys**; nothing was written |
-| 3 | 10 % uploaded | partial PUT to a known key | re-PUT the same key (overwrites itself) |
+| 3 | 10 % uploaded | interrupted PUT to a known key (an S3/R2 PUT is atomic: no partial object is ever visible) | re-PUT the same key |
 | 4 | 50 % | same | same |
 | 5 | 90 % | same | same |
 | 6 | after original uploaded | all objects stored, no `media_objects` row | `media_begin_upload` with the same bytes |
 | 7 | after derivatives / media ready | `media_objects` ready, no post | `post_publish_with_media` |
-| 8 | after DB post creation | post committed, answer lost | the same key returns the same post, then the job is deleted |
+| 8 | after DB post creation | post committed, answer lost | the same key returns the same post (media path; on the legacy fallback via `recoverPostByKey`, §3), then the job is deleted |
 
 ## 3. The state machine (one layer, photo and video)
 
@@ -45,11 +45,14 @@ any refusal (4xx that is not 403/408/429) ─▶ failed (said out loud, bytes ke
 * **Deterministic object keys**: `post-images/<uid>/posts/<uploadId>-<slot>-w…h…[-l3].webp`.
   A retry, a resume or a re-presign lands on the same address, so no orphan is
   possible from a kill.
-* **The encoded bytes are stored**, not the source file: a resume re-PUTs the
+* **The encoded bytes are stored, before the job record** (so a job on disk always has its bytes; a kill during encode loses only the tap, and nothing was sent). **A resume never re-encodes**: a resume re-PUTs the
   exact same bytes, so `media_begin_upload` gets the same sha256 and the same
   media row (no duplicate media).
-* Encode + sha256 run in a Web Worker when `OffscreenCanvas` exists. Otherwise
-  they run on the main thread as today.
+* sha256 runs in a Web Worker (main-thread fallback, same digest). **Decision
+  (S5-b):** WebP *encoding* stays on the main-thread canvas: an OffscreenCanvas
+  encoder produces different bytes and quality (a visible change that needs
+  its own switch and measurement). It is also off the resume path, because
+  bytes are encoded once and stored.
 * The legacy fallback insert also carries the key; a 23505 on it means the
   post exists, and the existing id is used.
 
@@ -59,12 +62,13 @@ any refusal (4xx that is not 403/408/429) ─▶ failed (said out loud, bytes ke
    returns the existing post for a replayed key. Live since `20260815041256`.
 2. `UNIQUE (owner_id, sha256)` on media_objects; `media_begin_upload` returns
    the same row. Live since `20260814084711`.
-3. The presign signs any key under the caller's own `post-images/<uid>/`
-   prefix, and a PUT to an existing key overwrites it (R2). No change needed.
+3. The presign signs any key carrying the caller's own uid as a path
+   segment (or a shared prefix), and a PUT to an existing key overwrites it (R2). No change needed.
 4. **Abandoned jobs** (a member who never reopens the app) leave objects and a
    `pending` media row. These are the only orphans the design allows. They are
    reclaimed by a reference-counted sweep older than a window (S5-c, only if
-   the harness shows it is needed for the gate).
+   the harness shows it is needed for the gate). The kill test always
+   relaunches, so abandoned jobs are outside the gate by its own definition.
 
 ## 5. Switch
 

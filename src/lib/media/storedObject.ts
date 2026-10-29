@@ -20,6 +20,8 @@
  */
 
 /** The declaration `media_begin_upload` takes, and the server re-derives. */
+import { sha256Hex } from "@/lib/upload/sha256";
+
 export interface StoredObjectFacts {
   /** Lowercase hex, 64 chars, of the bytes that were uploaded. */
   sha256: string;
@@ -103,7 +105,8 @@ export async function describeStoredObject(
   if (!["image/webp", "image/jpeg", "image/png", "image/avif"].includes(mime)) return null;
 
   return {
-    sha256: toHex(await crypto.subtle.digest("SHA-256", buf)),
+    // S5-b: hashed in a Web Worker where one starts (same digest, off the main thread).
+    sha256: await sha256Hex(buf),
     bytes: buf.byteLength,
     width: dims.width,
     height: dims.height,
