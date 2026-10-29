@@ -24,6 +24,15 @@ export interface ImageWorkerContext {
 
 export type ImageWorkerDecision = "register" | "unregister" | "skip";
 
+/**
+ * The worker's URL carries this lane's CDN host (`?cdn=`), so the worker file
+ * itself names no host and each lane's bundle names only its own CDN.
+ */
+export function imageWorkerUrl(cdnHost: string | null | undefined): string {
+  const h = (cdnHost ?? "").trim();
+  return h ? `/sw-image-cache.js?cdn=${encodeURIComponent(h)}` : "/sw-image-cache.js";
+}
+
 export function imageWorkerDecision(c: ImageWorkerContext): ImageWorkerDecision {
   if (c.nativeIOS) return "unregister";
   const previewHost =

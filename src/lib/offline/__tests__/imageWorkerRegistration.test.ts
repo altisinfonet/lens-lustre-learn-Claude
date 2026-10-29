@@ -9,7 +9,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
-import { imageWorkerDecision } from "@/lib/offline/imageWorkerRegistration";
+import { imageWorkerDecision, imageWorkerUrl } from "@/lib/offline/imageWorkerRegistration";
 
 const base = { hostname: "www.50mmretina.com", inIframe: false, prod: true, nativeAndroid: false, nativeIOS: false };
 
@@ -37,9 +37,16 @@ describe("where the photo-saving worker runs", () => {
     expect(imageWorkerDecision({ ...base, prod: false })).toBe("skip");
   });
 
+  it("the worker URL carries this lane's CDN host, nothing else", () => {
+    expect(imageWorkerUrl("cdn-staging.50mmretina.com")).toBe("/sw-image-cache.js?cdn=cdn-staging.50mmretina.com");
+    expect(imageWorkerUrl("")).toBe("/sw-image-cache.js");
+    expect(imageWorkerUrl(undefined)).toBe("/sw-image-cache.js");
+  });
+
   it("main.tsx uses this one rule", () => {
     const main = readFileSync("src/main.tsx", "utf8");
     expect(main).toContain("imageWorkerDecision(");
+    expect(main).toContain("register(imageWorkerUrl(CDN_HOST))");
     expect(main).not.toMatch(/window\.location\.hostname === "localhost"/);
   });
 });

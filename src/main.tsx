@@ -7,7 +7,8 @@ import { installImageErrorReporter } from "./lib/reportImageError";
 import { installTelemetry } from "./lib/telemetry";
 import { installOverlayUnfreeze } from "./lib/unfreezeStuckOverlay";
 import { initNativeAuthDeepLink, isNativeCapacitorApp, isNativeIOSApp } from "./lib/native/authDeepLink";
-import { imageWorkerDecision } from "./lib/offline/imageWorkerRegistration";
+import { imageWorkerDecision, imageWorkerUrl } from "./lib/offline/imageWorkerRegistration";
+import { CDN_HOST } from "./lib/env";
 import { installZoomPolicy } from "./lib/native/zoomPolicy";
 
 import "./index.css";
@@ -161,7 +162,9 @@ if ("serviceWorker" in navigator) {
           // Best effort cleanup; continue to registration either way.
         }
 
-        navigator.serviceWorker.register("/sw-image-cache.js").catch(() => {
+        // S7b-1: the worker learns this lane's CDN host from its URL (never
+        // written in the worker file — lane isolation, R8).
+        navigator.serviceWorker.register(imageWorkerUrl(CDN_HOST)).catch(() => {
           // SW registration failed — images will load normally without caching
         });
       })();

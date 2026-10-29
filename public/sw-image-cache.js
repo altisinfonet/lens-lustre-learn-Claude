@@ -77,11 +77,24 @@ const THUMB_BUCKETS = [
 ];
 
 /**
- * S7b-1: our own image CDN (Cloudflare R2 behind a custom domain). Every feed
- * photo on live comes from here (192 of 192 measured 2026-10-29), and the list
- * below never matched it, so no photo was ever saved for offline use.
+ * S7b-1: this lane's own image CDN (Cloudflare R2 behind a custom domain).
+ * Every feed photo on live comes from it (192 of 192 measured 2026-10-29), and
+ * the list below never matched it, so no photo was ever saved for offline use.
+ *
+ * The host is NOT written in this file: the page registers the worker as
+ * `sw-image-cache.js?cdn=<this lane's CDN host>` (src/main.tsx, from the build's
+ * CDN_HOST), so each lane's bundle names only its own CDN — the lane-isolation
+ * guard (scripts/verify-bundle-isolation.mjs, R8) scans this file. No `cdn`
+ * parameter means no CDN photo is saved, never another lane's.
  */
-const OUR_CDN_HOSTS = ["cdn.50mmretina.com", "cdn-staging.50mmretina.com"];
+const OUR_CDN_HOSTS = (() => {
+  try {
+    const h = new URL(self.location.href).searchParams.get("cdn");
+    return h && /^[a-z0-9.-]+$/i.test(h) ? [h.toLowerCase()] : [];
+  } catch {
+    return [];
+  }
+})();
 
 /** Query parameters that mean "this URL carries a pass or a signature". */
 const PRIVATE_PARAMS = ["t", "token", "sig", "signature", "Signature", "Expires", "X-Amz-Signature", "X-Amz-Credential"];
@@ -101,7 +114,7 @@ function isGalleryImage(url) {
   for (const p of PRIVATE_PARAMS) if (u.searchParams.has(p)) return false;
   if (u.pathname.startsWith("/photo/")) return false;
 
-  // Our CDN: cdn.50mmretina.com/<bucket>/<key>
+  // This lane's CDN: <cdn host>/<bucket>/<key>
   if (OUR_CDN_HOSTS.includes(u.hostname)) {
     const parts = u.pathname.replace(/^\//, "").split("/");
     if (parts.length >= 2 && THUMB_BUCKETS.includes(parts[0])) return true;

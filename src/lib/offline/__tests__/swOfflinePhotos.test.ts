@@ -16,7 +16,8 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 
-function loadWorker() {
+/** `cdn` = the host the page passes in the worker URL (src/main.tsx); null = none. */
+function loadWorker(cdn: string | null = "cdn.50mmretina.com") {
   const store = new Map<string, Map<string, Response>>();
   const listeners: Record<string, (e: unknown) => void> = {};
   const seen: { url: string; mode: string }[] = [];
@@ -42,6 +43,7 @@ function loadWorker() {
   const self = {
     addEventListener: (t: string, fn: (e: unknown) => void) => { listeners[t] = fn; },
     skipWaiting() {}, clients: { claim: async () => {} },
+    location: { href: `https://app.test/sw-image-cache.js${cdn ? `?cdn=${encodeURIComponent(cdn)}` : ""}` },
   } as Record<string, unknown>;
   const ctx = vm.createContext({
     self, caches, URL, Request, Response, Blob, Promise, JSON, console,
@@ -83,10 +85,22 @@ describe("photos from our CDN are saved on the phone", () => {
     expect(w.entries()).toEqual(expect.arrayContaining([LIVE, LIVE_THUMB]));
   });
 
-  it("the staging CDN too (the same app build tests there first)", async () => {
-    const w = loadWorker();
+  it("on staging, the staging CDN (the worker is told its lane's host)", async () => {
+    const w = loadWorker("cdn-staging.50mmretina.com");
     await w.fetchImage(STAGING);
     expect(w.entries()).toContain(STAGING);
+  });
+
+  it("lane isolation: a worker never saves the OTHER lane's photos, and with no host it saves none", async () => {
+    const staging = loadWorker("cdn-staging.50mmretina.com");
+    expect(await staging.fetchImage(LIVE)).toBeNull();
+    const none = loadWorker(null);
+    expect(await none.fetchImage(LIVE)).toBeNull();
+    expect(none.entries()).toEqual([]);
+  });
+
+  it("the worker file itself names no CDN host (the lane-isolation guard scans it)", () => {
+    expect(readFileSync("public/sw-image-cache.js", "utf8")).not.toMatch(/50mmretina\.com/);
   });
 
   it("asks the CDN for a CORS response, so the photo is not opaque (opaque is never stored)", async () => {
