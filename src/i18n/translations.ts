@@ -674,6 +674,7 @@ const en: Dict = {
   "mp.compressing": "Compressing & uploading…",
   "mp.noPhotosYet": "No photos uploaded yet",
   "mp.noTagged": "No tagged photos yet",
+  "mp.taggedLoadFailed": "Your tagged photos could not be loaded right now.",
   "mp.noAlbums": "No albums yet",
   "mp.addPhotos": "Add Photos",
   "mp.uploading": "Uploading...",
