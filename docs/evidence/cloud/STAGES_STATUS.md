@@ -1,6 +1,6 @@
 # STAGES runner — status
 
-Updated: 2026-10-29 23:44 UTC · runner branch `status/stages-runner` · never merged.
+Updated: 2026-10-29 23:39 UTC · runner branch `status/stages-runner` · never merged.
 
 ## Done per stage
 
@@ -28,8 +28,8 @@ Updated: 2026-10-29 23:44 UTC · runner branch `status/stages-runner` · never m
 | S3 | PROBE 0102 setup writes without member claims | #573 | staging 9a0f9e1 | staging PROBE 0102 PASS 40946796937 (20:11) | — |
 | S3 | **Carry S3 to main** (#496–#501, #567, #569, #571, #573) | #576 | main 03004ff | production: 0100 PROBE FAIL 40949645431 → apply 40951365749 → PASS 40951832115 · 0101 FAIL 40951913183 → apply 40951975386 → PASS 40952048358 · 0102 FAIL 40952139141 → apply 40952199347 → PASS 40952288920 · coverage 0 % of 507 (40952365255) | 20:32 UTC live; Chromium/Firefox/WebKit home + /feed 200, same text, 0 new console errors. Anonymous GET of a private photo path on the live CDN → 404 (fails closed). PASS |
 
-| S8 | Sitemap: survives a slow generator | #577 | staging fbdb644 · main c801512 (#580) | — | 23:37 UTC PASS (below) |
-| S8 | Sitemap: held ETag / Range no longer pin the thin file; nosniff + CSP | #585 | staging 77ee4e4 · main c801512 (#580) | — | 23:37 UTC: `/sitemap.xml` 200 `x-sitemap-source: dynamic-cached`, 729 URLs (one cold request served the static 12 as designed); If-None-Match → 200, not a stale 304; nosniff + CSP `default-src 'none'`. Home + /feed in Chromium, Firefox, WebKit: 200, same text, 0 new console errors. PASS |
+| S8 | Sitemap: survives a slow generator | #577 | staging fbdb644 · main c801512 (#580) | — | 23:35 UTC PASS (below) |
+| S8 | Sitemap: held ETag / Range no longer pin the thin file; nosniff + CSP | #585 | staging 77ee4e4 · main c801512 (#580) | — | 23:35 UTC: `/sitemap.xml` 200 `x-sitemap-source: dynamic-cached`, 729 URLs (one cold request served the static 12 as designed); If-None-Match → 200, not a stale 304; nosniff + CSP `default-src 'none'`. Home + /feed in Chromium, Firefox, WebKit: 200, same text, 0 new console errors. PASS |
 | S8 | F-AUD-8 rotation SQL to main (files only) | #581 | main b891559 | not run (Owner Vault step first) | — |
 | S8 | F-REV4-1 inventory tools to main | #582 | main cb21960 | PROBE runs: see below | — |
 | S8 | PROBE: credentials the rotation does not scan | #586 → #599 | staging 1703ac4 · main 6f24ab3 | staging PASS 40968413653 (23:11): trigger args 0, db/role settings 0, pg_net queue 0 | — |
