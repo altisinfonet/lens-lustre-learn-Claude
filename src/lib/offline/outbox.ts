@@ -106,7 +106,12 @@ export type OutboxAction =
   | { kind: "unmute"; authorId: string }
   /** S12-F5 · ★ Add to / Remove from Favourites (natural key: user_id, author_id). */
   | { kind: "favourite"; authorId: string }
-  | { kind: "unfavourite"; authorId: string };
+  | { kind: "unfavourite"; authorId: string }
+  /** S7b-5 · follow / unfollow a member (natural key: follower_id, following_id). */
+  | { kind: "follow"; targetId: string }
+  | { kind: "unfollow"; targetId: string }
+  /** S7b-5 · report a post, the path the app uses (natural key: post_id, reporter_id). */
+  | { kind: "post_report"; postId: string; reason: string };
 export type OutboxKind = OutboxAction["kind"];
 
 /**
@@ -147,6 +152,9 @@ export const OUTBOX_TARGETS: Record<OutboxKind, { table: string; kind: "key" | "
   unhide_post: { table: "feed_hidden_posts", kind: "natural", onConflict: "user_id,post_id" },
   favourite: { table: "feed_favourite_authors", kind: "natural", onConflict: "user_id,author_id" },
   unfavourite: { table: "feed_favourite_authors", kind: "natural", onConflict: "user_id,author_id" },
+  follow: { table: "follows", kind: "natural", onConflict: "follower_id,following_id" },
+  unfollow: { table: "follows", kind: "natural", onConflict: "follower_id,following_id" },
+  post_report: { table: "post_reports", kind: "natural", onConflict: "post_id,reporter_id" },
 };
 
 export interface OutboxItem {
@@ -276,7 +284,37 @@ const togglePost = (a: OutboxAction) =>
   : a.kind === "mute" || a.kind === "unmute" ? `author:${a.authorId}`
   : a.kind === "hide_post" || a.kind === "unhide_post" ? `hide:${a.postId}`
   : a.kind === "favourite" || a.kind === "unfavourite" ? `favourite:${a.authorId}`
+  : a.kind === "follow" || a.kind === "unfollow" ? `follow:${a.targetId}`
   : null;
+
+/**
+ * S7b-5 · what a queued action is about, for the "will send when online" mark:
+ * `post:<id>` (like), `follow:<member>`, `comment:<post>`, `post_report:<post>` …
+ * Toggles share their subject (a like and an unlike are both `post:<id>`).
+ */
+export function outboxSubject(a: OutboxAction): string | null {
+  const t = togglePost(a);
+  if (t) return t;
+  switch (a.kind) {
+    case "comment": return `comment:${a.postId}`;
+    case "post_report": return `post_report:${a.postId}`;
+    case "report": return `report:${a.targetId}`;
+    default: return null; // telemetry: nothing on screen waits for it
+  }
+}
+
+/**
+ * S7b-5 · call `fn` once when ONE queued item is delivered or finally refused
+ * (e.g. a comment shown "Pending" becomes a real comment). Returns the stop.
+ */
+export function whenOutboxSettles(key: string, fn: (outcome: "delivered" | "failed") => void): () => void {
+  const stop = subscribeOutbox((e) => {
+    if (e.type === "changed" || e.item.key !== key) return;
+    stop();
+    fn(e.type);
+  });
+  return stop;
+}
 
 /**
  * Put one action on the device. The idempotency key is made HERE, once.

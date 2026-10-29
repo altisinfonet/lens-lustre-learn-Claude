@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ownDisplayName } from "@/lib/ownDisplayName";
 import { fadeUp } from "@/lib/motionVariants";
 import { publicUrl } from "@/lib/publicUrl";
 import { Link, useNavigate } from "react-router-dom";
@@ -65,7 +66,7 @@ const Certificates = () => {
   const [eligible, setEligible] = useState<EligibleEntry[]>([]);
   const [requesting, setRequesting] = useState<string | null>(null);
   const { data: profileCore } = useProfileCore(user?.id);
-  const displayName = profileCore?.full_name || "Photographer";
+  const displayName = ownDisplayName(profileCore?.full_name, user);
   const [loading, setLoading] = useState(true);
   // Preview modal state — see CertificatePreviewModal
   const [previewOpen, setPreviewOpen] = useState(false);

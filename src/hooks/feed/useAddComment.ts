@@ -7,7 +7,7 @@ import { useIsBanned } from "@/hooks/core/useIsBanned";
 import { queryKeys } from "@/lib/queryKeys";
 import { convertEmojiShortcuts } from "@/lib/emoji";
 import { logger } from "@/lib/logger";
-import { submit } from "@/lib/offline/outbox";
+import { submit, whenOutboxSettles } from "@/lib/offline/outbox";
 
 const FILE = "src/hooks/feed/useAddComment.ts";
 
@@ -89,7 +89,7 @@ export function useAddComment(
        * see, as the wall the owner has removed.
        */
       const r = await submit(user.id, { kind: "comment", postId, content: finalContent, parentId });
-      if (r.status === "queued") return { id: null as string | null, queued: true };
+      if (r.status === "queued") return { id: null as string | null, queued: true, key: r.key };
       const row = r.result as { id?: string } | undefined;
       return { id: row?.id ?? null, queued: false };
     },
@@ -185,6 +185,10 @@ export function useAddComment(
             list.map((c) => (c.id === tempId ? { ...c, pending: true } : { ...c, replies: mark(c.replies) }));
           setComments(mark);
         }
+        // S7b-5: when the outbox delivers it (or the server refuses it), the
+        // thread is re-read: "Pending" becomes the real comment (or goes away).
+        const key = (data as { key?: string }).key;
+        if (key) whenOutboxSettles(key, () => reloadComments());
         toast({ title: "Saved — it will post when you're back online" });
         return;
       }

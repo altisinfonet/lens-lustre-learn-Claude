@@ -3,19 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
 import { toast } from "@/hooks/core/use-toast";
 import { queryKeys } from "@/lib/queryKeys";
+import { submit } from "@/lib/offline/outbox";
 
 /* ── helpers ── */
 
+// S7b-5: through the OFF-2 outbox — one row per (follower, following) however
+// often it is sent, and kept on the phone when there is no network.
 const ensureFollow = async (followerId: string, followingId: string) => {
-  const { data: existing } = await supabase
-    .from("follows")
-    .select("id")
-    .eq("follower_id", followerId)
-    .eq("following_id", followingId)
-    .maybeSingle();
-  if (!existing) {
-    await supabase.from("follows").insert({ follower_id: followerId, following_id: followingId });
-  }
+  await submit(followerId, { kind: "follow", targetId: followingId });
 };
 
 /* ── Send friend request ── */
@@ -131,18 +126,25 @@ export function useToggleFollow() {
   const qc = useQueryClient();
 
   return useMutation({
+    // S7b-5: follow / unfollow go through the OFF-2 outbox. With no network the
+    // action is kept on the phone, shown at once (marked "Will send when
+    // online") and sent once when the network is back — never "Failed".
     mutationFn: async ({ targetUserId, isCurrentlyFollowing }: { targetUserId: string; isCurrentlyFollowing: boolean }) => {
       if (!user) throw new Error("Not authenticated");
-      if (isCurrentlyFollowing) {
-        await supabase.from("follows").delete().eq("follower_id", user.id).eq("following_id", targetUserId);
-        return { followed: false };
-      } else {
-        const { error } = await supabase.from("follows").insert({ follower_id: user.id, following_id: targetUserId });
-        if (error) throw error;
-        return { followed: true };
-      }
+      const r = await submit(user.id, { kind: isCurrentlyFollowing ? "unfollow" : "follow", targetId: targetUserId });
+      return { followed: !isCurrentlyFollowing, queued: r.status === "queued", targetUserId };
     },
+    networkMode: "always",
     onSuccess: (result) => {
+      if (result.queued && user) {
+        // Show it now: the profile's follow state and count, as this member sees them.
+        qc.setQueryData<{ isFollowing?: boolean; followerCount?: number }>(
+          ["friend-follow", result.targetUserId, user.id],
+          (d) => (d ? { ...d, isFollowing: result.followed, followerCount: Math.max(0, (d.followerCount ?? 0) + (result.followed ? 1 : -1)) } : d),
+        );
+        toast({ title: result.followed ? "Following — will send when online" : "Unfollowed — will send when online" });
+        return;
+      }
       toast({ title: result.followed ? "Following!" : "Unfollowed" });
       qc.invalidateQueries({ queryKey: queryKeys.follows(), exact: false });
     },
