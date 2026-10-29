@@ -50,7 +50,9 @@ describe("S3-e backfill workflow — fences", () => {
     expect(ok("production", "refs/tags/main")).toBe(1);
     expect(ok("production", "main")).toBe(1);
     expect(bash(lane, { TARGET_LANE: "staging", BRANCH_REF: "refs/heads/staging", MODE: "write", MAX_IN: "0", GITHUB_ENV: "/dev/null" }).status).toBe(1);
-    expect(bash(lane, { TARGET_LANE: "staging", BRANCH_REF: "refs/heads/staging", MODE: "run", MAX_IN: "5; rm -rf /", GITHUB_ENV: "/dev/null" }).status).toBe(1);
+    const canary = path.join(os.tmpdir(), `s3e-canary-${process.pid}`);
+    expect(bash(lane, { TARGET_LANE: "staging", BRANCH_REF: "refs/heads/staging", MODE: "run", MAX_IN: `5; touch ${canary}`, GITHUB_ENV: "/dev/null" }).status).toBe(1);
+    expect(fs.existsSync(canary)).toBe(false);
   });
 
   it("each lane's anon key belongs to that lane's Supabase project, and the site is that lane's", () => {
@@ -81,6 +83,9 @@ describe("S3-e backfill workflow — fences", () => {
     expect(jobEnv).not.toContain("secrets.");
     const holders = steps().filter((s) => s.env.includes("secrets.")).map((s) => s.name);
     expect(holders).toEqual(["Refuse to start without the worker account", "Sign in as the worker account (token masked, 0600 file)"]);
+    // Every expression that touches secrets names exactly one: no toJSON(secrets), no secrets[...].
+    const exprs = [...wf.matchAll(/\$\{\{([^}]*)\}\}/g)].map((m) => m[1].trim()).filter((e) => /\bsecrets\b/.test(e));
+    for (const e of exprs) expect(e).toMatch(/^secrets\.[A-Z_]+$/);
     expect(wf.match(/secrets\.[A-Z_]+/g)?.sort()).toEqual([
       "secrets.MEDIA_WORKER_EMAIL", "secrets.MEDIA_WORKER_EMAIL", "secrets.MEDIA_WORKER_PASSWORD", "secrets.MEDIA_WORKER_PASSWORD",
     ]);
