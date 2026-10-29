@@ -45,7 +45,9 @@ vi.mock("@/integrations/supabase/client", async () => {
     }),
   };
 });
-const { useFeedQuery, useFeedRefresh } = await import("@/hooks/feed/useFeedQuery");
+const { useFeedQuery, useFeedRefresh, __resetSessionSeedRpcProbe } = await import("@/hooks/feed/useFeedQuery");
+// S6-a: these pin the _exclude_ids calls (feedPageCursor.test.tsx pins the cursor).
+__resetSessionSeedRpcProbe({ cursor: false });
 const { wipeMemberDataOnSignOut } = await import("@/lib/offline/signOutWipe");
 const { queryKeys } = await import("@/lib/queryKeys");
 

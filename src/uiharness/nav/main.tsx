@@ -59,18 +59,26 @@ if (!import.meta.env.DEV) throw new Error("navigation harness is development-onl
  * is random per refresh, and a screenshot must be the same every run).
  */
 const seedOrder = new Map<string, number>();
+/** S6-a · get_feed_page's server-side delivery log: session → ids dealt, in order. */
+const deliveryLog = new Map<string, string[]>();
 const dealBySeed: FakeRoute = ({ method, path, body }) => {
-  if (method !== "POST" || path !== "/rest/v1/rpc/get_broadcast_feed") return undefined;
+  const cursor = path === "/rest/v1/rpc/get_feed_page";
+  if (method !== "POST" || (!cursor && path !== "/rest/v1/rpc/get_broadcast_feed")) return undefined;
   const seed = String((body as { _session_seed?: unknown } | null)?._session_seed ?? "hour");
   if (!seedOrder.has(seed)) seedOrder.set(seed, seedOrder.size);
   const n = seedOrder.get(seed)! % posts.length;
   const w = window as unknown as { __navDeals: number; __navFeedCalls?: number };
   w.__navDeals = seedOrder.size;
   w.__navFeedCalls = (w.__navFeedCalls ?? 0) + 1;
-  const req = (body ?? {}) as { _exclude_ids?: string[] | null; _limit?: number };
-  const exclude = new Set(req._exclude_ids ?? []);
+  const req = (body ?? {}) as { _exclude_ids?: string[] | null; _limit?: number; _after?: number };
+  const after = Number(req._after ?? 0);
+  const held = cursor ? (deliveryLog.get(seed) ?? []).slice(0, after) : [];
+  const exclude = new Set(cursor ? held : req._exclude_ids ?? []);
   const dealt = [...posts.slice(n), ...posts.slice(0, n)].filter((p) => !exclude.has(p.id));
-  return { body: dealt.slice(0, Number(req._limit ?? dealt.length)) };
+  const page = dealt.slice(0, Number(req._limit ?? dealt.length));
+  if (!cursor) return { body: page };
+  deliveryLog.set(seed, [...held, ...page.map((p) => p.id)]);
+  return { body: page.map((p, i) => ({ source: null, caught_up_after: false, ...p, feed_pos: after + i + 1 })) };
 };
 installFakeBackend({ routes: [dealBySeed, ...fixtureRoutes], signedIn: true });
 
