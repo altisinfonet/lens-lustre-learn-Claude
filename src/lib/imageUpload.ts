@@ -290,11 +290,11 @@ export async function uploadImageWithThumbnail(
   // The caller's word is not proof: only a WebP whose chunk list PROVABLY holds
   // no EXIF / XMP skips the encode (a canvas encode never writes them). Anything
   // else is encoded here as before, which strips metadata.
-  const provenEncoded =
-    encoded && file.type === "image/webp" && encoded.width > 0 && encoded.height > 0 ? await metadataFreeWebp(file) : null;
-  if (provenEncoded && encoded) {
-    fullResFile = provenEncoded;
-    encodedDims = { width: encoded.width, height: encoded.height };
+  // The size the caller states must be the size the file's own header states.
+  const proven = encoded && file.type === "image/webp" ? await metadataFreeWebp(file) : null;
+  if (proven && encoded && proven.width === encoded.width && proven.height === encoded.height) {
+    fullResFile = proven.file;
+    encodedDims = { width: proven.width, height: proven.height };
   } else try {
     const { webpFile, width, height } = await compressImageToFiles(
       file,
