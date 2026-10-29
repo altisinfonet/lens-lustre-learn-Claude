@@ -263,7 +263,14 @@ function buildSrcSet(url: string): string | undefined {
   return [480, 800, 1200].map((w) => `${buildRenderUrl(url, w)} ${w}w`).join(", ");
 }
 
-const FEED_SIZES = "(max-width: 768px) 100vw, 600px";
+/**
+ * Phones (≤ 430 CSS px wide) declare a 360 px slot, so a DPR-3 screen asks for
+ * ~1,080 device px — Instagram's feed width — and gets the 1080 rung instead of
+ * the 1440 rung or the 2–4 MB original (Owner 2026-10-29, "poor network is not
+ * handled"; live median photo 438 KB, p90 1.26 MB). Tablets and the desktop
+ * column are unchanged, so the 2026-08-09 softness fix stands.
+ */
+export const FEED_SIZES = "(max-width: 430px) 360px, (max-width: 768px) 100vw, 600px";
 /**
  * OFF-3: on a slow or Data-Saver connection the browser is told the slot is
  * small, so it picks the SMALLEST rung of the same srcset (480w, or the stored
