@@ -1,8 +1,8 @@
 # S7b offline runner — status
 
-Updated: 2026-10-29 ~21:35 UTC · branch `status/s7b-runner` (draft, never merged)
+Updated: 2026-10-29 ~22:50 UTC · branch `status/s7b-runner` (draft, never merged)
 
-**S7b done: ~78 %** (S7b-1/1b, S7b-2, S7b-3, S7b-4 live; S7b-5a merged on staging, its carry #579 waits for the bundle fix #587; S7b-5b #583 and S7b-7 #584 in CI; S7b-6 waits for #539–#542)
+**S7b done: ~85 %** (S7b-1/1b, 2, 3, 4, 5a live; S7b-5b and S7b-7 merged on staging, carry #598 in CI; S7b-6 waits for #539–#542; then the app version bump)
 
 | Part | PR | State | merged sha (staging / main) | SQL runs | Live check |
 |---|---|---|---|---|---|
@@ -11,12 +11,12 @@ Updated: 2026-10-29 ~21:35 UTC · branch `status/s7b-runner` (draft, never merge
 | S7b-1 photos kept on the phone | #547 → landed in #551; carry #557 | live (switch OFF) | abd26ea / 3f980ba | none | PASS 18:18Z: home + /feed 200 in Chromium, Firefox, WebKit; same text; no new console errors; no photo worker registered (OFF) |
 | S7b-1b remote switch `app_image_sw` (default OFF) | #551; carry #557 | live, OFF | abd26ea / 3f980ba | none (row absent = OFF) | as above |
 | S7b-3 ~200 feed posts offline | #548 + #566 / carry #563 | live | a244d90 + f5a69ec / 9e14592 | none | PASS 19:49Z: 3 browsers 200, same content, no new console errors (a pre-existing 'Slow connection' bar appeared from this sandbox's slow link) |
-| S7b-4 profiles / post pages / comments / notifications offline | #564 (+ follow-up #575) / carry #572 (+ #579) | live; #575 merged on staging, carry in #579 | 9551368 + 23cb7ac / 0a8ab79 | none | PASS 20:24Z: 3 browsers 200, same text, no new console errors |
-| S7b-5a offline follows, reports, pending marks, offline bar, own name | #574 / carry #579 | merged on staging; carry review nothing blocking; carry's production build was 66 B over the entry budget → fix #587 | 29f949d / — | none | before-check taken 21:05Z |
-| S7b-5b new posts with photos made offline | #583 | review round 3 nothing blocking (2 blocking items fixed with fail-first tests); CI waits for #587 | — | none | — |
-| P13 entry budget (unblocks carries) | #587 | exifr loaded on demand: entry −74.6 KB, ceiling unchanged; reviews nothing blocking (1 weakening found and fixed fail-first) | — | none | — |
+| S7b-4 profiles / post pages / comments / notifications offline | #564 (+ follow-up #575) / carry #572 (+ #579) | live | 9551368 + 23cb7ac / 0a8ab79 + 459926f | none | PASS 20:24Z: 3 browsers 200, same text, no new console errors |
+| S7b-5a offline follows, reports, pending marks, offline bar, own name | #574 / carry #579 | live | 29f949d / 459926f | none | PASS ~22:45Z: home + /feed 200 in Chromium, Firefox, WebKit; no new console errors; no photo worker (switch OFF). Text changes = the sandbox's 'Slow connection' bar (Chromium) and the home page's live times/counters (stable between back-to-back loads) |
+| S7b-5b new posts with photos made offline | #583 / carry #598 | merged on staging; carry review nothing blocking; carry CI running | 6c5629b / — | none | — |
+| P13 entry budget (unblocks carries) | #587 / carry #579 | live; exifr loaded on demand: entry −74.6 KB, ceiling unchanged | d597979 / 459926f | none | with #579 |
 | S7b-6 videos offline | — | waits for S7 video PRs #539–#542 on staging | — | — | — |
-| S7b-7 flight-mode harness in CI + OFF-2 PROBE on live | #584 | PROBE done: production PASS, run 40930361884 (18:27Z). Harness legs 3 (post page + profile offline, bar, no error/'Photographer') and 4 (offline follow exactly once): FAIL on staging before S7b-5a and before S7b-4 ('Post not found'), PASS on the branch; review nothing blocking | — | PROBE_off2_idempotency production PASS 18:27Z | — |
+| S7b-7 flight-mode harness in CI + OFF-2 PROBE on live | #584 / carry #598 (merged on staging 3ad1ef3) | PROBE done: production PASS, run 40930361884 (18:27Z). Harness legs 3 (post page + profile offline, bar, no error/'Photographer') and 4 (offline follow exactly once): FAIL on staging before S7b-5a and before S7b-4 ('Post not found'), PASS on the branch; review nothing blocking | — | PROBE_off2_idempotency production PASS 18:27Z | — |
 
 ## Notes
 
