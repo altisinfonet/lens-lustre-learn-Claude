@@ -17,7 +17,8 @@ name: S3 media derivatives backfill (manual, lane-guarded)
 # the queue only. Nothing a member sees changes while media_ladder_feed is off.
 #
 # FENCES:
-#   1. target=production must run from main, target=staging from staging.
+#   1. target=production must run from the main BRANCH, staging from the
+#      staging branch (github.ref, so a tag named main does not pass).
 #   2. The site, Supabase URL and anon key come from the target choice, never typed.
 #   3. Refuses to start without both secrets.
 #
@@ -64,19 +65,19 @@ jobs:
     environment: ${{ inputs.target }}
     env:
       TARGET_LANE: ${{ inputs.target }}
-      BRANCH_REF: ${{ github.ref_name }}
+      BRANCH_REF: ${{ github.ref }}
       MODE: ${{ inputs.mode }}
       MAX_IN: ${{ inputs.max }}
-      WORKER_EMAIL: ${{ secrets.MEDIA_WORKER_EMAIL }}
-      WORKER_PASSWORD: ${{ secrets.MEDIA_WORKER_PASSWORD }}
+      # The worker e-mail / password are bound ONLY on the two steps that need
+      # them, never job-wide: npm install scripts and the tool never see them.
     steps:
       - name: The branch must match the target, and the lane is fixed by it
         run: |
           set -euo pipefail
           case "$TARGET_LANE" in
-            production) WANT=main;    SITE=https://www.50mmretina.com;     SB=https://jtdtehuqtinjxropkkcn.supabase.co
+            production) WANT=refs/heads/main;    SITE=https://www.50mmretina.com;     SB=https://jtdtehuqtinjxropkkcn.supabase.co
                         ANON=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0ZHRlaHVxdGluanhyb3Bra2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzI3MjEsImV4cCI6MjA5OTE0ODcyMX0.qY8BI5LXb6uLzTwbpf8AleZ6UZyfeaOA0q4_TC5CEpo ;;
-            staging)    WANT=staging; SITE=https://staging.50mmretina.com; SB=https://fpszggreishhuvdpkmdr.supabase.co
+            staging)    WANT=refs/heads/staging; SITE=https://staging.50mmretina.com; SB=https://fpszggreishhuvdpkmdr.supabase.co
                         ANON=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwc3pnZ3JlaXNoaHV2ZHBrbWRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxMDcyNDUsImV4cCI6MjEwNDY4MzI0NX0.h3t2eZ8hwXDev6JydjsDnA8CpXFlKve4CaUlXp_mwiQ ;;
             *) echo "::error::Unknown target '$TARGET_LANE'."; exit 1 ;;
           esac
@@ -84,11 +85,15 @@ jobs:
             echo "::error::target='$TARGET_LANE' must be dispatched from '$WANT', not '$BRANCH_REF'. Refusing."
             exit 1
           fi
+          case "$MODE" in dry-run|run) ;; *) echo "::error::mode must be dry-run or run"; exit 1 ;; esac
           case "$MAX_IN" in ''|*[!0-9]*) echo "::error::max must be a whole number"; exit 1 ;; esac
           { echo "SITE=$SITE"; echo "SB_URL=$SB"; echo "SB_ANON=$ANON"; } >> "$GITHUB_ENV"
           echo "Lane OK: $TARGET_LANE ($SITE) from $BRANCH_REF."
 
       - name: Refuse to start without the worker account
+        env:
+          WORKER_EMAIL: ${{ secrets.MEDIA_WORKER_EMAIL }}
+          WORKER_PASSWORD: ${{ secrets.MEDIA_WORKER_PASSWORD }}
         run: |
           if [ -z "$WORKER_EMAIL" ] || [ -z "$WORKER_PASSWORD" ]; then
             echo "::error::MEDIA_WORKER_EMAIL / MEDIA_WORKER_PASSWORD are not set on the '$TARGET_LANE' environment (Owner setup, see header)."
@@ -106,12 +111,16 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Sign in as the worker account (token masked, 0600 file)
+        env:
+          WORKER_EMAIL: ${{ secrets.MEDIA_WORKER_EMAIL }}
+          WORKER_PASSWORD: ${{ secrets.MEDIA_WORKER_PASSWORD }}
         run: |
           set -euo pipefail
           umask 077
-          BODY=$(jq -n --arg e "$WORKER_EMAIL" --arg p "$WORKER_PASSWORD" '{email:$e,password:$p}')
-          # The password goes to curl on stdin, never on its command line.
-          code=$(printf '%s' "$BODY" | curl -sS -o "$RUNNER_TEMP/auth.json" -w '%{http_code}' -X POST \
+          trap 'rm -f "$RUNNER_TEMP/auth.json"' EXIT
+          # jq reads the secrets from its environment and curl reads the body on
+          # stdin: the password is never on any process's command line.
+          code=$(jq -n '{email: env.WORKER_EMAIL, password: env.WORKER_PASSWORD}' | curl -sS -o "$RUNNER_TEMP/auth.json" -w '%{http_code}' -X POST \
             -H "apikey: $SB_ANON" -H "content-type: application/json" \
             --data-binary @- "$SB_URL/auth/v1/token?grant_type=password")
           if [ "$code" != "200" ]; then
@@ -135,4 +144,4 @@ jobs:
 
       - name: Forget the token
         if: always()
-        run: rm -f "$RUNNER_TEMP/worker.jwt"
+        run: rm -f "$RUNNER_TEMP/worker.jwt" "$RUNNER_TEMP/auth.json"
