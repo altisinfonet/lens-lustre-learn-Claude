@@ -93,7 +93,7 @@ describe("S11 android-build guards — SDK and toolchain edits are proven, not a
 });
 
 describe("S11 android-build guards — the app version is exactly the derived one", () => {
-  const ver = () => runBlock("Set app version").replaceAll("${{ github.run_number }}", "150");
+  const ver = () => runBlock("Set app version").split("${{ github.run_number }}").join("150");
 
   it("today's template: versionCode 1150, one semantic versionName that is not the template's 1.0", () => {
     const d = project();
