@@ -31,6 +31,6 @@ describe("S6-c profile windowing", () => {
   });
 
   it("the window exposes its state for the S6-d harness count", () => {
-    expect(read("src/components/feed/FeedCardWindow.tsx")).toMatch(/data-feed-window=\{mounted \? "mounted" : "placeholder"\}/);
+    expect(read("src/components/feed/FeedCardWindow.tsx")).toMatch(/data-feed-window=\{show \? "mounted" : "placeholder"\}/);
   });
 });
