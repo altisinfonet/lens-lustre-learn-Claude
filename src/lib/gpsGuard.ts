@@ -44,6 +44,10 @@ export class GpsPrivacyError extends Error {
 }
 
 /** Member-facing copy, kept here so every surface says the same thing. */
+/** The location check itself could not run (its reader did not load). */
+export const GPS_UNCHECKED_MESSAGE =
+  "We couldn't check this photo for location data, so it wasn't uploaded. Reload the page and try again.";
+
 export const GPS_REFUSAL_MESSAGE =
   "This photo contains location (GPS) data and your browser could not convert it to a web format. " +
   "To protect your privacy it was not uploaded. Please export it as JPEG (or remove location data) and try again.";
@@ -115,7 +119,7 @@ export async function guardOriginalUpload(file: File): Promise<File> {
       nextStep: "Fails closed by design. The member can retry once the page can load its files again.",
       detail: { fileType: file.type, fileSizeBytes: file.size },
     });
-    throw new GpsPrivacyError(GPS_REFUSAL_MESSAGE);
+    throw new GpsPrivacyError(GPS_UNCHECKED_MESSAGE);
   }
   let hasGps: boolean;
   try {
