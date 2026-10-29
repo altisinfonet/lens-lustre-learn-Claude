@@ -489,6 +489,13 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     resolution:
       "The member's post SUCCEEDS and renders correctly — the filename marker promising the extra sizes is stripped, so the renderer never asks for a file that is not there. The post simply behaves like a legacy one. Check storage reachability if this is not isolated.",
   },
+  {
+    code: "FILE-5013",
+    severity: "warn",
+    description: "The photo location (GPS) check could not load its reader, so an original photo was not uploaded.",
+    resolution:
+      "The guard is failing closed by design: without the reader it cannot prove the photo carries no location. The reader is loaded on demand (P13); a failed load means the page could not fetch its own files (offline web, or a deploy replaced them). The member can retry once the page reloads. A steady rate on a healthy network means the on-demand chunk is missing from the deploy.",
+  },
 
   // ── STORY ─────────────────────────────────────────────────────────────────
   {
