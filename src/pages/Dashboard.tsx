@@ -9,7 +9,7 @@ import {
   KeyRound, Mail, MapPin, Phone, ChevronRight, Eye, TrendingUp, Star
 } from "lucide-react";
 import ParticipantStageBadge, { ParticipantStageTimeline } from "@/components/judge/ParticipantStageBadge";
-import { PARTICIPANT_PLACEMENT_LABELS, participantLabelForJudgingTag, normalizePlacementKey } from "@/lib/judging/participantStageLabels";
+import { PARTICIPANT_PLACEMENT_LABELS, participantLabelForJudgingTag, normalizePlacementKey, canonicalMention } from "@/lib/judging/participantStageLabels";
 import PhotographerUpgradeCard from "@/components/PhotographerUpgradeCard";
 import UserNextStepPanel from "@/components/UserNextStepPanel";
 import JudgingStampBadge from "@/components/JudgingStampBadge";
@@ -790,11 +790,11 @@ const CompetitionStatusLabel = ({
     "runner_up_1",
     "runner_up_2",
     "honorary_mention",
-    "honourable_mention",
     "special_jury",
   ]);
-  if (placement && PLACEMENT_AWARDS.has(placement)) {
-    return <ParticipantStageBadge status={placement} tags={[]} compact />;
+  // S11: any Mention spelling is the one honorary_mention award.
+  if (placement && PLACEMENT_AWARDS.has(canonicalMention(placement))) {
+    return <ParticipantStageBadge status={canonicalMention(placement)} tags={[]} compact />;
   }
 
   return <ParticipantStageBadge status={gated} tags={[]} compact />;

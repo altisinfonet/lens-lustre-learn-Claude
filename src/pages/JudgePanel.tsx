@@ -18,7 +18,8 @@ import { useJudgeCompetitions } from "@/hooks/judging/useJudgeCompetitions";
 import { useJudgeRounds } from "@/hooks/judging/useJudgeRounds";
 import { useJudgeClassicData, getRoundMode, saveResumePosition, loadResumePosition } from "@/hooks/judging/useJudgeClassicData";
 import { useJudgeActions } from "@/hooks/judging/useJudgeActions";
-import { useJudgeSession } from "@/hooks/judging/useJudgeSession";
+import { useJudgeSession, resumeTarget, readAmbientPosition, type ResumeTarget } from "@/hooks/judging/useJudgeSession";
+import { readSiteSettingState } from "@/lib/siteSettingsCache";
 import { useUpdateEntryPlacement, useAddVoteAdjustment } from "@/hooks/competition/useCompetitionEntryMutations";
 import { useAdminEntryOverride } from "@/hooks/competition/useAdminEntryOverride";
 import { exportJudgingCSV } from "@/lib/exportJudgingResults";
@@ -43,6 +44,11 @@ import ResumeSessionDialog from "@/components/judge/ResumeSessionDialog";
 
 import type { CriteriaScores, FlatPhoto, SidebarView } from "@/hooks/judging/types";
 import { SOW_ROUND4_CRITERIA_KEYS } from "@/hooks/judging/types";
+import { canonicalMention } from "@/lib/judging/participantStageLabels";
+
+/** S11 · site_settings switch for offering the last-viewed photo on resume. No row = OFF. */
+const JUDGE_AMBIENT_KEY = "judge_resume_ambient";
+const AMBIENT_READ_CAP_MS = 3_000;
 
 const hasAllSowCriteria = (criteria?: CriteriaScores | null) =>
   !!criteria && SOW_ROUND4_CRITERIA_KEYS.every((key) => typeof criteria[key] === "number");
@@ -121,6 +127,20 @@ const JudgePanel = () => {
   const [mobileTab, setMobileTab] = useState<"comps" | "photos" | "judge">("comps");
   const [showResumeDialog, setShowResumeDialog] = useState(false);
   const [resumeChecked, setResumeChecked] = useState(false);
+  // S11: what the resume dialog offers (bookmark, or — switch on — the last-viewed photo).
+  const [resumeOffer, setResumeOffer] = useState<ResumeTarget | null>(null);
+  // S11: judge_resume_ambient switch. null = not read yet; no row / unreadable = OFF.
+  const [ambientOn, setAmbientOn] = useState<boolean | null>(null);
+  useEffect(() => {
+    let live = true;
+    void readSiteSettingState<string>(JUDGE_AMBIENT_KEY, { maxAgeMs: 60_000 }).then((st) => {
+      if (live) setAmbientOn((prev) => prev ?? (st.known && st.value === "on"));
+    });
+    // A read that never answers must not leave the resume check open (a later
+    // bookmark would then pop the dialog mid-judging): after 3 s, unread = OFF.
+    const cap = setTimeout(() => { if (live) setAmbientOn((prev) => prev ?? false); }, AMBIENT_READ_CAP_MS);
+    return () => { live = false; clearTimeout(cap); };
+  }, []);
 
   // ── Data hooks ──
   const { competitions, isLoading: compsLoading } = useJudgeCompetitions(user?.id, isAdmin, isJudge);
@@ -139,15 +159,19 @@ const JudgePanel = () => {
   // ── Phase 3: Crash recovery — check for resumable session on mount ──
   useEffect(() => {
     if (resumeChecked || !session.session || session.isLoading) return;
+    const offer = resumeTarget(session.session, readAmbientPosition(session.session.competition_id), ambientOn === true);
+    // A bookmark is offered at once; only the switch-gated ambient offer waits for the switch.
+    if (!offer && ambientOn === null) return;
     setResumeChecked(true);
-    if (session.hasResumeData && session.session.last_entry_id) {
+    if (offer) {
+      setResumeOffer(offer);
       setShowResumeDialog(true);
       if (session.session.competition_id && !selectedCompId) {
         setSelectedCompIdRaw(session.session.competition_id);
         setExpandedComp(session.session.competition_id);
       }
     }
-  }, [session.session, session.isLoading, session.hasResumeData, resumeChecked, selectedCompId]);
+  }, [session.session, session.isLoading, ambientOn, resumeChecked, selectedCompId]);
 
   const handleResumeFromBookmark = useCallback(() => {
     setShowResumeDialog(false);
@@ -155,11 +179,8 @@ const JudgePanel = () => {
     if (session.session.round_id) setSelectedRoundRaw(session.session.round_id);
     setJudgingStarted(true);
     session.resumeSession();
-    if (session.session.last_entry_id) {
-      const pi = session.session.last_photo_index ?? 0;
-      setSelectedPhotoKey(`${session.session.last_entry_id}::${pi}`);
-    }
-  }, [session]);
+    if (resumeOffer) setSelectedPhotoKey(`${resumeOffer.entryId}::${resumeOffer.photoIndex}`);
+  }, [session, resumeOffer]);
 
   const handleStartFresh = useCallback(() => {
     setShowResumeDialog(false);
@@ -316,7 +337,7 @@ const JudgePanel = () => {
       // Placement-based filters remain global (set by admin)
       case "runner_up_1": return allPhotos.filter((p) => p.entry.placement === "runner_up_1" || p.entry.placement === "1st_runner_up");
       case "runner_up_2": return allPhotos.filter((p) => p.entry.placement === "runner_up_2" || p.entry.placement === "2nd_runner_up");
-      case "honorary_mention": return allPhotos.filter((p) => p.entry.placement === "honorary_mention" || p.entry.placement === "honourable_mention");
+      case "honorary_mention": return allPhotos.filter((p) => canonicalMention(p.entry.placement ?? "") === "honorary_mention");
       case "special_jury": return allPhotos.filter((p) => p.entry.placement === "special_jury");
       case "completed": return allPhotos.filter((p) => {
         const d = getDecision(p);
@@ -366,6 +387,15 @@ const JudgePanel = () => {
   }, [allPhotos, filteredPhotos, getPhotoKey, selectedPhotoKey]);
 
   const activePhotoIdx = selectedPhotoKey ? activePhotoList.findIndex((p) => getPhotoKey(p) === selectedPhotoKey) : -1;
+
+  // S11: remember the photo on screen (this device only; never the bookmark) so a
+  // crashed or closed tab can offer it back — only with judge_resume_ambient on.
+  const { trackPosition } = session;
+  useEffect(() => {
+    if (!ambientOn || !judgingStarted || !selectedPhotoKey) return;
+    const [eid, piStr] = selectedPhotoKey.split("::");
+    if (eid) trackPosition(eid, Math.max(activePhotoIdx, 0), Number.parseInt(piStr ?? "0", 10) || 0);
+  }, [ambientOn, judgingStarted, selectedPhotoKey, activePhotoIdx, trackPosition]);
 
   // ── Feedback auto-save ──
   const [feedbackSavedSignal, setFeedbackSavedSignal] = useState(0);
@@ -570,7 +600,7 @@ const JudgePanel = () => {
       // Placement counts remain global (set by admin, not per-judge)
       if (p === "runner_up_1" || p === "1st_runner_up") runner_up_1++;
       if (p === "runner_up_2" || p === "2nd_runner_up") runner_up_2++;
-      if (p === "honorary_mention" || p === "honourable_mention") honorary_mention++;
+      if (canonicalMention(p ?? "") === "honorary_mention") honorary_mention++;
       if (p === "special_jury") special_jury++;
     }
     return { accepted, shortlisted, needsReview, rejected, qualified, finalist, winner, runner_up_1, runner_up_2, honorary_mention, special_jury, unjudged, total: allPhotos.length };
@@ -1014,7 +1044,7 @@ const JudgePanel = () => {
       {showResumeDialog && session.session && (
         <ResumeSessionDialog
           competitionTitle={competitions.find(c => c.id === session.session!.competition_id)?.title || "Competition"}
-          lastEntryIndex={session.session.last_entry_index}
+          lastEntryIndex={resumeOffer?.entryIndex ?? session.session.last_entry_index}
           elapsedSeconds={session.session.elapsed_seconds}
           onResume={handleResumeFromBookmark}
           onStartFresh={handleStartFresh}

@@ -10,7 +10,8 @@
 --           (REVOKE ALL … enqueue_email FROM PUBLIC, anon, authenticated).
 --           Effective privilege (has_function_privilege), so a PUBLIC grant
 --           counts against anon/authenticated exactly as F-62 says it must.
---   S1P0-2  scripts/audits/rls-authority-scan.mjs detectSecurityDefiner(),
+--   S1P0-2  scripts/audits/rls-authority-scan.mjs detectSecurityDefiner() (retired
+--           2026-10-29, S11; `git show 49cfb97f:scripts/audits/rls-authority-scan.mjs`),
 --           the SECDEF_NO_AUTH_GUARD rule (baseline 258, static, in
 --           docs/fix-sprints/sprint-0-phase-0b-6-rls-authority-guardrail.md):
 --           SECURITY DEFINER whose body matches the SAME guard regex. Here

@@ -47,6 +47,10 @@ export class GpsPrivacyError extends Error {
 export const GPS_UNCHECKED_MESSAGE =
   "We couldn't check this photo for location data, so it wasn't uploaded. Reload the page and try again.";
 
+/** The reader could not parse this format at all (GIF, BMP, some WebP): refused, but truthfully. */
+export const GPS_UNREADABLE_MESSAGE =
+  "We couldn't check this image for location data, so it wasn't uploaded. Please send it as a JPEG or PNG instead.";
+
 /** Member-facing copy, kept here so every surface says the same thing. */
 export const GPS_REFUSAL_MESSAGE =
   "This photo contains location (GPS) data and your browser could not convert it to a web format. " +
@@ -122,6 +126,7 @@ export async function guardOriginalUpload(file: File): Promise<File> {
     throw new GpsPrivacyError(GPS_UNCHECKED_MESSAGE);
   }
   let hasGps: boolean;
+  let unreadable = false;
   try {
     const gps = await exifr.gps(file);
     hasGps = !!gps && typeof gps.latitude === "number" && typeof gps.longitude === "number";
@@ -130,6 +135,7 @@ export async function guardOriginalUpload(file: File): Promise<File> {
     // structurally (below). For anything else we cannot PROVE the file is
     // clean — and an unprovable file does not go to a public CDN.
     hasGps = true;
+    unreadable = true;
   }
   if (!hasGps) return file;
 
@@ -148,6 +154,9 @@ export async function guardOriginalUpload(file: File): Promise<File> {
         "This is the guard WORKING, not a defect. The member was asked to export as JPEG or remove location data.",
       detail: { fileType: file.type, fileSizeBytes: file.size },
     });
+    // Still refused (fail closed); only the copy differs — we never claim a
+    // location we did not read.
+    if (unreadable) throw new GpsPrivacyError(GPS_UNREADABLE_MESSAGE);
     throw new GpsPrivacyError(GPS_REFUSAL_MESSAGE);
   }
 
