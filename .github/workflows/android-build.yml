@@ -784,6 +784,13 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
+          # 2026-10-30: bumped 1.2.31 -> 1.2.32. 1.2.31 (run 134 on 4a84a7ed) is spent. 1.2.32 adds
+          # the rest of S7b offline: post pages / profiles / comments / notifications seen before
+          # (#572, #579), the "No internet — showing saved" bar and follows / reports made offline
+          # sent exactly once (#579), posts with photos made offline (#598), feed videos saved for
+          # no network (#682). Already in 1.2.31 and still carried: S7b-1 photo worker (#557) and
+          # ~200 saved feed posts (#563). Not switched on by this bump: app_image_sw and Upload
+          # resume stay as they are on live.
           # 2026-10-29 (night, ads): bumped 1.2.30 -> 1.2.31. 1.2.30 (versionCode 1133, run 133 on
           # c0275456) is spent. 1.2.31 adds: a sponsored feed card never shows without its Like +
           # Comment (#556/#559), the feed's ad kept on the phone for no network (#558/#560/#565).
@@ -866,8 +873,8 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
-          sed -i 's/versionName "1.0"/versionName "1.2.31"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.31 (1.2.30 is spent - versionCode 1133, run 133)"
+          sed -i 's/versionName "1.0"/versionName "1.2.32"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.32 (1.2.31 is spent - run 134)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
