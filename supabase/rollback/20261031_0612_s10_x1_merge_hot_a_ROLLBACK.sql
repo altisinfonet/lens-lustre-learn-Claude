@@ -8,7 +8,8 @@
 -- Refuses unless 0612 is applied.
 -- ═══════════════════════════════════════════════════════════════════════════
 
-BEGIN;
+-- One snapshot for E2-before/after under live feed writes (see the migration).
+BEGIN ISOLATION LEVEL REPEATABLE READ;
 
 DO $lane_guard$
 BEGIN
@@ -80,6 +81,10 @@ BEGIN
     RESET ROLE;
   END LOOP;
 
+  -- all exclusive locks at once, children first, posts last (see the migration)
+  LOCK TABLE public.profile_views, public.image_comments, public.post_reactions, public.post_comments,
+             public.post_tags, public.user_badges, public.portfolio_images, public.friendships,
+             public.competitions, public.posts IN ACCESS EXCLUSIVE MODE;
   FOREACH t IN ARRAY tables LOOP
     rel := to_regclass(format('public.%I', t));
     FOR r IN SELECT p.polname FROM pg_policy p WHERE p.polrelid = rel AND p.polname LIKE 'x1\_merged\_%' LOOP

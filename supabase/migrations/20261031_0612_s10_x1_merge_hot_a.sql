@@ -13,7 +13,10 @@
 --     the merged text built from the originals, E2-before, and the full E1 —
 --     per identity × action, the union of each original policy's rows vs the
 --     rows the MERGED TEXT accepts (the exact string CREATE POLICY receives).
---   INSIDE the lock: CREATE / DROP POLICY, then E1-bind (for two identities,
+--   ONE SNAPSHOT: the file runs in REPEATABLE READ, so every proof step reads
+--     the same data even though the feed keeps writing during E1.
+--   INSIDE the lock (all 10 taken at once, children first, posts last):
+--     CREATE / DROP POLICY, then E1-bind (for two identities,
 --     the stored merged policy accepts the same rows as the text proven in E1),
 --     E2-after through RLS, and the shape checks. Measured E2-after on
 --     production for these 10 tables ≈ 0.3 s in total.
@@ -58,7 +61,12 @@
 -- Rollback: supabase/rollback/20261031_0612_s10_x1_merge_hot_a_ROLLBACK.sql
 -- ═══════════════════════════════════════════════════════════════════════════
 
-BEGIN;
+-- One snapshot for the whole proof: E1 and E2-before run outside the lock
+-- while the feed keeps writing, so every comparison must read the same data
+-- (READ COMMITTED would give each scan a fresh snapshot and ctid hashes would
+-- drift under live UPDATEs). Nothing here writes to these tables, so
+-- REPEATABLE READ cannot raise a serialization failure.
+BEGIN ISOLATION LEVEL REPEATABLE READ;
 
 DO $lane_guard$
 BEGIN
@@ -270,7 +278,13 @@ BEGIN
     END LOOP;
   END LOOP;
 
-  -- Lock window starts here: create the merged policies, drop the originals.
+  -- Lock window starts here. Take every exclusive lock at once, in a fixed
+  -- order — child tables first, posts last — so we never hold posts while
+  -- waiting on another table (the counter triggers write children → posts).
+  LOCK TABLE public.profile_views, public.image_comments, public.post_reactions, public.post_comments,
+             public.post_tags, public.user_badges, public.portfolio_images, public.friendships,
+             public.competitions, public.posts IN ACCESS EXCLUSIVE MODE;
+  -- create the merged policies, drop the originals.
   FOR pk, pv IN SELECT * FROM jsonb_each(plan) LOOP
     t := split_part(pk, '|', 1); a := split_part(pk, '|', 2);
     pname := 'x1_merged_' || CASE a WHEN 'r' THEN 'select' WHEN 'a' THEN 'insert' WHEN 'w' THEN 'update' ELSE 'delete' END;
