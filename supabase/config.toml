@@ -72,3 +72,5 @@ project_id = "jtdtehuqtinjxropkkcn"
   # outage in a new place. Do not delete.
   [functions.media-register-upload]
     verify_jwt = false
+  [functions.music-check]
+    verify_jwt = true

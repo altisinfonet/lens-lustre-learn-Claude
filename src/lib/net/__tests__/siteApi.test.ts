@@ -35,6 +35,7 @@ const VIDEO_ROUTES = [
   "/api/video/source-url",
   "/api/video/source-complete",
   "/api/video/source-cancel",
+  "/api/video/takedown",
 ] as const;
 const ALL_ROUTES = [...VIDEO_ROUTES, "/api/media/photo-token", "/config/site-settings"] as const;
 /** Imported per test, so each case below fails on its own on a tree without the helper. */
