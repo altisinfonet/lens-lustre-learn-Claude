@@ -1,7 +1,9 @@
-# P25 — certificate PDF: interface (PROPOSED, rev 4, 2026-10-30)
+# P25 — certificate PDF: interface (PROPOSED, rev 5, 2026-10-30)
 
-Status: **PROPOSED, rev 4**. Frozen only when the Auditor accepts it; nothing in
-§2–§7 is built before then. Rev 4 makes every read path honour the results
+Status: **PROPOSED, rev 5**. Frozen only when the Auditor accepts it; nothing in
+§2–§7 is built before then. Rev 5 makes the new control columns unwritable by
+members (table-wide INSERT would otherwise let a member pre-approve their own
+row). Rev 4 made every read path honour the results
 hold on competition certificates (rev 3's owner-only lookup skipped it). Rev 3
 fixed rev 2's deletion design (RESTRICT would have broken account deletion). Rev 2 replaced rev 1 after an independent review
 found that rev 1's "column privileges revoked" cannot work under Supabase's
@@ -31,11 +33,15 @@ test (`docs/evidence/d2/P25/`).
 - **Issue paths (all four):**
   1. admin client insert (`AdminCertificates.tsx:310`);
   2. **member self-insert** — `Certificates.tsx:259-272` inserts as the member,
-     allowed by RLS "Users can insert own certificates"
-     (`20260224171705`, `WITH CHECK (user_id = auth.uid())`) and a live
-     "Users can insert own competition certificates" variant;
-  3. trigger functions `auto_certificate_on_winner` and
-     `auto_certificate_on_r4_award`;
+     allowed by RLS — git's untyped "Users can insert own certificates"
+     (`20260224171705`, `WITH CHECK (user_id = auth.uid())`) and the live,
+     type-restricted "Users can insert own competition certificates";
+     `authenticated` holds **table-wide INSERT** on `certificates`
+     (`20261013_0001:1425`), so any column a member is not meant to set must
+     be forced by a trigger;
+  3. trigger function `auto_certificate_on_r4_award` (git also defines
+     `auto_certificate_on_winner`; it is absent from the 2026-09-11 live
+     snapshot — the D1 PROBE confirms which exist on each lane);
   4. member-called RPC `issue_course_completion_certificate`
      (`CourseDetail.tsx:87`).
 - `certificates` is in the `supabase_realtime` publication (`20260325141234`).
@@ -119,20 +125,30 @@ REVOKE ALL ON public.certificate_pdfs FROM PUBLIC, anon, authenticated;
   database, with no edge-function deploy.
 - **One visibility rule, `certificate_pdf_visible(c certificates, viewer uuid)`**
   — `owner = viewer AND NOT is_revoked AND (type NOT LIKE 'competition\_%' OR
-  published_at IS NOT NULL)`, or viewer is admin. Used by `certificate_pdf_ref`
-  **and** by the bulk render (§5): a held certificate is neither served nor
-  rendered before results are declared.
+  published_at IS NOT NULL)`, or viewer is admin. Used by `certificate_pdf_ref`. The bulk render (§5) selects rows by
+  the **owner part** of the rule (not the admin bypass), and every upload still
+  passes `certificate_pdf_attach_check`, which requires the hold released: a
+  held certificate is neither served nor rendered before results are declared.
 - **`issue_path`** on `certificates` (`text NOT NULL`, set by a **`SECURITY
   INVOKER`** `BEFORE INSERT` trigger — invoker, so `current_user` is still the
   caller's role; never accepted from the client): `member` when `current_user =
   'authenticated'` and the caller is not admin; `admin` when the caller is
   admin; `system` for every other role (the `SECURITY DEFINER` issuers —
-  `auto_certificate_on_winner`, `auto_certificate_on_r4_award`,
-  `issue_course_completion_certificate` — all run as the owner, and only
-  `member` matters for safety). Unknown cases **fail closed to `member`**.
+  `auto_certificate_on_r4_award`, `issue_course_completion_certificate` — run
+  as the owner). `system` is granted **only** for an explicit allow-list of
+  owner roles (the migration owner); every other role, and every unknown case,
+  **fails closed to `member`**. A future owner-privileged function that inserts
+  member-supplied text must be reviewed before it is added to the list.
 - **`render_approved_at timestamptz` / `render_approved_by uuid`** on
   `certificates`, set only by admin-only `certificate_approve_render(_id)`.
   Rendering requires `issue_path <> 'member' OR render_approved_at IS NOT NULL`.
+- **Control columns are server-owned:** the same `BEFORE INSERT` trigger
+  **forces `render_approved_at` and `render_approved_by` to NULL** (and sets
+  `issue_path` itself), whatever the client sent. A `BEFORE UPDATE` guard
+  (`SECURITY INVOKER`) refuses any change to `issue_path`,
+  `render_approved_at` or `render_approved_by` unless the transaction-local
+  flag set by `certificate_approve_render` is present — so neither a member
+  nor the admin `FOR ALL` policy can write them directly.
   **Backfill (fail-closed):** every existing row (≈ 11 production) gets
   `issue_path = 'member'` and no approval — an admin approves each one before
   its first render.
@@ -210,7 +226,8 @@ bucket lookup (defence in depth; it is never served there).
   certificates" renders every such row without a current PDF (also the
   backfill).
 - **Member-requested (path 2):** a member-written row (`issue_path = 'member'`,
-  free-text title/description) is **never** rendered by the bulk action; an
+  free-text title/description) is **never** rendered by the bulk action — the
+  approval columns cannot be pre-set by the member (§3); an
   admin reviews and approves it first (or the self-insert path is retired —
   decision §8.4), so a self-asserted certificate cannot become an official,
   hash-recorded document.
@@ -232,14 +249,18 @@ bucket lookup (defence in depth; it is never served there).
 - **Purge:** an admin-run purge (Pages Function, admin-only, logged) reads
   keys through admin-only `SECURITY DEFINER` `certificate_pdf_orphans_due()`
   (older than 24 h **and** not referenced by any non-superseded
-  `certificate_pdfs` row), deletes them from R2, then calls admin-only
+  `certificate_pdfs` row). **Per key**, immediately before deleting it from
+  R2, it calls `certificate_pdf_orphan_claim(key)` (admin-only; atomically
+  marks the key as being purged and refuses if it was reactivated meanwhile);
+  `attach` refuses to reactivate a claimed key. Then
   `certificate_pdf_orphans_done(keys)`. A deleted member's certificate does not outlive
   their account by more than one purge cycle.
 
 ## 7 · L6 (forgery resistance) and P31
 
 - The stored PDF never changes; its SHA-256 is recorded. The public verify page
-  (`verify_certificate` / `verify_certificate_by_token`) gains the fingerprint
+  (`verify_certificate`; public access to `verify_certificate_by_token` was
+  removed — `PROBE_oi3_verify_certificate_by_token_public_removed.sql`) gains the fingerprint
   (first 16 hex) and an in-browser compare of a file the visitor holds against
   the **full** hash returned for that one certificate (the hash is not secret:
   knowing it does not grant the object — delivery is owner-only and the key
@@ -280,4 +301,7 @@ bucket lookup (defence in depth; it is never served there).
   new key; until its purge (≥ 24 h) the old object's hash still equals its row.
 - **Results hold:** a held `competition_%` certificate (published_at NULL) →
   owner GET = 404 and the bulk render skips it; after publish → owner GET =
-  200 once rendered. Member-written row without approval → not rendered.
+  200 once rendered. Member-written row without approval → not rendered;
+  **a member inserting a row with `render_approved_at`/`render_approved_by`
+  set → stored NULL, not rendered**; a member or admin UPDATE of those columns
+  or of `issue_path` outside `certificate_approve_render` → refused.
