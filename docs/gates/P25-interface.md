@@ -154,13 +154,17 @@ REVOKE ALL ON public.certificate_pdfs FROM PUBLIC, anon, authenticated;
 - **`certificate_pdf_attach(_certificate uuid, _sha256 text) RETURNS text`** —
   `SECURITY DEFINER`, `search_path ''`; refuses unless the caller is admin;
   refuses a revoked certificate; derives the key; supersedes the current row if
-  the hash differs (reissue), no-ops if equal; returns the key.
+  the hash differs (reissue), no-ops if equal. If the derived key already
+  exists as a **superseded** row (identical bytes re-rendered), it reactivates
+  that row and **removes the key from `certificate_pdf_orphans` in the same
+  transaction**, so the purge can never delete a live object. Returns the key.
   `REVOKE ALL … FROM PUBLIC, anon; GRANT EXECUTE … TO authenticated` (M2 guard).
 - **`certificate_pdf_ref(_certificate uuid) RETURNS TABLE (object_key text,
   sha256 text, owner_id uuid)`** — `SECURITY DEFINER`; returns the current
   reference **only** when the certificate's
   `user_id = auth.uid()` (or caller is admin) **and** the stored key equals the
-  key re-derived from that row and the stored hash; else NULL (same answer for
+  key re-derived from that row and the stored hash, **and**
+  `certificate_pdf_visible(row, auth.uid())` holds; else nothing (same answer for
   "not yours", "does not exist", "not rendered", "revoked" — **zero rows**).
   Same grants for all three functions: `REVOKE ALL … FROM PUBLIC, anon;
   GRANT EXECUTE … TO authenticated`.
