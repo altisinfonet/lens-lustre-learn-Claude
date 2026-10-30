@@ -30,8 +30,13 @@
 -- taken before the snapshot; any failure rolls back that table only):
 --   E1    · before the lock: for every identity × merged policy × clause, the
 --           union of the backed-up originals' rows == the new text's rows.
---   DRIFT · before the lock: the clause as stored now accepts the same rows
---           too, so a clause changed after its merge is refused, not reverted.
+--   DRIFT · before the lock: the clause as stored now must be exactly the
+--           backed-up parts in ascending or descending order (text: every
+--           part found in order, and no room for an extra arm), and must
+--           accept the same rows as the rebuilt text for every identity. A
+--           clause changed after its merge is refused, not reverted. The text
+--           check covers empty tables; it is a position and length check, not
+--           a parse.
 --   ORDER · inside the lock: each backed-up part appears in the stored clause
 --           in the requested order.
 --   BIND  · the stored clause accepts the rows E1 proved (anon and the first
@@ -72,6 +77,7 @@ DECLARE
   bkr record; one text; old_tids tid[]; part_tids tid[];
   u_desc text; u_asc text; c_desc text; c_asc text; nu int; nc int;
   stored text; arm record; pos int; lastpos int; cand text; depth int; is_wrapped boolean; ch text;
+  maxlen int; found_dir boolean; d text; ok boolean;
   t_lock timestamptz; win constant interval := interval '3 seconds'; altered int := 0;
 BEGIN
   IF coalesce(current_setting('p32.lane', true), '') NOT IN ('staging', 'production') THEN
@@ -133,6 +139,59 @@ BEGIN
     RAISE NOTICE 'S10 X1 reorder: public.% — every merged clause has one part; nothing to reorder', t;
     RETURN;
   END IF;
+
+  -- DRIFT-T (text, before the lock): each planned clause as stored now must be
+  -- exactly the backed-up parts in ascending or descending order. Every part
+  -- is found in one of those orders, and the length leaves no room for an
+  -- extra arm: at most the parts plus " OR " separators and one outer pair of
+  -- parentheses per part, plus 2. This catches drift that the row-based
+  -- check below cannot see on the current data (for example on an empty
+  -- table).
+  FOR pk, pv IN SELECT * FROM jsonb_each(plan) LOOP
+    a := pv ->> 'a';
+    FOREACH c IN ARRAY ARRAY['u', 'c'] LOOP
+      CONTINUE WHEN (pv ->> c) IS NULL;
+      SELECT CASE c WHEN 'u' THEN pg_get_expr(p.polqual, p.polrelid) ELSE pg_get_expr(p.polwithcheck, p.polrelid) END
+        INTO stored FROM pg_policy p WHERE p.polrelid = rel AND p.polname = pk;
+      stored := coalesce(stored, '');
+      SELECT sum(length(x)) + 6 * count(*) + 2 INTO maxlen FROM (
+        SELECT CASE c WHEN 'u' THEN bk.using_expr ELSE coalesce(bk.check_expr, bk.using_expr) END AS x
+          FROM public.x1_policy_backup_20261031 bk
+         WHERE bk.tbl = t AND bk.batch = v_batch AND (bk.cmd = '*' OR bk.cmd = a)) z WHERE x IS NOT NULL;
+      found_dir := false;
+      FOREACH d IN ARRAY ARRAY['ASC', 'DESC'] LOOP
+        lastpos := 0; ok := true;
+        FOR arm IN SELECT CASE c WHEN 'u' THEN bk.using_expr ELSE coalesce(bk.check_expr, bk.using_expr) END AS x
+                     FROM public.x1_policy_backup_20261031 bk
+                    WHERE bk.tbl = t AND bk.batch = v_batch AND (bk.cmd = '*' OR bk.cmd = a)
+                      AND (CASE c WHEN 'u' THEN bk.using_expr ELSE coalesce(bk.check_expr, bk.using_expr) END) IS NOT NULL
+                    ORDER BY CASE WHEN d = 'DESC' THEN bk.policyname END COLLATE "C" DESC,
+                             CASE WHEN d = 'ASC'  THEN bk.policyname END COLLATE "C" ASC LOOP
+          cand := arm.x;
+          pos := strpos(substr(stored, lastpos + 1), cand);
+          IF pos = 0 AND left(cand, 1) = '(' AND right(cand, 1) = ')' THEN
+            depth := 0; is_wrapped := true;
+            FOR i IN 1 .. length(cand) LOOP
+              ch := substr(cand, i, 1);
+              IF ch = '(' THEN depth := depth + 1; ELSIF ch = ')' THEN depth := depth - 1; END IF;
+              IF depth = 0 AND i < length(cand) THEN is_wrapped := false; EXIT; END IF;
+            END LOOP;
+            IF is_wrapped THEN
+              cand := substr(cand, 2, length(cand) - 2);
+              pos := strpos(substr(stored, lastpos + 1), cand);
+            END IF;
+          END IF;
+          IF pos = 0 THEN ok := false; EXIT; END IF;
+          lastpos := lastpos + pos + length(cand) - 1;
+        END LOOP;
+        IF ok THEN found_dir := true; EXIT; END IF;
+      END LOOP;
+      IF NOT found_dir OR length(stored) > maxlen THEN
+        RAISE EXCEPTION 'S10-X1RO-DRIFT-T: % % (%) as stored now is not the backed-up parts in either order — it changed after the merge; refusing', t, pk, c;
+      END IF;
+    END LOOP;
+  END LOOP;
+
 
   -- Identities: anon; up to 3 users of each app role; up to 3 owners per owner column; 3 members.
   ids := ids || jsonb_build_object('k', 'anon', 'role', 'anon', 'sub', NULL);
@@ -201,8 +260,8 @@ BEGIN
         IF h IS DISTINCT FROM diff THEN
           RAISE EXCEPTION 'S10-X1RO-E1: % % (%) new text accepts different rows for identity %', t, pk, c, id ->> 'k';
         END IF;
-        -- DRIFT: the clause as it stands now must accept the same rows as the
-        -- text rebuilt from the backup, so an out-of-band edit is never reverted.
+        -- DRIFT (rows): the clause as it stands now must also accept the same
+        -- rows as the text rebuilt from the backup, for every identity.
         SELECT CASE c WHEN 'u' THEN pg_get_expr(p.polqual, p.polrelid) ELSE pg_get_expr(p.polwithcheck, p.polrelid) END
           INTO stored FROM pg_policy p WHERE p.polrelid = rel AND p.polname = pk;
         EXECUTE format('SELECT md5(coalesce(string_agg(ctid::text, %L ORDER BY ctid), %L)) FROM public.%I WHERE coalesce((%s), false)',
