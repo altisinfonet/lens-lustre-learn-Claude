@@ -166,7 +166,10 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     if (!g && !saved) { setFailed(true); return false; }
     if (g) { grant.current = g; setPoster(g.poster_url); }
     const src = g ? g.master_url : saved!;
-    const resumeAt = pendingSeek.current ?? (attached.current ? v.currentTime : 0);
+    let resumeAt = pendingSeek.current ?? (attached.current ? v.currentTime : 0);
+    // Re-review #674: the phone copy is only the first part — a point past it starts it from its beginning.
+    const keptS = saved ? savedPreviewInfo(video.id)?.seconds ?? 0 : Infinity;
+    if (resumeAt >= keptS - 0.5) resumeAt = 0;
     pendingSeek.current = null;
     const nativeHls = !!v.canPlayType("application/vnd.apple.mpegurl");
     let engine = pickHlsEngine({ nativeHls, mse: hasMse(), appleWebKit: isAppleWebKit(navigator.userAgent, capPlatform()) });
@@ -203,6 +206,11 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
       h.on("hlsManifestParsed", applyCap);
       h.on("hlsError", (_e: unknown, d: { fatal?: boolean; response?: { code?: number } }) => {
         if (!d?.fatal) return;
+        // Re-review #674: the network went while streaming — the phone copy, not "can't play".
+        if (!fromPhone.current && !getNetState().online && hasSavedPreview(video.id) && !renewing.current) {
+          void renew();
+          return;
+        }
         // The token ran out mid-play (a long video): one fresh token, same second.
         if (d.response?.code === 403 && !renewedAfter403.current && !fromPhone.current) {
           renewedAfter403.current = true;
@@ -225,8 +233,11 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     // Only where the phone copy could be played back: hls.js (review #674 — a
     // native HLS player cannot read it, so saving there only fills the phone).
     if (g && engine === "hlsjs" && Hls) {
-      void supabase.auth.getSession()
-        .then(({ data }) => maybeSaveVideoPreview({ userId: data.session?.user?.id ?? null, videoId: video.id, masterUrl: g.master_url }, getNetState()))
+      const currentUserId = async () => {
+        try { return (await supabase.auth.getSession()).data.session?.user?.id ?? null; } catch { return null; }
+      };
+      void currentUserId()
+        .then((uid) => maybeSaveVideoPreview({ userId: uid, videoId: video.id, masterUrl: g.master_url }, getNetState, currentUserId))
         .catch(() => { /* saving is a bonus, never an error */ });
     }
     return true;

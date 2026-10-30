@@ -241,7 +241,17 @@ export function canSaveVideoNow(c: SaveConditions): boolean {
 
 /* ── saving one ───────────────────────────────────────────────────────────── */
 
-export interface SaveDeps { fetch: typeof fetch; caches: CacheStorage }
+export interface SaveDeps {
+  fetch: typeof fetch;
+  caches: CacheStorage;
+  /**
+   * Re-review #674: may it save NOW? Asked when the save starts and before every
+   * file — a save queued on Wi-Fi must not download over mobile data later.
+   */
+  allowed?: () => boolean;
+  /** Who is signed in when the save runs; a save for anyone else keeps nothing. */
+  currentUserId?: () => Promise<string | null>;
+}
 export type SaveResult = "saved" | "exists" | "too-big" | "failed";
 
 /** One save at a time: a phone's link and storage are shared with everything else. */
@@ -259,18 +269,25 @@ export function saveVideoPreview(
   input: { userId: string; videoId: string; masterUrl: string },
   deps: SaveDeps,
 ): Promise<SaveResult> {
-  const run = chain.then(() => saveNow(input, deps), () => saveNow(input, deps));
+  // Re-review #674: the generation is taken when the save is QUEUED — a save
+  // still waiting at sign-out must not start after the wipe as if nothing happened.
+  const gen = generation;
+  const run = chain.then(() => saveNow(input, deps, gen), () => saveNow(input, deps, gen));
   chain = run.catch(() => undefined);
   return run;
 }
 
-async function saveNow(input: { userId: string; videoId: string; masterUrl: string }, deps: SaveDeps): Promise<SaveResult> {
+async function saveNow(input: { userId: string; videoId: string; masterUrl: string }, deps: SaveDeps, gen: number): Promise<SaveResult> {
   const { userId, videoId, masterUrl } = input;
+  if (gen !== generation) return "failed";
   if (hasSavedPreview(videoId)) return "exists";
   if (inFlight.has(videoId)) return "exists";
+  if (deps.allowed && !deps.allowed()) return "failed";
   inFlight.add(videoId);
-  const gen = generation;
-  const alive = () => { if (gen !== generation) throw new Wiped(); };
+  const alive = () => {
+    if (gen !== generation) throw new Wiped();
+    if (deps.allowed && !deps.allowed()) throw new Wiped();
+  };
   const written: string[] = [];
   let cacheRef: Cache | null = null;
   try {
@@ -279,7 +296,10 @@ async function saveNow(input: { userId: string; videoId: string; masterUrl: stri
     const query = q < 0 ? "" : masterUrl.slice(q);
     if (!/\/master\.m3u8$/.test(path)) return "failed";
     const base = path.slice(0, -"master.m3u8".length);
+    if (deps.currentUserId && (await deps.currentUserId()) !== userId) return "failed";
+    alive();
     const get = async (name: string) => {
+      alive();
       const r = await deps.fetch(`${base}${name}${query}`);
       alive();
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -321,6 +341,8 @@ async function saveNow(input: { userId: string; videoId: string; masterUrl: stri
       written.push(name);
     }
     alive();
+    if (deps.currentUserId && (await deps.currentUserId()) !== userId) throw new Wiped();
+    if (gen !== generation) throw new Wiped();
     const list = readIndex().filter((e) => e.videoId !== videoId);
     list.push({ videoId, userId, files: written, bytes, seconds: plan.seconds, full: plan.full, savedAt: Date.now() });
     writeIndex(list);
@@ -349,17 +371,22 @@ async function evictTo(maxBytes: number, cache: Cache, alive: () => void = () =>
     await Promise.all(old.files.map((f) => cache.delete(fileUrl(old.userId, old.videoId, f)).catch(() => false)));
     alive();
   }
+  alive();
   if (changed) writeIndex(list);
 }
 
 /** Review #674: hold the budget now (after it was lowered). Runs in turn with saves. */
 export function enforceVideoBudget(cacheStorage: CacheStorage = globalThis.caches): Promise<void> {
+  const gen = generation;
+  const alive = () => { if (gen !== generation) throw new Wiped(); };
   const run = chain.then(async () => {
+    alive();
     const budget = getVideoOfflineSettings().budgetMB * MB;
     if (savedVideoUsage().bytes <= budget) return;
     const cache = await cacheStorage.open(OFFLINE_VIDEO_CACHE);
-    await evictTo(budget, cache);
-  });
+    alive();
+    await evictTo(budget, cache, alive); // a sign-out meanwhile: the old list is not written back
+  }).catch((e) => { if (!(e instanceof Wiped)) throw e; });
   chain = run.catch(() => undefined);
   return run;
 }
@@ -374,14 +401,22 @@ const isNative = (): boolean => {
 /** Best effort and silent: saves this video's preview in the background when the member's settings allow it now. */
 export function maybeSaveVideoPreview(
   input: { userId: string | null | undefined; videoId: string; masterUrl: string },
-  net: { online: boolean; slow: boolean },
+  net: () => { online: boolean; slow: boolean },
+  currentUserId?: () => Promise<string | null>,
 ): void {
   if (!input.userId || hasSavedPreview(input.videoId)) return;
-  const conn = (globalThis.navigator as Navigator & { connection?: NetInfo } | undefined)?.connection;
   const hasCaches = typeof globalThis.caches !== "undefined";
-  if (!canSaveVideoNow({ online: net.online, slow: net.slow, connectionType: conn?.type, saveData: conn?.saveData === true, native: isNative(), hasCaches })) return;
-  void saveVideoPreview({ userId: input.userId, videoId: input.videoId, masterUrl: input.masterUrl }, { fetch: globalThis.fetch.bind(globalThis), caches: globalThis.caches })
-    .catch(() => "failed");
+  // Asked again when the save runs and before every file (re-review #674).
+  const allowed = () => {
+    const conn = (globalThis.navigator as Navigator & { connection?: NetInfo } | undefined)?.connection;
+    const n = net();
+    return canSaveVideoNow({ online: n.online, slow: n.slow, connectionType: conn?.type, saveData: conn?.saveData === true, native: isNative(), hasCaches });
+  };
+  if (!allowed()) return;
+  void saveVideoPreview(
+    { userId: input.userId, videoId: input.videoId, masterUrl: input.masterUrl },
+    { fetch: globalThis.fetch.bind(globalThis), caches: globalThis.caches, allowed, currentUserId },
+  ).catch(() => "failed");
 }
 
 /* ── playing it back ──────────────────────────────────────────────────────── */

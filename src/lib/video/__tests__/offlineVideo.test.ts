@@ -299,6 +299,40 @@ describe("review #674: a save still running at sign-out leaves nothing behind", 
   });
 });
 
+describe("re-review #674: checks made when a save RUNS, not when it was queued", () => {
+  it("a save still WAITING in the queue at sign-out keeps nothing", async () => {
+    let open!: () => void;
+    const gate = new Promise<void>((r) => { open = r; });
+    const first = saveVideoPreview({ userId: "u1", videoId: "a", masterUrl: MASTER_URL }, deps(cdn(1000, gate)));
+    const queued = saveVideoPreview({ userId: "u1", videoId: "b", masterUrl: MASTER_URL }, deps());
+    await new Promise((r) => setTimeout(r, 10));
+    await clearSavedVideos(caches.api);
+    open();
+    expect(await first).toBe("failed");
+    expect(await queued).toBe("failed");
+    expect(hasSavedPreview("b")).toBe(false);
+    expect(savedVideoUsage()).toEqual({ bytes: 0, videos: 0 });
+  });
+  it("Wi-Fi only: the phone left Wi-Fi before the save ran → it fetches nothing", async () => {
+    const c = cdn();
+    expect(await saveVideoPreview({ userId: "u1", videoId: "a", masterUrl: MASTER_URL }, { ...deps(c), allowed: () => false })).toBe("failed");
+    expect(c.asked).toEqual([]);
+  });
+  it("Wi-Fi only: the phone leaves Wi-Fi in the middle of a save → it stops and keeps nothing", async () => {
+    const c = cdn();
+    let calls = 0;
+    expect(await saveVideoPreview({ userId: "u1", videoId: "a", masterUrl: MASTER_URL }, { ...deps(c), allowed: () => ++calls < 6 })).toBe("failed");
+    expect(c.asked.length).toBeLessThan(8);
+    expect(hasSavedPreview("a")).toBe(false);
+  });
+  it("the member is no longer the one signed in when the save runs → nothing is kept", async () => {
+    expect(await saveVideoPreview({ userId: "u1", videoId: "a", masterUrl: MASTER_URL }, { ...deps(), currentUserId: async () => "u2" })).toBe("failed");
+    expect(hasSavedPreview("a")).toBe(false);
+    const store = caches.stores.get("video-offline-v1");
+    expect(store ? [...store.keys()].filter((k) => k.includes("/a/")) : []).toEqual([]);
+  });
+});
+
 describe("sign-out", () => {
   it("clearSavedVideos removes every saved video and the list", async () => {
     await saveVideoPreview({ userId: "u1", videoId: "vid1", masterUrl: MASTER_URL }, deps());

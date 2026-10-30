@@ -21,16 +21,16 @@ vi.mock("@/lib/offline/networkQuality", () => ({
 }));
 
 /* hls.js: a fake that records how it was set up */
-const hlsLog = vi.hoisted(() => ({ instances: [] as Array<{ config: Record<string, unknown>; source?: string }> }));
+const hlsLog = vi.hoisted(() => ({ instances: [] as Array<{ config: Record<string, unknown>; source?: string; handlers: Record<string, (...a: unknown[]) => void> }> }));
 vi.mock("hls.js", () => {
   class FakeHls {
     static isSupported() { return true; }
     static DefaultConfig = { loader: class DefaultLoader {} };
     levels: unknown[] = [];
     autoLevelCapping = -1;
-    rec: { config: Record<string, unknown>; source?: string };
-    constructor(config: Record<string, unknown>) { this.rec = { config }; hlsLog.instances.push(this.rec); }
-    on() {}
+    rec: { config: Record<string, unknown>; source?: string; handlers: Record<string, (...a: unknown[]) => void> };
+    constructor(config: Record<string, unknown>) { this.rec = { config, handlers: {} }; hlsLog.instances.push(this.rec); }
+    on(ev: string, f: (...a: unknown[]) => void) { this.rec.handlers[ev] = f; }
     loadSource(u: string) { this.rec.source = u; }
     attachMedia() {}
     destroy() {}
@@ -137,6 +137,32 @@ describe("flight mode, a video saved on the phone", () => {
   });
 });
 
+describe("re-review #674: the network drops in the middle of a video", () => {
+  it("the stream's fatal error switches to the phone copy instead of 'can't play'", async () => {
+    saved.ids.add(ID);
+    card();
+    fire(nearObs(), 0.1); fire(view(), 1); await flush();
+    expect(hlsLog.instances.at(-1)?.source).toBe(GRANT.master_url);
+    net.online = false;
+    await act(async () => { hlsLog.instances.at(-1)!.handlers.hlsError?.({}, { fatal: true, response: { code: 0 } }); });
+    await flush();
+    expect(hlsLog.instances.at(-1)?.source).toBe(`https://saved-video.invalid/member-1/${ID}/master.m3u8`);
+    expect(screen.queryByText(/can't play right now/i)).toBeNull();
+  });
+  it("past the end of the saved part: the phone copy starts from its beginning", async () => {
+    saved.ids.add(ID);
+    card();
+    fire(nearObs(), 0.1); fire(view(), 1); await flush();
+    const v = screen.getByTestId("feed-video-card").querySelector("video")!;
+    Object.defineProperty(v, "currentTime", { configurable: true, writable: true, value: 35 });
+    fire(view(), 0); await flush();
+    net.online = false;
+    fire(view(), 1); await flush();
+    expect(hlsLog.instances.at(-1)?.source).toBe(`https://saved-video.invalid/member-1/${ID}/master.m3u8`);
+    expect(hlsLog.instances.at(-1)?.config.startPosition).toBe(-1); // 35 s is past the 28 s saved
+  });
+});
+
 describe("flight mode, nothing saved", () => {
   it("as before: no autoplay, no hls.js", async () => {
     net.online = false;
@@ -156,7 +182,11 @@ describe("online", () => {
     expect(hlsLog.instances.at(-1)?.config.loader).toBeUndefined(); // online playback unchanged
     expect(screen.getByTestId("feed-video-card").getAttribute("data-source")).toBe("network");
     expect(saved.saveCalls).toHaveLength(1);
-    expect(saved.saveCalls[0]).toEqual([{ userId: "member-1", videoId: ID, masterUrl: GRANT.master_url }, net]);
+    const [input, netNow, whoNow] = saved.saveCalls[0] as [unknown, () => unknown, () => Promise<string | null>];
+    expect(input).toEqual({ userId: "member-1", videoId: ID, masterUrl: GRANT.master_url });
+    // the saver re-reads the network and the signed-in member when it RUNS (re-review #674)
+    expect(netNow()).toBe(net);
+    expect(await whoNow()).toBe("member-1");
   });
   it("review #674: a device whose player cannot read the phone copy (native HLS) saves nothing", async () => {
     vi.stubGlobal("MediaSource", undefined);
