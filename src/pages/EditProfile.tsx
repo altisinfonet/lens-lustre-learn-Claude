@@ -874,6 +874,20 @@ const EditProfile = () => {
               </Link>
             </div>
 
+            {/* S7b-6 — videos saved for no internet: phone budget + Wi-Fi only */}
+            <div>
+              <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>
+                <CloudOff className="inline h-3 w-3 mr-1.5" />Saved for no internet
+              </label>
+              <Link
+                to="/settings/offline"
+                className="flex items-center gap-3 py-3 text-sm text-primary hover:text-primary/80 transition-colors"
+                style={{ fontFamily: "var(--font-body)" }}
+              >
+                Videos saved on this phone →
+              </Link>
+            </div>
+
             {/* SOW §5.2 — Search engine privacy toggle */}
             <div className="border-t border-border pt-4">
               <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>
