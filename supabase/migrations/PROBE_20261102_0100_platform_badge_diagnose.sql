@@ -14,7 +14,8 @@
 --      bucket) — the gate's denominator — and their platform split
 --   5  WHO WROTE last_active_at, read from its shape: backfill_last_seen()
 --      copies a minute_bucket (seconds and microseconds exactly 0);
---      record_session_end() writes now() (almost never exactly :00.000000)
+--      record_session_end() — and the pre-P1 client timer — wrote now()
+--      (almost never exactly :00.000000)
 --   6  for members active in 7 days: did a session-end write land AFTER their
 --      newest heartbeat minute?
 --   7  the backfill cron job: schedule, active, runs in the last 48 h
@@ -130,14 +131,10 @@ BEGIN
       JOIN public.profiles p ON p.id = m.user_id;
     RAISE NOTICE E'4 ACTIVE IN LAST 7 DAYS (heartbeat minutes): %  · platform NULL=% app=% web=%\n    active on 2+ distinct days=% · of those NULL=%',
       r.active7, r.nul, r.app, r.web, r.active_on_2plus_days, r.active_2plus_null;
-    RAISE NOTICE E'5 WHO WROTE last_active_at (active-7d members)\n    platform NULL: never written=% · minute-shaped (backfill_last_seen)=% · now()-shaped (session end)=%\n    platform set : minute-shaped=% · now()-shaped=%',
+    RAISE NOTICE E'5 WHO WROTE last_active_at (active-7d members)\n    platform NULL: never written=% · minute-shaped (backfill_last_seen)=% · now()-shaped (session end or a pre-P1 client write)=%\n    platform set : minute-shaped=% · now()-shaped=%',
       r.nul_never, r.nul_minute_shape, r.nul_now_shape, r.set_minute_shape, r.set_now_shape;
     RAISE NOTICE '6 SESSION-END WRITE AT/AFTER NEWEST HEARTBEAT MINUTE (active-7d): %', r.end_after_last_minute;
 
-    SELECT count(*) AS rows7, count(DISTINCT user_id) AS members7,
-           min(minute_bucket) AS oldest_kept
-      INTO r FROM public.member_activity_minutes WHERE minute_bucket >= now() - interval '7 days';
-    RAISE NOTICE '4b heartbeat rows in 7 days=% members=%', r.rows7, r.members7;
   ELSE
     RAISE NOTICE '4/5/6 public.member_activity_minutes ABSENT on this lane';
   END IF;
@@ -185,7 +182,7 @@ BEGIN
   IF has_ce THEN
     line := '';
     FOR r IN
-      SELECT coalesce(platform, '(null)') AS pf, count(*) AS n, count(DISTINCT user_id) AS members,
+      SELECT CASE WHEN platform IN ('app', 'web') THEN platform WHEN platform IS NULL THEN '(null)' ELSE '(other)' END AS pf, count(*) AS n, count(DISTINCT user_id) AS members,
              to_char(min(created_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS since
         FROM public.client_errors GROUP BY 1 ORDER BY 2 DESC LIMIT 12
     LOOP
@@ -211,6 +208,8 @@ BEGIN
        AND EXISTS (SELECT 1 FROM public.push_tokens t WHERE t.user_id = p.id);
     line := line || format(E'\n    seen-but-NULL members with any push token: %s', r.count);
     RAISE NOTICE E'9b push_tokens:%', line;
+  ELSE
+    RAISE NOTICE '9b push_tokens ABSENT';
   END IF;
 
   -- 10 ─────────────────────────────────────────────────────────────────────
