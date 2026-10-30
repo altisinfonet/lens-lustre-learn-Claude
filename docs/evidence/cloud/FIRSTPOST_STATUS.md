@@ -3,7 +3,7 @@
 Updated 2026-10-30 ~02:40 UTC. Base: `staging`.
 
 ## Unit A — "Admin → Users: members show neither App nor Website"
-- Step: MEASURE done on staging + production (first PROBE); second PROBE on production pending (#629).
+- Step: VERIFY — fix PR #630 (CI re-running after the UI-harness fixture fix; independent review: nothing blocking).
 - **Measured on production** (run 40994307608, 2026-10-30 02:54 UTC, counts only): 139 members; 39 show
   no chip; 36 of those 39 were last seen before 2026-09-20; of 25 members active in the last 7 days, 1 shows no chip.
 - **Cause (proven on the fixture with the real server code, red before the fix):** the platform has one writer,
@@ -14,11 +14,14 @@ Updated 2026-10-30 ~02:40 UTC. Base: `staging`.
   3. a member who switches from the website to the app keeps "Website" until the app session ends.
   Old blank rows: no real platform record exists for them (0 error rows, 1 push token among 39) → "Unknown", never a guess.
 - Ruled out by measurement: "the call is lost when a tab is closed" (Chromium delivered it 5/5).
-- PRs: #621 → staging `748964b` · #624 → main `3f2deea` · #627 → staging `0e4c6f0` · #629 → main (CI running)
+- PRs: #621 → staging `748964b` · #624 → main `3f2deea` · #627 → staging `0e4c6f0` · #629 → main `38471cb` · fix #630 (open)
 - SQL runs (all read-only PROBEs, PASS):
   - staging PROBE_0100 · run 40992860687 · 2026-10-30 02:40 UTC
   - production PROBE_0100 · run 40994307608 · 2026-10-30 02:54 UTC
   - staging PROBE_0101 · run 40996083401 · 2026-10-30 03:14 UTC
+  - production PROBE_0101 · run 40997658613 · 2026-10-30 03:31 UTC → of 39 blank: 21 last seen before platform
+    recording; 17 never active after sign-up in 40 days; 1 active only in the first 10 min after sign-up (the
+    session-end-only writer missed it). Only real record for any blank row: 1 push token (not a sign-in) → no backfill.
   - production PROBE_switch_states_readonly · run 40991090922 · PASS (`personal_feed` = everyone)
 - Fix (built, fixture green, not yet pushed): record the platform when a session starts / returns to the foreground
   (writes only when it changes); grey "Unknown" chip for members with no record.
