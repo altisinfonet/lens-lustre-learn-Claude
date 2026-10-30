@@ -12,6 +12,13 @@
 -- One snapshot for E2-before/after under live writes (see the migration).
 BEGIN ISOLATION LEVEL REPEATABLE READ;
 
+SET LOCAL lock_timeout = '2s';
+SET LOCAL statement_timeout = '60s';
+SET LOCAL search_path = '';
+-- before the snapshot (LOCK and SET take none): no policy change on
+-- user_roles can land between E2-before and the DDL (see the migration).
+LOCK TABLE public.user_roles IN ACCESS SHARE MODE;
+
 DO $lane_guard$
 BEGIN
   IF coalesce(current_setting('p32.lane', true), '') NOT IN ('staging', 'production') THEN
@@ -23,10 +30,6 @@ BEGIN
   END IF;
 END
 $lane_guard$;
-
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
 
 DO $x1_rb$
 DECLARE

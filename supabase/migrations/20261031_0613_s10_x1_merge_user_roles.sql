@@ -395,6 +395,15 @@ BEGIN
          WHERE p.polrelid = rel AND p.polpermissive AND p.polname LIKE 'x1\_merged\_%') THEN
       RAISE EXCEPTION 'S10-X1UR-POST-005: public.% merged actions differ from the actions its original policies granted', t;
     END IF;
+    -- roles unchanged: every merged policy is granted to exactly the role set of the originals
+    IF EXISTS (SELECT 1 FROM pg_policy p
+                WHERE p.polrelid = rel AND p.polpermissive AND p.polname LIKE 'x1\_merged\_%'
+                  AND (CASE WHEN p.polroles = '{0}'::oid[] THEN ARRAY['PUBLIC']
+                            ELSE (SELECT array_agg(rr.rolname::text ORDER BY rr.rolname) FROM pg_roles rr WHERE rr.oid = ANY (p.polroles)) END)
+                      IS DISTINCT FROM (SELECT bk.roles FROM public.x1_policy_backup_20261031 bk WHERE bk.batch = v_batch AND bk.tbl = t LIMIT 1))
+       OR (SELECT count(DISTINCT bk.roles) FROM public.x1_policy_backup_20261031 bk WHERE bk.batch = v_batch AND bk.tbl = t) <> 1 THEN
+      RAISE EXCEPTION 'S10-X1UR-POST-006: public.% merged policies are not granted to the original role set', t;
+    END IF;
   END LOOP;
   IF (SELECT c0.relowner FROM pg_class c0 WHERE c0.oid = 'public.x1_policy_backup_20261031'::regclass) <> 'postgres'::regrole
      OR EXISTS (SELECT 1 FROM pg_class c0, aclexplode(c0.relacl) x
