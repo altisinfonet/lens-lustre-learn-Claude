@@ -35,6 +35,14 @@ describe("app-origin-check: which routes it asks the deployed site about", () =>
     expect(selectRoutes(all, null)).toEqual({ check: all, notDeployed: [] });
   });
 
+  it("an empty deployed list is treated as unreadable (fails closed)", () => {
+    expect(selectRoutes(DEPLOYED, [])).toEqual({ check: DEPLOYED, notDeployed: [] });
+  });
+
+  it("parseSiteApi on text with no SITE_API block reads nothing", () => {
+    expect(parseSiteApi("export const OTHER = {};")).toEqual([]);
+  });
+
   it("parseSiteApi reads exactly SITE_API from the real siteApi.ts", () => {
     const src = readFileSync("src/lib/net/siteApi.ts", "utf8");
     expect(parseSiteApi(src).sort()).toEqual(Object.values(SITE_API).sort());

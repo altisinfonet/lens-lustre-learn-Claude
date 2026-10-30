@@ -45,19 +45,20 @@ export function selectRoutes(checkoutPaths, deployedPaths) {
 
 /** SITE_API of the commit the site says it was built from, or null (with the reason printed). */
 async function deployedSiteApi(site) {
+  const why = (e) => (e instanceof Error ? e.message.split("\n")[0] : "unknown");
   let sha = null;
   try {
-    sha = readStamp(await (await fetch(site + "/", { headers: { "cache-control": "no-cache" } })).text());
-  } catch { /* handled below */ }
+    sha = readStamp(await (await fetch(site + "/", { headers: { "cache-control": "no-cache" }, signal: AbortSignal.timeout(30_000) })).text());
+  } catch (e) { console.log(`WARN  could not read the site's page: ${why(e)}`); }
   if (!sha || !/^[0-9a-f]{40}$/.test(sha)) { console.log("WARN  no build-commit stamp on the site: checking every route in this checkout"); return null; }
-  const git = (args) => execFileSync("git", args, { stdio: ["ignore", "pipe", "ignore"] }).toString();
+  const git = (args) => execFileSync("git", args, { stdio: ["ignore", "pipe", "pipe"], timeout: 60_000 }).toString();
   try {
     try { git(["cat-file", "-e", `${sha}^{commit}`]); } catch { git(["fetch", "--depth=1", "--no-tags", "origin", sha]); }
     const paths = parseSiteApi(git(["show", `${sha}:src/lib/net/siteApi.ts`]));
     console.log(`INFO  the site serves build ${sha}: ${paths.length} SITE_API routes`);
     return paths;
-  } catch {
-    console.log(`WARN  could not read SITE_API at ${sha}: checking every route in this checkout`);
+  } catch (e) {
+    console.log(`WARN  could not read SITE_API at ${sha} (${why(e)}): checking every route in this checkout`);
     return null;
   }
 }
