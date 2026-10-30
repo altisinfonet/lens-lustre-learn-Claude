@@ -1,6 +1,6 @@
 # STAGES runner — status
 
-Updated: 2026-10-30 05:40 UTC — **RESTARTED** at 05:05 (previous run stopped silently at 02:19 UTC). Since restart: #578 flake fix MERGED to staging (1084573); #634 npm high advisories 14→1 in review/CI; #637 M2 (SQL 0400 + caller guard) in review/CI. Supabase token still missing (deploy-functions has 1 run ever, failed). Heartbeat every ≤30 min.
+Updated: 2026-10-30 06:25 UTC — **RESTARTED** at 05:05 (previous run stopped silently at 02:19 UTC). Since restart: #578 flake fix MERGED (staging 1084573). In review/CI (GitHub runners are backed up, checks queued): #634 npm high advisories 14→1 (review: nothing blocking), #637 M2 (SQL 0400 + caller guard; review: nothing blocking), #639 judging locks only for the signed-in judge (re-cut of #276). Old PRs: 16 closed as superseded/obsolete; 5 to carry (#276→#639, #391, #156, #214, #175); 5 for Owner/other sessions (#254, #174, #289, #285, #352). Supabase token still missing. Heartbeat every ≤30 min.
 
 Previous update: 2026-10-30 02:19 UTC · runner branch `status/stages-runner` · never merged.
 
@@ -36,6 +36,7 @@ Previous update: 2026-10-30 02:19 UTC · runner branch `status/stages-runner` ·
 | S8 | F-REV4-1 inventory tools to main | #582 | main cb21960 | PROBE runs: see below | — |
 | S8 | PROBE: credentials the rotation does not scan | #586 → #599 | staging 1703ac4 · main 6f24ab3 | staging PASS 40968413653 (23:11) · production PASS 40973985325 (00:07): trigger args 0, db/role settings 0, pg_net queue 0 | — |
 | S8 | Old open PRs | #323, #130 closed (superseded, comment left) | — | — | — |
+| S8 | Old open PRs, triage of 26 (2026-10-30 06:10) | closed with reason: #428 #408 #286 #278 #277 #259 #256 #215 #210 #200 #192 #157 #155 #154 #151 #103 · carry: #276 (→ #639), #391 post_shares SELECT, #156 certificate lookup error ≠ "not found", #214 fixture lane guard, #175 stale header · Owner/other: #254, #174, #289, #285, #352 | — | — | — |
 
 | S11 | Stale-chunk recovery installed | #589 | staging 52878b6 · main f32c0e9 (#605) | — | 00:18 UTC PASS (below) |
 | S11 | Competition photo encoded once (WebP proof) | #590 | staging 78bf997 · main f32c0e9 (#605) | — | 00:18 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors; live entry script 1,602,160 B |
