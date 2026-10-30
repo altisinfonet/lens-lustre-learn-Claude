@@ -21,6 +21,7 @@
   [role=button] { border: 1px solid #333; padding: 8px; }
   [role=dialog] { border: 2px solid #333; padding: 8px; margin-top: 12px; }
   .bubble { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; margin: 0; }
+  #ok-tw:focus { outline: 2px solid transparent; outline-offset: 2px; box-shadow: 0 0 0 2px #2563eb; }
 </style>
 </head>
 <body>
@@ -31,6 +32,7 @@
   <button id="defect-a" type="button" aria-label="Named icon button"><svg aria-hidden="true" width="16" height="16"><circle cx="8" cy="8" r="6"/></svg></button>
   <div id="defect-b" role="button" tabindex="0">Reached</div>
   <button id="defect-c" type="button">Default focus ring</button>
+  <button id="ok-tw" type="button">Transparent outline + ring</button>
   <fieldset>
     <legend>Size</legend>
     <label><input type="radio" name="size" value="s" checked> Small</label>

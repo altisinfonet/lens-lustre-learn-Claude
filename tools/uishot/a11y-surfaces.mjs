@@ -396,7 +396,8 @@ function selfTestLogic() {
 const SEEDED_EXPECT = {
   A: { rule: "A:button-name", match: /#defect-a/ },
   B: { rule: CHECK_RULES.B, match: /#defect-b/ },
-  C: { rule: CHECK_RULES.C, match: /#defect-c/ },
+  // Two C defects: outline:none, and Tailwind's outline-none (a transparent outline).
+  C: { rule: CHECK_RULES.C, match: /#defect-c\b/, count: 2, matchAll: [/#defect-c(?!2)\b/, /#defect-c2\b/] },
   D: { rule: CHECK_RULES.D, match: /trap-1|trap-2/ },
   E: { rule: CHECK_RULES.E, match: /#defect-e/ },
 };
@@ -421,8 +422,10 @@ async function selfTestPages(browser) {
       for (const [check, exp] of Object.entries(SEEDED_EXPECT)) {
         const rules = Object.keys(r.counts).filter((k) => k[0] === check);
         const list = r.findings[exp.rule] ?? [];
-        const fired = rules.length === 1 && rules[0] === exp.rule && r.counts[exp.rule] === 1 && exp.match.test(list[0] ?? "");
-        ok(fired, `seeded page @ ${vp.name}: check ${check} fires exactly once, on its seeded defect — ${rules.length ? rules.map((x) => `${x}=${r.counts[x]}: ${(r.findings[x] ?? []).join(" | ").slice(0, 140)}`).join("; ") : "NOT FIRED"}`);
+        const want = exp.count ?? 1;
+        const fired = rules.length === 1 && rules[0] === exp.rule && r.counts[exp.rule] === want
+          && (exp.matchAll ? exp.matchAll.every((m) => list.some((f) => m.test(f))) : exp.match.test(list[0] ?? ""));
+        ok(fired, `seeded page @ ${vp.name}: check ${check} fires on exactly its seeded defect(s) — ${rules.length ? rules.map((x) => `${x}=${r.counts[x]}: ${(r.findings[x] ?? []).join(" | ").slice(0, 140)}`).join("; ") : "NOT FIRED"}`);
       }
     }
   }
