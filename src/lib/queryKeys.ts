@@ -12,7 +12,7 @@
  * ║  5. If data overlaps with an existing query, REUSE the hook ║
  * ║  6. Global defaults (from QueryClient in App.tsx):          ║
  * ║     staleTime: 5 min, gcTime: 10 min,                      ║
- * ║     refetchOnWindowFocus: false                             ║
+ * ║     refetchOnWindowFocus: true (respects staleTime)         ║
  * ║     Do NOT override these per-hook unless explicitly needed  ║
  * ╚══════════════════════════════════════════════════════════════╝
  *

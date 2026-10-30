@@ -78,14 +78,38 @@ type RecordSessionEnd = (
   args: { _platform: "app" | "web" },
 ) => PromiseLike<unknown>;
 
+/**
+ * UNIT A (Owner, 2026-10-30: "many members show neither App nor Website").
+ *
+ * `record_session_end` is the only call above that writes the platform, and it
+ * runs when a session ENDS — so the Admin → Users chip could not appear while
+ * a member was using the app, and a new member whose first session ended
+ * inside 60 s of sign-up (profiles.last_active_at is DEFAULT now(), so the
+ * two-tab rule matched no row) never got one at all. Proven on the fixture
+ * (supabase/tests/platform-badge/30_cause.sql, red before 20261102_0102).
+ *
+ * `record_session_platform` (20261102_0102) records the platform this session
+ * is on when it starts and whenever it comes back to the foreground. The
+ * server writes only when the stored value differs, so repeated calls on one
+ * platform cost a request, never a row version. Best-effort, never retried.
+ */
+type RecordSessionPlatform = (
+  fn: "record_session_platform",
+  args: { _platform: "app" | "web" },
+) => PromiseLike<unknown>;
+
 export function useSessionEnd(): void {
   const { user } = useAuth();
   /** Mirrored so the teardown listeners read it without re-subscribing. */
   const userIdRef = useRef<string | null>(user?.id ?? null);
   userIdRef.current = user?.id ?? null;
 
+  // Keyed on the id, not the user object: useAuth hands out a new object on
+  // every token refresh, which would re-run this effect (and re-send the
+  // session-start call) for a session that has not changed.
+  const userId = user?.id ?? null;
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
 
     const record = () => {
       if (!userIdRef.current) return;
@@ -106,12 +130,25 @@ export function useSessionEnd(): void {
       ).catch(() => {});
     };
 
+    const recordStart = () => {
+      if (!userIdRef.current) return;
+      // Same call-position rule as below (mediaWritePath.test.ts · RED-1).
+      void Promise.resolve(
+        (supabase.rpc as unknown as RecordSessionPlatform)("record_session_platform", {
+          _platform: isNativeCapacitorApp() ? "app" : "web",
+        }),
+      ).catch(() => {});
+    };
+    // The session starts now (signed in, page or app open).
+    recordStart();
+
     const onPageHide = (event: PageTransitionEvent) => {
       if (event.persisted) return; // back/forward cache: the session continues
       record();
     };
     const onVisibility = () => {
       if (document.hidden) record();
+      else recordStart();
     };
 
     window.addEventListener("pagehide", onPageHide);
@@ -121,6 +158,7 @@ export function useSessionEnd(): void {
     try {
       const h = capApp()?.addListener("appStateChange", (s) => {
         if (s?.isActive === false) record();
+        else if (s?.isActive === true) recordStart();
       });
       capHandle = h && typeof h === "object" ? h : undefined;
     } catch {
@@ -136,5 +174,5 @@ export function useSessionEnd(): void {
         /* nothing to unwind */
       }
     };
-  }, [user]);
+  }, [userId]);
 }

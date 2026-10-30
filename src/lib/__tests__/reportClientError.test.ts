@@ -289,7 +289,12 @@ describe("what the MEMBER reads is not what the LOG gets", () => {
   it("a message-less throw still beats 'Unknown error' for the member", () => {
     const e: any = new Error("");
     e.name = "FunctionsFetchError";
-    expect(memberFacingMessage(e)).toContain("FunctionsFetchError");
+    // S11: the member reads what to do; the log keeps the name.
+    expect(memberFacingMessage(e)).toBe("Couldn't reach the service. Check your connection and try again.");
+    expect(describeThrown(e)).toContain("FunctionsFetchError");
+    const odd: any = new Error("");
+    odd.name = "SomeOtherError";
+    expect(memberFacingMessage(odd)).toContain("SomeOtherError");
   });
 
   it("both toasts use the member-facing form", () => {

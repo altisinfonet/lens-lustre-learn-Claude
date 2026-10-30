@@ -1,4 +1,7 @@
 import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from "react";
+import PendingPhotoPosts from "@/components/upload/PendingPhotoPosts";
+import { noNetworkForPost, OFFLINE_NOT_SENT } from "@/lib/upload/offlineCompose";
+import { isNetworkError } from "@/lib/offline/retryPolicy";
 import { Link, useSearchParams } from "react-router-dom";
 import { MessageCircle, Send, Globe, Users, Lock, ChevronDown, ImagePlus, X, Tag, CalendarClock, Crop, ArrowLeft } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -66,6 +69,8 @@ import type { ReactionType } from "@/components/ReactionPicker";
 import type { UnifiedPost } from "@/types/post";
 import { avatarInitial } from "@/lib/displayName";
 import { mapServerCounts, applyReactionDelta } from "@/lib/feed/realtimeCounts";
+import { useCategories } from "@/hooks/useCategories";
+import { isSlugShaped, takeFirstPostFiles } from "@/lib/firstPost/firstPostNudge";
 
 /**
  * Re-exported from the chooser so there is ONE list of audiences in the app.
@@ -108,6 +113,9 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   const {
     data,
     isLoading: loading,
+    isError: wallFailed,
+    error: wallError,
+    fetchStatus: wallFetchStatus,
     isFetchingNextPage: loadingMore,
     hasNextPage: hasMore,
     fetchNextPage,
@@ -488,6 +496,10 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
    */
   const [searchParams, setSearchParams] = useSearchParams();
   const composeHandledRef = useRef(false);
+  // The active category list — the same cached query CategoryChips reads, so
+  // no extra request. A `cat=` that is not in it is ignored, never posted.
+  const { data: activeCategories } = useCategories();
+  const activeSlugs = new Set((activeCategories ?? []).map((c) => c.slug));
   useEffect(() => {
     /**
      * ONLY THE FEED'S COMPOSER ANSWERS `?compose=1`.
@@ -547,7 +559,28 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
 
     const next = new URLSearchParams(searchParams);
     next.delete("compose");
+    /* FIRST-POST NUDGE (site_settings `first_post_nudge`). Only the
+     * "Share your first photo" step (FirstPostPrompt) adds these, and it shows
+     * only when the switch is on — without them this is today's path exactly.
+     *   cat=<slug>  pre-fill the category, if it is an active category
+     *   first=1     photos the member already chose on that step are waiting
+     *               in the hand-off: open the composer with them loaded. */
+    const cat = searchParams.get("cat");
+    const first = searchParams.get("first") === "1";
+    next.delete("cat");
+    next.delete("first");
     setSearchParams(next, { replace: true });
+
+    if (isSlugShaped(cat) && activeSlugs.has(cat)) setPostCategories([cat]);
+    if (first) {
+      const files = takeFirstPostFiles();
+      if (files.length > 0) {
+        acceptPicked(files);
+        setComposerStep(appFlow ? "settings" : "compose");
+        setComposerOpen(true);
+        return;
+      }
+    }
 
     if (appFlow) void startAppPost();
     else openComposer();
@@ -1310,6 +1343,9 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       // S5-b · the resumable path (switch `photo_upload_resume`, default OFF):
       // the post is kept on the device and finishes even if the app is closed.
       if (await tryResumablePost()) { setPosting(false); return; }
+      // S7b-5b: no network and this post cannot be kept on the phone: say so,
+      // keep the composer as it is (nothing is cleared or uploaded).
+      if (noNetworkForPost()) { toast(OFFLINE_NOT_SENT); setPosting(false); return; }
       const { uploadedUrls, uploadedThumbs, uploadedStored } = await uploadPhotos(correlationId);
       // Phase 3B — Schedule branch: divert INSERT to scheduled_posts (RLS-gated).
       // Window validated by DB trigger validate_scheduled_post_window (5min…90d).
@@ -2448,6 +2484,8 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       {/* ── Posts ── */}
       {!composerOnly && (
         <>
+          {/* S7b-5b: own posts with photos made offline, kept on the phone. */}
+          {isOwnWall && <PendingPhotoPosts />}
           {loading ? (
             <div className="space-y-4">
               {[1, 2, 3].map((i) => <PostCardSkeleton key={i} />)}
@@ -2458,7 +2496,10 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                 <MessageCircle className="h-7 w-7 text-muted-foreground/30" />
               </div>
               <p className="text-sm text-muted-foreground">
-                {isOwnWall ? "Your wall is empty. Share your first photo above!" : "No posts to show yet."}
+                {/* S7b-4: no network (paused) or a read that failed is NOT an empty wall. */}
+                {(wallFailed && isNetworkError(wallError)) || wallFetchStatus === "paused"
+                  ? "No internet. These posts will show when you're back online."
+                  : isOwnWall ? "Your wall is empty. Share your first photo above!" : "No posts to show yet."}
               </p>
             </div>
           ) : (

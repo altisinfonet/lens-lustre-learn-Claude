@@ -68,7 +68,7 @@ const TagDecisionPanel = memo(({
               aria-pressed={isActive}
               aria-label={`${tag.label}${isSystem ? " (system tag)" : ""}`}
               className={`flex items-center justify-center gap-1.5 ${
-                compact ? "px-2.5 py-1.5 text-[10px]" : "px-3 py-2.5 text-[11px]"
+                compact ? "min-h-[44px] px-2.5 py-1.5 text-[10px]" : "min-h-[44px] px-3 py-2.5 text-[11px]"
               } font-bold uppercase tracking-wider rounded-lg border-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
                 isActive
                   ? "ring-2 ring-offset-1 ring-offset-background"

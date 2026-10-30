@@ -1,7 +1,7 @@
 /**
- * S12-F5 · on a member's profile: "★ Add to Favourites" / "★ Favourite"
- * (remove), and "Unmute" when the viewer has muted them (S12-F1 Extra D; muted
- * from a post's ⋯ menu).
+ * S12-F5 · on a member's profile: "☆ Favourites" (add) / "★ Favourites"
+ * (remove; filled star, highlighted button), and "Unmute" when the viewer
+ * has muted them (S12-F1 Extra D; muted from a post's ⋯ menu).
  *
  * Both go through the OFF-2 outbox (favouriteAuthor / unfavouriteAuthor /
  * unmuteAuthor in feedSignals.ts): kept on the device, sent exactly once — the
@@ -97,7 +97,7 @@ export default function FavouriteMuteButtons({ viewerId, authorId, authorName }:
       >
         <Star className="h-3 w-3" fill={prefs.favourite ? "currentColor" : "none"} />
         {/* phone width: the star alone (the action row is already full) */}
-        <span className="hidden sm:inline">{prefs.favourite ? "Favourite" : "Add to Favourites"}</span>
+        <span className="hidden sm:inline">Favourites</span>
       </button>
       {prefs.muted && (
         <button

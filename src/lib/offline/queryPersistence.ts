@@ -15,12 +15,16 @@
  * refresh). Offline, React Query pauses the refetch and the stored data stays
  * on screen instead of a spinner or a blank page.
  *
- * THE ALLOW-LIST is deliberately short — the four things OFF-1 names:
+ * THE ALLOW-LIST is deliberately short — the four things OFF-1 names, and
+ * (S7b-4) what a profile and the notifications page need to open offline:
  *   feed               ["feed", categories]
  *   profiles           ["profile-core", userId]
- *   the member's posts ["user-wall-posts", <own id only>]
- *   notifications      ["notifications", <own id only>]
+ *   walls              ["user-wall-posts" | "user-own-posts", any member]
+ *   profile extras     ["profile-extended", member, <own id as viewer>]
+ *   counts             ["friend-follow", member, <own id as viewer>]
+ *   notifications      ["notifications" | "notification-history", <own id only>]
  *   the feed's ads     ["ad-zone", zone]  (ads bug 2, 2026-10-29)
+ * Everything is stored per signed-in member and wiped on sign-out (G6).
  * Nothing else is persisted: admin data, search, drafts and anything not
  * named here stay in memory only.
  * ─────────────────────────────────────────────────────────────────────────────
@@ -37,8 +41,14 @@ export function isPersisted(key: QueryKey, userId: string | null): boolean {
   switch (root) {
     case "feed": return key.length <= 2;
     case "profile-core": return typeof arg === "string" && arg.length > 0;
-    case "user-wall-posts": return arg === userId;
+    // S7b-4: profiles seen online open offline — any member's wall (first page)
+    // and the extras / counts as THIS member saw them (key carries the viewer).
+    case "user-wall-posts": return typeof arg === "string" && arg.length > 0;
+    case "user-own-posts": return typeof arg === "string" && arg.length > 0;
+    case "profile-extended": return typeof arg === "string" && arg.length > 0 && key[2] === userId;
+    case "friend-follow": return typeof arg === "string" && arg.length > 0 && key[2] === userId;
     case "notifications": return arg === userId;
+    case "notification-history": return arg === userId;
     // Ads bug 2: the feed's ad zone (flag, config, picture library) — the
     // same for every member, kept per member like everything here.
     case "ad-zone": return key.length === 2 && typeof arg === "string" && arg.length > 0;

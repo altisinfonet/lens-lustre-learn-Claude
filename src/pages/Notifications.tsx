@@ -47,6 +47,8 @@ import { isWalletNotificationType } from "@/lib/native/iosReview";
 import VideoPoster from "@/components/video/VideoPoster";
 import { postMedia } from "@/lib/posts/subjectMedia";
 import { fetchPostVideoMap, type FeedVideo } from "@/lib/video/postVideoRead";
+import { useNetworkQuality } from "@/hooks/core/useNetworkQuality";
+import { screenState } from "@/lib/offline/screenState";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -196,8 +198,15 @@ const Notifications = () => {
   const followMutation = useToggleFollow();
   const [busyActor, setBusyActor] = useState<string | null>(null);
 
-  const { data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage } =
+  const { data, isLoading, isError, error: historyError, fetchStatus, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useNotificationHistory();
+  // S7b-4: saved notifications show with no network; with none saved, say
+  // "no internet" — never "Nothing here yet" or a load error.
+  const netState = useNetworkQuality();
+  const screen = screenState({
+    hasData: !!data, loading: isLoading, error: historyError,
+    online: netState.online, paused: fetchStatus === "paused",
+  });
 
   const groups = useMemo<NotificationGroup[]>(
     // App Store 3.1.1: no wallet notifications in the iOS app (same rule as the bell).
@@ -339,19 +348,25 @@ const Notifications = () => {
         </h1>
       </div>
 
-      {isLoading && (
+      {screen === "loading" && (
         <p className="py-10 text-center text-xs text-muted-foreground animate-pulse" style={bodyFont}>
           {t("common.loading", "Loading...")}
         </p>
       )}
 
-      {isError && (
+      {screen === "offline" && (
+        <p className="py-10 text-center text-xs text-muted-foreground" style={bodyFont}>
+          {t("notifications.offline", "No internet. Your notifications will show when you're back online.")}
+        </p>
+      )}
+
+      {screen === "missing" && isError && (
         <p className="py-10 text-center text-xs text-muted-foreground" style={bodyFont}>
           {t("notifications.load_failed", "Could not load your notifications. Pull down to try again.")}
         </p>
       )}
 
-      {!isLoading && !isError && groups.length === 0 && (
+      {screen === "show" && groups.length === 0 && (
         <div className="py-16 text-center">
           <Bell className="h-6 w-6 text-muted-foreground/20 mx-auto mb-3" />
           <p className="text-xs text-muted-foreground" style={bodyFont}>

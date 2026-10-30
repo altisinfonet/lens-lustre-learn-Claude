@@ -81,7 +81,8 @@ describe("NetworkBanner", () => {
     const b = screen.getByTestId("network-banner");
     expect(b.getAttribute("data-state")).toBe("offline");
     expect(b.getAttribute("role")).toBe("status");
-    expect(b.textContent).toMatch(/offline/i);
+    // S7b-5: the Owner's wording — "No internet — showing saved".
+    expect(b.textContent).toMatch(/No internet — showing saved/);
   });
   it("turning slow while mounted shows the slow line (live)", async () => {
     render(<NetworkBanner />);

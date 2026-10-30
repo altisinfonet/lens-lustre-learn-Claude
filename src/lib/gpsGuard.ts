@@ -31,7 +31,6 @@
  * go to a public CDN (outcome 3). A file we CAN prove clean sails through.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-import exifr from "exifr";
 import { logger } from "@/lib/logger";
 
 const FILE = "src/lib/gpsGuard.ts";
@@ -43,6 +42,14 @@ export class GpsPrivacyError extends Error {
     this.name = "GpsPrivacyError";
   }
 }
+
+/** The location check itself could not run (its reader did not load). */
+export const GPS_UNCHECKED_MESSAGE =
+  "We couldn't check this photo for location data, so it wasn't uploaded. Reload the page and try again.";
+
+/** The reader could not parse this format at all (GIF, BMP, some WebP): refused, but truthfully. */
+export const GPS_UNREADABLE_MESSAGE =
+  "We couldn't check this image for location data, so it wasn't uploaded. Please send it as a JPEG or PNG instead.";
 
 /** Member-facing copy, kept here so every surface says the same thing. */
 export const GPS_REFUSAL_MESSAGE =
@@ -87,12 +94,39 @@ export function stripJpegMetadata(bytes: Uint8Array): Uint8Array {
 }
 
 /**
+ * P13: exifr (~74 KB) is loaded when a photo is checked, not with the app.
+ */
+const loadExifr = () => import("exifr").then((m) => m.default);
+
+/**
  * Gate an ORIGINAL (non-re-encoded) file before it may be uploaded.
  * Returns the file to upload (original, or a stripped copy).
  * Throws GpsPrivacyError when the file must not be uploaded at all.
  */
 export async function guardOriginalUpload(file: File): Promise<File> {
+  // Loaded ONCE, before any check (review #587): without the reader neither
+  // "no location" nor "stripping removed it" can be proven, and an unprovable
+  // file does not go to a public CDN.
+  let exifr: Awaited<ReturnType<typeof loadExifr>>;
+  try {
+    exifr = await loadExifr();
+  } catch (e) {
+    logger.warn({
+      code: "FILE-5013",
+      event: "GPS_GUARD_READER_UNAVAILABLE",
+      fn: "guardOriginalUpload",
+      file: FILE,
+      message: "The EXIF reader could not be loaded; the original upload was refused.",
+      reason: e instanceof Error ? e.message : String(e),
+      expected: "The on-demand exifr chunk loads",
+      actual: "Load failed (offline web, or a stale deploy)",
+      nextStep: "Fails closed by design. The member can retry once the page can load its files again.",
+      detail: { fileType: file.type, fileSizeBytes: file.size },
+    });
+    throw new GpsPrivacyError(GPS_UNCHECKED_MESSAGE);
+  }
   let hasGps: boolean;
+  let unreadable = false;
   try {
     const gps = await exifr.gps(file);
     hasGps = !!gps && typeof gps.latitude === "number" && typeof gps.longitude === "number";
@@ -101,6 +135,7 @@ export async function guardOriginalUpload(file: File): Promise<File> {
     // structurally (below). For anything else we cannot PROVE the file is
     // clean — and an unprovable file does not go to a public CDN.
     hasGps = true;
+    unreadable = true;
   }
   if (!hasGps) return file;
 
@@ -119,6 +154,9 @@ export async function guardOriginalUpload(file: File): Promise<File> {
         "This is the guard WORKING, not a defect. The member was asked to export as JPEG or remove location data.",
       detail: { fileType: file.type, fileSizeBytes: file.size },
     });
+    // Still refused (fail closed); only the copy differs — we never claim a
+    // location we did not read.
+    if (unreadable) throw new GpsPrivacyError(GPS_UNREADABLE_MESSAGE);
     throw new GpsPrivacyError(GPS_REFUSAL_MESSAGE);
   }
 
@@ -159,4 +197,64 @@ export async function guardOriginalUpload(file: File): Promise<File> {
     detail: { fileType: file.type, beforeBytes: file.size, afterBytes: cleanFile.size },
   });
   return cleanFile;
+}
+
+function readBytes(file: Blob): Promise<Uint8Array> {
+  if (typeof file.arrayBuffer === "function") return file.arrayBuffer().then((a) => new Uint8Array(a));
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(new Uint8Array(r.result as ArrayBuffer));
+    r.onerror = () => reject(r.error);
+    r.readAsArrayBuffer(file);
+  });
+}
+
+/**
+ * The file and its pixel size when it is PROVABLY a plain WebP image; null
+ * otherwise. Reads the RIFF container only — no decode.
+ *
+ * "Provably" means: the RIFF size covers the file EXACTLY (no bytes after it),
+ * every top-level chunk is a still-image chunk (VP8 / VP8L / VP8X / ALPH) or a
+ * real, small ICC colour profile (ICCP with the "acsp" signature, ≤ 4 KB —
+ * Chromium, WebKit and the Android WebView write an sRGB profile into every
+ * canvas WebP) — an allow-list, so EXIF, XMP, animation frames and anything
+ * unknown or renamed are refused), the chunk list ends exactly at the end, and an image chunk states
+ * the size. A browser canvas encode (compressImageToFiles) writes exactly this;
+ * a camera / editor WebP with location data does not pass.
+ *
+ * Why not guardOriginalUpload: its parser (exifr) does not read WebP at all
+ * ("Unknown file format"), so for a WebP it can only ever refuse.
+ */
+export async function metadataFreeWebp(file: File): Promise<{ file: File; width: number; height: number } | null> {
+  try {
+    const b = await readBytes(file);
+    const u32 = (i: number) => (b[i] | (b[i + 1] << 8) | (b[i + 2] << 16) | (b[i + 3] << 24)) >>> 0;
+    const u24 = (i: number) => b[i] | (b[i + 1] << 8) | (b[i + 2] << 16);
+    const tag = (i: number) => String.fromCharCode(b[i], b[i + 1], b[i + 2], b[i + 3]);
+    if (b.length < 20 || tag(0) !== "RIFF" || tag(8) !== "WEBP") return null;
+    if (8 + u32(4) !== b.length) return null; // no bytes after the container, none missing
+    const ALLOWED = new Set(["VP8 ", "VP8L", "VP8X", "ALPH", "ICCP"]);
+    let i = 12;
+    let dims: { width: number; height: number } | null = null;
+    while (i < b.length) {
+      if (i + 8 > b.length) return null;
+      const t = tag(i);
+      const n = u32(i + 4);
+      const d = i + 8;
+      if (!ALLOWED.has(t) || d + n > b.length) return null;
+      if (t === "ICCP" && (n < 40 || n > 4096 || tag(d + 36) !== "acsp")) return null;
+      if (t === "VP8X" && n >= 10) dims = { width: u24(d + 4) + 1, height: u24(d + 7) + 1 };
+      else if (t === "VP8 " && n >= 10 && !dims && b[d + 3] === 0x9d && b[d + 4] === 0x01 && b[d + 5] === 0x2a)
+        dims = { width: (b[d + 6] | (b[d + 7] << 8)) & 0x3fff, height: (b[d + 8] | (b[d + 9] << 8)) & 0x3fff };
+      else if (t === "VP8L" && n >= 5 && !dims && b[d] === 0x2f) {
+        const v = u32(d + 1);
+        dims = { width: (v & 0x3fff) + 1, height: ((v >>> 14) & 0x3fff) + 1 };
+      }
+      i = d + n + (n & 1);
+    }
+    if (i !== b.length || !dims || dims.width <= 0 || dims.height <= 0) return null;
+    return { file, ...dims };
+  } catch {
+    return null;
+  }
 }

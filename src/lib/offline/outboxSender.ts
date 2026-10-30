@@ -111,6 +111,21 @@ export function supabaseSender(client: SupabaseClient): Sender {
       case "unhide_post":
         // S12-F5 · Undo of "Not interested": delete by the pair, repeatable.
         return classify(await call(db.from(t.table).delete().eq("user_id", item.userId).eq("post_id", a.postId)));
+      case "follow":
+        // S7b-5 · one row per (follower, following) however often sent.
+        return classify(await call(db.from(t.table).upsert(
+          { follower_id: item.userId, following_id: a.targetId },
+          { onConflict: t.onConflict, ignoreDuplicates: true },
+        )));
+      case "unfollow":
+        // Deleting by the pair: repeating it changes nothing.
+        return classify(await call(db.from(t.table).delete().eq("follower_id", item.userId).eq("following_id", a.targetId)));
+      case "post_report":
+        // S7b-5 · one report per (post, reporter): a resend is the same row.
+        return classify(await call(db.from(t.table).upsert(
+          { post_id: a.postId, reporter_id: item.userId, reason: a.reason },
+          { onConflict: t.onConflict, ignoreDuplicates: true },
+        )));
       case "favourite":
         // S12-F5 · ★ one row per (member, author) however often sent. The cap
         // (FAVOURITES-001, HTTP 400) is a refusal and is never retried.

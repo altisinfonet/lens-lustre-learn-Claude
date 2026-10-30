@@ -1,0 +1,39 @@
+name: D2 · live check — home + /feed in Chromium, Firefox, WebKit (report-only)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# The last step of every carry to main: "check live in Chromium, Firefox,
+# WebKit: home + /feed 200, same text, no NEW console errors". A cloud runner's
+# sandbox has Chromium only, so this runs the three engines here.
+# READ-ONLY: anonymous GETs of the public site. No secret, no sign-in.
+# Fails only on a non-200 or an empty page; console errors are printed for the
+# carrier to compare with the previous run (scripts/live-check.mjs).
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/live-check.mjs'
+      - '.github/workflows/d2-live-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    name: live site in three engines
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install the three engines
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Live check
+        run: node scripts/live-check.mjs
