@@ -2,7 +2,7 @@
 
 Updated 2026-10-30 ~04:30 UTC. Base: `staging`.
 
-## Unit A — "Admin → Users: members show neither App nor Website" — LIVE on production (code + SQL)
+## Unit A — "Admin → Users: members show neither App nor Website" — DONE: live on production (code + SQL), live check PASS
 **Proven cause** (measured on production, then reproduced against the real server code; each cause red before the fix):
 1. The platform had one writer, `record_session_end` (`supabase/migrations/20260920_0001_p1_session_end_and_backfill.sql` §2),
    which runs only when a session ENDS — nothing recorded it while a member was using the app or site.
@@ -21,14 +21,14 @@ after sign-up in 40 days; 1 active only in the first 10 minutes after sign-up. O
 
 - Gate numbers (production, 04:16): members active in the last 24 h with no platform = **0 of 18**; last 7 days = 1 of 25
   (that member has not been back since the fix; fills on their next visit — web now, app after the next app build).
-- Live check 04:17–04:25: live bundle carries the fix; Chromium home + /feed 200, same text on two loads; console errors
-  are the pre-existing ones (X-Frame-Options meta, Cloudflare beacon CSP, signed-out 401 on profiles_public_data) — none
-  from this change. **Firefox + WebKit: pending** — the sandbox has Chromium only; a report-only 3-engine live-check job is in
-  Unit B's PR and runs there.
+- **Live check PASS** (04:17 Chromium local; 04:36 Chromium + Firefox + WebKit, job 123893217752 in run 41003553819): live
+  bundle carries the fix; home + /feed 200 in all three; same text on two loads; console errors are only pre-existing kinds
+  (X-Frame-Options in a meta tag, Cloudflare beacon blocked by CSP, signed-out 401 on profiles_public_data, Firefox cookie
+  notice on the realtime socket) — none from this change.
 - Needs the next Android app build: yes (the app-side "session start" call).
 
 ## Unit B — "First post after registration" (switch `first_post_nudge`, OFF everywhere)
-- PR #632 → staging (CI running; independent review: nothing blocking, follow-ups pushed and under re-review).
+- PR #632 → staging: CI green on 522ff4d (35/2 skipped); final tiny redaction commit 0657d80 re-running; independent review: nothing blocking.
 - Reminders reuse the existing push sender and e-mail queue — **no edge-function deploy needed**.
 - Needs the next Android app build: yes (the in-app step and category pre-fill).
 
