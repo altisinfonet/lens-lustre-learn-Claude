@@ -4,9 +4,11 @@
 -- FAILS before 0615: the merges 0608–0613 joined parts in ascending policy-name
 -- order. PASSES after.
 --   G0 · lane asserted.
---   G1 · every merged clause with 2+ parts has them, read from the owner-only
---        backup, in DESCENDING policy-name order ("C" collation): the order
---        Postgres ORed the original policies in (rowsecurity.c builds the list
+--   G1 · every merged clause with 2+ parts EQUALS its parts, read from the
+--        owner-only backup, joined in DESCENDING policy-name order ("C"
+--        collation; exact text, the only allowance being the parser's
+--        flattening of a first part that is itself an OR): the order
+--        Postgres ORed the original policies in (policy.c builds the list
 --        in reverse index order).
 --   G2 · at least one merged table was checked. Tables with no merged policies
 --        on this lane are listed as skipped, which is not a failure.
@@ -21,7 +23,8 @@ DECLARE
   tables constant text[] := ARRAY['blocked_keywords', 'categories', 'certificate_testimonials', 'courses', 'gift_announcements', 'hero_banners', 'journal_articles', 'lessons', 'photo_of_the_day', 'ad_creatives', 'ai_chat_usage', 'certificates', 'comment_reports', 'course_enrollments', 'custom_url_history', 'post_reports', 'reports', 'support_tickets', 'user_devices', 'v3_tag_label_alias', 'bank_details', 'competition_judges', 'competition_judging_tags', 'competition_orders', 'entry_score_cache', 'judge_activity_logs', 'judge_award_tags', 'judge_comments', 'judge_decisions', 'judge_entry_assignments', 'judge_entry_locks', 'judge_scores', 'judge_tag_assignments', 'judging_config', 'judging_rounds', 'raw_commitments', 'referral_codes', 'referrals', 'role_applications', 'round_snapshots', 'wallet_transactions', 'wallets', 'withdrawal_requests', 'competitions', 'friendships', 'image_comments', 'portfolio_images', 'post_reactions', 'post_tags', 'profile_views', 'user_badges', 'user_roles', 'posts', 'post_comments'];
   _bad text := ''; skipped text := ''; wrong text := '';
   t text; rel oid; r record; c text; stored text; arm record; pos int; lastpos int;
-  checked int := 0; clauses int := 0; cand text; depth int; is_wrapped boolean; ch text;
+  checked int := 0; clauses int := 0; depth int; is_wrapped boolean; ch text;
+  joined text; nparts int; firstpart text; expect_hit boolean; d text;
 BEGIN
   IF coalesce(current_setting('p32.lane', true), '') NOT IN ('staging', 'production') THEN
     RAISE EXCEPTION 'PROBE REFUSED — p32.lane is not staging or production';
@@ -45,34 +48,40 @@ BEGIN
                         WHERE bk.tbl = t AND (bk.cmd = '*' OR bk.cmd = r.a)
                           AND (CASE c WHEN 'u' THEN bk.using_expr ELSE coalesce(bk.check_expr, bk.using_expr) END) IS NOT NULL) <= 1;
         clauses := clauses + 1;
-        lastpos := 0;
-        FOR arm IN SELECT CASE c WHEN 'u' THEN bk.using_expr ELSE coalesce(bk.check_expr, bk.using_expr) END AS x
-                     FROM public.x1_policy_backup_20261031 bk
-                    WHERE bk.tbl = t AND (bk.cmd = '*' OR bk.cmd = r.a)
-                      AND (CASE c WHEN 'u' THEN bk.using_expr ELSE coalesce(bk.check_expr, bk.using_expr) END) IS NOT NULL
-                    ORDER BY bk.policyname COLLATE "C" DESC LOOP
-          cand := arm.x;
-          pos := strpos(substr(coalesce(stored, ''), lastpos + 1), cand);
-          -- Postgres's parser flattens "(A OR B) OR C" into one OR, so a part that is
-          -- itself an OR can lose its single is_wrapped pair of parentheses: try its inside.
-          IF pos = 0 AND left(cand, 1) = '(' AND right(cand, 1) = ')' THEN
+        -- expected text for direction 'DESC': '(' || parts joined by ' OR ' || ')';
+        -- one part: the part itself; the parser flattens "(A OR B) OR C", so the
+        -- first part may also appear without its single outer pair of parentheses.
+        SELECT string_agg(x, ' OR ' ORDER BY CASE WHEN 'DESC' = 'DESC' THEN nm END COLLATE "C" DESC,
+                                             CASE WHEN 'DESC' = 'ASC'  THEN nm END COLLATE "C" ASC),
+               count(*),
+               (array_agg(x ORDER BY CASE WHEN 'DESC' = 'DESC' THEN nm END COLLATE "C" DESC,
+                                     CASE WHEN 'DESC' = 'ASC'  THEN nm END COLLATE "C" ASC))[1]
+          INTO joined, nparts, firstpart
+          FROM (SELECT bk.policyname AS nm,
+                       CASE c WHEN 'u' THEN bk.using_expr ELSE coalesce(bk.check_expr, bk.using_expr) END AS x
+                  FROM public.x1_policy_backup_20261031 bk
+                 WHERE bk.tbl = t AND (bk.cmd = '*' OR bk.cmd = r.a)) z
+         WHERE x IS NOT NULL;
+        IF nparts = 1 THEN
+          expect_hit := coalesce(stored = joined, false);
+        ELSE
+          expect_hit := coalesce(stored = '(' || joined || ')', false);
+          IF NOT expect_hit AND left(firstpart, 1) = '(' AND right(firstpart, 1) = ')' THEN
             depth := 0; is_wrapped := true;
-            FOR i IN 1 .. length(cand) LOOP
-              ch := substr(cand, i, 1);
+            FOR i IN 1 .. length(firstpart) LOOP
+              ch := substr(firstpart, i, 1);
               IF ch = '(' THEN depth := depth + 1; ELSIF ch = ')' THEN depth := depth - 1; END IF;
-              IF depth = 0 AND i < length(cand) THEN is_wrapped := false; EXIT; END IF;
+              IF depth = 0 AND i < length(firstpart) THEN is_wrapped := false; EXIT; END IF;
             END LOOP;
             IF is_wrapped THEN
-              cand := substr(cand, 2, length(cand) - 2);
-              pos := strpos(substr(coalesce(stored, ''), lastpos + 1), cand);
+              expect_hit := coalesce(stored = '(' || substr(firstpart, 2, length(firstpart) - 2)
+                                                  || substr(joined, length(firstpart) + 1) || ')', false);
             END IF;
           END IF;
-          IF pos = 0 THEN
-            wrong := wrong || format(' %s.%s(%s)', t, r.polname, c);
-            EXIT;
-          END IF;
-          lastpos := lastpos + pos + length(cand) - 1;
-        END LOOP;
+        END IF;
+        IF NOT expect_hit THEN
+          wrong := wrong || format(' %s.%s(%s)', t, r.polname, c);
+        END IF;
       END LOOP;
     END LOOP;
   END LOOP;

@@ -4,9 +4,10 @@
 -- Access unchanged, proven per table.
 --
 -- WHY: Postgres ORs a table's applicable permissive policies in DESCENDING
--- policy-name order. rowsecurity.c builds the list in reverse pg_policy index
--- order ("for historical reasons, the list is built in reverse order"), and
--- only restrictive policies are re-sorted. The X1 merges 0608–0613 joined
+-- policy-name order. policy.c (RelationBuildRowSecurity) builds the list in
+-- reverse pg_policy index order ("for historical reasons, the list is built
+-- in reverse order"); rowsecurity.c ORs the permissive quals in that order
+-- and re-sorts only the restrictive ones. The X1 merges 0608–0613 joined
 -- the parts in ASCENDING order, so each merged OR runs its branches in the
 -- opposite order to before. The rows are the same (E1 and E2 proved that),
 -- but an OR evaluates its arms until one is true, so per-row work changed.
@@ -30,15 +31,14 @@
 -- taken before the snapshot; any failure rolls back that table only):
 --   E1    · before the lock: for every identity × merged policy × clause, the
 --           union of the backed-up originals' rows == the new text's rows.
---   DRIFT · before the lock: the clause as stored now must be exactly the
---           backed-up parts in ascending or descending order (text: every
---           part found in order, and no room for an extra arm), and must
---           accept the same rows as the rebuilt text for every identity. A
---           clause changed after its merge is refused, not reverted. The text
---           check covers empty tables; it is a position and length check, not
---           a parse.
---   ORDER · inside the lock: each backed-up part appears in the stored clause
---           in the requested order.
+--   DRIFT · before the lock: the clause as stored now must EQUAL the
+--           backed-up parts joined in ascending or descending order (exact
+--           text; the only allowance is the parser's flattening of a first
+--           part that is itself an OR), and must accept the same rows as the
+--           rebuilt text for every identity. A clause changed after its merge
+--           is refused, not reverted.
+--   ORDER · inside the lock: each stored clause EQUALS the parts joined in
+--           descending order.
 --   BIND  · the stored clause accepts the rows E1 proved (anon and the first
 --           signed-in identity).
 --   E2    · through RLS as anon and authenticated: visible rows identical
@@ -77,7 +77,7 @@ DECLARE
   bkr record; one text; old_tids tid[]; part_tids tid[];
   u_desc text; u_asc text; c_desc text; c_asc text; nu int; nc int;
   stored text; arm record; pos int; lastpos int; cand text; depth int; is_wrapped boolean; ch text;
-  maxlen int; found_dir boolean; d text; ok boolean;
+  found_dir boolean; d text; joined text; nparts int; firstpart text; expect_hit boolean;
   t_lock timestamptz; win constant interval := interval '3 seconds'; altered int := 0;
 BEGIN
   IF coalesce(current_setting('p32.lane', true), '') NOT IN ('staging', 'production') THEN
@@ -140,54 +140,54 @@ BEGIN
     RETURN;
   END IF;
 
-  -- DRIFT-T (text, before the lock): each planned clause as stored now must be
-  -- exactly the backed-up parts in ascending or descending order. Every part
-  -- is found in one of those orders, and the length leaves no room for an
-  -- extra arm: at most the parts plus " OR " separators and one outer pair of
-  -- parentheses per part, plus 2. This catches drift that the row-based
-  -- check below cannot see on the current data (for example on an empty
-  -- table).
+  -- DRIFT-T (text, before the lock): each planned clause as stored now must
+  -- EQUAL the backed-up parts joined in ascending or in descending order
+  -- (exact string comparison; see the expected-text rule below). This catches
+  -- drift the row-based check cannot see on the current data (for example on
+  -- an empty table, or an extra arm that matches no rows yet).
   FOR pk, pv IN SELECT * FROM jsonb_each(plan) LOOP
     a := pv ->> 'a';
     FOREACH c IN ARRAY ARRAY['u', 'c'] LOOP
       CONTINUE WHEN (pv ->> c) IS NULL;
       SELECT CASE c WHEN 'u' THEN pg_get_expr(p.polqual, p.polrelid) ELSE pg_get_expr(p.polwithcheck, p.polrelid) END
         INTO stored FROM pg_policy p WHERE p.polrelid = rel AND p.polname = pk;
-      stored := coalesce(stored, '');
-      SELECT sum(length(x)) + 6 * count(*) + 2 INTO maxlen FROM (
-        SELECT CASE c WHEN 'u' THEN bk.using_expr ELSE coalesce(bk.check_expr, bk.using_expr) END AS x
-          FROM public.x1_policy_backup_20261031 bk
-         WHERE bk.tbl = t AND bk.batch = v_batch AND (bk.cmd = '*' OR bk.cmd = a)) z WHERE x IS NOT NULL;
       found_dir := false;
       FOREACH d IN ARRAY ARRAY['ASC', 'DESC'] LOOP
-        lastpos := 0; ok := true;
-        FOR arm IN SELECT CASE c WHEN 'u' THEN bk.using_expr ELSE coalesce(bk.check_expr, bk.using_expr) END AS x
-                     FROM public.x1_policy_backup_20261031 bk
-                    WHERE bk.tbl = t AND bk.batch = v_batch AND (bk.cmd = '*' OR bk.cmd = a)
-                      AND (CASE c WHEN 'u' THEN bk.using_expr ELSE coalesce(bk.check_expr, bk.using_expr) END) IS NOT NULL
-                    ORDER BY CASE WHEN d = 'DESC' THEN bk.policyname END COLLATE "C" DESC,
-                             CASE WHEN d = 'ASC'  THEN bk.policyname END COLLATE "C" ASC LOOP
-          cand := arm.x;
-          pos := strpos(substr(stored, lastpos + 1), cand);
-          IF pos = 0 AND left(cand, 1) = '(' AND right(cand, 1) = ')' THEN
+        -- expected text for direction d: '(' || parts joined by ' OR ' || ')';
+        -- one part: the part itself; the parser flattens "(A OR B) OR C", so the
+        -- first part may also appear without its single outer pair of parentheses.
+        SELECT string_agg(x, ' OR ' ORDER BY CASE WHEN d = 'DESC' THEN nm END COLLATE "C" DESC,
+                                             CASE WHEN d = 'ASC'  THEN nm END COLLATE "C" ASC),
+               count(*),
+               (array_agg(x ORDER BY CASE WHEN d = 'DESC' THEN nm END COLLATE "C" DESC,
+                                     CASE WHEN d = 'ASC'  THEN nm END COLLATE "C" ASC))[1]
+          INTO joined, nparts, firstpart
+          FROM (SELECT bk.policyname AS nm,
+                       CASE c WHEN 'u' THEN bk.using_expr ELSE coalesce(bk.check_expr, bk.using_expr) END AS x
+                  FROM public.x1_policy_backup_20261031 bk
+                 WHERE bk.tbl = t AND bk.batch = v_batch AND (bk.cmd = '*' OR bk.cmd = a)) z
+         WHERE x IS NOT NULL;
+        IF nparts = 1 THEN
+          expect_hit := coalesce(stored = joined, false);
+        ELSE
+          expect_hit := coalesce(stored = '(' || joined || ')', false);
+          IF NOT expect_hit AND left(firstpart, 1) = '(' AND right(firstpart, 1) = ')' THEN
             depth := 0; is_wrapped := true;
-            FOR i IN 1 .. length(cand) LOOP
-              ch := substr(cand, i, 1);
+            FOR i IN 1 .. length(firstpart) LOOP
+              ch := substr(firstpart, i, 1);
               IF ch = '(' THEN depth := depth + 1; ELSIF ch = ')' THEN depth := depth - 1; END IF;
-              IF depth = 0 AND i < length(cand) THEN is_wrapped := false; EXIT; END IF;
+              IF depth = 0 AND i < length(firstpart) THEN is_wrapped := false; EXIT; END IF;
             END LOOP;
             IF is_wrapped THEN
-              cand := substr(cand, 2, length(cand) - 2);
-              pos := strpos(substr(stored, lastpos + 1), cand);
+              expect_hit := coalesce(stored = '(' || substr(firstpart, 2, length(firstpart) - 2)
+                                                  || substr(joined, length(firstpart) + 1) || ')', false);
             END IF;
           END IF;
-          IF pos = 0 THEN ok := false; EXIT; END IF;
-          lastpos := lastpos + pos + length(cand) - 1;
-        END LOOP;
-        IF ok THEN found_dir := true; EXIT; END IF;
+        END IF;
+        IF expect_hit THEN found_dir := true; EXIT; END IF;
       END LOOP;
-      IF NOT found_dir OR length(stored) > maxlen THEN
-        RAISE EXCEPTION 'S10-X1RO-DRIFT-T: % % (%) as stored now is not the backed-up parts in either order — it changed after the merge; refusing', t, pk, c;
+      IF NOT found_dir THEN
+        RAISE EXCEPTION 'S10-X1RO-DRIFT-T: % % (%) as stored now is not exactly the backed-up parts in either order — it changed after the merge; refusing', t, pk, c;
       END IF;
     END LOOP;
   END LOOP;
@@ -284,41 +284,48 @@ BEGIN
     altered := altered + 1;
   END LOOP;
 
-  -- ORDER: in each stored clause, the backed-up parts appear in the requested order.
+  -- ORDER: each stored clause now EQUALS the backed-up parts joined in the
+  -- requested order (exact string comparison).
   FOR pk, pv IN SELECT * FROM jsonb_each(plan) LOOP
     a := pv ->> 'a';
     FOREACH c IN ARRAY ARRAY['u', 'c'] LOOP
       CONTINUE WHEN (pv ->> c) IS NULL;
       SELECT CASE c WHEN 'u' THEN pg_get_expr(p.polqual, p.polrelid) ELSE pg_get_expr(p.polwithcheck, p.polrelid) END
         INTO stored FROM pg_policy p WHERE p.polrelid = rel AND p.polname = pk;
-      lastpos := 0;
-      FOR arm IN SELECT CASE c WHEN 'u' THEN bk.using_expr ELSE coalesce(bk.check_expr, bk.using_expr) END AS x
-                   FROM public.x1_policy_backup_20261031 bk
-                  WHERE bk.tbl = t AND bk.batch = v_batch AND (bk.cmd = '*' OR bk.cmd = a)
-                    AND (CASE c WHEN 'u' THEN bk.using_expr ELSE coalesce(bk.check_expr, bk.using_expr) END) IS NOT NULL
-                  ORDER BY CASE WHEN dir = 'DESC' THEN bk.policyname END COLLATE "C" DESC,
-                           CASE WHEN dir = 'ASC'  THEN bk.policyname END COLLATE "C" ASC LOOP
-        cand := arm.x;
-        pos := strpos(substr(stored, lastpos + 1), cand);
-        -- Postgres's parser flattens "(A OR B) OR C" into one OR, so a part that is
-        -- itself an OR can lose its single is_wrapped pair of parentheses: try its inside.
-        IF pos = 0 AND left(cand, 1) = '(' AND right(cand, 1) = ')' THEN
+      -- expected text for direction dir: '(' || parts joined by ' OR ' || ')';
+      -- one part: the part itself; the parser flattens "(A OR B) OR C", so the
+      -- first part may also appear without its single outer pair of parentheses.
+      SELECT string_agg(x, ' OR ' ORDER BY CASE WHEN dir = 'DESC' THEN nm END COLLATE "C" DESC,
+                                           CASE WHEN dir = 'ASC'  THEN nm END COLLATE "C" ASC),
+             count(*),
+             (array_agg(x ORDER BY CASE WHEN dir = 'DESC' THEN nm END COLLATE "C" DESC,
+                                   CASE WHEN dir = 'ASC'  THEN nm END COLLATE "C" ASC))[1]
+        INTO joined, nparts, firstpart
+        FROM (SELECT bk.policyname AS nm,
+                     CASE c WHEN 'u' THEN bk.using_expr ELSE coalesce(bk.check_expr, bk.using_expr) END AS x
+                FROM public.x1_policy_backup_20261031 bk
+               WHERE bk.tbl = t AND bk.batch = v_batch AND (bk.cmd = '*' OR bk.cmd = a)) z
+       WHERE x IS NOT NULL;
+      IF nparts = 1 THEN
+        expect_hit := coalesce(stored = joined, false);
+      ELSE
+        expect_hit := coalesce(stored = '(' || joined || ')', false);
+        IF NOT expect_hit AND left(firstpart, 1) = '(' AND right(firstpart, 1) = ')' THEN
           depth := 0; is_wrapped := true;
-          FOR i IN 1 .. length(cand) LOOP
-            ch := substr(cand, i, 1);
+          FOR i IN 1 .. length(firstpart) LOOP
+            ch := substr(firstpart, i, 1);
             IF ch = '(' THEN depth := depth + 1; ELSIF ch = ')' THEN depth := depth - 1; END IF;
-            IF depth = 0 AND i < length(cand) THEN is_wrapped := false; EXIT; END IF;
+            IF depth = 0 AND i < length(firstpart) THEN is_wrapped := false; EXIT; END IF;
           END LOOP;
           IF is_wrapped THEN
-            cand := substr(cand, 2, length(cand) - 2);
-            pos := strpos(substr(stored, lastpos + 1), cand);
+            expect_hit := coalesce(stored = '(' || substr(firstpart, 2, length(firstpart) - 2)
+                                                || substr(joined, length(firstpart) + 1) || ')', false);
           END IF;
         END IF;
-        IF pos = 0 THEN
-          RAISE EXCEPTION 'S10-X1RO-ORDER: % % (%) — a part is not found in order in the stored text', t, pk, c;
-        END IF;
-        lastpos := lastpos + pos + length(cand) - 1;
-      END LOOP;
+      END IF;
+      IF NOT expect_hit THEN
+        RAISE EXCEPTION 'S10-X1RO-ORDER: % % (%) — the stored clause is not the parts joined in % order', t, pk, c, dir;
+      END IF;
     END LOOP;
   END LOOP;
 
