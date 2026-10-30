@@ -5,12 +5,15 @@
 -- scripts/db-p28-index-ratio-reasons.json (the build check compares them); the
 -- reasons themselves live in that file.
 -- Raises on: (a) a judged table with index > heap that is not reasoned;
---            (b) a reasoned table that no longer exceeds its heap (stale reason).
+--            (b) a reasoned table that is judged (heap ≥ 1 MB) and no longer exceeds
+--                its heap (stale reason). A reasoned table below the 1 MB floor on a
+--                lane is not judged there, so it is not stale (lanes differ in size:
+--                email_send_log is ~3 MB on production, far smaller on staging).
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN READ ONLY;
 DO $probe$
 DECLARE
-  reasoned text[] := ARRAY['public.posts']::text[]; -- P28-REASONED
+  reasoned text[] := ARRAY['public.email_send_log', 'public.posts']::text[]; -- P28-REASONED
   floor_b  bigint := 1048576;
   bad text; stale text; seen text;
 BEGIN
@@ -20,7 +23,7 @@ BEGIN
      WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p'))
   SELECT string_agg(tbl || ' (heap ' || pg_size_pretty(heap) || ', index ' || pg_size_pretty(idx) || ')', ', ')
            FILTER (WHERE heap >= floor_b AND idx > heap AND NOT tbl = ANY (reasoned)),
-         string_agg(tbl, ', ') FILTER (WHERE tbl = ANY (reasoned) AND NOT (heap >= floor_b AND idx > heap)),
+         string_agg(tbl, ', ') FILTER (WHERE tbl = ANY (reasoned) AND heap >= floor_b AND idx <= heap),
          string_agg(tbl || ' ' || round(idx::numeric / nullif(heap, 0), 2), ', ') FILTER (WHERE heap >= floor_b)
     INTO bad, stale, seen FROM t;
   IF bad IS NOT NULL THEN
