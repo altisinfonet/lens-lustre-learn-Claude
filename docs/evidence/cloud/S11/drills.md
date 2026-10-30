@@ -43,7 +43,7 @@ The tool is read-only. It loads `/` and `/feed` as a signed-out visitor and bloc
 - whether the crash screen ("Something went wrong while loading this page") shows;
 - the most requests made to any single failed URL.
 
-A drill passes when the page returns 200, no crash screen shows, there is no uncaught error, text is present, and no failed URL is requested more than 4 times. A retry storm would show up as one URL requested many times.
+A drill passes when the page returns 200, no crash screen shows, there is no uncaught error, text is present, and **no request reaches the failed host in the last 10 s** of the 20 s watch window. That last column is "After settle". "Max to one URL" is shown for information: a bounded fallback settles, a retry storm keeps going.
 
 Run of 2026-10-30 01:01 UTC against `https://staging.50mmretina.com`:
 
@@ -88,7 +88,7 @@ Run of 2026-10-30 01:01 UTC against `https://staging.50mmretina.com`:
 
 **Reading:**
 - In every drill, in every browser, the page answered 200, there was no crash screen and text rendered. With Supabase down (D4), home shows less: 2,119 characters instead of 2,525.
-- Requests to the failed host were zero after the first 10 s, so there is no retry storm. Each failed photo is asked for about 5 times in the first ~5 s (the thumbnail → render URL → original fallback, plus a re-render), and then never again.
+- Requests to the failed host were zero after the first 10 s, so there is no retry storm. Each failed photo is asked for 1–7 times (about 5 typically) in the first ~5 s (the thumbnail → render URL → original fallback, plus a re-render), and then never again.
 - **Firefox fails every row on one uncaught error, the baseline included:** supabase-js auth-lock contention ("Acquiring an exclusive Navigator LockManager lock … immediately failed").
   - auth-js handles it itself, but Firefox also reports the lock callback's rejection.
   - It is not caused by any outage. It is noise, and client telemetry was counting it as a script error.
