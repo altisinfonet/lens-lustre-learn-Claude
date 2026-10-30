@@ -368,6 +368,13 @@ const RPCS: Record<string, (body: Record<string, unknown>, params: URLSearchPara
    */
   log_app_event: () => [],
 
+  /**
+   * Unit A (20261102_0102): every signed-in session records its platform on
+   * start. A write with nothing to return (RETURNS void → null); the screen
+   * renders nothing from it.
+   */
+  record_session_platform: () => null,
+
   // No active stories anywhere, matching the empty `stories` table. The two
   // must agree — a ring here and an empty table there would photograph a
   // combination the app can never actually be in.
