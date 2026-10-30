@@ -1,6 +1,6 @@
 # STAGES runner — status
 
-Updated: 2026-10-29 23:39 UTC · runner branch `status/stages-runner` · never merged.
+Updated: 2026-10-30 00:01 UTC · runner branch `status/stages-runner` · never merged.
 
 ## Done per stage
 
@@ -10,7 +10,7 @@ Updated: 2026-10-29 23:39 UTC · runner branch `status/stages-runner` · never m
 | S2 Observability | 95 | Live: telemetry SQL, client telemetry, outside monitor + alert, Admin → Health page, and now native crash / OOM / ANR per build (code + SQL live). Left: the reader is inside the app only from the S9 build (its build-file change #562 waits on staging for the S9 bump); Owner reads the page. |
 | S3 Media | 85 | Code live on main (03004ff, 20:32 UTC) and SQL 0100/0101/0102 applied on staging and production, both switches OFF. All PROBEs PASS on both lanes. Left (Owner): backfill secrets (then 1-click backfill to 100 %), PHOTOS binding + Worker route, decisions O-1/O-2, then switch-on and the phone test. |
 | S8 Live debt | 80 | DONE before: F-REV4-2 (prod), one SEO renderer (#508), F-D3-8 SQL 0201 (main #515, prod 40819037088). Today: **sitemap LIVE** (#504 + #577 + #585 carried as #580, main c801512): /sitemap.xml serves the dynamic 729-URL sitemap; F-AUD-8 rotation SQL on main (#581, nothing run); inventory tools on main (#582); PROBE for places the rotation misses (#586; main 6f24ab3 via #599; staging PASS, production run queued). Old PRs: #323, #130 closed as superseded. Blocked on Owner: SUPABASE_ACCESS_TOKEN (function inventory/deploy, send-push), Vault entries for the rotation, converter password. F-REV4-6: finding text not in the repo (Owner/supervisor to paste it). |
-| S11 Reliability | 55 | On staging: #589 stale-chunk recovery, #590 competition single encode, #591 upload size+type signed, #592 profile/Tagged, #593 tap targets, #594 error messages, #595 qrcode lazy, #596 app-build guards. Carries to main: #605 (#589 #590 #592–#595) and #606 (#591, inert until functions deploy, item 7). Reviewed, in CI: #597 upload type lists + GPS guard on support replies, #601 build-only deps, #602 doc drift, #603 judge-identity PROBE, #604 one Mention award. Already fixed before today (re-verified): `npm ci` has no `npm install` fallback; the AAB web-bundle check is blocking. Left: react-mentions (replacement design), trackPosition (needs its own store + switch: today's heartbeat would overwrite the judge's bookmark), PlacementBoard / awards by tag id, judge_id fix (after the #603 measurement), drafts purge, M2; drills D1–D9 and M2 need the Supabase token (item 7). |
+| S11 Reliability | 55 | On staging: #589 stale-chunk recovery, #590 competition single encode, #591 upload size+type signed, #592 profile/Tagged, #593 tap targets, #594 error messages, #595 qrcode lazy, #596 app-build guards. Carries to main: #605 (#589 #590 #592–#595) and #606 (#591, inert until functions deploy, item 7). Also on staging: #597 upload type lists + GPS guard on support replies, #601 build-only deps, #602 doc drift, #603 judge-identity PROBE, #604 one Mention award. Reviewed, in CI: #607 drafts PROBE, #608 retire RLS baseline, #609 M2 PROBE, #610 trackPosition (switch judge_resume_ambient, OFF). Already fixed before today (re-verified): `npm ci` has no `npm install` fallback; the AAB web-bundle check is blocking. Left: react-mentions replacement (an `overrides` fix of its advisory is forbidden by the repo's recorded install rule, cleanInstallResolves.test.ts), PlacementBoard / awards by tag id, judge_id fix (after the #603 measurement), drafts purge, M2; drills D1–D9 and M2 need the Supabase token (item 7). |
 | S10 remainder | 0 | Waits for PR #538 (supervisor). |
 | S12 / S5 | 50 | Switch-state PROBE on staging (#588), carry #600; runs on both lanes next. Switches stay OFF. |
 | S9 Release | 0 | Last. |
@@ -43,10 +43,11 @@ Updated: 2026-10-29 23:39 UTC · runner branch `status/stages-runner` · never m
 | S11 | Plain member messages for 401/403/429/5xx/offline | #594 | staging ad98977 · carry #605 | — | after #605 |
 | S11 | qrcode out of the entry chunk (−25 KB) | #595 | staging d01f8ad · carry #605 | — | after #605 |
 | S11 | App build: every template edit proven; synced app = this commit; stale root file removed | #596 | staging b0952c2 | — | goes to main with the S9 bump |
-| S11 | Build-only packages to devDependencies (prod audit 33 → 19, critical 0) | #601 | review nothing blocking; CI | — | — |
-| S11 | Doc drift (queryKeys focus default; realtimeCounts guard name) | #602 | review nothing blocking; CI | — | — |
-| S11 | PROBE: who can read a judge's identity (measure before fixing) | #603 | review nothing blocking; CI | — | — |
-| S11 | One Mention award for all three spellings | #604 | review nothing blocking (2 rounds); CI | — | — |
+| S11 | Build-only packages to devDependencies (prod audit 33 → 19, critical 0) | #601 | staging b8b99a2 | — | carry next |
+| S11 | Doc drift (queryKeys focus default; realtimeCounts guard name) | #602 | staging 95b3479 | — | carry next |
+| S11 | PROBE: who can read a judge's identity (measure before fixing) | #603 | staging 456025d | staging: queued | — |
+| S11 | One Mention award for all three spellings | #604 | staging 8fbce98 | — | carry next |
+| S11 | trackPosition wired without moving the bookmark (switch `judge_resume_ambient`, OFF) | #610 | review nothing blocking (2 rounds); CI | — | — |
 | S11 | One upload type list; support reply photos GPS-guarded; honest "couldn't check" copy | #597 | staging 0c34e68 | — | carry next |
 | S11 | PROBE: drafts lifecycle (is anything purging 7-day drafts?) | #607 | review nothing blocking (2 rounds); CI | — | — |
 | S11 | Retire the frozen RLS baseline (unrun since cd3dc7ef) | #608 | review nothing blocking; CI | — | — |
@@ -64,7 +65,7 @@ Updated: 2026-10-29 23:39 UTC · runner branch `status/stages-runner` · never m
 - **S11 drafts:** git has MARK (`mark_expiring_post_drafts`) and REAP (`reap_post_drafts(uuid[])`) but no PURGE edge function (step 2 of 20260812110000), so nothing would ever call the reaper. #607 measures what each lane really runs.
 - **S11 awards by label:** `complete-round` builds its award map from catalog LABELS; PlacementBoard hard-codes 3 mandatory awards where the server requires only Winner. Fix = edge-function change → deploy needs item 7.
 - **S11 trackPosition:** wiring it as written would let the 30 s heartbeat overwrite the judge's intentional bookmark (same DB columns; JudgePanel.tsx notes bookmarks are intentional-only). Needs a local-only ambient store, and a switch because judges would see a new resume prompt.
-- **S11 react-mentions:** npm marks 4.4.10 deprecated ("no longer supported"), with no security advisory. Replacing it rewrites the 622-line comment input, so it ships behind a switch.
+- **S11 react-mentions:** npm marks 4.4.10 deprecated ("no longer supported"). Its tarball is unchanged since 2023 (same integrity), so it is not a takeover. Its only audit finding is moderate GHSA-968p in the exact `@babel/runtime` 7.4.5 it pins. A flat override to 7.28.6 fixes it, but the repo forbids `overrides` (an earlier one moved 141 packages into the audited production tree), so the advisory stays until the library is replaced. Replacing it rewrites the 622-line comment input, so it ships behind a switch.
 - **S11 build:** the image optimizer logs `Cannot find package 'svgo'` for 4 fallback SVGs. Pre-existing; the build stays green.
 - **S11 support attachments (#597):** reply attachments on Help & Support and Admin → Support were uploaded with no location (GPS) check, and their picker hid PNG screenshots. Fixed on staging after merge; the app's main photo paths were already guarded.
 - **S11 app build (#596):** Capacitor 8.5.0's template already ships AGP 8.13.0 / Gradle 8.14.3; the build pins them down to 8.12.3 / 8.13 (the set that built 1028 onward). Recorded, not changed.
