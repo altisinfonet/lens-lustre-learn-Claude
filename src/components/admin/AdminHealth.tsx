@@ -15,6 +15,7 @@ import WalletLedgerV2DiffAudit from "@/components/admin/WalletLedgerV2DiffAudit"
 import NotificationsHealthAudit from "@/components/admin/NotificationsHealthAudit";
 import ClientFailuresAudit from "@/components/admin/ClientFailuresAudit";
 import CacheBusterControl from "@/components/admin/CacheBusterControl";
+import OpsAlarmsBanner from "@/components/admin/OpsAlarmsBanner";
 
 import { logger } from "@/lib/logger";
 
@@ -295,6 +296,7 @@ const AdminHealth = ({ user }: { user: User | null }) => {
 
   return (
     <div className="space-y-8">
+      <OpsAlarmsBanner />
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-light" style={{ fontFamily: "var(--font-display)" }}>
