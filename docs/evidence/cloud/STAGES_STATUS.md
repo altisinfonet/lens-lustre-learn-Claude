@@ -1,6 +1,6 @@
 # STAGES runner — status
 
-Updated: 2026-10-30 00:49 UTC · runner branch `status/stages-runner` · never merged.
+Updated: 2026-10-30 01:05 UTC · runner branch `status/stages-runner` · never merged.
 
 ## Done per stage
 
@@ -50,9 +50,9 @@ Updated: 2026-10-30 00:49 UTC · runner branch `status/stages-runner` · never m
 | S11 | trackPosition wired without moving the bookmark (switch `judge_resume_ambient`, OFF) | #610 | staging 2f46065 · carry #615 (reviewed, CI) | — | after #615 |
 | S11 | usePwaInstall removes its appinstalled listener | #611 | staging 9c0d232 | — | carry next |
 | S11 | Contributor scores cached 5 min (feed remounts stop re-asking) | #612 | staging d9c240f | — | carry next |
-| S11 | Capacitor plugin-contract test vs the pinned versions | #613 | review nothing blocking (2 rounds); CI | — | — |
+| S11 | Capacitor plugin-contract test vs the pinned versions | #613 | staging 05eb892 | — | carry next |
 | S11 | Telemetry: Firefox's handled auth-lock contention is not a script error (drill finding) | #614 | review: 1 blocking finding fixed (the 10 s lock timeout still counts), then nothing blocking; CI | — | — |
-| S11 | Drills D1–D9 (D2–D8 run; D1/D9 need item 7) | (PR next) | — | — | — |
+| S11 | Drills D1–D9: D2–D6 outage drills PASS in 3 browsers (Firefox rows fail only on the lock noise #614 fixes); D7/D8 PASS on both lane shapes; D1/D9 need item 7 | #616 | review nothing blocking (2 rounds); CI | — | — |
 | S11 | One upload type list; support reply photos GPS-guarded; honest "couldn't check" copy | #597 | staging 0c34e68 · carry #615 (reviewed, CI) | — | after #615 |
 | S11 | PROBE: drafts lifecycle (is anything purging 7-day drafts?) | #607 | staging 79183de | staging: queued | — |
 | S11 | Retire the frozen RLS baseline (unrun since cd3dc7ef) | #608 | staging 0be4c4a · carry #615 (reviewed, CI) | — | after #615 |
