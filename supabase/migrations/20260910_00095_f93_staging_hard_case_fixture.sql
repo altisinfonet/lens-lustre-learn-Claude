@@ -17,13 +17,28 @@
 -- it. The profiles rows, and their custom_urls, are produced by the same
 -- triggers a real member would hit.
 --
--- ⚠ STAGING ONLY. Never apply this to production: it fabricates accounts.
+-- ⚠ STAGING ONLY, ENFORCED (F-110, S8 carry of #214, 2026-10-30): it fabricates
+-- 21 accounts in auth.users. The block below refuses unless p32.lane reads
+-- 'staging' — apply-migration.yml sets it from the dispatch target and refuses
+-- a credential that does not point at that target's database. Fails closed:
+-- unset, 'production' or anything else is refused before any write.
 --
 -- ⚠ DOES NOT TOUCH sofia.duarte OR yuki.tanabe. Those two are cited in the
 -- F-85/F-86 evidence and moving them would invalidate a proof already written.
 -- Every id below is derived from a fixture namespace that cannot collide with
 -- a real account, and the inserts are ON CONFLICT DO NOTHING so re-running is
 -- idempotent.
+
+DO $lane_guard$
+BEGIN
+  IF coalesce(current_setting('p32.lane', true), '') <> 'staging' THEN
+    RAISE EXCEPTION
+      'APPLY REFUSED — 20260910_00095 fabricates 21 accounts and runs on STAGING only; p32.lane reads %. Nothing has been written.',
+      coalesce(current_setting('p32.lane', true), '(unset)')
+    USING ERRCODE = 'raise_exception';
+  END IF;
+END
+$lane_guard$;
 
 DO $fixture$
 DECLARE
