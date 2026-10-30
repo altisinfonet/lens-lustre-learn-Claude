@@ -13,6 +13,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import LearningTopBar from "@/components/LearningTopBar";
 import { isLessonUnlocked } from "@/utils/courseAccess";
 import { toYouTubeNoCookie } from "@/lib/native/iosReview";
+import LessonVideoGate from "@/components/course/LessonVideoGate";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -236,13 +237,16 @@ const LessonView = () => {
             {/* Video */}
             {lesson.video_url && (
               <div className="aspect-video bg-black">
-                <iframe
-                  src={toYouTubeNoCookie(lesson.video_url)}
-                  title={lesson.title}
-                  className="w-full h-full"
-                  allowFullScreen
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                />
+                {/* S7b-6: a YouTube embed cannot be saved on the phone — offline it says so. */}
+                <LessonVideoGate>
+                  <iframe
+                    src={toYouTubeNoCookie(lesson.video_url)}
+                    title={lesson.title}
+                    className="w-full h-full"
+                    allowFullScreen
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  />
+                </LessonVideoGate>
               </div>
             )}
 

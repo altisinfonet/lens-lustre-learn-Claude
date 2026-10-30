@@ -20,6 +20,8 @@
  *      `retina-video-uploads`): an unposted video is the member's alone;
  *   5. the OFF-2 outbox (IndexedDB `retina-outbox`): unsent actions belong to
  *      the member who made them and are never sent under someone else.
+ *   7. S7b-6 videos saved for no network (Cache Storage `video-offline-v1` and
+ *      their list): what a member could see is not left for the next one.
  * NOT wiped, on purpose: device preferences that belong to the device, not the
  * member — theme, language, cookie consent, the device id.
  *
@@ -36,6 +38,7 @@ import { clearCommentThreadCaches } from "@/lib/comments/threadCache";
 import { clearOutbox } from "./outbox";
 import { clearVideoUploads } from "@/lib/video/uploadJobs";
 import { clearPhotoUploads } from "@/lib/upload/photoJobs";
+import { clearSavedVideos } from "@/lib/video/offlineVideo";
 
 export interface WipeResult {
   imageCaches: string[] | null;
@@ -43,6 +46,7 @@ export interface WipeResult {
   feedCache: boolean;
   outbox: boolean;
   videoUploads: boolean;
+  savedVideos: boolean;
 }
 
 export async function wipeMemberDataOnSignOut(): Promise<WipeResult> {
@@ -60,12 +64,13 @@ export async function wipeMemberDataOnSignOut(): Promise<WipeResult> {
   resetFeedArchiveMemory();
   // S7b-4 review: a post page / thread loading now is not saved after the wipe.
   resetSeenContent();
-  const [imageCaches, deviceStore, outbox, videoUploads] = await Promise.all([
+  const [imageCaches, deviceStore, outbox, videoUploads, , savedVideos] = await Promise.all([
     purgeImageCache().catch(() => null),
     clearDeviceStore().catch(() => false),
     clearOutbox().catch(() => false),
     clearVideoUploads().catch(() => false),
     clearPhotoUploads().catch(() => false), // S5-b: the photo twin
+    clearSavedVideos().catch(() => false), // S7b-6
   ]);
-  return { imageCaches, deviceStore, feedCache, outbox, videoUploads };
+  return { imageCaches, deviceStore, feedCache, outbox, videoUploads, savedVideos };
 }

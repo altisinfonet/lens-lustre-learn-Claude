@@ -47,6 +47,8 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { getNetState, subscribeNetState } from "@/lib/offline/networkQuality";
+import { supabase } from "@/integrations/supabase/client";
+import { hasSavedPreview, maybeSaveVideoPreview, offlineLoaderFor, savedPreviewInfo, savedPreviewUrl } from "@/lib/video/offlineVideo";
 import {
   CONTROLS_HIDE_MS, autoplayWithSound, claimPlayback, getSoundPref, isAppleWebKit, isNativeApp, leavePlayback, levelCap,
   pickHlsEngine, releasePlayback, setSoundPref, shouldPlay, startPlayback, userActivated,
@@ -107,6 +109,9 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
   // What the next autoplay will do; the element's own `muted` is set right before play() (startPlayback).
   const [muted, setMuted] = useState(() => !autoplayWithSound({ native: isNativeApp(), pref: getSoundPref(), hasAudio: video.hasAudio, userActivated: false }));
   const [failed, setFailed] = useState(false);
+  /** S7b-6: the stream on the element comes from the phone (a saved preview), not the network. */
+  const fromPhone = useRef(false);
+  const [source, setSource] = useState<"network" | "phone" | null>(null);
   const [needsTap, setNeedsTap] = useState(false);
   const [playError, setPlayError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -147,10 +152,15 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     const v = el.current;
     if (!v) return false;
     if (attached.current && !grantDue(grant.current) && !fresh) return true;
-    const g = await requestGrant(video.id, { fresh });
-    if (!g) { setFailed(true); return false; }
-    grant.current = g;
-    setPoster(g.poster_url);
+    // S7b-6: with no network, a video saved on the phone plays from there (no token
+    // to ask for); with a network, the token — and the phone copy only if the
+    // token cannot be had (a dead link).
+    const saved = savedPreviewUrl(video.id);
+    if (attached.current && fromPhone.current && saved && !getNetState().online) return true;
+    const g = saved && !getNetState().online ? null : await requestGrant(video.id, { fresh });
+    if (!g && !saved) { setFailed(true); return false; }
+    if (g) { grant.current = g; setPoster(g.poster_url); }
+    const src = g ? g.master_url : saved!;
     const resumeAt = pendingSeek.current ?? (attached.current ? v.currentTime : 0);
     pendingSeek.current = null;
     const nativeHls = !!v.canPlayType("application/vnd.apple.mpegurl");
@@ -166,13 +176,21 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
       if (!Hls.isSupported()) engine = nativeHls ? "native" : "none";
     }
     if (engine === "none") { setFailed(true); return false; }
+    // The phone copy is read by hls.js's loader; a native player cannot read it.
+    if (!g && (engine !== "hlsjs" || !Hls)) { setFailed(true); return false; }
     v.dataset.engine = engine;
+    fromPhone.current = !g;
+    setSource(g ? "network" : "phone");
+    setFailed(false);
     if (engine === "native" || !Hls) {
-      v.src = g.master_url; // Apple WebKit: its own HLS player (no level cap available there)
+      v.src = src; // Apple WebKit: its own HLS player (no level cap available there)
       if (resumeAt) v.currentTime = resumeAt;
     } else {
       if (hls.current) { hls.current.destroy(); hls.current = null; }
-      const h = new Hls({ startLevel: 0, capLevelToPlayerSize: false, enableWorker: true, workerPath, startPosition: resumeAt || -1 }) as unknown as HlsInstance;
+      const h = new Hls({
+        startLevel: 0, capLevelToPlayerSize: false, enableWorker: true, workerPath, startPosition: resumeAt || -1,
+        ...(g ? {} : { loader: offlineLoaderFor(Hls.DefaultConfig.loader as never) }),
+      }) as unknown as HlsInstance;
       const applyCap = () => {
         const cap = levelCap(h.levels, getNetState().slow);
         h.autoLevelCapping = Number.isFinite(cap) ? cap : -1;
@@ -181,7 +199,7 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
       h.on("hlsError", (_e: unknown, d: { fatal?: boolean; response?: { code?: number } }) => {
         if (!d?.fatal) return;
         // The token ran out mid-play (a long video): one fresh token, same second.
-        if (d.response?.code === 403 && !renewedAfter403.current) {
+        if (d.response?.code === 403 && !renewedAfter403.current && !fromPhone.current) {
           renewedAfter403.current = true;
           grant.current = null;
           void renew(true);
@@ -192,11 +210,18 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
       // A segment really loaded: the 403 retry is available again (a LASTING 403 —
       // a revoked video — must not loop: review #411 C6).
       h.on("hlsFragLoaded", () => { renewedAfter403.current = false; });
-      h.loadSource(g.master_url);
+      h.loadSource(src);
       h.attachMedia(v);
       hls.current = h;
     }
     attached.current = true;
+    // S7b-6: online with a token → the background saver keeps a preview for no
+    // network (it applies the member's budget and Wi-Fi rule itself).
+    if (g) {
+      void supabase.auth.getSession()
+        .then(({ data }) => maybeSaveVideoPreview({ userId: data.session?.user?.id ?? null, videoId: video.id, masterUrl: g.master_url }, getNetState()))
+        .catch(() => { /* saving is a bonus, never an error */ });
+    }
     return true;
   }, [video.id, pause]);
 
@@ -236,10 +261,11 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
       const want = shouldPlay({
         ratio, wasPlaying: playing.current,
         tabVisible: document.visibilityState === "visible",
-        online: getNetState().online, reducedMotion: reducedMotion(),
+        // S7b-6: with no network, a video saved on the phone still plays by itself.
+        online: getNetState().online || hasSavedPreview(video.id), reducedMotion: reducedMotion(),
       });
       // Why it is NOT starting by itself, for a device test to read (reduced motion is a member's system setting).
-      node.dataset.autoplayHold = reducedMotion() ? "reduced-motion" : !getNetState().online ? "offline" : "";
+      node.dataset.autoplayHold = reducedMotion() ? "reduced-motion" : !getNetState().online && !hasSavedPreview(video.id) ? "offline" : "";
       if (want && !playing.current) void start();
       else if (!want && playing.current) pause();
       if (document.visibilityState !== "visible") hideNow();
@@ -256,13 +282,16 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
       decideRef.current = null; near.disconnect(); view.disconnect();
       document.removeEventListener("visibilitychange", decide); window.removeEventListener("pagehide", onPageHide); off();
     };
-  }, [start, pause]);
+  }, [start, pause, video.id]);
 
   // Poster only — the cheapest thing a card near the screen can do.
   useEffect(() => {
     if (!near || grant.current) return;
+    // S7b-6: flight mode with a copy on the phone — there is no token to ask for.
+    if (!getNetState().online && hasSavedPreview(video.id)) return;
     let live = true;
-    void requestGrant(video.id).then((g) => { if (live && g) { grant.current = g; setPoster(g.poster_url); } else if (live && !g) setFailed(true); });
+    // No token and a copy on the phone (flight mode): not a failure — it plays from there.
+    void requestGrant(video.id).then((g) => { if (live && g) { grant.current = g; setPoster(g.poster_url); } else if (live && !g && !hasSavedPreview(video.id)) setFailed(true); });
     return () => { live = false; };
   }, [near, video.id]);
 
@@ -316,7 +345,7 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     const v = el.current;
     if (!v) return;
     const onTime = () => {
-      if (!playing.current || renewing.current || !attached.current) return;
+      if (!playing.current || renewing.current || !attached.current || fromPhone.current) return;
       if (grantDue(grant.current) && performance.now() - lastRenewAt.current >= MIN_RENEW_GAP_MS) void renew();
     };
     v.addEventListener("timeupdate", onTime);
@@ -399,6 +428,7 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
       data-fill="blurred"
       data-playing={isPlaying ? "true" : "false"}
       data-play-error={playError ?? undefined}
+      data-source={source ?? undefined}
       className={`relative w-full overflow-hidden ${fillParent ? "h-full" : "rounded-lg"} bg-black ${className}`}
       style={fillParent
         ? { width: "100%", height: "100%" }
@@ -420,11 +450,16 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
         className="relative h-full w-full object-contain"
         onClick={tapPicture}
       />
-      {(needsTap || (!isPlaying && !failed && poster)) && (
+      {(needsTap || (!isPlaying && !failed && (poster || (!getNetState().online && hasSavedPreview(video.id))))) && (
         <button type="button" aria-label="Play video" onClick={() => { tapPlay(); reveal(); }}
           className="absolute inset-0 m-auto flex h-14 w-14 items-center justify-center rounded-full bg-black/60 text-white">
           <Play className="h-7 w-7" />
         </button>
+      )}
+      {source === "phone" && savedPreviewInfo(video.id)?.full === false && (
+        <p data-testid="video-saved-preview" className="absolute left-2 top-2 rounded bg-black/60 px-2 py-0.5 text-[11px] text-white">
+          Saved preview · first {Math.round(savedPreviewInfo(video.id)!.seconds)} s
+        </p>
       )}
       {failed && (
         <p role="status" className="absolute inset-x-0 bottom-12 bg-black/70 p-2 text-center text-xs text-white">

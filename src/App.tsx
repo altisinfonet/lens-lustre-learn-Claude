@@ -171,6 +171,7 @@ const MyPhotos = lazyRetry(() => import("./pages/MyPhotos"), "MyPhotos");
 const CookiePolicy = lazyRetry(() => import("./pages/CookiePolicy"), "CookiePolicy");
 const CommunityGuidelines = lazyRetry(() => import("./pages/CommunityGuidelines"), "CommunityGuidelines");
 const NotificationSettings = lazyRetry(() => import("./pages/NotificationSettings"), "NotificationSettings");
+const OfflineSettings = lazyRetry(() => import("./pages/OfflineSettings"), "OfflineSettings");
 const Notifications = lazyRetry(() => import("./pages/Notifications"), "Notifications");
 const WatermarkQAMatrix = lazyRetry(() => import("./pages/qa/WatermarkQAMatrix"), "WatermarkQAMatrix");
 const ScheduledPostsPage = lazyRetry(() => import("./pages/ScheduledPosts"), "ScheduledPosts");
@@ -451,6 +452,7 @@ const App = () => {
                 <Route path="/community-guidelines" element={<CommunityGuidelines />} />
                 <Route path="/terms-of-use" element={<CommunityGuidelines />} />
                 <Route path="/settings/notifications" element={<NotificationSettings />} />
+                <Route path="/settings/offline" element={<OfflineSettings />} />
                 <Route path="/qa/watermark-matrix" element={import.meta.env.DEV ? <WatermarkQAMatrix /> : <NotFound />} />
                 <Route path="/scheduled-posts" element={<ScheduledPostsPage />} />
                 {/* Staff ID verification (public). The QR-code URL shape
