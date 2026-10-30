@@ -55,8 +55,9 @@ names both differences:
 
 On both lanes on 2026-10-30, L was exactly **M2 plus zero-scan indexes of pgmq
 queues**: nothing else separated the two counts. That is two readings on one
-day, not a law. A queue table's indexes move in and out of "zero scans" as the
-queue is read, and new queues add indexes.
+day, not a law. A queue table's indexes leave "zero scans" once read
+(`idx_scan` only counts up); new queues, or a statistics reset, add zero-scan
+indexes.
 
 **The 79 — accounting offered, not proven.** The 79 is not dropped. Two
 explanations fit, and the evidence cannot choose between them:
