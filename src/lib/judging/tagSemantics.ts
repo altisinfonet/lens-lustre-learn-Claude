@@ -177,7 +177,7 @@ export function classifyTag(tag: TagInput): TagSemantic {
     "winner",
     "1st runner-up", "1st runner up",
     "2nd runner-up", "2nd runner up",
-    "honorary mention", "honorable mention",
+    "honorary mention", "honourable mention", "honorable mention",
     "special jury", "special jury award",
     "best moment award",
     "top 10 global photographer",

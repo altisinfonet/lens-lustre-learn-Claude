@@ -1,5 +1,5 @@
 import { CheckCircle, Clock, XCircle, Award, Shield, Star, Trophy, AlertCircle, Medal } from "lucide-react";
-import { participantStageLabel } from "@/lib/judging/participantStageLabels";
+import { participantStageLabel, canonicalMention } from "@/lib/judging/participantStageLabels";
 
 interface ParticipantStageBadgeProps {
   status: string;
@@ -49,8 +49,7 @@ const STAGE_STYLE: Record<string, StageStyle> = {
   runner_up_1:         { icon: Award,        color: "text-slate-500",  bg: "bg-slate-500/10 border-slate-500/30" },
   runner_up_2:         { icon: Award,        color: "text-amber-700",  bg: "bg-amber-700/10 border-amber-700/30" },
   honorary_mention:    { icon: Award,        color: "text-teal-600",   bg: "bg-teal-500/10 border-teal-500/30" },
-  // Legacy alias — keeps any historical row rendering correctly.
-  honourable_mention:  { icon: Award,        color: "text-teal-600",   bg: "bg-teal-500/10 border-teal-500/30" },
+  // honourable_mention / honorable_mention: canonicalMention() maps them here.
   special_jury:        { icon: Award,        color: "text-indigo-600", bg: "bg-indigo-500/10 border-indigo-500/30" },
   hold:                { icon: Clock,        color: "text-orange-500", bg: "bg-orange-500/10 border-orange-500/30" },
   results_declared:    { icon: CheckCircle,  color: "text-green-600",  bg: "bg-green-500/10 border-green-500/30" },
@@ -60,7 +59,9 @@ function styleFor(status: string): StageStyle {
   return STAGE_STYLE[status] ?? STAGE_STYLE.submitted;
 }
 
-const ParticipantStageBadge = ({ status, tags, compact = false }: ParticipantStageBadgeProps) => {
+const ParticipantStageBadge = ({ status: rawStatus, tags, compact = false }: ParticipantStageBadgeProps) => {
+  // S11: all three Mention spellings render as the one honorary_mention award.
+  const status = canonicalMention(rawStatus);
   const style = styleFor(status);
   const label = participantStageLabel(status);
   const Icon = style.icon;
@@ -102,7 +103,9 @@ const ParticipantStageBadge = ({ status, tags, compact = false }: ParticipantSta
 };
 
 /* Timeline showing progression stages */
-export const ParticipantStageTimeline = ({ status, tags }: { status: string; tags: { label: string; color: string }[] }) => {
+export const ParticipantStageTimeline = ({ status: rawStatus, tags }: { status: string; tags: { label: string; color: string }[] }) => {
+  // S11: all three Mention spellings are one award.
+  const status = canonicalMention(rawStatus);
   const stages: { label: string; reached: boolean; color: string }[] = [];
 
   // Plan Phase 5 / Task 5.1 — every label resolved through participantStageLabel().
@@ -117,11 +120,11 @@ export const ParticipantStageTimeline = ({ status, tags }: { status: string; tag
     });
   }
 
-  if (["round1_qualified", "shortlisted", "round2_qualified", "finalist", "winner", "runner_up_1", "runner_up_2", "honorary_mention", "honourable_mention", "special_jury"].includes(status)) {
+  if (["round1_qualified", "shortlisted", "round2_qualified", "finalist", "winner", "runner_up_1", "runner_up_2", "honorary_mention", "special_jury"].includes(status)) {
     stages.push({ label: participantStageLabel("round1_qualified"), reached: true, color: "#10b981" });
   }
 
-  if (["round2_qualified", "finalist", "winner", "runner_up_1", "runner_up_2", "honorary_mention", "honourable_mention", "special_jury"].includes(status)) {
+  if (["round2_qualified", "finalist", "winner", "runner_up_1", "runner_up_2", "honorary_mention", "special_jury"].includes(status)) {
     stages.push({ label: participantStageLabel("round2_qualified"), reached: true, color: "#3b82f6" });
   }
 
@@ -130,7 +133,7 @@ export const ParticipantStageTimeline = ({ status, tags }: { status: string; tag
     stages.push({ label: `Selected ${tag.label}`, reached: true, color: tag.color });
   });
 
-  if (["finalist", "winner", "runner_up_1", "runner_up_2", "honorary_mention", "honourable_mention", "special_jury"].includes(status)) {
+  if (["finalist", "winner", "runner_up_1", "runner_up_2", "honorary_mention", "special_jury"].includes(status)) {
     stages.push({ label: `⭐ ${participantStageLabel("finalist")}`, reached: true, color: "#a855f7" });
   }
 
