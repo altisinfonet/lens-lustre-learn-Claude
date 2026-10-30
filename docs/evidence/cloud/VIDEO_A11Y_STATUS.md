@@ -1,22 +1,23 @@
 # Video + accessibility runner — status
 
 Started 2026-10-30 01:47 UTC. Replaces the earlier supervisor session (no GitHub trace after 2026-10-29 14:19 UTC).
-Last update: 2026-10-30 10:38 UTC.
+Last update: 2026-10-30 10:49 UTC.
 
 SECOND RESTART 2026-10-30 ~07:15 UTC: the run stopped silently again at ~05:15 UTC. New rule: ONE PR at a time (#619 → #538 → #539 → #540 → #541 → #542), heartbeat at least every 20 minutes. Checked GitHub 07:15 UTC: nobody pushed to or merged #538-#542 or #619 since 02:00 UTC; each is 21 commits behind staging.
 
 RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. A new run took over at 05:05 UTC. Checked GitHub: nobody else pushed to or merged #538-#542 or #619 since 02:00 UTC.
 
 ## Now
-10:38 UTC — SQL 0700 applied on staging (run 41040769034). Its after-PROBE hit a PROBE bug (text = app_role, staging's user_roles.role is text) — fix PR #673 (fail-first test) in review/CI; then re-run PROBE, then 0701.
+10:49 UTC — #673 (PROBE fix) review nothing blocking, CI running. 0701 PROBE-before on staging FAILED at G1 as expected (run 41042307096).
 
 ## Units
 | Unit | PR | State | Merged sha (staging / main) | SQL runs | Live check |
 |---|---|---|---|---|---|
 | CI fix: app-origin check reads the routes staging serves (blocks #541) | #619 | MERGED 08:10 UTC (25/25 checks green; review nothing blocking) | staging 5f8c8d5e / main: not yet | none | — |
 | S10a-1 P23 decision note | #538 | MERGED 08:48 UTC (22/22 checks green; review nothing blocking) | staging a0e8d849 / main: not yet | none | — |
-| S7-a PROBE fix: admin read lane-proof | #673 | opened 10:45; fail-first guard → fix; review + CI running | — | — | — |
-| S7-a purge-queue deleter | #539 | MERGED 09:10 UTC (36/36 checks green; re-review nothing blocking) | staging 75f78f67 / main: not yet | 0700 STAGING: PROBE-before 41040556611 FAIL at G1 (expected) · apply 41040769034 SUCCESS 10:27 UTC · PROBE-after 41042014241 ERROR text = app_role (PROBE bug, fix #673) — re-run after #673 | — |
+| S7-a PROBE fix: admin read lane-proof | #673 | opened 10:38; fail-first guard → fix; review 10:42 nothing blocking; CI running | — | — | — |
+| S7-a purge-queue deleter | #539 | MERGED 09:10 UTC (36/36 checks green; re-review nothing blocking) | staging 75f78f67 / main: not yet | 0700 STAGING: PROBE-before 41040556611 FAIL at G1 (expected) · apply 41040769034 SUCCESS 10:27 UTC · PROBE-after 41042014241 ERROR text = app_role (PROBE bug, fix #673) — re-run after #673
+· 0701 STAGING: PROBE-before 41042307096 FAIL at G1 (expected); apply waits for 0700 PROBE PASS | — |
 | S7-e encoder harness fixtures | #540 | MERGED 09:45 UTC (25/25 checks green incl. encoder harness; review BLOCKING ×3 → fixed with fail-first test f6723b2b → re-review nothing blocking) | staging 9e943369 / main: not yet | none | — |
 | S7-b VID-4 takedown | #541 | MERGED 10:06 UTC (36/36 checks green incl. vitest + app-origin journey, which were red before #619; review nothing blocking) | staging c36726ba / main: not yet | 0701: not run yet (after 0700) | — |
 | S7-c VID-5 video ad | #542 | MERGED 10:24 UTC (25/25 checks green; earlier blocking fix verified; re-review nothing blocking) | staging d1e71689 / main: not yet | none | — |
