@@ -26,9 +26,14 @@ END $g$;
 SELECT 'SEC0901_LANE', current_setting('p32.lane'), now();
 
 -- Redaction is written inline (a READ ONLY transaction cannot create a helper).
--- R(x) := collapse whitespace, then strip JWTs, sb_ keys, long runs, e-mails, UUIDs.
-\set R1 'regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace('
-\set R2 ', ''\\s+'', '' '', ''g''), ''eyJ[A-Za-z0-9_-]{8,}(\\.[A-Za-z0-9_-]+)*'', ''<JWT-REDACTED>'', ''g''), ''sb_(secret|publishable)_[A-Za-z0-9_-]+'', ''<KEY-REDACTED>'', ''g''), ''[A-Za-z0-9+/=]{32,}'', ''<LONG-REDACTED>'', ''g''), ''[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}'', ''<EMAIL-REDACTED>'', ''g''), ''[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'', ''<UUID-REDACTED>'', ''g'')'
+-- R(x) := collapse whitespace, then strip JWTs, sb_ keys, long runs, e-mails, UUIDs,
+-- then replace EVERY string literal with <LIT> unless it is a plain lowercase
+-- word (letters, _ - . : / % * and spaces only, <=60 chars) such as 'admin' or
+-- 'post-images'. A literal with a digit, capital or symbol never prints, so a
+-- short password or key hard-coded in a body cannot reach the log. An unpaired
+-- quote redacts everything after it.
+\set R1 'replace(replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace('
+\set R2 ', ''\\s+'', '' '', ''g''), ''eyJ[A-Za-z0-9_-]{8,}(\\.[A-Za-z0-9_-]+)*'', ''<JWT-REDACTED>'', ''g''), ''sb_(secret|publishable)_[A-Za-z0-9_-]+'', ''<KEY-REDACTED>'', ''g''), ''[A-Za-z0-9+/=]{32,}'', ''<LONG-REDACTED>'', ''g''), ''[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}'', ''<EMAIL-REDACTED>'', ''g''), ''[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'', ''<UUID-REDACTED>'', ''g''), ''''''([a-z_ .:/%*-]{0,60})'''''', ''«\\1»'', ''g''), ''''''[^'''']*(''''|$)'', ''<LIT>'', ''g''), ''«'', ''''''''), ''»'', '''''''')'
 
 -- ── A. every policy in public / storage / realtime ──────────────────────────
 SELECT 'POL', schemaname, tablename, policyname, permissive, cmd,
@@ -110,7 +115,7 @@ WITH f AS (
          pg_get_function_result(p.oid) ret, l.lanname lang,
          has_function_privilege('anon', p.oid, 'EXECUTE') anon_x,
          has_function_privilege('authenticated', p.oid, 'EXECUTE') auth_x,
-         coalesce(array_to_string(p.proconfig, ','), '-') cfg,
+         coalesce((SELECT string_agg(CASE WHEN s LIKE 'search_path=%' THEN s ELSE split_part(s, '=', 1) END, ',') FROM unnest(p.proconfig) s), '-') cfg,
          lower(p.prosrc) src,
          p.prorettype = 'trigger'::regtype is_trg,
          md5(p.prosrc) h
@@ -157,7 +162,7 @@ SELECT 'FNBODY', proname, args, anon_x, auth_x, left(:R1 raw :R2, 3000)
 -- named security-relevant objects (any schema), full redacted body
 SELECT 'NAMED', n.nspname, p.proname, pg_get_function_identity_arguments(p.oid), p.prosecdef,
        has_function_privilege('anon', p.oid, 'EXECUTE'), has_function_privilege('authenticated', p.oid, 'EXECUTE'),
-       coalesce(array_to_string(p.proconfig, ','), '-'), left(:R1 p.prosrc :R2, 6000)
+       coalesce((SELECT string_agg(CASE WHEN s LIKE 'search_path=%' THEN s ELSE split_part(s, '=', 1) END, ',') FROM unnest(p.proconfig) s), '-'), left(:R1 p.prosrc :R2, 6000)
   FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
  WHERE p.proname IN ('verify_staff_id', 'password_verification_hook', 'filter_moderated_user_ids',
                      'get_profile_visible_fields', 'trg_enforce_comment_blocklist', 'has_role',
