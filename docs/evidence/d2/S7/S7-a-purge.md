@@ -25,3 +25,12 @@
 ## Tests
 - `src/lib/video/__tests__/videoPurge.test.ts` (vitest, fake R2 + fake Supabase): queued → deleted with count; idempotent re-run; a foreign prefix is never touched; storage errors recorded; DB refusal passes through; 401 / 405.
 - PROBE (supervisor applies): FAIL before 0700 (G1); after: grants, member A refused 3/3 own + cross-member, anon refused, queued → deleted, referenced → kept, version row waits then goes, foreign folder → `bad_prefix`, not-due held, error releases lease, deleted video queued once, sweep 30-day rule.
+
+## Review #539 — findings checked against the schema (2026-10-30, video + a11y runner)
+- **#1 (blocking) fixed** in 0947754: the shape CHECK holds for OPEN rows only, so closing an old malformed row as `bad_prefix` is never refused; PROBE inserts such a row under a NOT VALID constraint and sees it close.
+- **#2 fixed** (rows closed by hand get `outcome = 'deleted'` before the closed-CHECK). **#3 fixed** (an error waits 15 min × attempts).
+- **#4 checked, no change:** the only FKs to `public.videos` in applied migrations are `video_versions`, `post_videos`, `ad_videos` (0005) and `video_sources` (20261012_0002); `videos.purpose` is only `post` / `ad`. A move to `deleted` stamps `deleted_at` in `tg_videos_state_guard` (0005:265), which `video_housekeeping` ages (0005:664) — the "30 more days" holds.
+- **#5 checked:** `video_r2_purge_queue` has no FK on `owner_id` or `video_id` (0005 table definition), so the AFTER DELETE trigger can queue during an `auth.users` cascade.
+- **#7 invariant:** `taken_down → uploading` must bump `current_version` (`VID-STATE-002`, 0005), so a re-upload never writes into a version folder the worker is emptying.
+- **#8 open (Owner/VM step):** a Supabase access token lives about an hour. The hourly `--loop` must run with a token that is refreshed before each run (the converter VM's own sign-in, 20261013_0007), not a pasted token. Listed for the Owner with the converter setup.
+- **#10 fixed:** PROBE compares `ur.role = 'admin'::public.app_role`.

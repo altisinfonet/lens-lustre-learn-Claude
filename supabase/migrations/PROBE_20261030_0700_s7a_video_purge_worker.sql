@@ -80,7 +80,7 @@ BEGIN
   SELECT p.id INTO b FROM public.profiles p JOIN auth.users u ON u.id = p.id
    WHERE p.id <> a AND NOT public.has_role(p.id, 'admin'::public.app_role) ORDER BY p.created_at LIMIT 1;
   SELECT ur.user_id INTO adm FROM public.user_roles ur JOIN auth.users u ON u.id = ur.user_id
-   WHERE ur.role::text = 'admin' LIMIT 1;
+   WHERE ur.role = 'admin'::public.app_role LIMIT 1;
   IF a IS NULL OR b IS NULL OR adm IS NULL THEN RAISE EXCEPTION 'PROBE FAIL: need two non-admin members and an admin on the lane'; END IF;
 
   -- fixtures (as the migration owner; rolled back): A's and B's videos, A's to music_blocked
