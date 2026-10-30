@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- S5 · 20261103_0601 — Admin → Uploads → Upload Resume (the Owner's own switch)
+-- S5 · 20261103_0601 — Admin → Video Feature → Upload Resume (the Owner's own switch)
 -- Lanes: staging and production.
 -- ═══════════════════════════════════════════════════════════════════════════
 --

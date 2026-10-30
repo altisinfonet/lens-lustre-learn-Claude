@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- ROLLBACK · 20261103_0601 Admin → Uploads → Upload Resume.
+-- ROLLBACK · 20261103_0601 Admin → Video Feature → Upload Resume.
 -- Removes exactly what 0601 created: the trigger, its function, the
 -- photo_upload_resume feature row (its member list goes with it, ON DELETE
 -- CASCADE) and the key in feature_access_feature_check.

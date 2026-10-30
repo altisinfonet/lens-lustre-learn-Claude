@@ -22,7 +22,7 @@ import { PhotoRefused, type PhotoJob, type PhotoJobDeps } from "./photoJobs";
  * any other value) — the composer then uses today's path. Read through the
  * shared site-settings cache, at most a minute old.
  *
- * Admin → Uploads → Upload Resume (20261103_0601) writes it from the feature
+ * Admin → Video Feature → Upload Resume (20261103_0601) writes it from the feature
  * switch, in the same transaction as the audit row:
  *   "on"       All members — exactly what builds 1.2.29+ read, no app update;
  *   "selected" only the members on the list: this build asks the server

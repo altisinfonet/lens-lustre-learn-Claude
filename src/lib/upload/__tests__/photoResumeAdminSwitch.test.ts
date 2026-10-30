@@ -1,5 +1,5 @@
 /**
- * S5 · Admin → Uploads → Upload Resume. The Owner switches `photo_upload_resume`
+ * S5 · Admin → Video Feature → Upload Resume. The Owner switches `photo_upload_resume`
  * himself (Off / Selected members / All members), on the same feature_access
  * screen as Personal Feed and video.
  *

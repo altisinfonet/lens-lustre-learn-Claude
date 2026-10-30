@@ -180,16 +180,14 @@ const tabGroups = [
   { label: "Video Feature", items: [
     ["video_posts", "Video Posts", Film],
     ["video_ads", "Video Ads", Clapperboard],
+    /* S5: resumable uploads (site_settings photo_upload_resume, written by the switch). */
+    ["upload_resume", "Upload Resume", CloudUpload],
     ["video_music_check", "Copyright Music Check", Music2],
     ["video_conversion", "Video Conversion", Server],
   ] as const },
   /* S12-F3: the personal feed's switch (Off / Selected members / All members). */
   { label: "Feed", items: [
     ["personal_feed", "Personal Feed", Sparkles],
-  ] as const },
-  /* S5: resumable uploads (site_settings photo_upload_resume, written by the switch). */
-  { label: "Uploads", items: [
-    ["upload_resume", "Upload Resume", CloudUpload],
   ] as const },
   { label: "Pages & Navigation", items: [
     ["page_management", "Page Management", FileText],

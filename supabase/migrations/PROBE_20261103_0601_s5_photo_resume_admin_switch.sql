@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- PROBE · 20261103_0601 Admin → Uploads → Upload Resume. READ ONLY, ROLLBACK.
+-- PROBE · 20261103_0601 Admin → Video Feature → Upload Resume. READ ONLY, ROLLBACK.
 -- Reports FIRST (always): site_settings photo_upload_resume and, once 0601 is
 -- applied, the switch's mode and how many members are selected (never who).
 -- PASS = the key is allowed, the row exists, the trigger is enabled, its
