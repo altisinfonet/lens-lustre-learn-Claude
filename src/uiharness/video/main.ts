@@ -35,10 +35,29 @@ function b64(u: Uint8Array): string {
   return btoa(s);
 }
 
+/**
+ * S7-e · phone-shaped files, made by ffmpeg in the harness script and served at
+ * /__fixture/<name> (Playwright routing; no binary in the repo). The File
+ * carries the name and type the phone's picker hands the app.
+ */
+const GENERATED: Record<string, { name: string; type: string }> = {
+  // iPhone "HDR video": 10-bit BT.2020 HLG, recorded landscape with a 90° display
+  // rotation, picked as IMG_….MOV (video/quicktime). CI's Chromium cannot decode
+  // HEVC, so the stream is VP9 profile 2 — same depth, colour and rotation.
+  "iphone-hdr": { name: "IMG_0001.MOV", type: "video/quicktime" },
+  // Android camera: H.264 + AAC, 90° rotation, variable frame rate, moov at the end.
+  android: { name: "VID_20261029_120000.mp4", type: "video/mp4" },
+  // A 3-minute file: a long case (there is NO member duration cap).
+  "three-min": { name: "three-min.mp4", type: "video/mp4" },
+};
+
 async function run(which: string, mute: boolean) {
-  const src = which === "portrait" ? portrait : which === "held" ? held : which === "crossfade" ? crossfade : landscape;
+  const gen = GENERATED[which];
+  const src = gen ? `/__fixture/${which}` : which === "portrait" ? portrait : which === "held" ? held : which === "crossfade" ? crossfade : landscape;
   const blob = await (await fetch(src)).blob();
-  const file = new File([blob], `${which}.webm`, { type: "video/webm" });
+  const file = gen ? new File([blob], gen.name, { type: gen.type }) : new File([blob], `${which}.webm`, { type: "video/webm" });
+  // S7-e: the harness checks these are the very bytes it served for `which`.
+  const sourceSha256 = await sha256Hex(new Uint8Array(await blob.arrayBuffer()));
   const t0 = performance.now();
   const pkg = await encodeVideoToHls(file, { codecs: VP9_OPUS, mute });
   // The SAME judgement /api/video/complete makes, plus every file's hash.
@@ -54,6 +73,7 @@ async function run(which: string, mute: boolean) {
     ms: Math.round(performance.now() - t0),
     manifest: pkg.manifest,
     manifestSha256: pkg.manifestSha256,
+    sourceSha256,
     files: Object.fromEntries([...pkg.files].map(([n, b]) => [n, b64(b)])),
   };
 }
