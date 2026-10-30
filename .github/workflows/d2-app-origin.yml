@@ -61,5 +61,5 @@ jobs:
           name: app-origin-nav
           path: /tmp/app-origin-nav.json
           if-no-files-found: warn
-      - name: The staging site answers https://localhost (every SITE_API route)
+      - name: The staging site answers https://localhost (every SITE_API route of the build it serves)
         run: node scripts/app-origin-check.mjs https://staging.50mmretina.com
