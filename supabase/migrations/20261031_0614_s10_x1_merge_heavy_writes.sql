@@ -17,11 +17,15 @@
 -- rolls back past 3 s (WIN). The cap is checked between steps, so one slow
 -- step can run past it (hard ceiling: statement_timeout 60 s). ACCESS
 -- EXCLUSIVE blocks reads as well as writes on both tables; a query that waits
--- is delayed, not refused. Lock order is name order (activity_logs, then
--- feed_events); no transaction in the code writes feed_events and then
--- activity_logs (the account-deletion paths touch them in separate requests),
--- so no deadlock with member writes is expected — if one happens, Postgres
--- aborts one side and this file rolls back cleanly. If WIN fires on
+-- is delayed, not refused. The two exclusive locks are taken one after the
+-- other (activity_logs, then feed_events), each with its own 2 s
+-- lock_timeout, and the 3 s clock starts once both are held: worst case
+-- activity_logs is blocked about 2 + 2 + 3 s plus the last step. No
+-- transaction in the code touches feed_events and then activity_logs (the
+-- account-deletion paths use separate requests; no SQL function or trigger
+-- reads both), so no deadlock with member traffic is expected. If one
+-- happens, Postgres aborts one side: either this file (it rolls back with
+-- nothing changed) or that member's request (it fails once). If WIN fires on
 -- production, the tables go in separate files.
 --
 -- WHY IT IS EXACT: Postgres ORs the permissive policies that apply to the
