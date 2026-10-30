@@ -20,6 +20,8 @@ BEGIN
     INTO _mode, _members FROM public.feature_access fa WHERE fa.feature = 'photo_upload_resume';
   RAISE NOTICE 'photo_upload_resume (lane %): site_settings=% · switch mode=% · selected members=%',
     current_setting('p32.lane'), coalesce(_stored, '(no row = off)'), coalesce(_mode, '(not a switch yet)'), coalesce(_members, 0);
+  RAISE NOTICE 'feature_access_feature_check: %', coalesce((SELECT pg_get_constraintdef(oid) FROM pg_constraint
+    WHERE conrelid = 'public.feature_access'::regclass AND conname = 'feature_access_feature_check'), '<none>');
 
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.feature_access'::regclass
                   AND conname = 'feature_access_feature_check'
