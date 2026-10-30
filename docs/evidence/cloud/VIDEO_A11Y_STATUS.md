@@ -1,10 +1,12 @@
 # Video + accessibility runner — status
 
 Started 2026-10-30 01:47 UTC. Replaces the earlier supervisor session (no GitHub trace after 2026-10-29 14:19 UTC).
-Last update: 2026-10-30 ~03:00 UTC.
+Last update: 2026-10-30 05:15 UTC.
+
+RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. A new run took over at 05:05 UTC. Checked GitHub: nobody else pushed to or merged #538-#542 or #619 since 02:00 UTC.
 
 ## Now
-All five waiting PRs rebased on staging, reviewed again by an independent reviewer, fixes pushed. Waiting for CI.
+Staging moved 7 commits since 02:00 UTC. Rebasing all six PRs again, then fresh independent reviews (verdict posted as a comment on each PR, because the earlier reviews were not recorded on GitHub and #542's re-review result was lost when the run stopped).
 
 ## Units
 | Unit | PR | State | Merged sha (staging / main) | SQL runs | Live check |
