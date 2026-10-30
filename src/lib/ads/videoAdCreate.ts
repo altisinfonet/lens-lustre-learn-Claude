@@ -8,8 +8,14 @@
  * ad shows until the video is ready, and if the video is ever removed (the
  * same "the ad's picture stays" rule as AdVideoButton). The video itself then
  * goes through the ONE existing video pipeline (AdVideoButton → upload jobs).
+ *
+ * The new ad is saved SWITCHED OFF. A picture-only ad made from a video the
+ * admin then abandons (or that the pipeline refuses) must never reach members'
+ * feeds by itself; the admin ticks Active when the ad is ready. A video over
+ * the ad size limit is refused before any picture or row is made.
  */
 import { spotsForNew, type SpotRow } from "./adSpotOrder";
+import { serverLimitProblems } from "@/lib/video/limits";
 
 export interface VideoAdDeps {
   /** JPEG bytes of a frame at `seconds` (src/lib/video/cover.ts coverFromVideoAt). */
@@ -21,6 +27,8 @@ export interface VideoAdDeps {
 }
 
 export async function createVideoAdCreative(video: File, zone: string, rows: SpotRow[], deps: VideoAdDeps): Promise<{ creativeId: string; spot: number }> {
+  const problems = serverLimitProblems(video.size, "ad");
+  if (problems.length > 0) throw new Error(problems.join(" "));
   let jpeg: Uint8Array;
   try {
     jpeg = await deps.frame(video, 1);
@@ -30,6 +38,6 @@ export async function createVideoAdCreative(video: File, zone: string, rows: Spo
   const picture = new File([jpeg], "video-ad-cover.jpg", { type: "image/jpeg" });
   const url = await deps.uploadPicture(picture);
   const [spot] = spotsForNew(rows, 1);
-  const creativeId = await deps.insert({ zone, image_url: url, click_url: "", alt_text: "", is_active: true, sort_order: spot });
+  const creativeId = await deps.insert({ zone, image_url: url, click_url: "", alt_text: "", is_active: false, sort_order: spot });
   return { creativeId, spot };
 }

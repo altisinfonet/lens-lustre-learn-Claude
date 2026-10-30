@@ -25,7 +25,7 @@ describe("S7-c createVideoAdCreative", () => {
     const r = await createVideoAdCreative(video, "story-card", rows, d);
     expect(r).toEqual({ creativeId: "new-id", spot: 1 });
     expect(r.spot).toBe(spotsForNew(rows, 1)[0]);
-    expect(calls.rows).toEqual([{ zone: "story-card", image_url: "https://cdn.test/ad.webp", click_url: "", alt_text: "", is_active: true, sort_order: 1 }]);
+    expect(calls.rows).toEqual([{ zone: "story-card", image_url: "https://cdn.test/ad.webp", click_url: "", alt_text: "", is_active: false, sort_order: 1 }]);
   });
 
   it("no gap → after the last ad", async () => {
@@ -47,5 +47,27 @@ describe("S7-c createVideoAdCreative", () => {
     const { d, calls } = deps({ uploadPicture: async () => { throw new Error("upload failed"); } });
     await expect(createVideoAdCreative(video, "story-card", [], d)).rejects.toThrow("upload failed");
     expect(calls.rows).toEqual([]);
+  });
+
+  it("the new ad is saved switched OFF: nothing reaches members' feeds until an admin ticks Active", async () => {
+    const { d, calls } = deps();
+    await createVideoAdCreative(video, "story-card", [], d);
+    expect(calls.rows[0].is_active).toBe(false);
+  });
+
+  it("a video over the ad limit (500 MB) is refused before any picture or ad row is made", async () => {
+    const big = new File([new Uint8Array(1)], "big.mp4", { type: "video/mp4" });
+    Object.defineProperty(big, "size", { value: 600 * 1_048_576 });
+    const { d, calls } = deps();
+    await expect(createVideoAdCreative(big, "story-card", [], d)).rejects.toThrow("500 MB");
+    expect(calls.frames).toEqual([]);
+    expect(calls.pictures).toEqual([]);
+    expect(calls.rows).toEqual([]);
+  });
+
+  it("frame fallback order is 1 s, then the first frame", async () => {
+    const b = deps({ frame: async (_f, s) => { b.calls.frames.push(s); if (s === 1) throw new Error("seek"); return new Uint8Array([1]); } });
+    await createVideoAdCreative(video, "story-card", [], b.d);
+    expect(b.calls.frames).toEqual([1, 0]);
   });
 });

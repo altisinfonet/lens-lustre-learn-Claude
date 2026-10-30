@@ -133,11 +133,12 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
       invalidateAdCreatives();
       await load();
       setVideoAd({ creativeId: made.creativeId, file });
-      toast({ title: "New ad added", description: "It shows a still from the video until the video is ready. Choose its categories to upload the video." });
+      toast({ title: "New ad added — switched off", description: "Choose its categories to upload the video. It stays off members' feeds until you tick Active." });
     } catch (err) {
       toast({ title: "Could not add the video ad", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setMakingVideoAd(false);
     }
-    setMakingVideoAd(false);
   };
 
   /** Upload many files at once. Each becomes one picture in the library. */
@@ -384,7 +385,7 @@ const AdCreativeLibrary = ({ zone }: { zone: AdZoneId }) => {
           <button
             type="button"
             onClick={() => videoRef.current?.click()}
-            disabled={makingVideoAd || !!uploading || tableMissing}
+            disabled={makingVideoAd || !!uploading || tableMissing || rows === null}
             className="ml-2 inline-flex items-center gap-2 px-3 py-2 rounded-sm border border-primary/40 text-[11px] text-foreground hover:bg-primary/10 disabled:opacity-50"
             style={hFont}
             data-testid="ad-library-add-video"

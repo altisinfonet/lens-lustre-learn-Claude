@@ -23,5 +23,5 @@ A video could only be *added to an existing picture ad* ("Add video" on a row). 
 
 ## Decisions
 - **D-S7c-1** The new ad shows its frame until the video is ready, and keeps it if the video is ever removed or taken down — the same rule as "Add video".
-- **D-S7c-2** Closing the dialog without uploading leaves a picture-only ad in that spot (visible, like any new picture); the admin can delete it or add the video later with "Add video".
+- **D-S7c-2** (changed after review, 2026-10-30) The new ad is saved **switched off**. Closing the dialog without uploading leaves a switched-off picture ad in that spot — never on members' feeds by itself; the admin deletes it, adds the video later with "Add video", or ticks Active. A video over 500 MB is refused before anything is made.
 - **D-S7c-3** No new switch: the button exists only for admins with `video_ads` on (default Off on both lanes).
