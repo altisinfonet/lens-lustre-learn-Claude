@@ -67,10 +67,17 @@ BEGIN
   END IF;
 
   -- Fixture
-  SELECT u.id INTO a FROM auth.users u
-   WHERE NOT EXISTS (SELECT 1 FROM public.user_roles ur
-                      WHERE ur.user_id = u.id AND ur.role::text IN ('judge', 'admin'))
-   ORDER BY u.created_at LIMIT 1;
+  -- Not the video converter account: a trigger forbids giving it a role (G4).
+  EXECUTE format($q$
+    SELECT u.id FROM auth.users u
+     WHERE NOT EXISTS (SELECT 1 FROM public.user_roles ur
+                        WHERE ur.user_id = u.id AND ur.role::text IN ('judge', 'admin'))
+       %s
+     ORDER BY u.created_at LIMIT 1$q$,
+    CASE WHEN to_regclass('public.video_converter_accounts') IS NOT NULL
+         THEN 'AND NOT EXISTS (SELECT 1 FROM public.video_converter_accounts v WHERE v.user_id = u.id)'
+         ELSE '' END)
+  INTO a;
   SELECT ce.id INTO e FROM public.competition_entries ce ORDER BY ce.created_at LIMIT 1;
   IF a IS NULL OR e IS NULL THEN
     RAISE EXCEPTION 'PROBE FAIL 20261031_0401: fixture impossible on this lane (non-judge member found=%, entry found=%)', a IS NOT NULL, e IS NOT NULL;
