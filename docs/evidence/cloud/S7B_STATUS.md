@@ -1,8 +1,8 @@
 # S7b offline runner — status
 
-Updated: 2026-10-30 ~11:20 UTC · branch `status/s7b-runner` (draft, never merged)
+Updated: 2026-10-30 ~13:00 UTC · branch `status/s7b-runner` (draft, never merged)
 
-**S7b done: ~93 %** (S7b-1/1b, 2, 3, 4, 5a, 5b, 7 live; S7b-6 built on the now-merged S7 video PRs #539–#542 — PR #674 in review/CI; then carry, live check, app version bump)
+**S7b done: ~97 %** (all parts merged on main; S7b-6 live check and the Android 1.2.32 bump carry #688 in progress)
 
 | Part | PR | State | merged sha (staging / main) | SQL runs | Live check |
 |---|---|---|---|---|---|
@@ -15,7 +15,8 @@ Updated: 2026-10-30 ~11:20 UTC · branch `status/s7b-runner` (draft, never merge
 | S7b-5a offline follows, reports, pending marks, offline bar, own name | #574 / carry #579 | live | 29f949d / 459926f | none | PASS ~22:45Z: home + /feed 200 in Chromium, Firefox, WebKit; no new console errors; no photo worker (switch OFF). Text changes = the sandbox's 'Slow connection' bar (Chromium) and the home page's live times/counters (stable between back-to-back loads) |
 | S7b-5b new posts with photos made offline | #583 / carry #598 | live (works once the Owner turns on photo_upload_resume) | 6c5629b / e27ebe1 | none | PASS ~23:40Z: home + /feed 200 in 3 browsers; /feed text identical; home differs only by one relative time ('7h' → '8h'); no new console errors; no photo worker |
 | P13 entry budget (unblocks carries) | #587 / carry #579 | live; exifr loaded on demand: entry −74.6 KB, ceiling unchanged | d597979 / 459926f | none | with #579 |
-| S7b-6 videos offline (feed videos: 240p first ≥25 s saved; budget 300 MB default; Wi-Fi only default on; lessons say 'needs a connection') | #674 | in review + CI | — | none | — |
+| S7b-6 videos offline (feed videos: 240p first ≥25 s saved; budget 300 MB default; Wi-Fi only default on; lessons say 'needs a connection') | #674 / carry #682 | on main; review nothing blocking after 4 rounds (7 blocking items fixed, each fail-first) | 0ff0537 / 5d79e0e | none | before-check 11:5xZ: 3 browsers 200; after-check pending deploy |
+| App version bump Android 1.2.32 | #683 / carry #688 | merged on staging; carry in CI (review nothing blocking) | 1d5a305 / — | none | — |
 | S7b-7 flight-mode harness in CI + OFF-2 PROBE on live | #584 / carry #598 | live in CI (staging 3ad1ef3 / main e27ebe1). PROBE done: production PASS, run 40930361884 (18:27Z). Harness legs 3 (post page + profile offline, bar, no error/'Photographer') and 4 (offline follow exactly once): FAIL on staging before S7b-5a and before S7b-4 ('Post not found'), PASS on the branch; review nothing blocking | 3ad1ef3 / e27ebe1 | PROBE_off2_idempotency production PASS 18:27Z | with #598 |
 
 ## Notes
@@ -31,5 +32,4 @@ Updated: 2026-10-30 ~11:20 UTC · branch `status/s7b-runner` (draft, never merge
 - Your decision: when to turn on "app_image_sw" (photos kept on the phone for no network) on the live site. The photo server's sharing headers were checked and are ready (cdn.50mmretina.com answers the app and the website correctly).
 - Your decision: new posts with photos made with no network are kept only while "Upload resume" is on. Click path (added by another session, #652): Admin → Video Feature → Upload Resume → "Selected members" to try it on yourself first, or "All members". Until it is on, a post made offline shows a clear "not sent, still here" message.
 - Your decision: course lesson videos are YouTube links. YouTube does not allow saving them on the phone, so with no internet a lesson now says "this video needs a connection". If you want lessons to play offline too, they would have to be uploaded to our own video system instead of YouTube — tell me if you want that as a later job.
-- Your decision: the app version bump. The rule is one bump when ALL S7b parts are live. Everything except S7b-6 is live on the website now, but reaches phones only with a new app version. Choose: (a) wait for S7b-6, or (b) reply "bump now" and I bump now and again after S7b-6.
 - For the database team (D1), not a click: liking a comment offline can only be queued after "post_comment_reactions" is added to their exactly-once list; until then it says "needs a connection".
