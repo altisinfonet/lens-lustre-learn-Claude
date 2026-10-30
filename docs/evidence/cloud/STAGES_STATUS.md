@@ -142,4 +142,4 @@ Previous update: 2026-10-30 02:19 UTC · runner branch `status/stages-runner` ·
 15. **Decision P26 (no click):** which tables should P26's retention cover, and how long to keep rows? Reply with a number of days, or "P26: as proposed".
 16. **Decision P27 (no click):** three old wallet tables are still live (wallet_ledger_v2_diff_log, v3_mirror_log, wallet_ledger_v2_rows). Reply "P27: archive and drop" or "P27: keep".
 17. **Decisions P25 §8 (no click):** read `docs/gates/P25-interface.md` §8 (where the certificate PDF is made, production MEDIA binding, members adding their own entries). Reply "P25 §8: as proposed" or name the changes.
-18. **Ruling P34 (H-4, no click):** whether the seeder may stay in the repository. Reply "P34: keep" or "P34: remove".
+18. **Seeder ruling (P34 / S9, no click):** may the 1-million-row test seeder (`d1-seed-staging.yml`) run on staging? S9's re-audit and P34 need it. It writes about 1 M test posts plus their follower notifications into the shared staging database (it never touches the live site). Reply "seeder: yes" or "seeder: no".
