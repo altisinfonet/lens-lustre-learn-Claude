@@ -185,18 +185,45 @@ export async function measure(page) {
   const prep = await page.evaluate(prepare, { selector: CONTROLS, props: STYLE_PROPS });
   await page.evaluate(() => window.scrollTo(0, 0));
   const reachedGroups = new Set();
-  const allGroups = new Set(await page.$$eval("[data-a11y-g]", (els) => els.map((e) => e.getAttribute("data-a11y-g"))));
   const seen = new Set();
   const invisible = new Set();
   let prev = null;
   let first = null;
   let trap = false;
   let ended = false;
+  let endedAfter = null;
+  let lastLabel = "";
+  let lastK = null;
+  let resumes = 0;
+  let resumedAt = null;
+  let dropNote = null;
   const cap = prep.n * 2 + 40;
   for (let i = 0; i < cap; i++) {
     await page.keyboard.press("Tab");
     const at = await page.evaluate(landed);
-    if (at.body) { ended = true; break; }
+    if (at.body) {
+      // Tab leaving the page lands on body — but so does focus DROPPED mid-page
+      // (the focused element was removed or hidden). Tell them apart: if
+      // unreached controls still follow the last stop in page order, focus was
+      // dropped, not walked off the end; say so and resume from the last stop.
+      // Tab from a stop we already resumed at landing on body again = a real end
+      // (what follows is simply not tabbable — check B counts it).
+      const dropped = lastK !== null && lastK !== resumedAt && resumes < 3 && await page.evaluate(({ k, reached }) => {
+        const last = document.querySelector(`[data-a11y-k="${k}"]`);
+        if (!last) return false;
+        const after = [...document.querySelectorAll("[data-a11y-g]")].filter((e) =>
+          !reached.includes(e.getAttribute("data-a11y-g")) && (last.compareDocumentPosition(e) & Node.DOCUMENT_POSITION_FOLLOWING) && e.getBoundingClientRect().width > 0);
+        if (after.length === 0) return false;
+        last.focus();
+        return document.activeElement === last;
+      }, { k: lastK, reached: [...reachedGroups] });
+      if (dropped) { resumes += 1; resumedAt = lastK; dropNote = `focus dropped to the page after ${lastLabel}; walk resumed there`; prev = null; continue; }
+      ended = true; endedAfter = { stops: seen.size, last: lastLabel }; break;
+    }
+    lastLabel = at.label;
+    if (at.k !== null) lastK = at.k;
+    // the resume moved on to a new stop: the drop was real, say so
+    if (dropNote && at.k !== resumedAt) { notes.push(dropNote); dropNote = null; }
     // Outside a modal, a full cycle ends by Tab leaving the page (focus goes to
     // the browser: activeElement is body). Coming back to the first stop
     // without leaving is a cycle in a subset — a trap. Inside a modal dialog,
@@ -211,7 +238,10 @@ export async function measure(page) {
     if (at.k !== null && !at.changed) invisible.add(at.k);
   }
   if (!ended && !trap) notes.push(`Tab cycle not finished after ${cap} presses — reach counted on what was visited`);
+  // controls still on the page after the walk (one removed meanwhile cannot be "unreached")
+  const allGroups = new Set(await page.$$eval("[data-a11y-g]", (els) => els.filter((e) => e.isConnected && e.getBoundingClientRect().width > 0).map((e) => e.getAttribute("data-a11y-g"))));
   const unreached = [...allGroups].filter((g) => !reachedGroups.has(g));
+  if (unreached.length && endedAfter) notes.push(`Tab left the page after ${endedAfter.stops} stops, last on ${endedAfter.last}`);
   add("kbd-tab-unreached", unreached.length);
   add("kbd-focus-invisible", invisible.size);
   // Name what was found, so a count is never the only evidence.
@@ -246,6 +276,9 @@ const PAGES = {
   "autofocus-mid-page": `${CSS}<main><h1>t</h1><a href="#x">Back</a> <button>Google</button> <label>Email <input autofocus></label> <button>Go</button></main>`,
   // measurement trap 2: a focus style behind a 500 ms transition is still a focus style
   "focus-transition": `<style>input{outline:none;border:0;border-bottom:1px solid #888;transition:border-color .5s} input:focus{border-bottom-color:#f0f}</style><main><h1>t</h1><label>Name <input></label></main>`,
+  // measurement trap 3: focus DROPPED mid-page (the focused control removes itself) is not "Tab left the page"
+  "focus-dropped": `${CSS}<main><h1>t</h1><button>A</button> <button id="b">B</button> <button>C</button></main>
+    <script>document.getElementById("b").addEventListener("focus",(e)=>e.target.remove());</script>`,
   // a modal keeps focus inside by design (as Radix sheets do): not a trap
   "modal-keeps-focus": `${CSS}<main inert><h1>t</h1><a href="#x">behind</a></main>
     <div role="dialog" aria-modal="true" aria-label="Sheet" id="d" style="padding:8px;border:1px solid"><button id="a">One</button> <button id="b">Two</button></div>
@@ -262,6 +295,7 @@ const EXPECT = {
   "dialog-closes": {},
   "autofocus-mid-page": {},
   "focus-transition": {},
+  "focus-dropped": {},
   "modal-keeps-focus": {},
 };
 
@@ -317,12 +351,23 @@ if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop()
     process.exit(fails.length ? 1 : 0);
   }
 
+  // --from <report.json>: judge (or --record) a report CI already measured —
+  // the a11y-surfaces artefact — instead of measuring here, so a baseline is
+  // recorded from the CI browser's own numbers.
+  const fromIdx = args.indexOf("--from");
+  const fromFile = fromIdx >= 0 ? args[fromIdx + 1] : null;
   let server = null;
-  if (!args.includes("--no-serve")) server = await startHarness(BASE);
+  if (!fromFile && !args.includes("--no-serve")) server = await startHarness(BASE);
   const current = {};
   const report = { at: new Date().toISOString(), tags: AXE_TAGS, engine: "chromium", entries: {} };
+  if (fromFile) {
+    const prior = JSON.parse(readFileSync(fromFile, "utf8"));
+    for (const [key, r] of Object.entries(prior.entries ?? {})) current[key] = r.counts ?? r;
+    Object.assign(report, prior);
+    console.log(`judging ${Object.keys(current).length} entries measured at ${prior.at} (from ${fromFile})`);
+  }
   try {
-    for (const scene of SURFACE_SCENES) {
+    for (const scene of fromFile ? [] : SURFACE_SCENES) {
       for (const w of WIDTHS) {
         const key = `${scene}--${w.name}`;
         const ctx = await browser.newContext({ viewport: { width: w.width, height: w.height }, deviceScaleFactor: 1, isMobile: w.mobile, hasTouch: w.mobile, locale: "en-GB", timezoneId: "Asia/Kolkata", colorScheme: "dark", reducedMotion: "reduce" });
