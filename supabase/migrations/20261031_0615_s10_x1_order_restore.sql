@@ -6,7 +6,7 @@
 -- WHY: Postgres ORs a table's applicable permissive policies in DESCENDING
 -- policy-name order. rowsecurity.c builds the list in reverse pg_policy index
 -- order ("for historical reasons, the list is built in reverse order"), and
--- only restrictive policies are re-sorted. The X1 merges 0608–0614 joined
+-- only restrictive policies are re-sorted. The X1 merges 0608–0613 joined
 -- the parts in ASCENDING order, so each merged OR runs its branches in the
 -- opposite order to before. The rows are the same (E1 and E2 proved that),
 -- but an OR evaluates its arms until one is true, so per-row work changed.
@@ -16,18 +16,22 @@
 -- first. Found by the review of the mixed-role design (#718); reproduced
 -- with EXPLAIN on Postgres 16.
 --
--- WHAT: for each table merged by 0608–0614, and for each merged policy whose
+-- WHAT: for each table merged by 0608–0613, and for each merged policy whose
 -- clause has 2+ parts, ALTER POLICY with the same parts, read from the
 -- owner-only backup and joined in DESCENDING policy-name order ("C"
 -- collation, like pg_policy's index). Tables with no merged policies on this
 -- lane are skipped (for example user_roles on production until 0613 is
--- applied there, and activity_logs/feed_events until 0614). Re-running is
+-- applied there). activity_logs and feed_events are not in the list: 0614
+-- joins in descending order from the start. posts and post_comments go last,
+-- so a WIN stop on them cannot leave other tables unreordered. Re-running is
 -- harmless: ALTER to the same text.
 --
 -- PROOF, per table, in its own transaction (REPEATABLE READ; ACCESS SHARE
 -- taken before the snapshot; any failure rolls back that table only):
 --   E1    · before the lock: for every identity × merged policy × clause, the
 --           union of the backed-up originals' rows == the new text's rows.
+--   DRIFT · before the lock: the clause as stored now accepts the same rows
+--           too, so a clause changed after its merge is refused, not reverted.
 --   ORDER · inside the lock: each backed-up part appears in the stored clause
 --           in the requested order.
 --   BIND  · the stored clause accepts the rows E1 proved (anon and the first
@@ -41,7 +45,7 @@
 --
 -- PROBE:    supabase/migrations/PROBE_20261031_0615_s10_x1_order_restore.sql
 -- Rollback: supabase/rollback/20261031_0615_s10_x1_order_restore_ROLLBACK.sql
---           (the same helper with ASC: puts back the order 0608–0614 left)
+--           (the same helper with ASC: puts back the order 0608–0613 left)
 -- ═══════════════════════════════════════════════════════════════════════════
 
 DO $lane_guard$
@@ -196,6 +200,15 @@ BEGIN
                        ',', '', t, pv ->> c) INTO diff;
         IF h IS DISTINCT FROM diff THEN
           RAISE EXCEPTION 'S10-X1RO-E1: % % (%) new text accepts different rows for identity %', t, pk, c, id ->> 'k';
+        END IF;
+        -- DRIFT: the clause as it stands now must accept the same rows as the
+        -- text rebuilt from the backup, so an out-of-band edit is never reverted.
+        SELECT CASE c WHEN 'u' THEN pg_get_expr(p.polqual, p.polrelid) ELSE pg_get_expr(p.polwithcheck, p.polrelid) END
+          INTO stored FROM pg_policy p WHERE p.polrelid = rel AND p.polname = pk;
+        EXECUTE format('SELECT md5(coalesce(string_agg(ctid::text, %L ORDER BY ctid), %L)) FROM public.%I WHERE coalesce((%s), false)',
+                       ',', '', t, coalesce(stored, 'false')) INTO h;
+        IF h IS DISTINCT FROM diff THEN
+          RAISE EXCEPTION 'S10-X1RO-DRIFT: % % (%) as stored now accepts different rows than the backup rebuilds (identity %) — it changed after the merge; refusing', t, pk, c, id ->> 'k';
         END IF;
         e1hash := e1hash || jsonb_build_object((id ->> 'k') || '|' || pk || '|' || c, diff);
       END LOOP;
@@ -702,14 +715,6 @@ BEGIN ISOLATION LEVEL REPEATABLE READ;
 SET LOCAL lock_timeout = '2s';
 SET LOCAL statement_timeout = '60s';
 SET LOCAL search_path = '';
-LOCK TABLE public.post_comments IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('post_comments', 'DESC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
 LOCK TABLE public.post_reactions IN ACCESS SHARE MODE;
 SELECT pg_temp.x1_reorder('post_reactions', 'DESC');
 COMMIT;
@@ -720,14 +725,6 @@ SET LOCAL statement_timeout = '60s';
 SET LOCAL search_path = '';
 LOCK TABLE public.post_tags IN ACCESS SHARE MODE;
 SELECT pg_temp.x1_reorder('post_tags', 'DESC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.posts IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('posts', 'DESC');
 COMMIT;
 
 BEGIN ISOLATION LEVEL REPEATABLE READ;
@@ -758,14 +755,14 @@ BEGIN ISOLATION LEVEL REPEATABLE READ;
 SET LOCAL lock_timeout = '2s';
 SET LOCAL statement_timeout = '60s';
 SET LOCAL search_path = '';
-LOCK TABLE public.activity_logs IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('activity_logs', 'DESC');
+LOCK TABLE public.posts IN ACCESS SHARE MODE;
+SELECT pg_temp.x1_reorder('posts', 'DESC');
 COMMIT;
 
 BEGIN ISOLATION LEVEL REPEATABLE READ;
 SET LOCAL lock_timeout = '2s';
 SET LOCAL statement_timeout = '60s';
 SET LOCAL search_path = '';
-LOCK TABLE public.feed_events IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('feed_events', 'DESC');
+LOCK TABLE public.post_comments IN ACCESS SHARE MODE;
+SELECT pg_temp.x1_reorder('post_comments', 'DESC');
 COMMIT;

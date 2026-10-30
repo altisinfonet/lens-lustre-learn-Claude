@@ -1,7 +1,7 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- PROBE · 20261031_0615 — S10 X1 order restore (staging and production).
 -- READ ONLY, ROLLBACK. Prints counts and table/policy NAMES only (public log).
--- FAILS before 0615: the merges 0608–0614 joined parts in ascending policy-name
+-- FAILS before 0615: the merges 0608–0613 joined parts in ascending policy-name
 -- order. PASSES after.
 --   G0 · lane asserted.
 --   G1 · every merged clause with 2+ parts has them, read from the owner-only
@@ -18,11 +18,7 @@ SET LOCAL search_path = '';
 
 DO $probe$
 DECLARE
-  tables constant text[] := ARRAY['blocked_keywords', 'categories', 'certificate_testimonials', 'courses', 'gift_announcements', 'hero_banners', 'journal_articles', 'lessons', 'photo_of_the_day',
- 'ad_creatives', 'ai_chat_usage', 'certificates', 'comment_reports', 'course_enrollments', 'custom_url_history', 'post_reports', 'reports', 'support_tickets', 'user_devices', 'v3_tag_label_alias',
- 'bank_details', 'competition_judges', 'competition_judging_tags', 'competition_orders', 'entry_score_cache', 'judge_activity_logs', 'judge_award_tags', 'judge_comments', 'judge_decisions', 'judge_entry_assignments', 'judge_entry_locks', 'judge_scores', 'judge_tag_assignments', 'judging_config', 'judging_rounds', 'raw_commitments', 'referral_codes', 'referrals', 'role_applications', 'round_snapshots', 'wallet_transactions', 'wallets', 'withdrawal_requests',
- 'competitions', 'friendships', 'image_comments', 'portfolio_images', 'post_comments', 'post_reactions', 'post_tags', 'posts', 'profile_views', 'user_badges',
- 'user_roles', 'activity_logs', 'feed_events'];
+  tables constant text[] := ARRAY['blocked_keywords', 'categories', 'certificate_testimonials', 'courses', 'gift_announcements', 'hero_banners', 'journal_articles', 'lessons', 'photo_of_the_day', 'ad_creatives', 'ai_chat_usage', 'certificates', 'comment_reports', 'course_enrollments', 'custom_url_history', 'post_reports', 'reports', 'support_tickets', 'user_devices', 'v3_tag_label_alias', 'bank_details', 'competition_judges', 'competition_judging_tags', 'competition_orders', 'entry_score_cache', 'judge_activity_logs', 'judge_award_tags', 'judge_comments', 'judge_decisions', 'judge_entry_assignments', 'judge_entry_locks', 'judge_scores', 'judge_tag_assignments', 'judging_config', 'judging_rounds', 'raw_commitments', 'referral_codes', 'referrals', 'role_applications', 'round_snapshots', 'wallet_transactions', 'wallets', 'withdrawal_requests', 'competitions', 'friendships', 'image_comments', 'portfolio_images', 'post_reactions', 'post_tags', 'profile_views', 'user_badges', 'user_roles', 'posts', 'post_comments'];
   _bad text := ''; skipped text := ''; wrong text := '';
   t text; rel oid; r record; c text; stored text; arm record; pos int; lastpos int;
   checked int := 0; clauses int := 0; cand text; depth int; is_wrapped boolean; ch text;

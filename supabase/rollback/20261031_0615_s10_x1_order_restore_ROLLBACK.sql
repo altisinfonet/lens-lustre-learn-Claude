@@ -1,7 +1,7 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- ROLLBACK · 20261031_0615 — S10 X1 order restore.
 -- Puts every merged policy's parts back in ASCENDING policy-name order, the
--- state 0608–0614 left. It is the same helper and the same per-table proof
+-- state 0608–0613 left (activity_logs/feed_events, 0614, are not touched). It is the same helper and the same per-table proof
 -- (E1, ORDER, BIND, E2, POST, WIN) as the migration, with the direction
 -- reversed. Access is unchanged in both directions.
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -158,6 +158,15 @@ BEGIN
                        ',', '', t, pv ->> c) INTO diff;
         IF h IS DISTINCT FROM diff THEN
           RAISE EXCEPTION 'S10-X1RO-E1: % % (%) new text accepts different rows for identity %', t, pk, c, id ->> 'k';
+        END IF;
+        -- DRIFT: the clause as it stands now must accept the same rows as the
+        -- text rebuilt from the backup, so an out-of-band edit is never reverted.
+        SELECT CASE c WHEN 'u' THEN pg_get_expr(p.polqual, p.polrelid) ELSE pg_get_expr(p.polwithcheck, p.polrelid) END
+          INTO stored FROM pg_policy p WHERE p.polrelid = rel AND p.polname = pk;
+        EXECUTE format('SELECT md5(coalesce(string_agg(ctid::text, %L ORDER BY ctid), %L)) FROM public.%I WHERE coalesce((%s), false)',
+                       ',', '', t, coalesce(stored, 'false')) INTO h;
+        IF h IS DISTINCT FROM diff THEN
+          RAISE EXCEPTION 'S10-X1RO-DRIFT: % % (%) as stored now accepts different rows than the backup rebuilds (identity %) — it changed after the merge; refusing', t, pk, c, id ->> 'k';
         END IF;
         e1hash := e1hash || jsonb_build_object((id ->> 'k') || '|' || pk || '|' || c, diff);
       END LOOP;
@@ -664,14 +673,6 @@ BEGIN ISOLATION LEVEL REPEATABLE READ;
 SET LOCAL lock_timeout = '2s';
 SET LOCAL statement_timeout = '60s';
 SET LOCAL search_path = '';
-LOCK TABLE public.post_comments IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('post_comments', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
 LOCK TABLE public.post_reactions IN ACCESS SHARE MODE;
 SELECT pg_temp.x1_reorder('post_reactions', 'ASC');
 COMMIT;
@@ -682,14 +683,6 @@ SET LOCAL statement_timeout = '60s';
 SET LOCAL search_path = '';
 LOCK TABLE public.post_tags IN ACCESS SHARE MODE;
 SELECT pg_temp.x1_reorder('post_tags', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.posts IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('posts', 'ASC');
 COMMIT;
 
 BEGIN ISOLATION LEVEL REPEATABLE READ;
@@ -720,14 +713,14 @@ BEGIN ISOLATION LEVEL REPEATABLE READ;
 SET LOCAL lock_timeout = '2s';
 SET LOCAL statement_timeout = '60s';
 SET LOCAL search_path = '';
-LOCK TABLE public.activity_logs IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('activity_logs', 'ASC');
+LOCK TABLE public.posts IN ACCESS SHARE MODE;
+SELECT pg_temp.x1_reorder('posts', 'ASC');
 COMMIT;
 
 BEGIN ISOLATION LEVEL REPEATABLE READ;
 SET LOCAL lock_timeout = '2s';
 SET LOCAL statement_timeout = '60s';
 SET LOCAL search_path = '';
-LOCK TABLE public.feed_events IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('feed_events', 'ASC');
+LOCK TABLE public.post_comments IN ACCESS SHARE MODE;
+SELECT pg_temp.x1_reorder('post_comments', 'ASC');
 COMMIT;
