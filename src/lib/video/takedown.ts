@@ -7,7 +7,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { getSiteSetting } from "@/lib/siteSettingsCache";
-import { siteFetch } from "@/lib/net/siteApi";
+import { SITE_API, siteFetch } from "@/lib/net/siteApi";
 
 /** The reason a member's copyright report is stored with (VID-1 DECISION §10). */
 export const COPYRIGHT_REASON = "copyright_music";
@@ -29,7 +29,7 @@ export async function takedownVideo(
   deps: { fetch?: typeof siteFetch; token?: () => Promise<string | null> } = {},
 ): Promise<TakedownResult> {
   const token = await (deps.token ?? (async () => (await supabase.auth.getSession()).data.session?.access_token ?? null))();
-  const res = await (deps.fetch ?? siteFetch)("/api/video/takedown", {
+  const res = await (deps.fetch ?? siteFetch)(SITE_API.videoTakedown, {
     method: "POST",
     headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
     body: JSON.stringify({ video_id: videoId, report_id: reportId, reason }),
