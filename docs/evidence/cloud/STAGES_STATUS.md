@@ -1,6 +1,6 @@
 # STAGES runner — status
 
-Updated: 2026-10-30 13:37 UTC — **S10 in progress.** **P8 autovacuum LIVE on production:** PROBE FAIL 41059784196 (user_roles 29.9 %, user_devices 23.6 %, activity_logs 8.1 %, user_notifications 5.3 % dead) → apply 41061676812 → PROBE PASS 41062720985 (all four 0 %, autovacuum ran 14 min after apply). #687 merged to main (5197171). #686 (staging 89019d8) and #690 C-2 scope-diff PROBE (staging 5332cd8) merged; carry #692 reviewed, in CI. Staging P28 PROBE running. Next: production P28 + C-2 PROBEs, live check, C-2 reconciliation doc. S9 waits for S7 on main; Supabase token still missing. (Previous heartbeat stamped 12:55 was written at 12:52.)
+Updated: 2026-10-30 13:34 UTC — **S10 in progress.** **P8 autovacuum LIVE on production:** PROBE FAIL 41059784196 (user_roles 29.9 %, user_devices 23.6 %, activity_logs 8.1 %, user_notifications 5.3 % dead) → apply 41061676812 → PROBE PASS 41062720985 (all four 0 %, autovacuum ran 14 min after apply). #687 merged to main (5197171). #686 (staging 89019d8) and #690 C-2 scope-diff PROBE (staging 5332cd8) merged; carry #692 reviewed, in CI. Staging P28 PROBE running. Next: production P28 + C-2 PROBEs, live check, C-2 reconciliation doc. S9 waits for S7 on main; Supabase token still missing. (Previous heartbeat stamped 12:55 was written at 12:52.)
 
 Previous update: 2026-10-30 02:19 UTC · runner branch `status/stages-runner` · never merged.
 
