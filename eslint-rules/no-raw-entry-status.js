@@ -90,10 +90,8 @@ const FILE_ALLOWLIST = [
   "/supabase/functions/request-photo-verification/index.ts",
   // B0.1 fix — pre-filters `.eq("status","winner")` for performance, then runs
   // every candidate through `useGatedEntryStatus` + WINNER_PUBLIC_KEYS before
-  // render (see Winners.tsx L114-122). Same pattern in ProfileActivityFeed
-  // (B1.10/B1.11 migration). Raw filter is not a leak: gate is downstream.
+  // render (see Winners.tsx L114-122). Raw filter is not a leak: gate is downstream.
   "/src/pages/Winners.tsx",
-  "/src/components/profile/ProfileActivityFeed.tsx",
   // B0.1 fix — server builds the dashboard payload from raw entry truth; the
   // client UI consumes it through gated hooks. Edge fn is the source-of-truth
   // boundary, not a UI surface.

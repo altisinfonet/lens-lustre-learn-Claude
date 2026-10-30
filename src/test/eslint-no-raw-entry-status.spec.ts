@@ -86,10 +86,6 @@ describe("audit-v6/no-raw-entry-status", () => {
           code: `q.eq("status", "winner");`,
         },
         {
-          filename: "/repo/src/components/profile/ProfileActivityFeed.tsx",
-          code: `q.eq("status", "winner");`,
-        },
-        {
           filename: "/repo/supabase/functions/dashboard-init/index.ts",
           code: `const p = e.placement;`,
         },
