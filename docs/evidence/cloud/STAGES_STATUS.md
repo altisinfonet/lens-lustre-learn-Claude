@@ -1,6 +1,6 @@
 # STAGES runner — status
 
-Updated: 2026-10-30 06:25 UTC — **RESTARTED** at 05:05 (previous run stopped silently at 02:19 UTC). Since restart: #578 flake fix MERGED (staging 1084573). In review/CI (GitHub runners are backed up, checks queued): #634 npm high advisories 14→1 (review: nothing blocking), #637 M2 (SQL 0400 + caller guard; review: nothing blocking), #639 judging locks only for the signed-in judge (re-cut of #276). Old PRs: 16 closed as superseded/obsolete; 5 to carry (#276→#639, #391, #156, #214, #175); 5 for Owner/other sessions (#254, #174, #289, #285, #352). Supabase token still missing. Heartbeat every ≤30 min.
+Updated: 2026-10-30 06:40 UTC — **RESTARTED** at 05:05 (previous run stopped silently at 02:19 UTC). (Correction: the heartbeat stamped "06:25" was really written ~06:05.) Since restart, MERGED to staging: #578 (1084573), #634 npm advisories (b51e036), #637 M2 (e33358b), #639 judging locks (f263a9f), #640 certificate check (fbe64a2), #641 post shares (8b494b1), #642 fixture lane guard (171e00b); staging vitest 411 files green. Now: staging SQL for 0400 (PROBE run 41012747066 queued — GitHub has ~450 queued runs), then 0401, 0300; carry #655 to main (#634, #640, #642) in CI/review; #578 already carried by #636. Supabase token still missing. Heartbeat every ≤30 min.
 
 Previous update: 2026-10-30 02:19 UTC · runner branch `status/stages-runner` · never merged.
 
@@ -57,6 +57,12 @@ Previous update: 2026-10-30 02:19 UTC · runner branch `status/stages-runner` ·
 | S11 | Telemetry: Firefox's handled auth-lock contention is not a script error (drill finding) | #614 | staging 69d636f · main e607a69 (#618) | — | 02:19 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors |
 | S11 | Drills D1–D9: D2–D6 outage drills PASS in 3 browsers (Firefox rows fail only on the lock noise #614 fixes); D7/D8 PASS on both lane shapes; D1/D9 need item 7 | #616 | staging ba508d1 · main e607a69 (#618) | — | 02:19 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors |
 | S11 | Android build flake: deferred sign-in work cancelled on unmount (other session's PR, landed by this runner) | #578 | staging 1084573 | — | goes to main with the next S11 carry |
+| S11 | npm production high advisories 14 → 1 (zod kept, unreachable) + floors test | #634 | staging b51e036 · main: carry #655 | — | — |
+| S11 | M2: new public functions not executable by authenticated by default + caller guard (SQL 0400) | #637 | staging e33358b | staging: PROBE 41012747066 queued | — |
+| S11 | Judging locks act only for the signed-in judge (re-cut #276, SQL 0401) | #639 | staging f263a9f | pending | — |
+| S8 | Certificate check: "could not be completed" ≠ "not found" (re-cut #156) | #640 | staging fbe64a2 · main: carry #655 | — | — |
+| S8 | post_shares SELECT scoped to visible posts + admins (re-cut #391, SQL 0300) | #641 | staging 8b494b1 | pending | — |
+| S8 | Staging-only 21-account fixture refuses other lanes (re-cut #214) | #642 | staging 171e00b · main: carry #655 | none needed | — |
 | S11 | One upload type list; support reply photos GPS-guarded; honest "couldn't check" copy | #597 | staging 0c34e68 · main 3164900 (#615) | — | 01:31 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same page head, 0 new console errors |
 | S11 | PROBE: drafts lifecycle (is anything purging 7-day drafts?) | #607 | staging 79183de · main 3164900 | staging 40980320938: all 4 draft functions exist; cron job "mark-expiring-post-drafts" runs daily 03:10 (last run succeeded); **no job purges or reaps** (confirms the gap); 0 drafts on staging · production 40987036808: **14 drafts, all marked expiring, oldest mark 66 days ago, none ever reaped** — the gap is real on live | — |
 | S11 | Retire the frozen RLS baseline (unrun since cd3dc7ef) | #608 | staging 0be4c4a · main 3164900 (#615) | — | 01:31 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same page head, 0 new console errors |
