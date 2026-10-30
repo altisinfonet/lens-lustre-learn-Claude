@@ -35,6 +35,7 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } fro
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium } from "playwright";
+import { judgeShape } from "./video-shape.mjs";
 
 const PORT = 5197;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -135,7 +136,7 @@ try {
     if (g) {
       // Held upright → a portrait package; and nothing lost or added at the ends.
       c.shape = { width: r.manifest.width, height: r.manifest.height, expectPortrait: g.portrait, expectSeconds: g.seconds };
-      c.shapeOk = (r.manifest.height > r.manifest.width) === g.portrait && Math.abs(r.manifest.duration_s - g.seconds) <= 0.5;
+      c.shapeOk = judgeShape(r, { portrait: g.portrait, seconds: g.seconds }).ok;
     }
     c.pass = (!g || c.shapeOk) && r.problems.length === 0 && r.hashOk && r.ceilings.every((x) => x.bytesPerSecond <= x.ceiling)
       && (!probe.available || (types.includes("video") && types.includes("audio") === !mute));
