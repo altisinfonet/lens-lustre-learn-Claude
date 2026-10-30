@@ -23,14 +23,16 @@
  * S7-e adds three phone-shaped files, made here by ffmpeg (nothing binary in
  * the repo): an iPhone HDR video (10-bit BT.2020 HLG, 90° rotation, picked as
  * IMG_….MOV), an Android camera video (H.264/AAC, 90° rotation, variable frame
- * rate) and a video of exactly 3 minutes (the member limit). Each must also
- * come out the way the member holds the phone (portrait for the rotated ones)
- * and as long as its source (±0.5 s).
+ * rate) and a 3-minute video (a long case; there is NO member duration cap). Each
+ * must also come out the way the member holds the phone (portrait for the
+ * rotated ones), as long as its source (±0.5 s, measured on the OUTPUT
+ * playlists), and be the very file that was served (sha256) — video-shape.mjs.
  *
  * Codecs: VP9 + Opus via the encoder's test seam (Playwright's Chromium has no
  * H.264/AAC encoder). Exit code = the verdict.
  */
 import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -135,8 +137,13 @@ try {
     const g = GENERATED[which];
     if (g) {
       // Held upright → a portrait package; and nothing lost or added at the ends.
-      c.shape = { width: r.manifest.width, height: r.manifest.height, expectPortrait: g.portrait, expectSeconds: g.seconds };
-      c.shapeOk = judgeShape(r, { portrait: g.portrait, seconds: g.seconds }).ok;
+      const playlists = Object.fromEntries(Object.entries(r.files).filter(([n]) => n.endsWith(".m3u8"))
+        .map(([n, b]) => [n, Buffer.from(b, "base64").toString("utf8")]));
+      const fixtureSha256 = createHash("sha256").update(fixtures[which]).digest("hex");
+      const v = judgeShape({ manifest: r.manifest, playlists, sourceSha256: r.sourceSha256, fixtureSha256 }, { portrait: g.portrait, seconds: g.seconds });
+      c.shape = { width: r.manifest.width, height: r.manifest.height, expectPortrait: g.portrait, expectSeconds: g.seconds,
+        renditionSeconds: v.renditionSeconds, reasons: v.reasons, sourceSha256: r.sourceSha256, fixtureSha256 };
+      c.shapeOk = v.ok;
     }
     c.pass = (!g || c.shapeOk) && r.problems.length === 0 && r.hashOk && r.ceilings.every((x) => x.bytesPerSecond <= x.ceiling)
       && (!probe.available || (types.includes("video") && types.includes("audio") === !mute));

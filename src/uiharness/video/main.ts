@@ -47,7 +47,7 @@ const GENERATED: Record<string, { name: string; type: string }> = {
   "iphone-hdr": { name: "IMG_0001.MOV", type: "video/quicktime" },
   // Android camera: H.264 + AAC, 90° rotation, variable frame rate, moov at the end.
   android: { name: "VID_20261029_120000.mp4", type: "video/mp4" },
-  // The member limit: exactly 3 minutes.
+  // A 3-minute file: a long case (there is NO member duration cap).
   "three-min": { name: "three-min.mp4", type: "video/mp4" },
 };
 
@@ -56,6 +56,8 @@ async function run(which: string, mute: boolean) {
   const src = gen ? `/__fixture/${which}` : which === "portrait" ? portrait : which === "held" ? held : which === "crossfade" ? crossfade : landscape;
   const blob = await (await fetch(src)).blob();
   const file = gen ? new File([blob], gen.name, { type: gen.type }) : new File([blob], `${which}.webm`, { type: "video/webm" });
+  // S7-e: the harness checks these are the very bytes it served for `which`.
+  const sourceSha256 = await sha256Hex(new Uint8Array(await blob.arrayBuffer()));
   const t0 = performance.now();
   const pkg = await encodeVideoToHls(file, { codecs: VP9_OPUS, mute });
   // The SAME judgement /api/video/complete makes, plus every file's hash.
@@ -71,6 +73,7 @@ async function run(which: string, mute: boolean) {
     ms: Math.round(performance.now() - t0),
     manifest: pkg.manifest,
     manifestSha256: pkg.manifestSha256,
+    sourceSha256,
     files: Object.fromEntries([...pkg.files].map(([n, b]) => [n, b64(b)])),
   };
 }
