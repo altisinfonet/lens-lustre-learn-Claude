@@ -71,7 +71,8 @@ Browser check: nav harness journeys "sponsored card: …" (Chromium/Firefox/WebK
     (20:33 UTC) — typecheck, full test suite, UI gate, security gate, release bundle (signed), debug APK.
     **Android Build run ID 40943931632 (attempt 2) = 1.2.31, versionCode 1134, main 4a84a7e.**
   → root-cause fix PR #578 (timers cleared on unmount; fail-first test; full vitest 4706 passed, 0 errors;
-    independent review "nothing blocking"; CI 27/27 green) → **merged staging `1084573`** (2026-10-30).
+    independent review "nothing blocking"; CI 27/27 green) → **merged staging `1084573`** (2026-10-30);
+    carry #636 (cherry-pick only, CI 26/26 green, reviewed) → **merged main `610467a`**.
 
 ## For the Owner (plain words)
 **Like and comment are back on the sponsored card.** They vanished when the phone could not load the list of
