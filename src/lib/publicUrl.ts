@@ -55,7 +55,13 @@ interface SharePayload {
  * straight to a clipboard write of a localhost URL.
  */
 export async function shareLink({ title, text, url }: SharePayload): Promise<"shared" | "copied"> {
-  const cap = (window as any).Capacitor;
+  // Typed (S11): the plugin-contract test checks this shape against the pinned @capacitor/share.
+  const cap = (window as unknown as {
+    Capacitor?: {
+      isNativePlatform?: () => boolean;
+      Plugins?: { Share?: { share?: (o: { title?: string; text?: string; url?: string; dialogTitle?: string }) => Promise<unknown> } };
+    };
+  }).Capacitor;
   const nativeShare = cap?.isNativePlatform?.() ? cap?.Plugins?.Share : null;
   if (nativeShare?.share) {
     try {

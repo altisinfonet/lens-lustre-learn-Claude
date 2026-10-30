@@ -41,7 +41,10 @@ const NAMED: [string, string, string][] = [
   ["src/lib/saveFile.ts", "SharePlugin", "Share"],
   ["src/lib/appVersion.ts", "AppPlugin", "App"],
   ["src/hooks/core/useAndroidBackButton.ts", "AppPlugin", "App"],
+  ["src/hooks/feed/useFeedEventTracker.ts", "CapApp", "App"],
 ];
+/** Pinned packages with no JS-side contract: the runtime itself, the CLI, the splash screen (native config only). */
+const NO_JS_CONTRACT = new Set(["@capacitor/core", "@capacitor/cli", "@capacitor/android", "@capacitor/splash-screen"]);
 
 /** The `{ … }` body starting at index `open` (which must be a "{"). */
 function block(src: string, open: number): string {
@@ -100,6 +103,10 @@ describe("Capacitor plugin contracts", () => {
       expect(wf, `${pkg} ${version} not in the pin check`).toMatch(new RegExp(`check ${pkg.replace(/[/.]/g, "\\$&")} ${version.replace(/\./g, "\\.")}\\n`));
     }
     for (const pkg of Object.values(PLUGIN_PKG)) expect(fixture[pkg], `no contract for ${pkg}`).toBeDefined();
+    // …and the other way: every package the build pins is either in the fixture or has no JS contract.
+    const pinned = [...wf.matchAll(/^ {10}check (@[\w.-]+\/[\w.-]+) [\d.]+$/gm)].map((m) => m[1]);
+    expect(pinned.length).toBeGreaterThanOrEqual(10);
+    for (const pkg of pinned) expect(fixture[pkg] !== undefined || NO_JS_CONTRACT.has(pkg), `${pkg} is pinned but has no contract`).toBe(true);
   });
 
   it.each(NAMED)("%s · %s: every member exists in the pinned plugin", (file, type, plugin) => {
@@ -112,6 +119,8 @@ describe("Capacitor plugin contracts", () => {
   it("every inline `Plugins: { X: {…} }` declaration names only methods the pinned plugin has", () => {
     const decls = inlineDeclarations();
     expect(decls.length).toBeGreaterThanOrEqual(5); // App in several hooks, Browser + App in authDeepLink …
+    for (const d of decls) expect(d.members.length, `${d.file}: ${d.plugin} parsed as empty`).toBeGreaterThan(0);
+    expect(decls.some((d) => d.file.endsWith("publicUrl.ts") && d.plugin === "Share")).toBe(true);
     const bad = decls.flatMap((d) => d.members
       .filter((m) => !fixture[PLUGIN_PKG[d.plugin]].methods.includes(m))
       .map((m) => `${d.file}: ${d.plugin}.${m}`));

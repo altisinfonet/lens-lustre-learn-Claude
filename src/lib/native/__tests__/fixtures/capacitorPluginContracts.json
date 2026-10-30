@@ -61,6 +61,7 @@
         "getLaunchUrl",
         "getState",
         "minimizeApp",
+        "removeAllListeners",
         "toggleBackButtonHandler"
       ]
     },
@@ -68,8 +69,10 @@
       "version": "8.0.4",
       "interface": "BrowserPlugin",
       "methods": [
+        "addListener",
         "close",
-        "open"
+        "open",
+        "removeAllListeners"
       ]
     },
     "@capacitor-firebase/messaging": {
@@ -97,10 +100,12 @@
       "version": "8.0.3",
       "interface": "AppUpdatePlugin",
       "methods": [
+        "addListener",
         "completeFlexibleUpdate",
         "getAppUpdateInfo",
         "openAppStore",
         "performImmediateUpdate",
+        "removeAllListeners",
         "startFlexibleUpdate"
       ]
     }
