@@ -1,8 +1,9 @@
-# P25 — certificate PDF: interface (PROPOSED, rev 2, 2026-10-30)
+# P25 — certificate PDF: interface (PROPOSED, rev 4, 2026-10-30)
 
-Status: **PROPOSED, rev 3**. Frozen only when the Auditor accepts it; nothing in
-§2–§7 is built before then. Rev 3 fixes rev 2's deletion design (RESTRICT would
-have broken account deletion). Rev 2 replaced rev 1 after an independent review
+Status: **PROPOSED, rev 4**. Frozen only when the Auditor accepts it; nothing in
+§2–§7 is built before then. Rev 4 makes every read path honour the results
+hold on competition certificates (rev 3's owner-only lookup skipped it). Rev 3
+fixed rev 2's deletion design (RESTRICT would have broken account deletion). Rev 2 replaced rev 1 after an independent review
 found that rev 1's "column privileges revoked" cannot work under Supabase's
 table-level grants and that members can write their own certificate rows —
 together a cross-member read. Gate (GATE_REGISTER P25):
@@ -43,6 +44,11 @@ test (`docs/evidence/d2/P25/`).
   cascades to `certificates` (`user_id … ON DELETE CASCADE`, `20260224160300:44`);
   `hard-delete-competition` deletes certificates (:334, error unchecked); admin
   `deleteCert` in `AdminCertificates`.
+- **Results hold:** the live owner SELECT policy is `user_id = auth.uid() AND
+  (type NOT LIKE 'competition\_%' OR published_at IS NOT NULL)`;
+  `auto_certificate_on_r4_award` inserts with `published_at NULL` until results
+  are declared, and `notify_certificate_issued` gives the member the row id at
+  insert time. Every PDF path must honour the same rule.
 - **Member-supplied fields:** on self-insert a member may set `title`,
   `description`, and (because the generator trigger only fills NULLs) `id`,
   `certificate_id` and `verification_token`.
@@ -111,17 +117,39 @@ REVOKE ALL ON public.certificate_pdfs FROM PUBLIC, anon, authenticated;
   key there. So **every** delete path (account deletion via the auth cascade,
   `hard-delete-competition`, admin `deleteCert`) works unchanged, in the
   database, with no edge-function deploy.
-- **`issue_path`** on `certificates` (`text`, set by a `BEFORE INSERT` trigger,
-  never by the client): `member` when the inserting role is a member acting on
-  their own row without admin, `admin`, `trigger`, `course_rpc`. Member-written
-  rows are not rendered until an admin approves them (§5).
+- **One visibility rule, `certificate_pdf_visible(c certificates, viewer uuid)`**
+  — `owner = viewer AND NOT is_revoked AND (type NOT LIKE 'competition\_%' OR
+  published_at IS NOT NULL)`, or viewer is admin. Used by `certificate_pdf_ref`
+  **and** by the bulk render (§5): a held certificate is neither served nor
+  rendered before results are declared.
+- **`issue_path`** on `certificates` (`text NOT NULL`, set by a **`SECURITY
+  INVOKER`** `BEFORE INSERT` trigger — invoker, so `current_user` is still the
+  caller's role; never accepted from the client): `member` when `current_user =
+  'authenticated'` and the caller is not admin; `admin` when the caller is
+  admin; `system` for every other role (the `SECURITY DEFINER` issuers —
+  `auto_certificate_on_winner`, `auto_certificate_on_r4_award`,
+  `issue_course_completion_certificate` — all run as the owner, and only
+  `member` matters for safety). Unknown cases **fail closed to `member`**.
+- **`render_approved_at timestamptz` / `render_approved_by uuid`** on
+  `certificates`, set only by admin-only `certificate_approve_render(_id)`.
+  Rendering requires `issue_path <> 'member' OR render_approved_at IS NOT NULL`.
+  **Backfill (fail-closed):** every existing row (≈ 11 production) gets
+  `issue_path = 'member'` and no approval — an admin approves each one before
+  its first render.
+- **Trigger privileges:** the `AFTER DELETE` (orphan) and `AFTER UPDATE`
+  (supersede) triggers are `SECURITY DEFINER`, `search_path ''`, owned by the
+  migration owner — an admin's edit runs as `authenticated`, which has no
+  grants on the no-grant tables. Cascades already run as the referencing
+  table's owner.
 - **Edits:** an `AFTER UPDATE` trigger on `certificates` — any change to
   `title`, `type`, `description`, `user_id` or `is_revoked` — sets
   `superseded_at` on the current PDF row, so the next GET is 404 until an admin
-  re-renders (no stale PDF is ever served).
+  re-renders (no stale PDF is ever served). Also on `published_at` changes, so
+  a hold→publish transition is visible to the bulk render.
 - **`certificate_pdf_attach_check(_certificate uuid) RETURNS boolean`** —
-  `SECURITY DEFINER`; true only for an admin caller and an existing,
-  non-revoked certificate (and, for `issue_path = 'member'`, an approved one).
+  `SECURITY DEFINER`; true only for an admin caller, an existing non-revoked
+  certificate, render approval where `issue_path = 'member'`, and the results
+  hold released (`published_at` set for `competition_%`).
   Called by the worker **before** any R2 write.
 - **`certificate_pdf_attach(_certificate uuid, _sha256 text) RETURNS text`** —
   `SECURITY DEFINER`, `search_path ''`; refuses unless the caller is admin;
@@ -197,9 +225,11 @@ bucket lookup (defence in depth; it is never served there).
 - **Deleted** (any of the four paths): `ON DELETE CASCADE` removes the
   reference row in the same transaction; the `AFTER DELETE` trigger records the
   key in `certificate_pdf_orphans`. Nothing in the existing delete code changes.
-- **Purge:** an admin-run purge (Pages Function, admin-only, logged) deletes
-  from R2 exactly the keys in `certificate_pdf_orphans` older than 24 h, then
-  removes them from the list. A deleted member's certificate does not outlive
+- **Purge:** an admin-run purge (Pages Function, admin-only, logged) reads
+  keys through admin-only `SECURITY DEFINER` `certificate_pdf_orphans_due()`
+  (older than 24 h **and** not referenced by any non-superseded
+  `certificate_pdfs` row), deletes them from R2, then calls admin-only
+  `certificate_pdf_orphans_done(keys)`. A deleted member's certificate does not outlive
   their account by more than one purge cycle.
 
 ## 7 · L6 (forgery resistance) and P31
@@ -232,7 +262,8 @@ bucket lookup (defence in depth; it is never served there).
 ## 9 · Evidence the gate will require
 
 - D1 PROBE (both lanes): both tables exist, RLS on, zero grants to `anon`/
-  `authenticated`, not in the realtime publication; deleting a certificate
+  `authenticated`, not in the realtime publication; a held competition
+  certificate resolves to nothing for its owner; deleting a certificate
   through each delete path succeeds and leaves its key in
   `certificate_pdf_orphans`; an edit supersedes the PDF; `certificate_pdf_ref`
   returns the key to the owner and an admin and NULL to another member
@@ -242,4 +273,7 @@ bucket lookup (defence in depth; it is never served there).
   401; A = 200, `application/pdf`, SHA-256 = recorded; non-admin PUT = 403 with
   no object written; `cert/…` on the CDN host = 404.
 - Immutability: same certificate, different bytes → a new superseding row and a
-  new key; the old object's hash still equals its row.
+  new key; until its purge (≥ 24 h) the old object's hash still equals its row.
+- **Results hold:** a held `competition_%` certificate (published_at NULL) →
+  owner GET = 404 and the bulk render skips it; after publish → owner GET =
+  200 once rendered. Member-written row without approval → not rendered.
