@@ -1,4 +1,4 @@
-ADS BUG — IN PROGRESS (Bug 1 not yet live)
+ADS BUG FIXED
 
 # Ads bug runner — status
 
@@ -67,8 +67,11 @@ Browser check: nav harness journeys "sponsored card: …" (Chromium/Firefox/WebK
   `linkReferral` ← a `setTimeout` in `useAuth.tsx:405` firing after `signOutWipeWiring.test.tsx` tore down.
   Not caused by the version bump or the ads code; intermittent (the Unit tests job PASSED on the same commit,
   run 448). Root cause: AuthProvider's six deferred sign-in timers were never cleared on unmount.
-  → re-ran the failed job once (allowed: same check passed on this exact commit); attempt 2 running.
-  → root-cause fix PR #578 (timers cleared on unmount; fail-first test; full vitest 4706 passed, 0 errors).
+  → re-ran the failed job once (allowed: same check passed on this exact commit): **attempt 2 SUCCEEDED**
+    (20:33 UTC) — typecheck, full test suite, UI gate, security gate, release bundle (signed), debug APK.
+    **Android Build run ID 40943931632 (attempt 2) = 1.2.31, versionCode 1134, main 4a84a7e.**
+  → root-cause fix PR #578 (timers cleared on unmount; fail-first test; full vitest 4706 passed, 0 errors;
+    independent review "nothing blocking"; CI 27/27 green) → **merged staging `1084573`** (2026-10-30).
 
 ## For the Owner (plain words)
 The like and comment buttons disappeared when the phone could not load the ad list for a moment (weak or no network).
