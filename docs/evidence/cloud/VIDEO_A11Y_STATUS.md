@@ -1,14 +1,14 @@
 # Video + accessibility runner — status
 
 Started 2026-10-30 01:47 UTC. Replaces the earlier supervisor session (no GitHub trace after 2026-10-29 14:19 UTC).
-Last update: 2026-10-30 13:35 UTC.
+Last update: 2026-10-30 13:44 UTC.
 
 SECOND RESTART 2026-10-30 ~07:15 UTC: the run stopped silently again at ~05:15 UTC. New rule: ONE PR at a time (#619 → #538 → #539 → #540 → #541 → #542), heartbeat at least every 20 minutes. Checked GitHub 07:15 UTC: nobody pushed to or merged #538-#542 or #619 since 02:00 UTC; each is 21 commits behind staging.
 
 RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. A new run took over at 05:05 UTC. Checked GitHub: nobody else pushed to or merged #538-#542 or #619 since 02:00 UTC.
 
 ## Now
-13:35 UTC — All six units LIVE on main (last: S7-c fd903b69). Final live check running.
+13:44 UTC — All six units LIVE; final live check clean (run 41064479457). Next: rest of S7 items that need no Owner input, then S10-a P23 (S10a-2 CI checks red-first).
 
 ## Units
 | Unit | PR | State | Merged sha (staging / main) | SQL runs | Live check |
@@ -19,7 +19,7 @@ RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. 
 | S7-a purge-queue deleter | #539 | MERGED 09:10 UTC (36/36 checks green; re-review nothing blocking) | staging 75f78f67 / main 50a1ff9f (carry #681 with #673, 12:07 UTC, 35/35 green, review nothing blocking) | 0700 STAGING: PROBE-before 41040556611 FAIL G1 (expected) · apply 41040769034 SUCCESS 10:27 · PROBE-after 41042014241 ERROR (PROBE bug → #673) · PROBE-after 41045879133 **PASS** 11:10 UTC. Production: PROBE-before 41053131761 FAIL G1 (expected, 12:25) · apply 41055299050 COMMIT 12:31 · PROBE-after 41056104158 **PASS** 12:33 UTC | live run 41053135653 (main 50a1ff9f): 6/6 pages 200, same text, no new console errors | — |
 | S7-e encoder harness fixtures | #540 | MERGED 09:45 UTC (25/25 checks green incl. encoder harness; review BLOCKING ×3 → fixed with fail-first test f6723b2b → re-review nothing blocking) | staging 9e943369 / main 628ddea9 (carry #685, 12:50 UTC, 24/24 green, review nothing blocking) | none | live run 41058422608: 6/6 pages 200, same text, no new console errors |
 | S7-b VID-4 takedown | #541 | MERGED 10:06 UTC (36/36 checks green incl. vitest + app-origin journey, which were red before #619; review nothing blocking) | staging c36726ba / main 2b37be47 (carry #689, 13:15 UTC, 35/35 green, review nothing blocking) | 0701 STAGING: PROBE-before 41042307096 FAIL G1 (expected) · apply 41046205913 SUCCESS 11:11 · PROBE-after 41046275090 **PASS** 11:11 UTC. Production: PROBE-before 41061699789 FAIL G1 (expected, 13:22) · apply 41062722350 COMMIT 13:3x · PROBE-after 41064251129 **PASS** 13:33 UTC | live run 41061704420 (main 2b37be47): 6/6 pages 200, same text, no new console errors |
-| S7-c VID-5 video ad | #542 | MERGED 10:24 UTC (25/25 checks green; earlier blocking fix verified; re-review nothing blocking) | staging d1e71689 / main fd903b69 (carry #691, 13:44 UTC, 24/24 green, review nothing blocking) | none | — |
+| S7-c VID-5 video ad | #542 | MERGED 10:24 UTC (25/25 checks green; earlier blocking fix verified; re-review nothing blocking) | staging d1e71689 / main fd903b69 (carry #691, 13:44 UTC, 24/24 green, review nothing blocking) | none | live run 41064479457 (main fd903b69): 6/6 pages 200, same text, no new console errors |
 
 ### Root causes found (#541's two red checks)
 1. "Unit tests pass (vitest)": `src/lib/video/takedown.ts:32` called the route with a literal path instead of `SITE_API.videoTakedown`, and the route list in `src/lib/net/__tests__/siteApi.test.ts` was not updated (commit 1999911). Fixed in #541.
@@ -29,7 +29,7 @@ RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. 
 d2-live-check run 41046580661 on main 36c895d1 (11:16 UTC): home + /feed 200 in Chromium, Firefox, WebKit, same text both loads. Console errors already present: X-Frame-Options in <meta>; Cloudflare beacon blocked by CSP; 401 on profiles_public_data (home); Firefox __cf_bm cookie notice.
 
 ## Progress
-- S7: 5 waiting PRs merged on staging + SQL 0700/0701 PASS on staging. Next: carry each unit to main (one PR each), then production SQL, then rest of S7. Roughly 35% of S7 (code + staging SQL for purge, takedown, ad, encoder tests; live converter, cost alerts, short clips, rollout not started).
+- S7: the 4 built parts (purge worker, takedown, video ads, encoder phone tests) are LIVE: code on main + SQL 0700/0701 PROBE PASS on staging AND production. Still open: live server converter (Owner steps 3-4), cost alerts VID-6 (no budget figure written down yet), short clips (Owner decision 1), staged rollout (switches exist: Off / Selected members / All members — all stay OFF on live). Estimate: ~45% of S7.
 - P23: decision note merged on staging AND live on main (bb2ac7a5). About 25% of S10-a. Next P23 work (S10a-2..4) after S7 carries.
 
 ## For the S7b offline runner
@@ -41,6 +41,7 @@ d2-live-check run 41046580661 on main 36c895d1 (11:16 UTC): home + /feed 200 in 
 - 11:12 UTC: SQL 0700 + 0701 applied on STAGING, both PROBEs PASS. Production after the carry to main.
 - 12:33 UTC: SQL 0700 (purge worker) applied on PRODUCTION, PROBE PASS. S7-a is fully live.
 - 13:34 UTC: SQL 0701 (takedown) applied on PRODUCTION, PROBE PASS. S7-b is fully live (copyright report switch OFF).
+- 13:44 UTC: S7-c video ad carried to main (fd903b69). Switch 'Video ads' stays OFF on live. ALL S7 code from this runner is on main; S7b-6 offline videos may build on it.
 
 ## Follow-ups (non-blocking review notes)
 - #540: Android fixture is Constrained Baseline (ultrafast overrides High); orientation checked on source size, not output pixels; fixture properties not ffprobe-asserted; iPhone file is MP4 bytes named .MOV.
