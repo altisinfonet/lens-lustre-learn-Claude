@@ -1,6 +1,6 @@
 # STAGES runner — status
 
-Updated: 2026-10-30 00:33 UTC · runner branch `status/stages-runner` · never merged.
+Updated: 2026-10-30 00:41 UTC · runner branch `status/stages-runner` · never merged.
 
 ## Done per stage
 
@@ -47,14 +47,16 @@ Updated: 2026-10-30 00:33 UTC · runner branch `status/stages-runner` · never m
 | S11 | Doc drift (queryKeys focus default; realtimeCounts guard name) | #602 | staging 95b3479 | — | carry next |
 | S11 | PROBE: who can read a judge's identity (measure before fixing) | #603 | staging 456025d | staging: queued | — |
 | S11 | One Mention award for all three spellings | #604 | staging 8fbce98 | — | carry next |
-| S11 | trackPosition wired without moving the bookmark (switch `judge_resume_ambient`, OFF) | #610 | review nothing blocking (2 rounds); CI | — | — |
+| S11 | trackPosition wired without moving the bookmark (switch `judge_resume_ambient`, OFF) | #610 | staging 2f46065 | — | carry next |
 | S11 | usePwaInstall removes its appinstalled listener | #611 | review nothing blocking; CI | — | — |
 | S11 | Contributor scores cached 5 min (feed remounts stop re-asking) | #612 | review nothing blocking; CI | — | — |
 | S11 | Capacitor plugin-contract test vs the pinned versions | #613 | review nothing blocking (2 rounds); CI | — | — |
+| S11 | Telemetry: Firefox's handled auth-lock contention is not a script error (drill finding) | #614 | review: 1 blocking finding fixed (the 10 s lock timeout still counts), then nothing blocking; CI | — | — |
+| S11 | Drills D1–D9 (D2–D8 run; D1/D9 need item 7) | (PR next) | — | — | — |
 | S11 | One upload type list; support reply photos GPS-guarded; honest "couldn't check" copy | #597 | staging 0c34e68 | — | carry next |
-| S11 | PROBE: drafts lifecycle (is anything purging 7-day drafts?) | #607 | review nothing blocking (2 rounds); CI | — | — |
-| S11 | Retire the frozen RLS baseline (unrun since cd3dc7ef) | #608 | review nothing blocking; CI | — | — |
-| S11 | PROBE: M2 default EXECUTE privileges vs real callers | #609 | review nothing blocking; CI | — | — |
+| S11 | PROBE: drafts lifecycle (is anything purging 7-day drafts?) | #607 | staging 79183de | staging: queued | — |
+| S11 | Retire the frozen RLS baseline (unrun since cd3dc7ef) | #608 | staging 0be4c4a | — | carry next |
+| S11 | PROBE: M2 default EXECUTE privileges vs real callers | #609 | staging 5f67995 | staging: queued | — |
 | S12/S5 | Switch-state PROBE (confirm OFF) | #588 → #600 | staging 584b305 · main 8af24ef | staging 40972309393 (created 23:19, finished ~00:20): personal_feed **off**, photo_upload_resume **off** (no row), media_ladder_feed off, media_private_photos off, copyright_music_check off; video_ads selected (1), video_posts selected (3), both other sessions' test cohorts · production 40977645548 (finished 00:32): **personal_feed everyone**, photo_upload_resume off (no row), media switches off, copyright_music_check off, video_ads selected (1), video_posts selected (6) | `photo_upload_resume` has no row on live = OFF |
 
 ## Findings recorded
