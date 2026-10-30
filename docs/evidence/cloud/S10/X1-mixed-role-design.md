@@ -157,9 +157,10 @@ and a recursion check; see the rev 1 review).
     `INSERT … ON CONFLICT … DO UPDATE … RETURNING *` where a unique key
     exists.
   - **Roles:** every role that has any privilege on the table, from
-    `aclexplode(coalesce(relacl, acldefault('r', relowner)))` and the
-    column ACLs (`has_any_column_privilege`), expanded through role
-    inheritance. Not `information_schema`, which hides grants made by other
+    `aclexplode(coalesce(relacl, acldefault('r', relowner)))` and
+    `aclexplode(pg_attribute.attacl)` for column grants, expanded through
+    role inheritance. Each is then confirmed with `has_table_privilege` or
+    `has_any_column_privilege`. Not `information_schema`, which hides grants made by other
     grantors. A PUBLIC grant makes every role a candidate; E3 then covers
     anon, authenticated and every role named in the policies.
   - **Exclusions:** roles that bypass RLS, measured per lane: superusers,
@@ -168,12 +169,15 @@ and a recursion check; see the rev 1 review).
   - **If a role cannot be tested:** if the applying role cannot `SET ROLE`
     to a discovered role, E3 refuses the file rather than skipping it.
   - **Masking:** a role without privilege can hit a rewrite-time or
-    plan-time error before the table privilege check. The before/after
-    comparison still holds, because both sides see the same first error.
-    At worst that is a false refusal, never a miss.
-  - **Statements** run with and without `RETURNING`, and `UPDATE` uses a
-    column the role may update, so column-level grants do not hide the
-    INSERT and UPDATE policy paths.
+    plan-time error before the table privilege check. The first error may
+    differ before and after (for example if the order across groups changed
+    which error fires first). If it does, E3 refuses the file: a false
+    refusal, never a miss.
+  - **Statements** run with and without `RETURNING`. `UPDATE` uses a column
+    the role may update; without RETURNING it sets that column to a
+    constant, so it reads no column and the UPDATE-only policy path is
+    tested on its own. Column-level grants then do not hide the INSERT and
+    UPDATE policy paths.
   - **Scope:** E3 does not see run-time errors (§3 limit).
 - **POST:**
   - Per (action, role list): exactly one policy where there was more than one.
@@ -189,9 +193,10 @@ and a recursion check; see the rev 1 review).
     apply to some role. "Apply" uses privilege inheritance
     (`has_privs_of_role` semantics, which respect NOINHERIT), not bare
     membership, over every role with a privilege on the table, PUBLIC
-    included. So M3 (`{anon}` and `{authenticated}`) is not residual: on
-    Supabase, `authenticator` is a NOINHERIT member of both and inherits
-    neither. G7 prints names only and does not
+    included, and with E3's exclusions for roles that bypass RLS. Whether M3
+    (`{anon}` and `{authenticated}`) is residual is measured per lane, not
+    asserted. On Supabase, `authenticator` is a NOINHERIT member of both and
+    inherits neither, and `postgres` bypasses RLS, so it is excluded. G7 prints names only and does not
     fail.
 
 ## 6. Rejected: the rev 1 guarded merge
@@ -252,4 +257,4 @@ and raises nothing, so the test needs a run-time guard, as above.
   on table A, queued behind this file. Postgres aborts one side, or
   `lock_timeout` (2 s) fires. If the file is the side aborted, it rolls back
   with nothing changed and is re-run at a quieter time. If the other side is
-  aborted, that one request fails once.
+  aborted, that transaction is aborted with a deadlock error.
