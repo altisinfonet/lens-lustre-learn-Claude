@@ -24,6 +24,9 @@ END
 $lane_guard$;
 
 SET LOCAL lock_timeout = '5s';
+-- Hard cap on how long the 16 tables can stay locked (ALTER POLICY takes
+-- ACCESS EXCLUSIVE until COMMIT): past this the whole file rolls back.
+SET LOCAL statement_timeout = '60s';
 SET LOCAL search_path = '';
 
 DO $x2_rb$
@@ -64,7 +67,7 @@ DECLARE
   ];
 
   wrapped_re constant text := '\(\s*SELECT\s+auth\.(uid|role|jwt|email)\(\)\s+AS\s+\w+\s*\)';
-  bare_re    constant text := 'auth\.(uid|role|jwt|email)\(\)';
+  bare_re    constant text := '\mauth\.(uid|role|jwt|email)\(\)';
   i int; tbl text; pol text; rel oid;
   old_q text; old_w text; new_q text; new_w text;
   shape_before jsonb; shape_after jsonb;

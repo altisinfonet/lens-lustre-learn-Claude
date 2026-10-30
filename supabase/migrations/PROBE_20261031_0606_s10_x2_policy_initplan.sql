@@ -51,7 +51,7 @@ DECLARE
     'story_views|Users read own story views'
   ];
   wrapped_re constant text := '\(\s*SELECT\s+auth\.(uid|role|jwt|email)\(\)\s+AS\s+\w+\s*\)';
-  bare_re    constant text := 'auth\.(uid|role|jwt|email)\(\)';
+  bare_re    constant text := '\mauth\.(uid|role|jwt|email)\(\)';
   _bad text := '';
   n_found int; n_bare int; n_lane int; bare_names text;
 BEGIN

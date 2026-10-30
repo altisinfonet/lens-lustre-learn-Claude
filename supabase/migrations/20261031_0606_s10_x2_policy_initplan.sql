@@ -44,6 +44,9 @@ END
 $lane_guard$;
 
 SET LOCAL lock_timeout = '5s';
+-- Hard cap on how long the 16 tables can stay locked (ALTER POLICY takes
+-- ACCESS EXCLUSIVE until COMMIT): past this the whole file rolls back.
+SET LOCAL statement_timeout = '60s';
 -- Deparse with every name fully qualified, so the rewritten text re-parses to
 -- the same objects whatever the caller's search_path.
 SET LOCAL search_path = '';
@@ -86,7 +89,7 @@ DECLARE
   ];
   -- wrapped form as pg_get_expr prints it, e.g. "( SELECT auth.uid() AS uid)"
   wrapped_re constant text := '\(\s*SELECT\s+auth\.(uid|role|jwt|email)\(\)\s+AS\s+\w+\s*\)';
-  bare_re    constant text := 'auth\.(uid|role|jwt|email)\(\)';
+  bare_re    constant text := '\mauth\.(uid|role|jwt|email)\(\)';
   i int; tbl text; pol text; rel oid;
   r record;
   old_q text; old_w text; new_q text; new_w text;
@@ -188,12 +191,12 @@ BEGIN
     new_q := old_q; new_w := old_w;
     IF new_q IS NOT NULL THEN
       new_q := regexp_replace(new_q, '\(\s*SELECT\s+auth\.(uid|role|jwt|email)\(\)\s+AS\s+(\w+)\s*\)', '<<W:\1:\2>>', 'gi');
-      new_q := regexp_replace(new_q, 'auth\.(uid|role|jwt|email)\(\)', '( SELECT auth.\1() AS \1)', 'gi');
+      new_q := regexp_replace(new_q, '\mauth\.(uid|role|jwt|email)\(\)', '( SELECT auth.\1() AS \1)', 'gi');
       new_q := regexp_replace(new_q, '<<W:(\w+):(\w+)>>', '( SELECT auth.\1() AS \2)', 'g');
     END IF;
     IF new_w IS NOT NULL THEN
       new_w := regexp_replace(new_w, '\(\s*SELECT\s+auth\.(uid|role|jwt|email)\(\)\s+AS\s+(\w+)\s*\)', '<<W:\1:\2>>', 'gi');
-      new_w := regexp_replace(new_w, 'auth\.(uid|role|jwt|email)\(\)', '( SELECT auth.\1() AS \1)', 'gi');
+      new_w := regexp_replace(new_w, '\mauth\.(uid|role|jwt|email)\(\)', '( SELECT auth.\1() AS \1)', 'gi');
       new_w := regexp_replace(new_w, '<<W:(\w+):(\w+)>>', '( SELECT auth.\1() AS \2)', 'g');
     END IF;
     EXECUTE format('ALTER POLICY %I ON public.%I', pol, tbl)
