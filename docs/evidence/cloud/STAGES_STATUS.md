@@ -1,6 +1,6 @@
 # STAGES runner — status
 
-Updated: 2026-10-30 05:12 UTC — **RESTARTED** (previous run stopped silently at 02:19 UTC after the S11 carry #618). Now: re-verifying live, then flake fix #578, S11 rest (npm high-severity updates, drills D1/D9 if the token exists), S8 rest. Heartbeat every ≤30 min.
+Updated: 2026-10-30 05:40 UTC — **RESTARTED** at 05:05 (previous run stopped silently at 02:19 UTC). Since restart: #578 flake fix MERGED to staging (1084573); #634 npm high advisories 14→1 in review/CI; #637 M2 (SQL 0400 + caller guard) in review/CI. Supabase token still missing (deploy-functions has 1 run ever, failed). Heartbeat every ≤30 min.
 
 Previous update: 2026-10-30 02:19 UTC · runner branch `status/stages-runner` · never merged.
 
@@ -55,6 +55,7 @@ Previous update: 2026-10-30 02:19 UTC · runner branch `status/stages-runner` ·
 | S11 | Capacitor plugin-contract test vs the pinned versions | #613 | staging 05eb892 · main e607a69 (#618) | — | 02:19 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors |
 | S11 | Telemetry: Firefox's handled auth-lock contention is not a script error (drill finding) | #614 | staging 69d636f · main e607a69 (#618) | — | 02:19 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors |
 | S11 | Drills D1–D9: D2–D6 outage drills PASS in 3 browsers (Firefox rows fail only on the lock noise #614 fixes); D7/D8 PASS on both lane shapes; D1/D9 need item 7 | #616 | staging ba508d1 · main e607a69 (#618) | — | 02:19 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors |
+| S11 | Android build flake: deferred sign-in work cancelled on unmount (other session's PR, landed by this runner) | #578 | staging 1084573 | — | goes to main with the next S11 carry |
 | S11 | One upload type list; support reply photos GPS-guarded; honest "couldn't check" copy | #597 | staging 0c34e68 · main 3164900 (#615) | — | 01:31 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same page head, 0 new console errors |
 | S11 | PROBE: drafts lifecycle (is anything purging 7-day drafts?) | #607 | staging 79183de · main 3164900 | staging 40980320938: all 4 draft functions exist; cron job "mark-expiring-post-drafts" runs daily 03:10 (last run succeeded); **no job purges or reaps** (confirms the gap); 0 drafts on staging · production 40987036808: **14 drafts, all marked expiring, oldest mark 66 days ago, none ever reaped** — the gap is real on live | — |
 | S11 | Retire the frozen RLS baseline (unrun since cd3dc7ef) | #608 | staging 0be4c4a · main 3164900 (#615) | — | 01:31 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same page head, 0 new console errors |
