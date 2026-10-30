@@ -12,6 +12,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { migrationsInSequence } from "@/test-utils/migrations";
 
 const ROOT = path.resolve(__dirname, "../..");
 const FROM = "20261028";
@@ -71,10 +72,12 @@ export function topStatements(sql: string): string[] {
 const NO_TX = /^-- NO-TRANSACTION: \S/;
 const head = (st: string) => st.split(/\s+/)[0].toUpperCase();
 
+// The shared helpers (src/test-utils/migrations.ts): never a hand-rolled filter,
+// so UNAPPLIED_/PROBE_ files can never be mistaken for applied migrations.
 const files = [
-  ...fs.readdirSync(path.join(ROOT, "supabase/migrations")).filter((f) => /^\d{8}_/.test(f) && f.slice(0, 8) >= FROM).map((f) => `supabase/migrations/${f}`),
-  ...fs.readdirSync(path.join(ROOT, "supabase/rollback")).filter((f) => /^\d{8}_/.test(f) && f.slice(0, 8) >= FROM).map((f) => `supabase/rollback/${f}`),
-].filter((f) => f.endsWith(".sql"));
+  ...migrationsInSequence().filter((f) => f.slice(0, 8) >= FROM).map((f) => `supabase/migrations/${f}`),
+  ...migrationsInSequence(path.join(ROOT, "supabase/rollback")).filter((f) => f.slice(0, 8) >= FROM).map((f) => `supabase/rollback/${f}`),
+];
 
 describe("every migration and rollback since 20261028 is one transaction", () => {
   it("finds the files (not vacuous)", () => {
