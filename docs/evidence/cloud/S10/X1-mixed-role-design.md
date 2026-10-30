@@ -1,15 +1,24 @@
-# S10 · X1 mixed-role tables — merge design (PROPOSED)
+# S10 · X1 mixed-role tables — merge design (PROPOSED, rev 2)
 
-Status: **PROPOSED**. No SQL in this unit. It is the design that the next
-X1 files (0615+) will implement, written down first so it can be reviewed on
-its own.
+Status: **PROPOSED**. Doc only, no SQL. This is the design that the next X1
+files (0615+) will implement. It is written down first so it can be reviewed
+on its own.
+
+Rev 1 proposed a single guarded policy per action, merging across role
+groups with `(SELECT pg_has_role(...))` guards. Its review **BLOCKED** it (B1).
+The reason: a merged policy puts every group's expression into every admitted
+role's plan. Table and function privileges, and policy-recursion checks, are
+applied when a statement is planned or initialised, whatever the guard later
+evaluates to. A visitor (anon) could start getting "permission denied", or
+"infinite recursion detected in policy", where today they get rows. Rev 2
+drops the cross-group merge entirely (§3, §6).
 
 ## 1. What is left
 
 The policy-shape PROBE 0607 (#702; staging 41083370690, production
-41085650031) found 56 "uniform" tables and 26 "mixed" ones. On a uniform table,
-every permissive policy has the same role set. On a mixed table, the
-permissive policies are granted to more than one role set.
+41085650031) found 56 "uniform" tables and 26 "mixed" ones. On a uniform
+table, every permissive policy has the same role set; on a mixed table they
+use more than one.
 
 | Uniform tables | Status |
 |---|---|
@@ -20,148 +29,151 @@ permissive policies are granted to more than one role set.
 The schema dump (`UNAPPLIED_20260911101721_…bootstrap.sql`, permissive
 policies only) gives three shapes for the mixed tables:
 
-| Shape | Role sets on the table | Tables (dump) |
+| Shape | Role groups on the table | Tables (dump) |
 |---|---|---|
-| M1 | `{public}` + `{authenticated}` | 22 |
-| M2 | `{anon, authenticated}` + `{authenticated}` | 5 |
-| M3 | `{anon}` + `{authenticated}` | 2 |
+| M1 | `{public}` and `{authenticated}` | 22 |
+| M2 | `{anon, authenticated}` and `{authenticated}` | 5 |
+| M3 | `{anon}` and `{authenticated}` | 2 |
 
 The dump lists 29 such tables; the live PROBE counted 26. The live lanes are
-the truth. The first file of each batch re-reads the shape and refuses if it
-differs from what it expects (§5, PRE).
-
-On 4 of them (newsletter_subscribers, test_agent_config, test_agent_runs,
-user_notifications), no single action has policies from more than one role
-set. Every action there has one role set, so the uniform method applies **per
-action**: group by (action, role set) instead of by table. Shape K0 below
-covers this case.
+the truth. Each batch file re-reads the live shape and refuses if it differs
+from what it expects.
 
 ## 2. The rule Postgres applies
 
-For a query by user `u`, RLS takes the permissive policies of the action
-whose role list contains `PUBLIC`, or a role that `u` has the privileges of.
-It ORs their expressions; a row passes if any one is true. In
-`rowsecurity.c`, `check_role_for_policy` tests `has_privs_of_role(u, role)`,
-which counts inherited membership only.
+For a query by user `u` and an action:
+- RLS takes that action's permissive policies whose role list contains
+  `PUBLIC`, or a role `u` has the privileges of (`check_role_for_policy` →
+  `has_privs_of_role`).
+- It adds only those policies' expressions to the query, and ORs them.
+- Policies that don't apply to `u` are never planned for `u`.
 
-`pg_has_role(role, 'USAGE')` is the SQL form of that same test for the current
-user, `has_privs_of_role(GetUserId(), role)`.
+## 3. The merged form (rev 2): merge within a role group only
 
-## 3. The merged form
+For one table and one action, take the permissive policies with **exactly
+the same role list** (one group). Replace them with one policy, `TO` that same
+role list:
+- USING is the OR of their USINGs;
+- for INSERT/UPDATE, WITH CHECK is the OR of each one's `coalesce(check,
+  using)`.
 
-For one table and one action, split the original permissive policies into
-role groups G₁…Gₖ, one per distinct role list. Each group gets one
-expression: the OR of its members' USING clauses, or for INSERT/UPDATE checks
-the OR of each member's `coalesce(check, using)`.
+This is the uniform method (0608–0614) applied per (action, role list)
+instead of per table. Groups with a single policy are left untouched. No
+guards, and no `pg_has_role`.
 
-- **K0 (k = 1 for this action):** exactly the uniform merge. One policy, `TO`
-  the group's roles. No guard.
-- **K≥2:** one policy, `TO` the union of the groups' roles (`PUBLIC` if any
-  group is `PUBLIC`):
+**Why it is exact, including which errors can happen.** For any user `u` and
+action, the set of applicable policies is a union of whole groups. The role
+list is unchanged, and every member of a group shares it. After the merge,
+`u` gets one policy per applicable group, whose expression is the OR of that
+group's original expressions. So:
+- the expressions planned for `u` are exactly the same expressions as before,
+  only regrouped under fewer policy names;
+- the same tables and functions are referenced, so the same privilege checks
+  run;
+- the same cross-table policy references exist, so the same recursion checks
+  apply;
+- the OR over applicable expressions is unchanged, so the same rows pass
+  USING and WITH CHECK, including UPDATE's need for SELECT visibility,
+  RETURNING and ON CONFLICT.
 
-      USING ( (g₁ guard AND (e₁)) OR (g₂ guard AND (e₂)) OR … )
+**What it does NOT do.** On M1/M2/M3 tables, an action that has one policy in
+each group keeps two policies for a signed-in user. Rev 2 does not merge
+them, because that is exactly what rev 1 did and B1 blocked. They are
+recorded as the **X1 residual**, per table and action, by the PROBE (§5). They
+stay as they are unless the Auditor asks for a guarded design with the extra
+proof that B1 requires (a privilege-closure check for every admitted role
+and a recursion check; see the rev 1 review).
 
-  The guard of a group is:
-  - nothing (true) when the group's roles include `PUBLIC` or equal the
-    policy's `TO` list;
-  - otherwise `(SELECT pg_has_role('<role>', 'USAGE'))`, ORed over the
-    group's roles. The sub-SELECT makes it an InitPlan, evaluated once per
-    query, the same trick as X2.
+## 4. What it costs, and what it gains
 
-Per shape:
+- **Gain, honestly stated:** Postgres already ORs a role's applicable
+  permissive policies into one expression. Merging does not reduce the
+  expressions evaluated per row. Its effects are:
+  - fewer policy objects;
+  - the Supabase linter's "multiple permissive policies" findings drop for
+    the merged (action, role) pairs;
+  - X1's duplicate count (H-2) falls.
 
-| Shape | Merged policy | Visitors (anon) | Signed-in (authenticated) |
-|---|---|---|---|
-| M1 | `TO PUBLIC USING (e_pub OR ((SELECT pg_has_role('authenticated','USAGE')) AND e_auth))` | `e_pub` only | both |
-| M2 | `TO anon, authenticated USING (e_both OR ((SELECT pg_has_role('authenticated','USAGE')) AND e_auth))` | `e_both` only | both |
-| M3 | `TO anon, authenticated USING (((SELECT pg_has_role('anon','USAGE')) AND e_anon) OR ((SELECT pg_has_role('authenticated','USAGE')) AND e_auth))` | `e_anon` only | `e_auth` only |
+  **No query-time gain is claimed or measured.** The same applies to the
+  uniform batches 0608–0614; their headers' "Postgres then evaluates one
+  policy per action instead of several" means policy objects, not per-row work.
+- **Cost:** none expected. Each role plans the same expressions as before.
 
-In M1, any other role (for example `authenticator`, which is NOINHERIT) gets
-`e_pub` only, exactly as today.
-
-**Why it is exact.** For any user `u`, the guard of group Gᵢ is true exactly
-when Postgres would have applied Gᵢ's policies to `u`. `pg_has_role(...,
-'USAGE')` and `check_role_for_policy` use the same test. The union `TO` list
-admits `u` exactly when at least one group applied. So the merged expression
-is true for a row exactly when the OR of the applicable originals was true.
-
-**Known edge:** a view owned by a role other than the caller, without
-`security_invoker`. RLS then applies as the view owner (`checkAsUser`), while
-`pg_has_role` inside the expression tests the current user. Before any
-batch, PRE lists every view and every SECURITY DEFINER function that reads
-the batch's tables, then:
-- **refuses** if any such view is owned by a role other than `postgres`
-  (`postgres` bypasses RLS, so no policy applies);
-- **refuses** if any such function is owned by a role other than `postgres`
-  (`postgres` again bypasses RLS).
-
-## 4. What it costs
-
-- **Before:** an M1 SELECT for a signed-in user evaluated 2+ policies.
-- **After:** it evaluates one policy with one InitPlan guard (one catalog
-  lookup per query). For visitors the guard is false, so the `AND` stops
-  there and e_auth is not evaluated for each row. This is not a plan-time
-  removal.
-
-This is the same per-query/per-row trade X2 made.
-
-## 5. How it is proven (same harness as 0613/0614, with these changes)
+## 5. How it is proven (same harness as 0613/0614, adapted per group)
 
 - **PRE:**
-  - The table's role sets are exactly the shape the batch expects.
-  - PRE-006 still applies (USING, or WITH CHECK for INSERT).
-  - The view/function ownership check from §3.
-  - The role lists contain only `PUBLIC`, `anon` and `authenticated`. Anything
-    else refuses; a later design handles it.
-- **E1 (before the lock, as postgres):** per identity × action × clause, the
-  union of the rows each **applicable** original accepts (applicability
-  decided by `pg_has_role(<identity role>, <policy role>, 'USAGE')`, the
-  3-argument form) must equal the rows the merged text accepts. Each guard
-  sub-SELECT is replaced by the literal value it would have for that identity,
-  computed by the same 3-argument call. The substitution is textual on the
-  exact guard string the plan generated, and BIND (below) ties the stored text
-  back to it.
-- **BIND (inside the lock):** the stored policy text equals the plan text
-  byte-for-byte, guards included. This is stronger than the row-based BIND of
-  0612–0614: the guarded text cannot be evaluated as postgres without the
-  substitution, so the text itself is compared.
-- **E2 (inside the lock, through real RLS as `anon` and `authenticated`):**
-  same as today. This is the check that evaluates the real guards.
-- **Identities:** today's set (anon; up to 3 per app role; up to 3 owners per
-  owner column; 3 members). Plus one identity per extra role that has
-  privileges on the table (from `information_schema.role_table_grants`), so
-  that `PUBLIC` groups are proven for roles other than anon and authenticated.
+  - The table's live role lists are exactly the shape the batch expects.
+  - At least one (action, role list) group has more than one policy.
+  - PRE-006: the USING clause is present, or the WITH CHECK clause for INSERT.
+  - The early ACCESS SHARE lock is taken before the snapshot.
+- **E1 (before the lock, as postgres):** for each identity × action ×
+  merged group × clause, the union of the rows each original group member
+  accepts must equal the rows the merged text accepts. This is the same check
+  as 0612–0614, keyed by group.
+- **BIND, E2-after, WIN and the lock as in 0613/0614.** E2 runs through real
+  RLS as `anon` and `authenticated`.
+- **E3 (new, inside the transaction, before COMMIT):** for every role
+  admitted by any policy on the table, and for each of SELECT, INSERT, UPDATE
+  and DELETE, run `EXPLAIN` of a representative statement in a sub-block,
+  under that role. Planning and executor start with EXPLAIN-only apply the
+  table and function privilege checks and the recursion check, so any new
+  error refuses the file. It is expected to be identical before and after by
+  §3. The roles are anon, authenticated, and every role with a grant on the
+  table per `information_schema.role_table_grants`, except roles that bypass
+  RLS (measured per lane via `rolbypassrls`, not assumed). E3 is the check that
+  B1 showed rev 1 lacked.
 - **POST:**
-  - POST-005 per action.
-  - POST-006 adapted: the merged `TO` list equals the union of the original
-    groups' lists.
-  - Restrictive policies byte-identical.
-  - The WIN cap and early ACCESS SHARE as in 0613.
+  - Per (action, role list): exactly one policy where there was more than one.
+  - Groups with one policy are byte-identical.
+  - Restrictive policies are byte-identical.
+  - Role lists are unchanged (POST-006 per group).
+  - The backup is owner-only.
 - **PROBE:**
-  - G2/G3/G5 per action.
-  - G6 adapted to the union `TO` list.
-  - **G7:** every guard in a stored merged policy is one of the three exact
-    InitPlan forms above.
+  - G2: no two permissive policies with the same (action, role list).
+  - G5/G6 per group.
+  - **G7 lists the residual:** for each table and action, the role lists that
+    still have more than one applicable policy for some role. It prints names
+    only and does not fail.
 
-## 6. Batches
+## 6. Rejected: the rev 1 guarded merge
 
-By measured proof cost (PROBE 0610) and traffic, the same way as before:
+A single policy `TO` the union, with `(SELECT pg_has_role(...))` guards per
+group, gives the same rows *if it plans without error for every admitted
+role*. It was rejected for this programme for four reasons:
+- **B1:** it puts other groups' expressions into every role's plan, so it
+  can create privilege and recursion errors that do not exist today. This
+  repo revokes anon access to several tables and functions that such
+  expressions may reference.
+- It adds plan-time work for visitors with no measured gain (§4).
+- It needs an extra edge check: views not using `security_invoker`, and
+  non-view rewrite rules, run under the owner's id, where `pg_has_role` and
+  RLS can disagree.
+- Its BIND must compare against the server's rewritten guard text,
+  `( SELECT pg_has_role('authenticated'::name, 'USAGE'::text) AS pg_has_role)`.
 
-- **Low-traffic config tables** (badge_definitions, faq_entries, site_settings,
-  system_flags, role_display_config, judging_tags, test_agent_*, …).
-- **Content tables** (albums, highlights, stories, featured_*, course_modules, …).
-- **Hot:** profiles, follows, comments and reactions, competition_entries,
-  alone or in pairs, with the lean lock.
+**Measured (local Postgres 16, 2026-10-30).** Setup: a table readable by anon,
+with one policy `TO anon`, `USING ((SELECT pg_has_role('authenticated','USAGE'))
+AND <branch>)`. The guard is false for anon. Results:
 
-## 7. Not decided here / limits
+| Branch | Anon runs | Result |
+|---|---|---|
+| reads a table anon may not SELECT | bare `EXPLAIN SELECT` | ERROR `permission denied for table …` |
+| calls a function anon may not EXECUTE | bare `EXPLAIN SELECT` | ERROR `permission denied for function …` |
+| calls a function anon may not EXECUTE | real `SELECT` | the same error |
 
-- §3's equivalence rests on `pg_has_role(...,'USAGE')` and
-  `check_role_for_policy` using the same test (`has_privs_of_role`, read from
-  the Postgres source). SQL cannot call `check_role_for_policy` directly. The
-  direct comparison is therefore E2: for each identity role (anon,
-  authenticated and every extra role with a grant), the rows real RLS shows
-  before (originals) and after (guarded merge) must be identical.
-- If a lane has a role list outside {PUBLIC, anon, authenticated}, that table
-  is skipped and listed. This design does not cover it.
-- Query-time gain is not measured (no load test). The claim is one policy per
-  action instead of several.
+So B1 is real, and E3's mechanism (EXPLAIN-only raises the privilege errors)
+works. A branch hidden behind a literal `false` is folded away at plan time
+and raises nothing, so the test needs a run-time guard, as above.
+
+## 7. Batches and limits
+
+- Batches follow the measured proof cost and traffic, as before:
+  - low-traffic config tables first;
+  - then content tables;
+  - hot tables (profiles, follows, comments and reactions,
+    competition_entries) alone or in pairs, with the lean lock.
+- Tables whose every multi-policy action is cross-group (nothing to merge
+  within a group) are skipped and appear only in the G7 residual.
+- Roles outside {PUBLIC, anon, authenticated} in a policy list are handled the
+  same way (grouping is by exact list). E3 covers them if they have a grant.
+- Not measured: query-time effect (§4); a load test is out of scope.
