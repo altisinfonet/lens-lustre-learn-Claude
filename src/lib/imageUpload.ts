@@ -1,7 +1,7 @@
 import { storageUpload } from "@/lib/storageUpload";
 import { isS3Enabled, uploadPairToS3 } from "@/lib/s3Upload";
 import { compressThumbnail, compressImageToFiles } from "@/lib/imageCompression";
-import { guardOriginalUpload } from "@/lib/gpsGuard";
+import { guardOriginalUpload, metadataFreeWebp } from "@/lib/gpsGuard";
 import { LADDER_MARKER, RUNG_QUALITY, rungPath, rungPlan } from "@/lib/imageLadder";
 import { dimsSuffix } from "@/lib/imageFrame";
 import { logger } from "@/lib/logger";
@@ -225,6 +225,15 @@ interface UploadWithThumbnailOptions {
   subPath?: string;
   /** Cache-Control header */
   cacheControl?: string;
+  /**
+   * The caller ALREADY encoded `file` as the full-size WebP (compressImageToFiles)
+   * and these are its dimensions: it is uploaded as is, not encoded a second
+   * time. Ignored unless `file` is image/webp. S11 (2026-10-29): competition
+   * submit / edit encoded at full size, then this function encoded the result
+   * again at full size — two lossy passes and two full-size canvas decodes,
+   * which runs phones out of memory on large camera files.
+   */
+  encoded?: { width: number; height: number };
 }
 
 interface UploadWithThumbnailResult {
@@ -263,7 +272,7 @@ interface UploadWithThumbnailResult {
 export async function uploadImageWithThumbnail(
   opts: UploadWithThumbnailOptions
 ): Promise<UploadWithThumbnailResult> {
-  const { bucket, file, type, userId, subPath, cacheControl } = opts;
+  const { bucket, file, type, userId, subPath, cacheControl, encoded } = opts;
   const upsert = shouldUpsert(type);
 
   const ext = "webp";
@@ -278,7 +287,16 @@ export async function uploadImageWithThumbnail(
   const maxDimension = type === "post" ? 2560 : undefined;
   let fullResFile: File;
   let encodedDims: { width: number; height: number } | null = null;
-  try {
+  // The caller's word is not proof: only a WebP that metadataFreeWebp PROVES is a
+  // plain still image (exact container, image + colour-profile chunks only) and
+  // whose own header states the stated size skips the encode. Anything else is
+  // encoded here as before, which strips metadata.
+  // The size the caller states must be the size the file's own header states.
+  const proven = encoded && file.type === "image/webp" ? await metadataFreeWebp(file) : null;
+  if (proven && encoded && proven.width === encoded.width && proven.height === encoded.height) {
+    fullResFile = proven.file;
+    encodedDims = { width: proven.width, height: proven.height };
+  } else try {
     const { webpFile, width, height } = await compressImageToFiles(
       file,
       baseName,

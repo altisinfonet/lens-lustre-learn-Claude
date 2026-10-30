@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
 import { toast } from "@/hooks/core/use-toast";
 import { queryKeys } from "@/lib/queryKeys";
+import { invalidateProfileMap } from "@/lib/profileMapCache";
 import type { ProfileCoreData } from "@/hooks/profile/useProfileData";
 import { storageRemove } from "@/lib/storageUpload";
 
@@ -135,8 +136,11 @@ export function useAdminUpdateProfile() {
     },
     onSuccess: (_data, variables) => {
       void qc.invalidateQueries({ queryKey: queryKeys.profileCore(variables.userId) });
-      void qc.invalidateQueries({ queryKey: queryKeys.profileMap([variables.userId]) });
-      void qc.invalidateQueries({ queryKey: queryKeys.profileDetailMap([variables.userId]) });
+      // Map keys are SORTED id lists of whoever is on screen, so a key built
+      // from [userId] alone matched almost no cached map (S11, 2026-10-29).
+      // Evict this member's entity entry and every map, as profileMapCache does.
+      invalidateProfileMap(variables.userId);
+      void qc.invalidateQueries({ queryKey: queryKeys.profileDetailMapPrefix() });
     },
     onError: (err: Error) => {
       toast({ title: "Profile update failed", description: err.message, variant: "destructive" });

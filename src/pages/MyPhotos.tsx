@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from "react";
+import { fetchTaggedPhotosPage, nextTaggedPage } from "@/lib/profile/taggedPhotos";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useUserAlbums, useAlbumPhotos, useCreateAlbum, useDeleteAlbum, addPhotoToAlbum, type PhotoAlbum } from "@/hooks/profile/useAlbums";
@@ -122,43 +123,30 @@ const TaggedInGrid = ({ userId }: { userId: string }) => {
   const {
     data,
     isLoading,
+    isError,
+    refetch,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery({
     queryKey: ["my-photos-tagged", userId],
     initialPageParam: 0,
-    queryFn: async ({ pageParam = 0 }) => {
-      const from = (pageParam as number) * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
-      // Page through post_tags (newest first by created_at)
-      const { data: tags, error } = await (supabase
-        .from("post_tags" as any)
-        .select("post_id, created_at")
-        .eq("tagged_user_id", userId)
-        .order("created_at", { ascending: false })
-        .range(from, to) as any);
-      if (error || !tags?.length) return [];
-      const postIds = tags.map((t: any) => t.post_id);
-      const { data: posts } = await supabase
-        .from("posts")
-        .select("id, image_url, user_id, created_at")
-        .in("id", postIds)
-        .not("image_url", "is", null);
-      // Preserve tag order (newest tag first)
-      const postMap = new Map((posts || []).map((p: any) => [p.id, p]));
-      return postIds
-        .map((id: string) => postMap.get(id))
-        .filter((p: any) => p && p.image_url);
-    },
-    getNextPageParam: (lastPage, allPages) =>
-      lastPage.length === PAGE_SIZE ? allPages.length : undefined,
+    queryFn: ({ pageParam = 0 }) => fetchTaggedPhotosPage(userId, pageParam as number, PAGE_SIZE),
+    getNextPageParam: (lastPage, allPages) => nextTaggedPage(lastPage, allPages.length, PAGE_SIZE),
     enabled: !!userId,
   });
 
-  const photos = data?.pages.flat() ?? [];
+  const photos = data?.pages.flatMap((p) => p.photos) ?? [];
 
   if (isLoading) return <GridSkeleton />;
+  if (isError && photos.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-12 text-center text-sm text-muted-foreground" role="alert">
+        <p>{t("mp.taggedLoadFailed")}</p>
+        <button type="button" className="underline min-h-[44px] px-3" onClick={() => void refetch()}>{t("common.retry")}</button>
+      </div>
+    );
+  }
   if (photos.length === 0) return <EmptyState text={t("mp.noTagged")} />;
 
   return (

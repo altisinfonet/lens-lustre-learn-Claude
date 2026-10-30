@@ -152,11 +152,12 @@ const CompetitionSubmit = () => {
         try { image_hash = await computeImageHash(file); } catch { image_hash = null; }
 
         const baseName = safeRandomUUID();
-        const { webpFile } = await compressImageToFiles(file, baseName);
+        const { webpFile, width, height } = await compressImageToFiles(file, baseName);
 
         const uploadResult = await uploadImageWithThumbnail({
           bucket: "competition-photos",
           file: webpFile,
+          encoded: { width, height }, // already the full-size WebP: upload it, do not encode again
           type: "competition",
           userId: user.id,
           cacheControl: "3600",
