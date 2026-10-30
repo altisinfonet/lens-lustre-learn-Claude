@@ -37,15 +37,15 @@ WITH f AS (
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
    WHERE n.nspname IN ('public', 'private', 'app', 'internal')
      AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = p.oid AND d.deptype = 'e')
-), bodies AS (
+), bodies AS MATERIALIZED (
   SELECT p.oid, p.prosrc FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
    WHERE n.nspname IN ('public', 'private', 'app', 'internal', 'auth', 'storage')
-), pol AS (
+), pol AS MATERIALIZED (
   SELECT coalesce(qual, '') || ' ' || coalesce(with_check, '') AS t FROM pg_policies
-), vw AS (
+), vw AS MATERIALIZED (
   SELECT pg_get_viewdef(c.oid) AS t FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
    WHERE c.relkind IN ('v', 'm') AND n.nspname IN ('public', 'private', 'app', 'internal')
-), dflt AS (
+), dflt AS MATERIALIZED (
   SELECT pg_get_expr(adbin, adrelid) AS t FROM pg_attrdef
 )
 SELECT 'FNREF', f.nspname, f.proname,
@@ -65,7 +65,7 @@ WITH r AS (
     FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
    WHERE n.nspname IN ('public', 'private', 'app', 'internal') AND c.relkind IN ('r', 'p', 'v', 'm')
      AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.deptype = 'e')
-), bodies AS (
+), bodies AS MATERIALIZED (
   SELECT p.prosrc FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
    WHERE n.nspname IN ('public', 'private', 'app', 'internal', 'auth', 'storage')
 )
@@ -108,7 +108,7 @@ SELECT 'SETKEY', key, length(value::text), updated_at::date FROM public.site_set
 
 -- 7. Storage per bucket: object count, bytes, and how many are older than 30 days.
 SELECT 'BUCKET', bucket_id, count(*),
-       coalesce(sum((metadata->>'size')::bigint), 0),
+       coalesce(sum(CASE WHEN metadata->>'size' ~ '^[0-9]{1,18}$' THEN (metadata->>'size')::bigint END), 0),
        count(*) FILTER (WHERE created_at < now() - interval '30 days')
   FROM storage.objects GROUP BY 2 ORDER BY 2;
 
