@@ -11,8 +11,9 @@
  * phone. Kept per member; wiped at sign-out.
  */
 import { describe, it, expect, beforeEach } from "vitest";
+import { rewritePlaylist } from "../../../../cloudflare/media-authz/handler";
 import {
-  planPreview, saveVideoPreview, savedPreviewUrl, hasSavedPreview, clearSavedVideos, savedVideoUsage,
+  planPreview, saveVideoPreview, savedPreviewUrl, hasSavedPreview, clearSavedVideos, savedVideoUsage, enforceVideoBudget,
   getVideoOfflineSettings, setVideoOfflineSettings, canSaveVideoNow, offlineLoaderFor,
   PREVIEW_MIN_S, DEFAULT_BUDGET_MB, OFFLINE_VIDEO_ORIGIN, __resetOfflineVideo,
 } from "@/lib/video/offlineVideo";
@@ -26,19 +27,31 @@ const MASTER = masterPlaylist([
   { name: "240p", width: 240, height: 426, bandwidth: 300_000, videoCodec: "avc1.42E01E" },
   { name: "480p", width: 480, height: 854, bandwidth: 1_000_000, videoCodec: "avc1.4D401E" },
 ], { codec: "mp4a.40.2" });
-const level = (r: string) => mediaPlaylist(`${r}_init.mp4`, Array.from({ length: N }, (_, i) => ({ name: `${r}_${i}.m4s`, seconds: SEG })));
+// real VID-1 names (shared/rules.ts VIDEO_FILE_RE): `<rendition>.mp4` init, `<rendition>_<n>.m4s` segments
+const level = (r: string) => mediaPlaylist(`${r}.mp4`, Array.from({ length: N }, (_, i) => ({ name: `${r}_${i}.m4s`, seconds: SEG })));
 const BASE = "https://cdn.example.com/video/o/v/v1/";
 const MASTER_URL = `${BASE}master.m3u8?t=tok`;
 
-function cdn(segBytes = 1000) {
+/**
+ * Review #674: playlists come through the media-authz Worker, which rewrites
+ * EVERY URI to `name?t=<token>` (cloudflare/media-authz/handler.ts) — the fake
+ * CDN serves exactly what the real one does.
+ */
+function cdn(segBytes = 1000, gate?: Promise<void>) {
   const asked: string[] = [];
   const fetchImpl = async (input: RequestInfo | URL) => {
     const url = String(input);
     asked.push(url);
     if (!url.endsWith("?t=tok")) return new Response("no token", { status: 403 });
     const name = url.slice(BASE.length).replace(/\?t=tok$/, "");
-    if (name === "master.m3u8") return new Response(MASTER);
-    if (name.endsWith(".m3u8")) return new Response(level(name.replace(".m3u8", "")));
+    const served = (text: string) => {
+      const out = rewritePlaylist(text, "tok");
+      if (out === null) throw new Error("the Worker would refuse this fixture playlist");
+      return new Response(out);
+    };
+    if (name === "master.m3u8") return served(MASTER);
+    if (name.endsWith(".m3u8")) return served(level(name.replace(".m3u8", "")));
+    if (gate) await gate;
     return new Response(new Uint8Array(segBytes));
   };
   return { asked, fetchImpl: fetchImpl as typeof fetch };
@@ -84,15 +97,18 @@ describe("what a preview is", () => {
     expect(p.playlists["240p.m3u8"].match(/#EXTINF/g)).toHaveLength(7);
     expect(p.playlists["audio.m3u8"].match(/#EXTINF/g)).toHaveLength(7);
     expect(p.files).toEqual([
-      "240p_init.mp4", ...Array.from({ length: 7 }, (_, i) => `240p_${i}.m4s`),
-      "audio_init.mp4", ...Array.from({ length: 7 }, (_, i) => `audio_${i}.m4s`),
+      "240p.mp4", ...Array.from({ length: 7 }, (_, i) => `240p_${i}.m4s`),
+      "audio.mp4", ...Array.from({ length: 7 }, (_, i) => `audio_${i}.m4s`),
     ]);
   });
   it("a video shorter than the preview is kept whole", () => {
-    const short = mediaPlaylist("240p_init.mp4", [{ name: "240p_0.m4s", seconds: 4 }, { name: "240p_1.m4s", seconds: 3.5 }]);
+    const short = mediaPlaylist("240p.mp4", [{ name: "240p_0.m4s", seconds: 4 }, { name: "240p_1.m4s", seconds: 3.5 }]);
     const p = planPreview(MASTER, short, null, PREVIEW_MIN_S)!;
     expect(p.full).toBe(true);
     expect(p.seconds).toBe(7.5);
+  });
+  it("a playlist with no segments is not a preview", () => {
+    expect(planPreview(MASTER, "", null, PREVIEW_MIN_S)).toBeNull();
   });
   it("refuses anything that is not a plain relative file name (never fetches elsewhere)", () => {
     const evil = level("240p").replace("240p_0.m4s", "https://evil.example/x.m4s");
@@ -114,6 +130,11 @@ describe("saving one", () => {
     expect(store.has(url)).toBe(true);
     expect(store.has(`${OFFLINE_VIDEO_ORIGIN}/u1/vid1/240p_6.m4s`)).toBe(true);
     expect(store.has(`${OFFLINE_VIDEO_ORIGIN}/u1/vid1/240p_7.m4s`)).toBe(false);
+    // the kept playlists name the kept files, with no (expiring) token in them
+    const lvl = await store.get(`${OFFLINE_VIDEO_ORIGIN}/u1/vid1/240p.m3u8`)!.clone().text();
+    expect(lvl).toContain("\n240p_0.m4s\n");
+    expect(lvl).not.toContain("?t=");
+    expect(await store.get(url)!.clone().text()).not.toContain("?t=");
     // 16 media files of 1000 B, plus the three small rewritten playlists
     expect(savedVideoUsage().bytes).toBeGreaterThan(16 * 1000);
     expect(savedVideoUsage().bytes).toBeLessThan(16 * 1000 + 5000);
@@ -216,6 +237,19 @@ describe("playing it back with no network", () => {
     l.load({ url: "https://cdn.example.com/x.m4s", responseType: "arraybuffer", type: "media-fragment" }, {}, {});
     expect(l.networkCalls).toEqual(["https://cdn.example.com/x.m4s"]);
   });
+  it("an aborted load never calls back (hls.js aborts on seek / level switch)", async () => {
+    await saveVideoPreview({ userId: "u1", videoId: "vid1", masterUrl: MASTER_URL }, deps());
+    const Loader = offlineLoaderFor(FakeBase, caches.api);
+    const l = new Loader({}) as unknown as FakeBase & { load: (c: unknown, cfg: unknown, cb: unknown) => void; abort: () => void };
+    const calls: string[] = [];
+    l.load({ url: savedPreviewUrl("vid1"), responseType: "text", type: "manifest" }, {}, {
+      onSuccess: () => calls.push("ok"), onError: () => calls.push("err"), onTimeout: () => calls.push("timeout"),
+    });
+    l.abort();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(calls).toEqual([]);
+    expect(l.stats.aborted).toBe(true);
+  });
   it("a file that is not on the phone is an error, never a network call", async () => {
     const Loader = offlineLoaderFor(FakeBase, caches.api);
     const l = new Loader({}) as unknown as FakeBase & { load: (c: unknown, cfg: unknown, cb: unknown) => void };
@@ -226,6 +260,42 @@ describe("playing it back with no network", () => {
     });
     expect(err.code).toBe(404);
     expect(l.networkCalls).toEqual([]);
+  });
+});
+
+describe("review #674: the budget holds when it is lowered", () => {
+  it("lowering it removes the oldest saved videos down to the new budget; Off removes them all", async () => {
+    setVideoOfflineSettings({ budgetMB: 1 });
+    for (const id of ["a", "b", "c"]) await saveVideoPreview({ userId: "u1", videoId: id, masterUrl: MASTER_URL }, deps(cdn(20_000)));
+    expect(savedVideoUsage().videos).toBe(3);
+    setVideoOfflineSettings({ budgetMB: 0.5 });
+    await enforceVideoBudget(caches.api);
+    expect(hasSavedPreview("a")).toBe(false);
+    expect(savedVideoUsage().bytes).toBeLessThanOrEqual(0.5 * 1024 * 1024);
+    setVideoOfflineSettings({ budgetMB: 0 });
+    await enforceVideoBudget(caches.api);
+    expect(savedVideoUsage()).toEqual({ bytes: 0, videos: 0 });
+    const store = caches.stores.get("video-offline-v1");
+    expect(store ? store.size : 0).toBe(0);
+  });
+});
+
+describe("review #674: a save still running at sign-out leaves nothing behind", () => {
+  it("clearSavedVideos during a save: the save keeps nothing, and the old list is not written back", async () => {
+    await saveVideoPreview({ userId: "u1", videoId: "old", masterUrl: MASTER_URL }, deps());
+    let open!: () => void;
+    const gate = new Promise<void>((r) => { open = r; });
+    const running = saveVideoPreview({ userId: "u1", videoId: "late", masterUrl: MASTER_URL }, deps(cdn(1000, gate)));
+    await new Promise((r) => setTimeout(r, 10)); // the save is waiting on its segments
+    await clearSavedVideos(caches.api);
+    open();
+    expect(await running).toBe("failed");
+    expect(hasSavedPreview("late")).toBe(false);
+    expect(hasSavedPreview("old")).toBe(false);
+    expect(savedVideoUsage()).toEqual({ bytes: 0, videos: 0 });
+    expect(localStorage.getItem("retina:video-offline:index") ?? "[]").toBe("[]");
+    const store = caches.stores.get("video-offline-v1");
+    expect(store ? [...store.keys()] : []).toEqual([]);
   });
 });
 

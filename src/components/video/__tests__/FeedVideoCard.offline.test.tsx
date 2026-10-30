@@ -117,13 +117,23 @@ describe("flight mode, a video saved on the phone", () => {
     fire(nearObs(), 0.1); fire(view(), 1); await flush();
     expect(screen.getByText(/Saved preview/i)).toBeTruthy();
   });
-  it("the network is up but the token cannot be fetched (a dead link): the phone copy plays", async () => {
+  it("review #674: online, the token is refused (a taken-down video): the phone copy is NOT played", async () => {
     saved.ids.add(ID);
-    fetchMock.mockImplementation(async () => { throw new TypeError("Failed to fetch"); });
+    fetchMock.mockImplementation(async () => new Response("{}", { status: 404 }));
     card();
     fire(nearObs(), 0.1); fire(view(), 1); await flush();
+    expect(hlsLog.instances.some((h) => h.source?.startsWith("https://saved-video.invalid/"))).toBe(false);
+  });
+  it("review #674: watched on Wi-Fi, then the network drops: the next start plays the phone copy, not the dead stream", async () => {
+    saved.ids.add(ID);
+    card();
+    fire(nearObs(), 0.1); fire(view(), 1); await flush();
+    expect(hlsLog.instances.at(-1)?.source).toBe(GRANT.master_url);
+    fire(view(), 0); await flush(); // scrolled away: paused
+    net.online = false;
+    fire(view(), 1); await flush(); // back in view, flight mode
     expect(hlsLog.instances.at(-1)?.source).toBe(`https://saved-video.invalid/member-1/${ID}/master.m3u8`);
-    expect(screen.queryByText(/can't play right now/i)).toBeNull();
+    expect(screen.getByTestId("feed-video-card").getAttribute("data-source")).toBe("phone");
   });
 });
 
@@ -147,5 +157,13 @@ describe("online", () => {
     expect(screen.getByTestId("feed-video-card").getAttribute("data-source")).toBe("network");
     expect(saved.saveCalls).toHaveLength(1);
     expect(saved.saveCalls[0]).toEqual([{ userId: "member-1", videoId: ID, masterUrl: GRANT.master_url }, net]);
+  });
+  it("review #674: a device whose player cannot read the phone copy (native HLS) saves nothing", async () => {
+    vi.stubGlobal("MediaSource", undefined);
+    Object.defineProperty(HTMLMediaElement.prototype, "canPlayType", { configurable: true, value: () => "maybe" });
+    card();
+    fire(nearObs(), 0.1); fire(view(), 1); await flush();
+    expect(screen.getByTestId("feed-video-card").querySelector("video")!.dataset.engine).toBe("native");
+    expect(saved.saveCalls).toHaveLength(0);
   });
 });

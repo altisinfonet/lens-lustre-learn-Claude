@@ -35,6 +35,13 @@ const SETTINGS_KEY = "retina:video-offline:settings";
 const INDEX_KEY = "retina:video-offline:index";
 const MB = 1024 * 1024;
 const SAFE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+/**
+ * Review #674: the media-authz Worker serves every playlist with each URI
+ * rewritten to `name?t=<token>` (cloudflare/media-authz/handler.ts). The token
+ * expires in 15 minutes and is not needed on the phone: the kept playlists name
+ * the bare file, and the name alone is what must be plain.
+ */
+const bare = (uri: string): string => uri.replace(/\?.*$/, "");
 
 /* ── settings ─────────────────────────────────────────────────────────────── */
 
@@ -54,9 +61,12 @@ export function getVideoOfflineSettings(): VideoOfflineSettings {
 }
 
 export function setVideoOfflineSettings(patch: Partial<VideoOfflineSettings>): VideoOfflineSettings {
-  const next = { ...getVideoOfflineSettings(), ...patch };
+  const before = getVideoOfflineSettings();
+  const next = { ...before, ...patch };
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(next)); } catch { /* memory of this choice is lost; harmless */ }
   emit();
+  // Review #674: a lower budget holds NOW — the oldest saved videos go; Off removes them all.
+  if (next.budgetMB < before.budgetMB && typeof globalThis.caches !== "undefined") void enforceVideoBudget(globalThis.caches).catch(() => undefined);
   return next;
 }
 
@@ -128,7 +138,7 @@ export function smallestVariant(master: string): { inf: string; uri: string } | 
     if (!uri || uri.startsWith("#")) continue;
     const h = Number(/RESOLUTION=\d+x(\d+)/.exec(lines[i])?.[1] ?? Infinity);
     const bw = Number(/BANDWIDTH=(\d+)/.exec(lines[i])?.[1] ?? Infinity);
-    if (!best || h < best.h || (h === best.h && bw < best.bw)) best = { inf: lines[i], uri, h, bw };
+    if (!best || h < best.h || (h === best.h && bw < best.bw)) best = { inf: lines[i], uri: bare(uri), h, bw };
   }
   return best ? { inf: best.inf, uri: best.uri } : null;
 }
@@ -136,7 +146,10 @@ export function smallestVariant(master: string): { inf: string; uri: string } | 
 /** The audio rendition's playlist, if the master names one. */
 export function audioPlaylistName(master: string): string | null {
   for (const l of master.split(/\r?\n/)) {
-    if (l.startsWith("#EXT-X-MEDIA:") && /TYPE=AUDIO/.test(l)) return /URI="([^"]+)"/.exec(l)?.[1] ?? null;
+    if (l.startsWith("#EXT-X-MEDIA:") && /TYPE=AUDIO/.test(l)) {
+      const u = /URI="([^"]+)"/.exec(l)?.[1];
+      return u ? bare(u) : null;
+    }
   }
   return null;
 }
@@ -154,10 +167,11 @@ function trimMedia(text: string, minS: number): Trimmed | null {
     if (!line) continue;
     if (line === "#EXT-X-ENDLIST") continue;
     if (line.startsWith("#EXT-X-MAP:")) {
-      const uri = /URI="([^"]+)"/.exec(line)?.[1];
+      const raw = /URI="([^"]+)"/.exec(line)?.[1];
+      const uri = raw ? bare(raw) : "";
       if (!uri || !SAFE_NAME.test(uri)) return null;
       files.push(uri);
-      out.push(line);
+      out.push(`#EXT-X-MAP:URI="${uri}"`);
       continue;
     }
     if (line.startsWith("#EXTINF:")) {
@@ -168,9 +182,10 @@ function trimMedia(text: string, minS: number): Trimmed | null {
     if (line.startsWith("#")) { if (pending === null) out.push(line); continue; }
     // a segment URI
     if (pending === null) continue;
-    if (!SAFE_NAME.test(line)) return null;
-    out.push(pending, line);
-    files.push(line);
+    const name = bare(line);
+    if (!SAFE_NAME.test(name)) return null;
+    out.push(pending, name);
+    files.push(name);
     seconds += Number(/^#EXTINF:([\d.]+)/.exec(pending)?.[1] ?? 0);
     pending = null;
   }
@@ -184,7 +199,8 @@ export function planPreview(master: string, levelText: string, audioText: string
   const audioName = audioPlaylistName(master);
   if (audioName && !SAFE_NAME.test(audioName)) return null;
   const video = trimMedia(levelText, minS);
-  if (!video) return null;
+  // no init or no segment: nothing that could play (an empty or refused playlist)
+  if (!video || video.files.length < 2) return null;
   // the audio, to at least the same length as the picture
   const audio = audioName && audioText ? trimMedia(audioText, video.seconds) : null;
   if (audioName && audioText && !audio) return null;
@@ -231,6 +247,13 @@ export type SaveResult = "saved" | "exists" | "too-big" | "failed";
 /** One save at a time: a phone's link and storage are shared with everything else. */
 let chain: Promise<unknown> = Promise.resolve();
 const inFlight = new Set<string>();
+/**
+ * Review #674: bumped by clearSavedVideos (sign-out, "Remove saved videos"). A
+ * save started before it must not write anything after it — not its files, not
+ * the list it read before the wipe.
+ */
+let generation = 0;
+class Wiped extends Error {}
 
 export function saveVideoPreview(
   input: { userId: string; videoId: string; masterUrl: string },
@@ -246,6 +269,10 @@ async function saveNow(input: { userId: string; videoId: string; masterUrl: stri
   if (hasSavedPreview(videoId)) return "exists";
   if (inFlight.has(videoId)) return "exists";
   inFlight.add(videoId);
+  const gen = generation;
+  const alive = () => { if (gen !== generation) throw new Wiped(); };
+  const written: string[] = [];
+  let cacheRef: Cache | null = null;
   try {
     const q = masterUrl.indexOf("?");
     const path = q < 0 ? masterUrl : masterUrl.slice(0, q);
@@ -254,6 +281,7 @@ async function saveNow(input: { userId: string; videoId: string; masterUrl: stri
     const base = path.slice(0, -"master.m3u8".length);
     const get = async (name: string) => {
       const r = await deps.fetch(`${base}${name}${query}`);
+      alive();
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return r;
     };
@@ -275,41 +303,65 @@ async function saveNow(input: { userId: string; videoId: string; masterUrl: stri
     for (const [name, text] of Object.entries(plan.playlists)) addText(name, text);
     for (const name of plan.files) {
       const buf = await (await get(name)).arrayBuffer();
+      alive();
       bytes += buf.byteLength;
       if (bytes > budget) return "too-big"; // stop fetching: it cannot be kept anyway
       bodies.push([name, buf, name.endsWith(".mp4") || name.endsWith(".m4s") ? "video/mp4" : "application/octet-stream"]);
     }
 
     // make room: the oldest saved videos go first
-    let list = readIndex().slice();
-    let used = list.reduce((n, e) => n + e.bytes, 0);
     const cache = await deps.caches.open(OFFLINE_VIDEO_CACHE);
-    while (used + bytes > budget && list.length > 0) {
-      const old = list.shift()!;
-      used -= old.bytes;
-      await Promise.all(old.files.map((f) => cache.delete(fileUrl(old.userId, old.videoId, f))));
-    }
-    writeIndex(list);
+    cacheRef = cache;
+    alive();
+    await evictTo(budget - bytes, cache, alive);
 
-    const names: string[] = [];
-    try {
-      for (const [name, body, type] of bodies) {
-        await cache.put(fileUrl(userId, videoId, name), new Response(body, { headers: { "content-type": type } }));
-        names.push(name);
-      }
-    } catch {
-      await Promise.all(names.map((n) => cache.delete(fileUrl(userId, videoId, n)).catch(() => false)));
-      return "failed";
+    for (const [name, body, type] of bodies) {
+      alive();
+      await cache.put(fileUrl(userId, videoId, name), new Response(body, { headers: { "content-type": type } }));
+      written.push(name);
     }
-    list = readIndex().filter((e) => e.videoId !== videoId);
-    list.push({ videoId, userId, files: names, bytes, seconds: plan.seconds, full: plan.full, savedAt: Date.now() });
+    alive();
+    const list = readIndex().filter((e) => e.videoId !== videoId);
+    list.push({ videoId, userId, files: written, bytes, seconds: plan.seconds, full: plan.full, savedAt: Date.now() });
     writeIndex(list);
     return "saved";
   } catch {
+    // all or nothing: what this save already put on the phone goes again
+    if (cacheRef && written.length) {
+      const c = cacheRef;
+      await Promise.all(written.map((n) => c.delete(fileUrl(userId, videoId, n)).catch(() => false)));
+    }
     return "failed";
   } finally {
     inFlight.delete(videoId);
   }
+}
+
+/** Remove the oldest saved videos until at most `maxBytes` are used. */
+async function evictTo(maxBytes: number, cache: Cache, alive: () => void = () => {}): Promise<void> {
+  const list = readIndex().slice();
+  let used = list.reduce((n, e) => n + e.bytes, 0);
+  let changed = false;
+  while (used > maxBytes && list.length > 0) {
+    const old = list.shift()!;
+    used -= old.bytes;
+    changed = true;
+    await Promise.all(old.files.map((f) => cache.delete(fileUrl(old.userId, old.videoId, f)).catch(() => false)));
+    alive();
+  }
+  if (changed) writeIndex(list);
+}
+
+/** Review #674: hold the budget now (after it was lowered). Runs in turn with saves. */
+export function enforceVideoBudget(cacheStorage: CacheStorage = globalThis.caches): Promise<void> {
+  const run = chain.then(async () => {
+    const budget = getVideoOfflineSettings().budgetMB * MB;
+    if (savedVideoUsage().bytes <= budget) return;
+    const cache = await cacheStorage.open(OFFLINE_VIDEO_CACHE);
+    await evictTo(budget, cache);
+  });
+  chain = run.catch(() => undefined);
+  return run;
 }
 
 /* ── the app's own entry point: called by the feed card once it holds a play grant ── */
@@ -342,6 +394,8 @@ type Callbacks = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a mixin base must take (...args: any[])
 type LoaderCtor = new (...args: any[]) => {
   load(ctx: Ctx, cfg: unknown, cb: unknown): void;
+  abort?(): void;
+  destroy?(): void;
   stats: { loaded: number; total: number; loading: { start: number; first: number; end: number }; parsing?: { start: number; end: number } };
   context?: unknown;
 };
@@ -352,9 +406,21 @@ type LoaderCtor = new (...args: any[]) => {
  */
 export function offlineLoaderFor<T extends LoaderCtor>(Base: T, cacheStorage: CacheStorage = globalThis.caches): T {
   return class OfflineVideoLoader extends Base {
+    /** Review #674: hls.js aborts a load on seek / level switch; an aborted load never calls back. */
+    private phoneLoad: { aborted: boolean } | null = null;
+    abort(): void {
+      if (this.phoneLoad) { this.phoneLoad.aborted = true; (this.stats as { aborted?: boolean }).aborted = true; return; }
+      (super.abort as (() => void) | undefined)?.call(this);
+    }
+    destroy(): void {
+      if (this.phoneLoad) this.phoneLoad.aborted = true;
+      (super.destroy as (() => void) | undefined)?.call(this);
+    }
     load(ctx: Ctx, cfg: unknown, cb: unknown): void {
-      if (!ctx.url.startsWith(`${OFFLINE_VIDEO_ORIGIN}/`)) { super.load(ctx, cfg, cb); return; }
+      if (!ctx.url.startsWith(`${OFFLINE_VIDEO_ORIGIN}/`)) { this.phoneLoad = null; super.load(ctx, cfg, cb); return; }
       const callbacks = cb as Callbacks;
+      const mine = { aborted: false };
+      this.phoneLoad = mine;
       this.context = ctx;
       const stats = this.stats;
       const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
@@ -363,17 +429,20 @@ export function offlineLoaderFor<T extends LoaderCtor>(Base: T, cacheStorage: Ca
         try {
           const cache = await cacheStorage.open(OFFLINE_VIDEO_CACHE);
           const hit = await cache.match(ctx.url);
+          if (mine.aborted) return;
           if (!hit) {
             callbacks.onError({ code: 404, text: "not saved on this phone" }, ctx, null, stats);
             return;
           }
           const data = ctx.responseType === "arraybuffer" ? await hit.arrayBuffer() : await hit.text();
+          if (mine.aborted) return;
           const t = now();
           stats.loading.first = t;
           stats.loading.end = t;
           stats.loaded = stats.total = typeof data === "string" ? data.length : data.byteLength;
           callbacks.onSuccess({ url: ctx.url, data }, stats, ctx, null);
         } catch {
+          if (mine.aborted) return;
           callbacks.onError({ code: 500, text: "could not read the saved video" }, ctx, null, stats);
         }
       })();
@@ -385,6 +454,7 @@ export function offlineLoaderFor<T extends LoaderCtor>(Base: T, cacheStorage: Ca
 
 /** Every saved video and the list: they belong to the member who saw them. */
 export async function clearSavedVideos(cacheStorage: CacheStorage | undefined = globalThis.caches): Promise<boolean> {
+  generation++; // a save still running writes nothing after this (review #674)
   memo = [];
   try { localStorage.removeItem(INDEX_KEY); } catch { /* nothing to remove */ }
   emit();
@@ -397,4 +467,5 @@ export function __resetOfflineVideo(): void {
   memo = null;
   chain = Promise.resolve();
   inFlight.clear();
+  generation++;
 }

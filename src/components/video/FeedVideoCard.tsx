@@ -151,13 +151,18 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
   const ensureSource = useCallback(async (fresh = false): Promise<boolean> => {
     const v = el.current;
     if (!v) return false;
-    if (attached.current && !grantDue(grant.current) && !fresh) return true;
-    // S7b-6: with no network, a video saved on the phone plays from there (no token
-    // to ask for); with a network, the token — and the phone copy only if the
-    // token cannot be had (a dead link).
-    const saved = savedPreviewUrl(video.id);
-    if (attached.current && fromPhone.current && saved && !getNetState().online) return true;
-    const g = saved && !getNetState().online ? null : await requestGrant(video.id, { fresh });
+    // S7b-6: with no network, a video saved on the phone plays from there (no
+    // token to ask for). Only with NO network: online, a refused token (a video
+    // taken down, a deleted post — review #674) never falls back to the phone.
+    const offline = !getNetState().online;
+    const saved = offline ? savedPreviewUrl(video.id) : null;
+    if (attached.current && !fresh) {
+      if (saved && fromPhone.current) return true;
+      // Review #674: the network stream attached earlier cannot load its next
+      // segment now — switch to the phone copy instead of failing.
+      if (!saved && !grantDue(grant.current)) return true;
+    }
+    const g = saved ? null : await requestGrant(video.id, { fresh });
     if (!g && !saved) { setFailed(true); return false; }
     if (g) { grant.current = g; setPoster(g.poster_url); }
     const src = g ? g.master_url : saved!;
@@ -217,7 +222,9 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     attached.current = true;
     // S7b-6: online with a token → the background saver keeps a preview for no
     // network (it applies the member's budget and Wi-Fi rule itself).
-    if (g) {
+    // Only where the phone copy could be played back: hls.js (review #674 — a
+    // native HLS player cannot read it, so saving there only fills the phone).
+    if (g && engine === "hlsjs" && Hls) {
       void supabase.auth.getSession()
         .then(({ data }) => maybeSaveVideoPreview({ userId: data.session?.user?.id ?? null, videoId: video.id, masterUrl: g.master_url }, getNetState()))
         .catch(() => { /* saving is a bonus, never an error */ });
