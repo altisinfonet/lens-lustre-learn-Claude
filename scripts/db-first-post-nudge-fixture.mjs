@@ -33,6 +33,9 @@ const MIG = join(ROOT, "supabase/migrations/20261102_0200_first_post_nudge.sql")
 const PROBE = join(ROOT, "supabase/migrations/PROBE_20261102_0200_first_post_nudge.sql");
 const RB = join(ROOT, "supabase/rollback/20261102_0200_first_post_nudge_ROLLBACK.sql");
 const PUSH = join(ROOT, "supabase/migrations/20260815064043_push_announcements_switch.sql");
+const ON = join(ROOT, "supabase/migrations/20261102_0201_first_post_nudge_switch_on.sql");
+const ON_PROBE = join(ROOT, "supabase/migrations/PROBE_20261102_0201_first_post_nudge_switch_on.sql");
+const OFF = join(ROOT, "supabase/rollback/20261102_0201_first_post_nudge_switch_on_ROLLBACK.sql");
 
 const host = process.env.PGHOST ?? "";
 if (!(host === "localhost" || host === "127.0.0.1" || host === "::1" || host.startsWith("/"))) {
@@ -99,6 +102,17 @@ for (const shape of ["production", "staging"]) {
   step(db, "PROBE after the rollback FAILS", "fail", { file: PROBE, lane: shape }, "PROBE FAIL");
   step(db, "0200 re-applies after the rollback", "ok", { file: MIG, lane: shape });
   step(db, "gate assertions PASS again", "ok", { file: T("30_assert.sql"), tx: true });
+  // The Owner's switch (0201) and its switch-off.
+  step(db, "switch PROBE FAILS while off", "fail", { file: ON_PROBE, lane: shape }, "PROBE FAIL");
+  step(db, "switch-on refuses with no lane", "fail", { file: ON }, "APPLY REFUSED");
+  step(db, "switch-on applies", "ok", { file: ON, lane: shape });
+  step(db, "switch-on is idempotent", "ok", { file: ON, lane: shape });
+  step(db, "switch PROBE PASSES", "ok", { file: ON_PROBE, lane: shape });
+  step(db, "a new member is queued once on", "ok", { sql: "DO $x$ BEGIN INSERT INTO auth.users (id, email) VALUES ('00000000-0000-0000-0000-0000000000e1', 'e1@fixture.invalid'); INSERT INTO public.profiles (id) VALUES ('00000000-0000-0000-0000-0000000000e1'); IF (SELECT count(*) FROM public.first_post_reminders WHERE user_id = '00000000-0000-0000-0000-0000000000e1') <> 3 THEN RAISE EXCEPTION 'FIXTURE FAIL S1: not queued with the switch on'; END IF; END $x$;" });
+  step(db, "switch-off runs", "ok", { file: OFF, lane: shape });
+  step(db, "switch-off is idempotent", "ok", { file: OFF, lane: shape });
+  step(db, "switch PROBE FAILS after switch-off", "fail", { file: ON_PROBE, lane: shape }, "PROBE FAIL");
+  step(db, "tick sends nothing once off", "ok", { sql: "DO $x$ BEGIN UPDATE public.first_post_reminders SET due_at = now() - interval '1 hour'; IF public.first_post_reminders_tick() <> 0 THEN RAISE EXCEPTION 'FIXTURE FAIL S2: sent after switch-off'; END IF; END $x$;" });
   psql("postgres", { sql: `DROP DATABASE IF EXISTS ${db};` });
 }
 
