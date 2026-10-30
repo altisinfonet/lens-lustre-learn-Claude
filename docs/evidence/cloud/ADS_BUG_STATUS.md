@@ -74,6 +74,17 @@ Browser check: nav harness journeys "sponsored card: …" (Chromium/Firefox/WebK
     independent review "nothing blocking"; CI 27/27 green) → **merged staging `1084573`** (2026-10-30).
 
 ## For the Owner (plain words)
-The like and comment buttons disappeared when the phone could not load the ad list for a moment (weak or no network).
-The app then showed the other ad picture saved in the "Story Card" zone settings, which has no likes or comments, and
-never tried again. We are fixing it so the app keeps trying and only ever shows the ad with its like and comment buttons.
+**Like and comment are back on the sponsored card.** They vanished when the phone could not load the list of
+ads for a moment (weak or no network): the app then showed the other picture saved in the Story Card zone
+settings ("AUGUST GALLERY CONTEST 2026"), which has no likes or comments, and never tried again. Now the app
+keeps trying and only ever shows the ad with its like and comment buttons. This is live on the website now
+(checked in Chrome, Firefox and Safari's engine, also with a bad connection) and in Android app 1.2.31.
+
+**With no network**, the ad you saw last is now kept on the phone and shown with its like and comment buttons.
+Its picture also stays on the phone, but only once the "save photos on the phone" switch (app_image_sw) is
+turned on — it is OFF, and switching it on is your decision. The missing posts with no network were fixed by
+the offline work (S7b runner), which is also in 1.2.31.
+
+Tip: the Story Card zone still has its own single picture (AUGUST GALLERY CONTEST 2026) in its settings. It is
+no longer shown while you have pictures in the ad library; if you do not want it, you can clear it in
+Admin → Advertisements.
