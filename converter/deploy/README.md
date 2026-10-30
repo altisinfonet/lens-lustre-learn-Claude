@@ -102,6 +102,20 @@ is `ffjob-run`'s `timeout` (RuntimeMaxSec has no effect on `Type=oneshot`), capp
 `sudo bash setup.sh --worker ../worker.mjs && sudo systemctl restart converter.service`
 (a restart ends the current job with `fail internal`, which requeues it).
 
+### Purge tick (S7-f)
+The worker also empties the lane's video purge queue (S7-a: deleted videos' R2 files after the
+30-day keep). Once an hour by default it calls `POST /api/video/purge {limit: 5}` on
+`CONVERTER_API_BASE` with its own converter session (refreshed by the worker; no pasted token),
+**one request per loop turn, before the next job poll** — never inside a job, never during the
+self-test — and keeps going while full pages come back, at most 20 requests per tick. A tick ends
+early on a page that deleted nothing; any error (401 after the usual refresh-and-retry, 5xx, no
+network) is one log line and the next try is an interval later. It never fails a job or stops the
+worker. Each tick logs one line, counts only:
+`journalctl -u converter.service | grep worker.purge` →
+`{"event":"worker.purge","ok":true,"capped":false,"calls":1,"claimed":0,"done":0,"failed":0,"objects":0}`.
+Interval: `CONVERTER_PURGE_EVERY_MS` in the lane's env file (default `3600000`; `0` turns it off;
+otherwise 60000–86400000). `tools/video-purge/run.mjs` remains for manual / one-off runs.
+
 ### If the worker stopped claiming (exit 4)
 If a presigned URL ever names another host or bucket than `CONVERTER_R2_HOST` /
 `CONVERTER_R2_BUCKET`, the worker refuses it, ends that job (`fail internal`, requeued), logs
@@ -322,6 +336,9 @@ libx264 and libx265, which are GPL). What that asks of us, and how it is met:
 ## Behaviour summary (for the reviewer)
 
 - Polls `POST /api/video/convert/claim` every 10 s; while idle the wait doubles to 60 s.
+- S7-f: once an hour (`CONVERTER_PURGE_EVERY_MS`), one `POST /api/video/purge` per loop turn before
+  the claim until the queue is drained (≤ 20 per tick); errors wait for the next interval
+  ("Purge tick (S7-f)" above).
 - One job at a time. The claim is written to `/var/lib/converter/state/claim.json` (0600) before
   any work; a restart ends it with `finish fail internal` instead of waiting out the 30-min lease.
 - Heartbeat (`video_source_heartbeat`) every 2 min for the whole job; a refused heartbeat
