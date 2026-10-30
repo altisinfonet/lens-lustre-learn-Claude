@@ -7,9 +7,9 @@ Owner exclusions honoured: backups/PITR drills, judging objects. No feature swit
 
 | # | Unit | State | PR | Merged shas | SQL runs | Live check |
 |---|---|---|---|---|---|---|
-| 1 | One truth (capture live-only DB objects + drift CI) | PROBE 0200 in CI | #646 (U1a, read PROBE) | — | — | — |
-| 2 | Account deletion complete | INSPECT | — | — | — | — |
-| 3 | Alarms independent of GitHub cron | built + tested locally, PR next | — | — | — | — |
+| 1 | One truth (capture live-only DB objects + drift CI) | read PROBEs 0200 + 0202 in CI; drift checker built (self-test 7/7) | #646 (U1a) | — | — | — |
+| 2 | Account deletion complete | schema PROBE 0400 in CI; code side written, fail-first tests G1–G3 seen FAILING | #651 (U2a) | — | — | — |
+| 3 | Alarms independent of GitHub cron | in CI; reviewer NOTHING BLOCKING (round 2) | #650 | — | — | — |
 | 4 | High-severity dependencies | SKIP (stages runner #634 already merged to staging: 14 → 1 high) — main carry to verify | #634 (not mine) | b51e0366 | n/a | — |
 
 ## Unit 1 — proof of problem
@@ -26,6 +26,8 @@ Local evidence: self-test PROBE 0301 — 6/6 pass with the migration, fails with
 - 06:07Z runner started; status PR #645.
 - 06:12Z #646 opened (U1a read PROBE). Reviewer round 1 BLOCKING (credential screen gaps) → fixed 5d2ab43 → round 2 NOTHING BLOCKING. CI queued (repo has ~196 queued runs).
 - 06:35Z Unit 3 built and tested locally; Unit 4 found already done by the stages runner.
+
+- 07:00Z all three PRs progressing through CI (no failures so far). #650 reviewer round 1 BLOCKING (default grants let members TRUNCATE alarm tables) → fixed 414e8474 → NOTHING BLOCKING. #651 NOTHING BLOCKING. Drift design: live body equal to an older git version = PENDING (apply lag, info); equal to no git version = DRIFT.
 
 ## Owner list
 (none yet)
