@@ -48,6 +48,12 @@ interface UserRow {
 
 type UserSearchMode = "name" | "email";
 
+interface FetchOptions { silent?: boolean; page?: number; platform?: PlatformTab }
+type RpcCall = (
+  fn: string,
+  args: Record<string, unknown>,
+) => Promise<{ data: Record<string, unknown>[] | null; error: { message: string; code?: string } | null }>;
+
 /** ── WHY THIS LIST IS PAGED ────────────────────────────────────────────────
  *  Until 2026-08-24 this screen called `admin_search_users`, whose default
  *  branch ends `ORDER BY created_at DESC LIMIT 100`, and it had no paging at
@@ -70,11 +76,31 @@ type UserSearchMode = "name" | "email";
  */
 const USERS_PAGE_SIZE = 100;
 
+/** "Filter by platform" (Owner, 2026-10-30: "give small tabs: All, App users,
+ *  Web users, Unknown"). "" = All. "unknown" = profiles.last_platform IS NULL
+ *  — nothing recorded yet, never guessed. Filtered IN SQL by
+ *  admin_search_users_v3 (20261103_0101), before the limit, exactly like role
+ *  and badge — a tab that filtered only the loaded page would hide pages 2..N. */
+type PlatformTab = "" | "app" | "web" | "unknown";
+const PLATFORM_TABS: { key: PlatformTab; label: string; i18n: string }[] = [
+  { key: "", label: "All", i18n: "dash.status.all" },
+  { key: "app", label: "App users", i18n: "au.platformApp" },
+  { key: "web", label: "Web users", i18n: "au.platformWeb" },
+  { key: "unknown", label: "Unknown", i18n: "au.platformUnknown" },
+];
+interface PlatformCounts { all: number; app: number; web: number; unknown: number }
+
+/** PostgREST's "no such function" (schema cache) / Postgres' undefined_function.
+ *  Same test as useFeedQuery: a lane where 20261103_0101 is not applied yet. */
+const isMissingFunction = (error: { code?: string } | null) =>
+  !!error && (error.code === "PGRST202" || error.code === "42883");
+
 interface ActiveUserQuery {
   query: string;
   by: UserSearchMode;
   badge: string;
   role: string;
+  platform: PlatformTab;
   page: number;
 }
 
@@ -121,8 +147,14 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
   const [badgeTarget, setBadgeTarget] = useState<UserRow | null>(null);
   const [badgeFilter, setBadgeFilter] = useState<string>("");
   const [roleFilter, setRoleFilter] = useState<string>("");
+  const [platformFilter, setPlatformFilter] = useState<PlatformTab>("");
+  const [platformCounts, setPlatformCounts] = useState<PlatformCounts | null>(null);
+  // False once the server says 20261103_0101 is not there: the list then uses
+  // admin_search_users_v2 and the platform row is hidden instead of broken.
+  const [platformAvailable, setPlatformAvailable] = useState(true);
+  const platformAvailableRef = useRef(true);
   const activeQueryRef = useRef<ActiveUserQuery | null>(null);
-  const fetchUsersRef = useRef<((query?: string, by?: UserSearchMode, badge?: string, role?: string, options?: { silent?: boolean; page?: number }) => Promise<void>) | null>(null);
+  const fetchUsersRef = useRef<((query?: string, by?: UserSearchMode, badge?: string, role?: string, options?: FetchOptions) => Promise<void>) | null>(null);
 
   /** 0-based page index, and the size of the FILTERED set (not of this page).
    *  totalCount comes from the RPC so the footer can never overstate or
@@ -201,8 +233,8 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
     if (!activeQueryRef.current || !fetchUsersRef.current) return;
     // Stay on the page the admin is looking at. A realtime repaint that
     // silently threw them back to page 1 mid-task would be its own bug.
-    const { query, by, badge, role, page: currentPage } = activeQueryRef.current;
-    void fetchUsersRef.current(query, by, badge, role, { ...options, page: currentPage });
+    const { query, by, badge, role, platform, page: currentPage } = activeQueryRef.current;
+    void fetchUsersRef.current(query, by, badge, role, { ...options, page: currentPage, platform });
   };
 
   const bulkAssignRole = async () => {
@@ -257,11 +289,11 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
     by = searchBy,
     badge = badgeFilter,
     role = roleFilter,
-    options: { silent?: boolean; page?: number } = {},
+    options: FetchOptions = {},
   ) => {
     const normalizedQuery = query.trim();
-    const { silent = false, page: requestedPage = 0 } = options;
-    activeQueryRef.current = { query: normalizedQuery, by, badge, role, page: requestedPage };
+    const { silent = false, page: requestedPage = 0, platform = platformFilter } = options;
+    activeQueryRef.current = { query: normalizedQuery, by, badge, role, platform, page: requestedPage };
     setPage(requestedPage);
     setLoading(true);
 
@@ -273,23 +305,58 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
     // never been offered to — which is exactly how the sole `admin` became
     // invisible. Passing _role / _badge into the RPC applies them BEFORE the
     // limit, so a holder can never be dropped by paging.
-    const { data, error } = await (supabase.rpc as unknown as (
-      fn: string,
-      args: Record<string, unknown>,
-    ) => Promise<{ data: unknown[] | null; error: { message: string } | null }>)(
-      // ⚠ CALL IT, NEVER COPY IT — see the header of src/lib/media/postMediaWrite.ts.
-      // The cast sits INSIDE the call parentheses so `supabase.rpc` is resolved
-      // as a member expression at invocation and `this` is still the client.
-      "admin_search_users_v2",
-      {
-        _query: normalizedQuery,
-        _by: by,
-        _role: role || null,
-        _badge: badge || null,
-        _limit: USERS_PAGE_SIZE,
-        _offset: requestedPage * USERS_PAGE_SIZE,
-      },
-    );
+    // ── PLATFORM IS FILTERED IN SQL TOO (20261103_0101) ───────────────────
+    // admin_search_users_v3 = v2 + _platform, applied before the limit. The
+    // tab counts come from admin_user_platform_counts for the same search +
+    // role + badge, so each tab says how many members it would list. Both are
+    // admin-only (same has_role check as v2). Until the migration is applied
+    // on a lane, fall back to v2 and hide the platform row.
+    const baseArgs = {
+      _query: normalizedQuery,
+      _by: by,
+      _role: role || null,
+      _badge: badge || null,
+    };
+    const listArgs = {
+      ...baseArgs,
+      _limit: USERS_PAGE_SIZE,
+      _offset: requestedPage * USERS_PAGE_SIZE,
+    };
+    let data: unknown[] | null = null;
+    let error: { message: string; code?: string } | null = null;
+    if (platformAvailableRef.current) {
+      const [listRes, countsRes] = await Promise.all([
+        (supabase.rpc as unknown as RpcCall)(
+          // ⚠ CALL IT, NEVER COPY IT — see the header of src/lib/media/postMediaWrite.ts.
+          "admin_search_users_v3",
+          { ...listArgs, _platform: platform || null },
+        ),
+        (supabase.rpc as unknown as RpcCall)("admin_user_platform_counts", baseArgs),
+      ]);
+      if (isMissingFunction(listRes.error)) {
+        platformAvailableRef.current = false;
+        setPlatformAvailable(false);
+        setPlatformCounts(null);
+      } else {
+        ({ data, error } = listRes);
+        const c = (countsRes.data?.[0] ?? null) as Record<string, unknown> | null;
+        setPlatformCounts(!countsRes.error && c ? {
+          all: Number(c.all_count ?? 0),
+          app: Number(c.app_count ?? 0),
+          web: Number(c.web_count ?? 0),
+          unknown: Number(c.unknown_count ?? 0),
+        } : null);
+      }
+    }
+    if (!platformAvailableRef.current) {
+      ({ data, error } = await (supabase.rpc as unknown as RpcCall)(
+        // ⚠ CALL IT, NEVER COPY IT — see the header of src/lib/media/postMediaWrite.ts.
+        // The cast sits INSIDE the call parentheses so `supabase.rpc` is resolved
+        // as a member expression at invocation and `this` is still the client.
+        "admin_search_users_v2",
+        listArgs,
+      ));
+    }
 
     if (error) {
       if (!silent) toast({ title: t("au.searchFailed"), description: error.message, variant: "destructive" });
@@ -340,16 +407,18 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
       setUsers([]);
       setTotalCount(0);
       if (!silent) {
+        const platformTab = platformAvailableRef.current ? PLATFORM_TABS.find((p) => p.key === platform && p.key) : undefined;
         const filters = [
           badge ? `${getBadgeLabel(badge)} badge` : "",
           role ? `${getRoleLabel(role)} role` : "",
+          platformTab ? t(platformTab.i18n, platformTab.label) : "",
         ].filter(Boolean).join(" & ");
         // An empty page N of a non-empty set means the admin paged past the
         // end (a deletion shrank the set under them). Say so, rather than
         // implying nobody matches.
         if (requestedPage > 0) {
           toast({ title: t("au.noUsersFound"), description: `No members on page ${requestedPage + 1}. Returning to page 1.` });
-          void fetchUsersRef.current?.(normalizedQuery, by, badge, role, { silent: true, page: 0 });
+          void fetchUsersRef.current?.(normalizedQuery, by, badge, role, { silent: true, page: 0, platform });
           return;
         }
         if (normalizedQuery || filters) {
@@ -664,6 +733,37 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
         ))}
       </div>
 
+      {/* Platform Filter — All · App users · Web users · Unknown, each with the
+          count for the current search/role/badge (whole list, not this page).
+          Hidden on a lane where 20261103_0101 is not applied yet. */}
+      {platformAvailable && (
+        <div className="flex items-center gap-2 flex-wrap" data-testid="platform-filter">
+          <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground shrink-0" style={{ fontFamily: "var(--font-heading)" }}>
+            <Smartphone className="h-3 w-3 inline mr-1" />{t("au.filterByPlatform", "Filter by platform")}
+          </span>
+          {PLATFORM_TABS.map((p) => {
+            const count = platformCounts ? platformCounts[p.key || "all"] : null;
+            return (
+              <button
+                key={p.key || "all"}
+                data-testid={`platform-tab-${p.key || "all"}`}
+                aria-pressed={platformFilter === p.key}
+                onClick={() => {
+                  setPlatformFilter(p.key);
+                  fetchUsers(searchQuery.trim(), searchBy, badgeFilter, roleFilter, { platform: p.key });
+                }}
+                className={`px-2.5 py-1 text-[9px] tracking-wider uppercase border rounded-sm transition-all ${
+                  platformFilter === p.key ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary hover:text-primary"
+                }`}
+                style={{ fontFamily: "var(--font-heading)" }}
+              >
+                {t(p.i18n, p.label)}{count !== null ? ` (${count.toLocaleString()})` : ""}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Bulk Action Bar */}
       {selectedIds.size > 0 && (
         <div className="flex items-center gap-3 border border-primary/30 bg-primary/5 p-3 rounded-sm">
@@ -884,7 +984,7 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
           </div>
           <div className="border border-border rounded-sm overflow-hidden divide-y divide-border">
             {users.map((u) => (
-              <div key={u.id} className={`px-3 py-2.5 hover:bg-muted/30 transition-colors group ${u.is_suspended ? "opacity-60 bg-destructive/5" : ""} ${selectedIds.has(u.id) ? "bg-primary/5" : ""}`}>
+              <div key={u.id} data-member-id={u.id} className={`px-3 py-2.5 hover:bg-muted/30 transition-colors group ${u.is_suspended ? "opacity-60 bg-destructive/5" : ""} ${selectedIds.has(u.id) ? "bg-primary/5" : ""}`}>
                 <div className="flex items-start gap-2.5">
                   {/* Checkbox */}
                   <button onClick={() => toggleSelect(u.id)} className="shrink-0 hover:text-primary transition-colors mt-1">
@@ -1022,7 +1122,7 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
         const goTo = (p: number) => {
           if (p < 0 || p >= pageCount || loading) return;
           const q = activeQueryRef.current;
-          void fetchUsersRef.current?.(q?.query ?? "", q?.by ?? searchBy, q?.badge ?? badgeFilter, q?.role ?? roleFilter, { silent: true, page: p });
+          void fetchUsersRef.current?.(q?.query ?? "", q?.by ?? searchBy, q?.badge ?? badgeFilter, q?.role ?? roleFilter, { silent: true, page: p, platform: q?.platform ?? platformFilter });
         };
         // A window of at most 7 numbers around the current page, so 42,000
         // pages does not render 42,000 buttons.
