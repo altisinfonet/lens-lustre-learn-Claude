@@ -104,8 +104,12 @@ export function useSessionEnd(): void {
   const userIdRef = useRef<string | null>(user?.id ?? null);
   userIdRef.current = user?.id ?? null;
 
+  // Keyed on the id, not the user object: useAuth hands out a new object on
+  // every token refresh, which would re-run this effect (and re-send the
+  // session-start call) for a session that has not changed.
+  const userId = user?.id ?? null;
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
 
     const record = () => {
       if (!userIdRef.current) return;
@@ -170,5 +174,5 @@ export function useSessionEnd(): void {
         /* nothing to unwind */
       }
     };
-  }, [user]);
+  }, [userId]);
 }

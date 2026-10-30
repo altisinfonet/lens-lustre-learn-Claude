@@ -18,7 +18,7 @@ DECLARE
   o  uuid := '00000000-0000-0000-0000-00000000a004';  -- old member, nothing recorded
   t  uuid := '00000000-0000-0000-0000-00000000a005';  -- same platform, many starts
   has_start boolean := to_regprocedure('public.record_session_platform(text)') IS NOT NULL;
-  v text; xmin_before xid; xmin_after xid; caught text;
+  v text; ctid_before tid; ctid_after tid; caught text; snap text;
 
 BEGIN
   INSERT INTO auth.users (id, created_at) VALUES
@@ -78,14 +78,16 @@ BEGIN
 
   -- ── T · the same platform again writes no new row version ──────────────
   IF has_start THEN
-    SELECT xmin INTO xmin_before FROM public.profiles WHERE id = t;
+    -- ctid, not xmin: this whole file is one transaction, so xmin cannot
+    -- change; any UPDATE (even to the same value) moves the row's ctid.
+    SELECT ctid INTO ctid_before FROM public.profiles WHERE id = t;
     PERFORM set_config('request.jwt.claims', json_build_object('sub', t, 'role', 'authenticated')::text, true);
     SET LOCAL ROLE authenticated;
     PERFORM public.record_session_platform('app');
     PERFORM public.record_session_platform('app');
     RESET ROLE;
-    SELECT xmin INTO xmin_after FROM public.profiles WHERE id = t;
-    IF xmin_after IS DISTINCT FROM xmin_before THEN
+    SELECT ctid INTO ctid_after FROM public.profiles WHERE id = t;
+    IF ctid_after IS DISTINCT FROM ctid_before THEN
       RAISE EXCEPTION 'FIXTURE FAIL T1: an unchanged platform still wrote a profiles row version';
     END IF;
 
@@ -98,10 +100,14 @@ BEGIN
     END;
     RESET ROLE;
     IF caught <> '22023' THEN RAISE EXCEPTION 'FIXTURE FAIL P1: a bad platform was %', caught; END IF;
+    SELECT string_agg(id::text || '=' || coalesce(last_platform, '-') || '@' || ctid::text, ',' ORDER BY id) INTO snap FROM public.profiles;
     PERFORM set_config('request.jwt.claims', '', true);
     SET LOCAL ROLE authenticated;
     PERFORM public.record_session_platform('web');   -- signed out: no row, no error
     RESET ROLE;
+    IF snap IS DISTINCT FROM (SELECT string_agg(id::text || '=' || coalesce(last_platform, '-') || '@' || ctid::text, ',' ORDER BY id) FROM public.profiles) THEN
+      RAISE EXCEPTION 'FIXTURE FAIL P4: a signed-out call changed a profiles row';
+    END IF;
     SET LOCAL ROLE anon;
     BEGIN
       PERFORM public.record_session_platform('web');
