@@ -1,0 +1,92 @@
+name: Alarm relay (database alarms -> ALARM issue)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Foundation fix unit 3. DETECTION does not live here: production's own
+# pg_cron job 'ops-monitor-tick' (20261103_0300_ops_alarms.sql) checks the site
+# every 5 minutes and checks that health.yml has succeeded within 3 hours, and
+# writes alarms to public.ops_alarms. Admin -> Health shows them as a banner.
+#
+# This workflow only DELIVERS, while ops_alarm_settings.destination is
+# 'github_issue' (the one setting; the Owner's e-mail/phone replaces it later):
+#   * every open alarm gets one open issue labelled ALARM (GitHub e-mails the
+#     repo owner); a closed alarm closes its issue with a "recovered" comment;
+#   * if the database monitor itself has not checked for 20 minutes, that is
+#     an ALARM issue too (the two watch each other).
+#
+# The database connection is READ-ONLY (default_transaction_read_only=on): this
+# workflow never writes to the database. It prints alarm summaries only (URLs
+# and workflow names), never the credential.
+# If GitHub drops this schedule the banner still shows the alarm; delivery is
+# late, detection is not.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK (F-47's bright line).
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: alarm-relay
+  cancel-in-progress: false
+
+jobs:
+  relay:
+    name: Deliver open database alarms as ALARM issues
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    env:
+      DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Install psql
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client >/dev/null
+      - name: Read alarms (read-only) and sync ALARM issues
+        run: |
+          set -euo pipefail
+          if [ -z "$DB_URL" ]; then echo "::error::SUPABASE_DB_URL missing on the production Environment"; exit 1; fi
+          export PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=20000'
+          q() { psql "$DB_URL" --no-psqlrc -X -tA -F $'\t' -v ON_ERROR_STOP=1 -c "$1"; }
+
+          DEST=$(q "SELECT destination FROM public.ops_alarm_settings WHERE id = 1")
+          echo "destination: $DEST"
+          if [ -z "$DEST" ]; then echo "::error::ops_alarm_settings row is missing — alarms cannot be routed"; exit 1; fi
+          if [ "$DEST" != "github_issue" ]; then echo "Destination is not github_issue; nothing to deliver here."; exit 0; fi
+
+          # alarms: open ones, plus ones closed in the last 2 days (to close their issues)
+          q "SELECT id, CASE WHEN closed_at IS NULL THEN 'open' ELSE 'closed' END, replace(summary, E'\t', ' '),
+                    to_char(opened_at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI'), coalesce(to_char(closed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI'), '')
+               FROM public.ops_alarms WHERE closed_at IS NULL OR closed_at > now() - interval '2 days' ORDER BY id" > alarms.tsv
+          # the monitor watching itself: minutes since its last check
+          STALE=$(q "SELECT coalesce(floor(extract(epoch FROM now() - max(requested_at)) / 60)::int, 99999) FROM public.ops_probe_requests")
+          echo "monitor last checked $STALE minute(s) ago; $(grep -c $'\topen\t' alarms.tsv || true) open alarm(s)"
+          if [ "$STALE" -gt 20 ]; then
+            printf 'monitor-stale\topen\t[production] the in-database monitor (ops-monitor-tick) has not run for %s minutes\t%s\t\n' "$STALE" "$(date -u '+%Y-%m-%d %H:%M')" >> alarms.tsv
+          else
+            printf 'monitor-stale\tclosed\tin-database monitor stopped\t\t%s\n' "$(date -u '+%Y-%m-%d %H:%M')" >> alarms.tsv
+          fi
+
+          gh label create ALARM --repo "$REPO" --color B60205 --description "Automatic alarm from the production monitor" 2>/dev/null || true
+          gh issue list --repo "$REPO" --label ALARM --state open --limit 100 --json number,body > open_issues.json
+
+          while IFS=$'\t' read -r ID STATE SUMMARY OPENED CLOSED; do
+            MARK="<!-- ops-alarm-id:$ID -->"
+            NUM=$(jq -r --arg m "$MARK" '[.[] | select(.body | contains($m))][0].number // empty' open_issues.json)
+            if [ "$STATE" = "open" ] && [ -z "$NUM" ]; then
+              BODY=$(printf '%s\n\nOpened: %s UTC\n\nRaised by the production database monitor (ops-monitor-tick, every 5 min). See Admin -> Health. This issue closes itself when the alarm clears.\n\n%s' "$SUMMARY" "$OPENED" "$MARK")
+              gh issue create --repo "$REPO" --label ALARM --title "ALARM: $SUMMARY" --body "$BODY"
+              echo "opened issue for alarm $ID"
+            elif [ "$STATE" = "closed" ] && [ -n "$NUM" ]; then
+              gh issue close "$NUM" --repo "$REPO" --comment "Recovered: alarm cleared at $CLOSED UTC."
+              echo "closed issue #$NUM for alarm $ID"
+            fi
+          done < alarms.tsv
