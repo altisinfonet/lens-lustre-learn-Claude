@@ -1,23 +1,35 @@
+CLEANUP COMPLETE
+
 # CLEANUP STATUS — cleanup runner
 
-Heartbeat: 2026-10-30 ~08:45Z. Repo + GitHub done and live. DB inventory done on both lanes. Duplicate-index drop: staging sequence running.
-Inventory: `docs/evidence/cloud/CLEANUP_INVENTORY.md`.
+Final heartbeat: 2026-10-30 ~09:25Z. Inventory: `docs/evidence/cloud/CLEANUP_INVENTORY.md`.
 
-| Class | Found | Deleted on staging | Deleted on main / production | Kept | Ask owner |
-|---|---|---|---|---|---|
-| A repo files | 152 files + 15 npm packages | 152 files + 15 packages (#647, #648, #656) | same (#658, #659, #663) — live check 3 browsers OK | 9 rows | 7 rows |
-| A GitHub PRs | 33 open | 4 closed | – | 22 | 6 |
-| A branches | 89 merged | 0 (blocked: 403) | – | – | 1 |
-| B DB objects | 4 duplicate indexes droppable; 2 more pairs judging/referral | in progress (#664) | pending (#665) | 8 rows | 3 rows |
-| D storage | 4 buckets prod (151 objects, 109.5 MB) | 0 | 0 | – | orphan match not measured |
+| Class | Found | Deleted / dropped | Kept | Ask owner |
+|---|---|---|---|---|
+| A repo files | 152 files + 15 npm packages provably unused | **152 files + 15 packages**, on staging and main | 9 rows | 7 rows |
+| A GitHub PRs | 33 open | **4 closed** (superseded) | 22 | 6 |
+| A branches | 89 fully merged | 0 — this session's git proxy refuses branch deletion (HTTP 403) | – | 1 |
+| B DB objects | 4 duplicate indexes droppable; 2 more pairs in judging/referral | **4 indexes dropped, staging + production** | 8 rows | 3 rows |
+| D storage | prod: 4 buckets, 151 objects, 109.5 MB | 0 (orphan matching not measured) | – | – |
 
-Lines removed: 26,235 + 684 (lock/manifest) on staging and main · files removed: 152.
-PRs merged to staging: #647, #648, #649, #656, #664. Carried to main: #657, #658, #659, #663; #665 open.
-Independent reviewer (diff only): NOTHING BLOCKING on #647, #648, #649, #656, #664.
-CI: all green on every PR above (tsc, vitest, build, security, Chromium/Firefox/WebKit, app origin https://localhost).
-Live after main 22df8f4: d2-live-check run 41024008342 — home + /feed 200 in Chromium, Firefox, WebKit; console errors fewer than the pre-cleanup run 41008319490 (no new ones).
-PRs closed: #391, #276, #214, #156. Branches deleted: 0. DB objects dropped: 0 so far.
-SQL runs: PROBE 0501 staging 41018483103 ✓ · production 41023653669 ✓.
+**Removed:** 26,235 lines of files plus 684 lockfile/manifest lines; 152 files.
+**PRs:** to staging #647 (old docs), #648 (dead src), #649 (PROBE 0501), #656 (unused deps), #664 (duplicate indexes) — all merged. Carried to main by cherry-pick: #657, #658, #659, #663, #665 — all merged.
+**Checks:** every PR fully green (tsc, vitest, build, security, Chromium/Firefox/WebKit, app origin https://localhost). Independent reviewer (diff only): NOTHING BLOCKING on #647, #648, #649, #656, #664.
+**Live:** main 22df8f4 deployed; d2-live-check run 41024008342 — home + /feed 200 in Chromium, Firefox, WebKit, no new console errors (vs. pre-cleanup run 41008319490). Re-checked home + /feed 200 in Chromium after the production index drop.
+**PRs closed:** #391, #276, #214, #156 (re-cut as #641, #639, #642, #640). **Branches deleted:** 0.
+
+**SQL runs (apply-migration.yml)**
+| Step | staging | production |
+|---|---|---|
+| PROBE 0501 inventory (read-only) | 41018483103 ✓ | 41023653669 ✓ |
+| PROBE 20261103_0501 dup-indexes (expect FAIL) | 41028216907 FAIL ✓ | 41030712515 FAIL ✓ |
+| apply 20261103_0501 | 41028490467 APPLIED | 41030944821 APPLIED |
+| PROBE 20261103_0501 (expect PASS) | 41029685910 PASS | 41031055033 PASS |
+| after-drop app check | d2-app-origin 41028898864 ✓ (09:01Z) | live home + /feed 200 |
+
+Dropped: `idx_unsubscribe_tokens_token`, `idx_suppressed_emails_email`, `idx_post_reactions_post_user`, `idx_feed_events_post` (identical twins kept). Rollback: `supabase/rollback/20261103_0501_cleanup_duplicate_indexes_ROLLBACK.sql`.
+
+**Separate jobs, not done here:** capture the live-only in-use DB objects into git (incl. `posts_dead_host_backup_20260812`, which is still in use); storage orphan matching; edge-function deletes (blocked: no SUPABASE_ACCESS_TOKEN).
 
 ## Owner questions
 1. 89 old branches are fully merged and safe to delete, but this runner is not allowed to delete branches. Delete them (list in the inventory) yourself, or allow it?
