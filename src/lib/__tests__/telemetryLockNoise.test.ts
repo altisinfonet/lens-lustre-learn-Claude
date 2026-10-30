@@ -28,7 +28,9 @@ describe("telemetry ignores handled auth-lock contention", () => {
 
   it("recognises auth-js's documented isAcquireTimeout flag, nothing else", () => {
     expect(isHandledAuthLockContention(lockError())).toBe(true);
-    expect(isHandledAuthLockContention(Object.assign(new Error("x"), { isAcquireTimeout: true }))).toBe(true);
+    // The waited form escapes auth-js to app code (getSession/initialize/signOut after 10 s): a real failure.
+    expect(isHandledAuthLockContention(Object.assign(new Error('Acquiring an exclusive Navigator LockManager lock "lock:sb-x-auth-token" timed out waiting 10000ms'), { isAcquireTimeout: true }))).toBe(false);
+    expect(isHandledAuthLockContention(Object.assign(new Error("x"), { isAcquireTimeout: true }))).toBe(false);
     expect(isHandledAuthLockContention(new Error("Acquiring an exclusive Navigator LockManager lock immediately failed"))).toBe(false);
     expect(isHandledAuthLockContention(new TypeError("Failed to fetch"))).toBe(false);
     expect(isHandledAuthLockContention(null)).toBe(false);
@@ -40,5 +42,7 @@ describe("telemetry ignores handled auth-lock contention", () => {
     expect(__telemetryQueue().filter((e) => e.kind === "error")).toHaveLength(0);
     rejection(new TypeError("boom"));
     expect(__telemetryQueue().filter((e) => e.kind === "error")).toHaveLength(1);
+    rejection(Object.assign(new Error('Acquiring an exclusive Navigator LockManager lock "lock:sb-x-auth-token" timed out waiting 10000ms'), { name: "NavigatorLockAcquireTimeoutError", isAcquireTimeout: true }));
+    expect(__telemetryQueue().filter((e) => e.kind === "error")).toHaveLength(2); // the 10 s timeout is still counted
   });
 });

@@ -153,11 +153,16 @@ export function recordTiming(metric: string, durationMs: number, ok: boolean): v
  * holds it, catches the error (documented flag `isAcquireTimeout`) and tries
  * again next tick. Firefox ALSO reports the lock callback's rejection as
  * unhandled, so every Firefox page load logged a "script error" that is not
- * one (S11 drills D2–D6, baseline included). Only the documented flag counts —
- * never a message match.
+ * one (S11 drills D2–D6, baseline included). Only the documented flag together
+ * with the zero-wait message counts — never the message alone.
  */
 export function isHandledAuthLockContention(reason: unknown): boolean {
-  return !!reason && typeof reason === "object" && (reason as { isAcquireTimeout?: unknown }).isAcquireTimeout === true;
+  if (!reason || typeof reason !== "object") return false;
+  const r = reason as { isAcquireTimeout?: unknown; message?: unknown };
+  // BOTH: the flag, and the zero-wait form. The waited form ("timed out waiting
+  // 10000ms" — getSession, initialize, signOut …) escapes to app code and IS a
+  // real failure, so it stays recorded (review of #614).
+  return r.isAcquireTimeout === true && typeof r.message === "string" && r.message.endsWith("immediately failed");
 }
 
 export function recordError(metric: "onerror" | "unhandledrejection" | "react", err: unknown): void {
