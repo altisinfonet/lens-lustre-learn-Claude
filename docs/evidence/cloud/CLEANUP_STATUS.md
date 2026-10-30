@@ -1,19 +1,21 @@
 # CLEANUP STATUS — cleanup runner
 
-Heartbeat: 2026-10-30 ~06:35Z. Phase 1 inventory done for repo + GitHub; DB inventory probe in review (#649).
+Heartbeat: 2026-10-30 ~07:15Z. Repo + GitHub inventory done. DB probe 0501 merged; staging run queued; production after carry #657.
 Inventory: `docs/evidence/cloud/CLEANUP_INVENTORY.md`.
 
-| Class | Found | Deleted (merged) | In PR | Kept | Ask owner |
-|---|---|---|---|---|---|
-| A repo files | 196 files | 0 | 156 files (#647, #648) + 15 deps (branch) | 9 rows | 6 rows |
-| A GitHub PRs | 33 open | 4 closed | – | 22 | 6 |
-| A branches | 89 merged | 0 (blocked: 403) | – | – | 1 |
-| B DB objects | pending PROBE 0501 | 0 | – | – | – |
-| C | – | – | – | – | listed below |
+| Class | Found | Deleted on staging | Deleted on main | In PR | Kept | Ask owner |
+|---|---|---|---|---|---|---|
+| A repo files | 156 files + 15 deps | 152 files (#647, #648) | 0 (carries #658, #659) | 15 deps (#656) | 9 rows | 6 rows |
+| A GitHub PRs | 33 open | 4 closed | – | – | 22 | 6 |
+| A branches | 89 merged | 0 (blocked: 403) | – | – | – | 1 |
+| B DB objects | pending PROBE 0501 | 0 | 0 | – | – | – |
 
-PRs: #647 old docs (125 files, −23,127) · #648 dead src (31 files, −3,093) · #649 PROBE 0501 (read-only) · `cleanup/unused-deps` (−684 lock/manifest lines; PR after #648).
-Reviewer (independent, diff only): #647 NOTHING BLOCKING · #648 NOTHING BLOCKING · #649 NOTHING BLOCKING.
-CI: queued. PRs closed: #391, #276, #214, #156 (re-cut by #641, #639, #642, #640). Branches deleted: 0. DB objects dropped: 0.
+Lines removed on staging: 26,235 (#647 −23,127, #648 −3,108) · files removed: 152.
+PRs: #647 merged (3e15344) · #648 merged (dd3b3b0) · #649 merged (3b34ce9) · #656 deps → staging · #657 / #658 / #659 carries → main.
+Reviewer (independent, diff only): #647, #648, #649 NOTHING BLOCKING; #656 running.
+CI on #647/#648/#649: all green (tsc, vitest, build, security, Chromium/Firefox/WebKit, app origin https://localhost).
+PRs closed: #391, #276, #214, #156 (re-cut by #641, #639, #642, #640). Branches deleted: 0. DB objects dropped: 0.
+SQL runs: staging PROBE 0501 — run 41018483103 (queued).
 
 ## Owner questions
 1. 89 old branches are fully merged and safe to delete, but this runner is not allowed to delete branches. Delete them (list in the inventory) yourself, or allow it?
