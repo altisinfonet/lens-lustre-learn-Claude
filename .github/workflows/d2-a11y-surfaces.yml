@@ -1,0 +1,74 @@
+name: D2 · P23 the ten surfaces (axe + keyboard)
+
+# P23 · S10a-2 (docs/evidence/d2/phase5/P23/S10a-DECISION.md §3). Over the 11
+# harness scenes of the ten primary surfaces, at iphone-390 and desktop-1280,
+# in Chromium: axe (WCAG 2.2 AA), Tab reach, visible focus, no keyboard trap,
+# Escape closes an open dialog. Judged by the axe ratchet's own rules against
+# tools/uishot/a11y-surfaces.baseline.json: counts only go down.
+#
+# Its own workflow, not a step of ui-gate.yml (Decision S3): ui-gate is a
+# required check with a 30-minute budget; this does not lengthen it.
+# Fake data, no network, no secret. The VITE_* values are the same
+# not-real test values the UI gate uses.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  surfaces:
+    name: P23 ten surfaces — axe + keyboard (chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Clean install
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Chromium for Playwright
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            if npx playwright install chromium; then
+              echo "Chromium ready (attempt ${attempt})."
+              exit 0
+            fi
+            echo "::warning::Chromium download attempt ${attempt} failed; retrying."
+            sleep $((attempt * 15))
+          done
+          echo "::error::Chromium could not be downloaded after 3 attempts."
+          exit 1
+
+      - name: Self-test — every check fires on its seeded defect
+        run: node tools/uishot/a11y-surfaces.mjs --self-test
+
+      - name: The ten surfaces against the baseline
+        env:
+          VITE_SUPABASE_URL: https://testprojectref0000x.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: test-publishable-key-not-real
+          VITE_SUPABASE_PROJECT_ID: testprojectref0000x
+          A11Y_OUT: a11y-surfaces
+        run: node tools/uishot/a11y-surfaces.mjs
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a11y-surfaces
+          path: a11y-surfaces
+          if-no-files-found: warn
+          retention-days: 30

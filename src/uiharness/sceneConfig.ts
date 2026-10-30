@@ -16,6 +16,7 @@
  */
 export const SIGNED_OUT_SCENES: readonly string[] = [
   "screen-login",
+  "screen-signup",
   "screen-not-found-signed-out",
   "screen-not-found-in-place-signed-out",
 ];

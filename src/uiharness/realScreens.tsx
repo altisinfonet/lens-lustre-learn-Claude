@@ -146,7 +146,7 @@ function journey(
   );
 }
 
-function screen(node: JSX.Element, route: string, path = "*", withLayout = true) {
+export function screen(node: JSX.Element, route: string, path = "*", withLayout = true) {
   return (
     <>
       <Suspense fallback={<Loading />}>

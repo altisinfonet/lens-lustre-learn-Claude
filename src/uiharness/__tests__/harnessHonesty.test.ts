@@ -30,6 +30,7 @@ const BACKEND = read("src/uiharness/fakeBackend.ts");
 const ROUTES = read("src/uiharness/fixtureRoutes.ts");
 const REAL = read("src/uiharness/realScreens.tsx");
 const MAIN = read("src/uiharness/main.tsx");
+const A11Y = read("src/uiharness/a11yScenes.tsx");
 
 describe("an unanswered request is LOUD, never silently empty", () => {
   it("the fallback reports to the console before returning anything", () => {
@@ -148,8 +149,19 @@ describe("the screen scenes mount the REAL pages", () => {
   });
 
   it("the signed-out list only names scenes that exist", () => {
-    const keys = [...REAL.matchAll(/"(screen-[a-z-]+)":/g)].map((m) => m[1]);
+    // P23 a11y-only scenes (a11yScenes.tsx, off the index) are scenes too — screen-signup is signed out.
+    const keys = [...(REAL + A11Y).matchAll(/"(screen-[a-z-]+)":/g)].map((m) => m[1]);
     for (const name of SIGNED_OUT_SCENES) expect(keys).toContain(name);
+  });
+
+  it("P23: the a11y-only scenes are reachable by name but never on the index (so the visual sweep never sees them)", () => {
+    const a11yOnly = [...A11Y.matchAll(/"(screen-[a-z-]+)":/g)].map((m) => m[1]);
+    expect(a11yOnly.sort()).toEqual(["screen-admin-health", "screen-edit-profile", "screen-signup"]);
+    const indexed = [...(REAL + read("src/uiharness/scenes.tsx")).matchAll(/"([a-z0-9-]+)":\s*\(/g)].map((m) => m[1]);
+    for (const name of a11yOnly) expect(indexed).not.toContain(name);
+    // the index lists SCENES only; the lookup falls back to the a11y-only set
+    expect(MAIN).toMatch(/Object\.keys\(SCENES\)\.sort\(\)\.map/);
+    expect(MAIN).toMatch(/SCENES\[name\] \?\? A11Y_ONLY_SCENES\[name\]/);
   });
 
   it("the cookie-banner-up list only names scenes that exist, and main.tsx honours it", () => {

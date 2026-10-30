@@ -134,7 +134,9 @@ if (params.get("native") === "1") {
 }
 
 const { SCENES } = await import("./scenes");
-const scene = SCENES[name];
+// P23 a11y-only scenes: reachable by name, never on the index below (S10a-DECISION.md S2).
+const { A11Y_ONLY_SCENES } = await import("./a11yScenes");
+const scene = SCENES[name] ?? A11Y_ONLY_SCENES[name];
 
 /** Retries and refetching would make two runs of the same scene differ. */
 const queryClient = new QueryClient({
