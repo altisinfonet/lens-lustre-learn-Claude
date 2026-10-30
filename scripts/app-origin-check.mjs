@@ -14,14 +14,26 @@
  * Prints routes, statuses and header values only. No secret, no member data.
  */
 import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 
+/** The route strings of `export const SITE_API = { ... } as const` in a siteApi.ts source. Pure. */
+export function parseSiteApi(src) {
+  const block = /export const SITE_API = \{([\s\S]*?)\} as const/.exec(src)?.[1] ?? "";
+  return [...block.matchAll(/:\s*"(\/[^"]+)"/g)].map((m) => m[1]);
+}
+
+/** Which routes to ask the site about. Pure. */
+export function selectRoutes(checkoutPaths, _deployedPaths) {
+  return { check: checkoutPaths, notDeployed: [] };
+}
+
+async function main() {
 const site = (process.argv[2] ?? "").replace(/\/+$/, "");
 if (!/^https:\/\/[a-z0-9.-]+$/i.test(site)) { console.error("usage: app-origin-check.mjs https://<site>"); process.exit(2); }
 const APP_ORIGIN = "https://localhost";
 
 const src = readFileSync(new URL("../src/lib/net/siteApi.ts", import.meta.url), "utf8");
-const block = /export const SITE_API = \{([\s\S]*?)\} as const/.exec(src)?.[1] ?? "";
-const paths = [...block.matchAll(/:\s*"(\/[^"]+)"/g)].map((m) => m[1]);
+const { check: paths } = selectRoutes(parseSiteApi(src), null);
 if (paths.length === 0) { console.error("could not read SITE_API from siteApi.ts"); process.exit(2); }
 // siteFetch callers: every route is POST except the settings read.
 const methodFor = (p) => (p === "/config/site-settings" ? "GET" : "POST");
@@ -52,3 +64,6 @@ for (const p of paths) {
 }
 console.log(`\n${paths.length} routes checked against ${site}: ${failures === 0 ? "ALL PASS" : failures + " FAILED"}`);
 process.exit(failures === 0 ? 0 : 1);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main();
