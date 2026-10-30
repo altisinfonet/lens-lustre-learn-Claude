@@ -109,6 +109,10 @@ export function getNotifLink(notif: NotifLinkInput): string {
     // by emit_birthday_notifications().
     case "birthday":
       return notif.handle ? `/${notif.handle}` : "/feed";
+    // First-post reminder (site_settings `first_post_nudge`, emitted by
+    // public.first_post_reminders_tick()): one tap opens the normal post flow.
+    case "first_post_reminder":
+      return "/feed?compose=1";
     default:
       return "/dashboard";
   }

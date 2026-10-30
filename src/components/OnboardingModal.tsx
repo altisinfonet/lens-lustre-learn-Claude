@@ -73,7 +73,12 @@ interface OnboardingModalProps {
   onDismiss?: () => void;
   userId: string;
   profile: Record<string, any> | null;
-  onComplete: () => void;
+  /**
+   * Called once the form is saved. `interests` are the category slugs just
+   * saved, in the order chosen — Layout hands them to the first-post step
+   * (FirstPostPrompt) when site_settings `first_post_nudge` is on.
+   */
+  onComplete: (result: { interests: string[] }) => void;
 }
 
 /**
@@ -402,7 +407,7 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
       }
 
       toast({ title: "Welcome aboard! 🎉", description: "You're all set." });
-      onComplete();
+      onComplete({ interests: [...selectedInterests] });
     } catch (err: any) {
       toast({ title: "Something went wrong", description: err.message, variant: "destructive" });
     } finally {
