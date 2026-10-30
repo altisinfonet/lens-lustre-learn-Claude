@@ -25,6 +25,8 @@ import PageTransition from "@/components/PageTransition";
 import { isOwnProfilePhoto } from "@/lib/profilePhoto";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useSessionEnd } from "@/hooks/core/useSessionEnd";
+import FirstPostPrompt from "@/components/FirstPostPrompt";
+import { shouldOfferFirstPostStep } from "@/lib/firstPost/firstPostNudge";
 import { usePresenceOnline } from "@/lib/presence/online";
 import { useEngagementHeartbeat } from "@/hooks/core/useEngagementHeartbeat";
 import { DashboardProvider, useDashboardContext } from "@/hooks/core/DashboardContext";
@@ -122,6 +124,12 @@ const LayoutInner = () => {
   /** True when the profile photo is the last thing missing — see the effect below. */
   const [photoPromptOnly, setPhotoPromptOnly] = useState(false);
   const [onboardingProfile, setOnboardingProfile] = useState<Record<string, any> | null>(null);
+  /**
+   * First-post nudge (site_settings `first_post_nudge`). Set to the member's
+   * interests right after a FIRST-TIME onboarding save when the switch is on;
+   * null = the step is not showing. Switch off → never set → nothing changes.
+   */
+  const [firstPostInterests, setFirstPostInterests] = useState<string[] | null>(null);
 
   useEffect(() => {
     if (!user || adminLoading) {
@@ -349,8 +357,13 @@ const LayoutInner = () => {
           }}
           userId={user.id}
           profile={onboardingProfile}
-          onComplete={() => {
+          onComplete={({ interests }) => {
             setShowOnboarding(false);
+            // Only a member finishing the form for the FIRST time gets the
+            // "Share your first photo" step — not one pulled back to claim a
+            // username. The switch is read now, at most a minute old.
+            void shouldOfferFirstPostStep(onboardingProfile?.onboarding_completed === true)
+              .then((offer) => { if (offer) setFirstPostInterests(interests); });
             // The avatar/profile saved during onboarding must show INSTANTLY —
             // without this, the header kept the stale cached profile (no avatar)
             // until a manual refresh refetched it.
@@ -360,6 +373,14 @@ const LayoutInner = () => {
               queryClient.invalidateQueries({ queryKey: queryKeys.profileMapPrefix() });
             }
           }}
+        />
+      )}
+
+      {user && firstPostInterests && (
+        <FirstPostPrompt
+          open
+          interests={firstPostInterests}
+          onClose={() => setFirstPostInterests(null)}
         />
       )}
 
