@@ -1,7 +1,8 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- PROBE · 20261031_0615 — S10 X1 order restore (staging and production).
+-- PROBE · 20261031_0618 — S10 X1 order restore, hot_a (the tables merged by
+-- 0612; staging and production).
 -- READ ONLY, ROLLBACK. Prints counts and table/policy NAMES only (public log).
--- FAILS before 0615: the merges 0608–0613 joined parts in ascending policy-name
+-- FAILS before 20261031_0618: 0612 joined parts in ascending policy-name
 -- order. PASSES after.
 --   G0 · lane asserted.
 --   G1 · every merged clause with 2+ parts EQUALS its parts, read from the
@@ -20,7 +21,7 @@ SET LOCAL search_path = '';
 
 DO $probe$
 DECLARE
-  tables constant text[] := ARRAY['blocked_keywords', 'categories', 'certificate_testimonials', 'courses', 'gift_announcements', 'hero_banners', 'journal_articles', 'lessons', 'photo_of_the_day', 'ad_creatives', 'ai_chat_usage', 'certificates', 'comment_reports', 'course_enrollments', 'custom_url_history', 'post_reports', 'reports', 'support_tickets', 'user_devices', 'v3_tag_label_alias', 'bank_details', 'competition_judges', 'competition_judging_tags', 'competition_orders', 'entry_score_cache', 'judge_activity_logs', 'judge_award_tags', 'judge_comments', 'judge_decisions', 'judge_entry_assignments', 'judge_entry_locks', 'judge_scores', 'judge_tag_assignments', 'judging_config', 'judging_rounds', 'raw_commitments', 'referral_codes', 'referrals', 'role_applications', 'round_snapshots', 'wallet_transactions', 'wallets', 'withdrawal_requests', 'competitions', 'friendships', 'image_comments', 'portfolio_images', 'post_reactions', 'post_tags', 'profile_views', 'user_badges', 'user_roles', 'posts', 'post_comments'];
+  tables constant text[] := ARRAY['competitions', 'friendships', 'image_comments', 'portfolio_images', 'post_comments', 'post_reactions', 'post_tags', 'posts', 'profile_views', 'user_badges'];
   _bad text := ''; skipped text := ''; wrong text := '';
   t text; rel oid; r record; c text; stored text; arm record; pos int; lastpos int;
   checked int := 0; clauses int := 0; depth int; is_wrapped boolean; ch text;
@@ -30,7 +31,7 @@ BEGIN
     RAISE EXCEPTION 'PROBE REFUSED — p32.lane is not staging or production';
   END IF;
   IF to_regclass('public.x1_policy_backup_20261031') IS NULL THEN
-    RAISE EXCEPTION 'PROBE FAIL 20261031_0615 (lane %): G2(no policy backup table)', current_setting('p32.lane');
+    RAISE EXCEPTION 'PROBE FAIL 20261031_0618 (lane %): G2(no policy backup table)', current_setting('p32.lane');
   END IF;
   FOREACH t IN ARRAY tables LOOP
     rel := to_regclass(format('public.%I', t));
@@ -88,9 +89,9 @@ BEGIN
   IF wrong <> '' THEN _bad := _bad || ' G1(not in original order:' || wrong || ')'; END IF;
   IF checked = 0 THEN _bad := _bad || ' G2(no merged table found)'; END IF;
   IF _bad <> '' THEN
-    RAISE EXCEPTION 'PROBE FAIL 20261031_0615 (lane %):%', current_setting('p32.lane'), _bad;
+    RAISE EXCEPTION 'PROBE FAIL 20261031_0618 (lane %):%', current_setting('p32.lane'), _bad;
   END IF;
-  RAISE NOTICE 'PROBE PASS 20261031_0615 (lane %): % merged tables, % multi-part clauses all in original (descending policy-name) order; skipped (no merged policies here):%',
+  RAISE NOTICE 'PROBE PASS 20261031_0618 (lane %): % merged tables, % multi-part clauses all in original (descending policy-name) order; skipped (no merged policies here):%',
     current_setting('p32.lane'), checked, clauses, coalesce(nullif(skipped, ''), ' none');
 END
 $probe$;

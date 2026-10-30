@@ -1,26 +1,91 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- ROLLBACK · 20261031_0615 — S10 X1 order restore.
--- Puts every merged policy's parts back in ASCENDING policy-name order, the
--- state 0608–0613 left (activity_logs and feed_events, merged by 0614,
--- are not touched). It is the same helper and the same per-table proof
--- (E1, ORDER, BIND, E2, POST, WIN) as the migration, with the direction
--- reversed. Access is unchanged in both directions.
+-- S10 · X1 order restore 0617 (batch3: the 23 tables merged by 0611) —
+-- every merged permissive policy (x1_merged_*) gets its parts back in the
+-- order Postgres evaluated the originals. Both lanes. Access unchanged, proven
+-- per table. One of five files (0615 pilot, 0616 batch2, 0617 batch3,
+-- 0618 hot_a, 0619 user_roles), one per merge batch.
+--
+-- WHY: Postgres ORs a table's applicable permissive policies in DESCENDING
+-- policy-name order. policy.c (RelationBuildRowSecurity) builds the list in
+-- reverse pg_policy index order ("for historical reasons, the list is built
+-- in reverse order"); rowsecurity.c ORs the permissive quals in that order
+-- and re-sorts only the restrictive ones. The X1 merges 0608–0613 joined
+-- the parts in ASCENDING order, so each merged OR runs its branches in the
+-- opposite order to before. The rows are the same (E1 and E2 proved that),
+-- but an OR evaluates its arms until one is true, so per-row work changed.
+-- Measured on a fixture: posts' SELECT went from
+-- `can_view_post(...) OR has_role(...)` to `has_role(...) OR
+-- can_view_post(...)`, so every visible feed row now pays a has_role() call
+-- first. Found by the review of the mixed-role design (#718); reproduced
+-- with EXPLAIN on Postgres 16.
+--
+-- WHAT: for each table merged by 0611, and for each merged policy whose
+-- clause has 2+ parts, ALTER POLICY with the same parts, read from the
+-- owner-only backup and joined in DESCENDING policy-name order ("C"
+-- collation, like pg_policy's index). A table with no merged policies on this
+-- lane is skipped (for example user_roles on production until 0613 is applied
+-- there). Re-running is harmless: ALTER to the same text.
+--
+-- ONE TRANSACTION (repo rule: a failure leaves nothing behind). Phase 1 runs
+-- with no exclusive lock: plan, DRIFT, E2-before and E1 for every table, the
+-- state kept in a session-only temp table. Phase 2 takes every exclusive lock
+-- of this batch at once, then ALTER, ORDER, BIND, E2-after and POST per table,
+-- under one 3 s WIN cap for the whole batch. The lock window is the same one
+-- the batch's own merge (0611) already ran on production.
+--
+-- PROOF, per table (REPEATABLE READ; ACCESS SHARE taken before the snapshot;
+-- any failure rolls back the whole file):
+--   E1    · before the lock: for every identity × merged policy × clause, the
+--           union of the backed-up originals' rows == the new text's rows.
+--   DRIFT · before the lock: the clause as stored now must EQUAL the
+--           backed-up parts joined in ascending or descending order (exact
+--           text; the only allowance is the parser's flattening of a first
+--           part that is itself an OR), and must accept the same rows as the
+--           rebuilt text for every identity. A clause changed after its merge
+--           is refused, not reverted.
+--   ORDER · inside the lock: each stored clause EQUALS the parts joined in
+--           descending order.
+--   BIND  · the stored clause accepts the rows E1 proved (anon and the first
+--           signed-in identity).
+--   E2    · through RLS as anon and authenticated: visible rows identical
+--           before and after.
+--   POST  · restrictive policies byte-identical; the permissive set (names,
+--           commands, roles) unchanged.
+--   WIN   · the exclusive locks are held at most about 3 s for the whole
+--           batch (checked between steps); lock_timeout is 2 s per lock.
+--
+-- PROBE:    supabase/migrations/PROBE_20261031_0617_s10_x1_order_restore_batch3.sql
+-- Rollback: supabase/rollback/20261031_0617_s10_x1_order_restore_batch3_ROLLBACK.sql
+--           (the same helpers with ASC: puts back the order 0611 left)
 -- ═══════════════════════════════════════════════════════════════════════════
+
+BEGIN ISOLATION LEVEL REPEATABLE READ;
+
+SET LOCAL lock_timeout = '2s';
+SET LOCAL statement_timeout = '60s';
+SET LOCAL search_path = '';
+-- Taken before the first statement that takes the snapshot (LOCK and SET take
+-- none): no policy change on these tables can commit between the snapshot the
+-- plan reads and the ALTERs below. ACCESS SHARE blocks no reader or writer.
+LOCK TABLE public.bank_details, public.competition_judges, public.competition_judging_tags, public.competition_orders, public.entry_score_cache, public.judge_activity_logs, public.judge_award_tags, public.judge_comments, public.judge_decisions, public.judge_entry_assignments, public.judge_entry_locks, public.judge_scores, public.judge_tag_assignments, public.judging_config, public.judging_rounds, public.raw_commitments, public.referral_codes, public.referrals, public.role_applications, public.round_snapshots, public.wallet_transactions, public.wallets, public.withdrawal_requests IN ACCESS SHARE MODE;
 
 DO $lane_guard$
 BEGIN
   IF coalesce(current_setting('p32.lane', true), '') NOT IN ('staging', 'production') THEN
     RAISE EXCEPTION
-      '% REFUSED — p32.lane is not asserted as staging or production (read: %). '
+      'APPLY REFUSED — p32.lane is not asserted as staging or production (read: %). '
       'Dispatch apply-migration.yml (it sets p32.lane from target).',
-      'ROLLBACK', coalesce(current_setting('p32.lane', true), '(unset)')
+      coalesce(current_setting('p32.lane', true), '(unset)')
     USING ERRCODE = 'raise_exception';
   END IF;
 END
 $lane_guard$;
 
--- Session-only helper (pg_temp): gone when this session ends.
-CREATE FUNCTION pg_temp.x1_reorder(t text, dir text) RETURNS void
+-- Session-only helpers and state (pg_temp; the state table is dropped at COMMIT).
+CREATE TEMP TABLE x1_ro_state (tbl text PRIMARY KEY, v_batch text, plan jsonb, ids jsonb, e1hash jsonb,
+                               e2_before jsonb, restr_before jsonb, shape_before jsonb) ON COMMIT DROP;
+
+CREATE FUNCTION pg_temp.x1_ro_prepare(t text, dir text) RETURNS void
 LANGUAGE plpgsql SET search_path = '' AS $f$
 DECLARE
   rel oid; r record; id jsonb; c text; k int := 0; n int;
@@ -228,9 +293,35 @@ BEGIN
     END LOOP;
   END LOOP;
 
-  -- Lock window: this table only.
-  EXECUTE format('LOCK TABLE public.%I IN ACCESS EXCLUSIVE MODE', t);
-  t_lock := clock_timestamp();
+  -- Hand the proof state to the second phase (inside the exclusive lock).
+  INSERT INTO pg_temp.x1_ro_state (tbl, v_batch, plan, ids, e1hash, e2_before, restr_before, shape_before)
+  VALUES (t, v_batch, plan, ids, e1hash, e2_before, restr_before, shape_before);
+END
+$f$;
+
+CREATE FUNCTION pg_temp.x1_ro_finish(t text, dir text) RETURNS void
+LANGUAGE plpgsql SET search_path = '' AS $f$
+DECLARE
+  rel oid; r record; id jsonb; c text; k int := 0; n int;
+  ids jsonb := '[]'; cols text[]; h text; diff text; v_batch text;
+  plan jsonb := '{}'; e1hash jsonb := '{}'; pk text; pv jsonb; a text;
+  e2_before jsonb := '{}'; e2_after jsonb := '{}';
+  restr_before jsonb; restr_after jsonb; shape_before jsonb; shape_after jsonb;
+  bkr record; one text; old_tids tid[]; part_tids tid[];
+  u_desc text; u_asc text; c_desc text; c_asc text; nu int; nc int;
+  stored text; arm record; pos int; lastpos int; cand text; depth int; is_wrapped boolean; ch text;
+  found_dir boolean; d text; joined text; nparts int; firstpart text; expect_hit boolean;
+  t_lock timestamptz; win constant interval := interval '3 seconds'; altered int := 0;
+BEGIN
+  SELECT s.v_batch, s.plan, s.ids, s.e1hash, s.e2_before, s.restr_before, s.shape_before
+    INTO v_batch, plan, ids, e1hash, e2_before, restr_before, shape_before
+    FROM pg_temp.x1_ro_state s WHERE s.tbl = t;
+  IF NOT FOUND THEN RETURN; END IF;   -- skipped in the first phase (no merged policies / one part)
+  rel := to_regclass(format('public.%I', t));
+  t_lock := current_setting('x1ro.t_lock')::timestamptz;
+  IF clock_timestamp() - t_lock > win THEN
+    RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive locks have been held over 3 s — rolled back, nothing changed';
+  END IF;
   FOR pk, pv IN SELECT * FROM jsonb_each(plan) LOOP
     EXECUTE format('ALTER POLICY %I ON public.%I', pk, t)
          || CASE WHEN (pv ->> 'u') IS NOT NULL THEN format(' USING (%s)', pv ->> 'u') ELSE '' END
@@ -286,7 +377,7 @@ BEGIN
   -- BIND: for anon and the first signed-in identity, each stored clause accepts the rows E1 proved.
   FOR id IN SELECT e FROM jsonb_array_elements(ids) WITH ORDINALITY AS x(e, o) WHERE o <= 2 LOOP
     IF clock_timestamp() - t_lock > win THEN
-      RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive lock on % has been held over 3 s — rolled back, nothing changed', t;
+      RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive locks have been held over 3 s (at %) — rolled back, nothing changed', t;
     END IF;
     PERFORM set_config('request.jwt.claims', CASE WHEN id ->> 'sub' IS NULL THEN json_build_object('role', id ->> 'role')
              ELSE json_build_object('sub', id ->> 'sub', 'role', id ->> 'role') END::text, true);
@@ -309,7 +400,7 @@ BEGIN
   -- E2 after
   FOR id IN SELECT * FROM jsonb_array_elements(ids) LOOP
     IF clock_timestamp() - t_lock > win THEN
-      RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive lock on % has been held over 3 s — rolled back, nothing changed', t;
+      RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive locks have been held over 3 s (at %) — rolled back, nothing changed', t;
     END IF;
     PERFORM set_config('request.jwt.claims', CASE WHEN id ->> 'sub' IS NULL THEN json_build_object('role', id ->> 'role')
              ELSE json_build_object('sub', id ->> 'sub', 'role', id ->> 'role') END::text, true);
@@ -333,7 +424,7 @@ BEGIN
 
   -- POST: restrictive policies and the permissive set (names, commands, roles) unchanged.
   IF clock_timestamp() - t_lock > win THEN
-    RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive lock on % has been held over 3 s — rolled back, nothing changed', t;
+    RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive locks have been held over 3 s (at %) — rolled back, nothing changed', t;
   END IF;
   SELECT jsonb_object_agg(p.polname, jsonb_build_array(p.polcmd::text, p.polroles::text, pg_get_expr(p.polqual, p.polrelid), pg_get_expr(p.polwithcheck, p.polrelid)))
     INTO restr_after FROM pg_policy p WHERE p.polrelid = rel AND NOT p.polpermissive;
@@ -351,438 +442,67 @@ BEGIN
 END
 $f$;
 
--- One transaction per table: each takes only its own lock, then commits.
--- If one table fails, earlier tables stay done (each is complete on its own);
--- the PROBE shows which are left, and the file can be re-run.
+-- Phase 1, no exclusive lock: plan, DRIFT, E2-before and E1 for every table.
+SELECT pg_temp.x1_ro_prepare('bank_details', 'DESC');
+SELECT pg_temp.x1_ro_prepare('competition_judges', 'DESC');
+SELECT pg_temp.x1_ro_prepare('competition_judging_tags', 'DESC');
+SELECT pg_temp.x1_ro_prepare('competition_orders', 'DESC');
+SELECT pg_temp.x1_ro_prepare('entry_score_cache', 'DESC');
+SELECT pg_temp.x1_ro_prepare('judge_activity_logs', 'DESC');
+SELECT pg_temp.x1_ro_prepare('judge_award_tags', 'DESC');
+SELECT pg_temp.x1_ro_prepare('judge_comments', 'DESC');
+SELECT pg_temp.x1_ro_prepare('judge_decisions', 'DESC');
+SELECT pg_temp.x1_ro_prepare('judge_entry_assignments', 'DESC');
+SELECT pg_temp.x1_ro_prepare('judge_entry_locks', 'DESC');
+SELECT pg_temp.x1_ro_prepare('judge_scores', 'DESC');
+SELECT pg_temp.x1_ro_prepare('judge_tag_assignments', 'DESC');
+SELECT pg_temp.x1_ro_prepare('judging_config', 'DESC');
+SELECT pg_temp.x1_ro_prepare('judging_rounds', 'DESC');
+SELECT pg_temp.x1_ro_prepare('raw_commitments', 'DESC');
+SELECT pg_temp.x1_ro_prepare('referral_codes', 'DESC');
+SELECT pg_temp.x1_ro_prepare('referrals', 'DESC');
+SELECT pg_temp.x1_ro_prepare('role_applications', 'DESC');
+SELECT pg_temp.x1_ro_prepare('round_snapshots', 'DESC');
+SELECT pg_temp.x1_ro_prepare('wallet_transactions', 'DESC');
+SELECT pg_temp.x1_ro_prepare('wallets', 'DESC');
+SELECT pg_temp.x1_ro_prepare('withdrawal_requests', 'DESC');
 
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.blocked_keywords IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('blocked_keywords', 'ASC');
-COMMIT;
+-- Phase 2: every exclusive lock at once,
+-- then ALTER, ORDER, BIND, E2-after and POST per table under one 3 s cap.
+LOCK TABLE public.bank_details, public.competition_judges, public.competition_judging_tags, public.competition_orders, public.entry_score_cache, public.judge_activity_logs, public.judge_award_tags, public.judge_comments, public.judge_decisions, public.judge_entry_assignments, public.judge_entry_locks, public.judge_scores, public.judge_tag_assignments, public.judging_config, public.judging_rounds, public.raw_commitments, public.referral_codes, public.referrals, public.role_applications, public.round_snapshots, public.wallet_transactions, public.wallets, public.withdrawal_requests IN ACCESS EXCLUSIVE MODE;
+SELECT set_config('x1ro.t_lock', clock_timestamp()::text, true);
+SELECT pg_temp.x1_ro_finish('bank_details', 'DESC');
+SELECT pg_temp.x1_ro_finish('competition_judges', 'DESC');
+SELECT pg_temp.x1_ro_finish('competition_judging_tags', 'DESC');
+SELECT pg_temp.x1_ro_finish('competition_orders', 'DESC');
+SELECT pg_temp.x1_ro_finish('entry_score_cache', 'DESC');
+SELECT pg_temp.x1_ro_finish('judge_activity_logs', 'DESC');
+SELECT pg_temp.x1_ro_finish('judge_award_tags', 'DESC');
+SELECT pg_temp.x1_ro_finish('judge_comments', 'DESC');
+SELECT pg_temp.x1_ro_finish('judge_decisions', 'DESC');
+SELECT pg_temp.x1_ro_finish('judge_entry_assignments', 'DESC');
+SELECT pg_temp.x1_ro_finish('judge_entry_locks', 'DESC');
+SELECT pg_temp.x1_ro_finish('judge_scores', 'DESC');
+SELECT pg_temp.x1_ro_finish('judge_tag_assignments', 'DESC');
+SELECT pg_temp.x1_ro_finish('judging_config', 'DESC');
+SELECT pg_temp.x1_ro_finish('judging_rounds', 'DESC');
+SELECT pg_temp.x1_ro_finish('raw_commitments', 'DESC');
+SELECT pg_temp.x1_ro_finish('referral_codes', 'DESC');
+SELECT pg_temp.x1_ro_finish('referrals', 'DESC');
+SELECT pg_temp.x1_ro_finish('role_applications', 'DESC');
+SELECT pg_temp.x1_ro_finish('round_snapshots', 'DESC');
+SELECT pg_temp.x1_ro_finish('wallet_transactions', 'DESC');
+SELECT pg_temp.x1_ro_finish('wallets', 'DESC');
+SELECT pg_temp.x1_ro_finish('withdrawal_requests', 'DESC');
+DO $done$
+BEGIN
+  IF clock_timestamp() - current_setting('x1ro.t_lock')::timestamptz > interval '3 seconds' THEN
+    RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive locks have been held over 3 s — rolled back, nothing changed';
+  END IF;
+  RAISE NOTICE 'S10 X1 order restore 0617 (DESC, lane %): % of 23 tables reordered; exclusive locks held % ms',
+    current_setting('p32.lane'), (SELECT count(*) FROM pg_temp.x1_ro_state),
+    round(extract(epoch FROM clock_timestamp() - current_setting('x1ro.t_lock')::timestamptz) * 1000);
+END
+$done$;
 
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.categories IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('categories', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.certificate_testimonials IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('certificate_testimonials', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.courses IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('courses', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.gift_announcements IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('gift_announcements', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.hero_banners IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('hero_banners', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.journal_articles IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('journal_articles', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.lessons IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('lessons', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.photo_of_the_day IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('photo_of_the_day', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.ad_creatives IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('ad_creatives', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.ai_chat_usage IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('ai_chat_usage', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.certificates IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('certificates', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.comment_reports IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('comment_reports', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.course_enrollments IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('course_enrollments', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.custom_url_history IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('custom_url_history', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.post_reports IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('post_reports', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.reports IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('reports', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.support_tickets IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('support_tickets', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.user_devices IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('user_devices', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.v3_tag_label_alias IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('v3_tag_label_alias', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.bank_details IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('bank_details', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.competition_judges IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('competition_judges', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.competition_judging_tags IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('competition_judging_tags', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.competition_orders IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('competition_orders', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.entry_score_cache IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('entry_score_cache', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.judge_activity_logs IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('judge_activity_logs', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.judge_award_tags IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('judge_award_tags', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.judge_comments IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('judge_comments', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.judge_decisions IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('judge_decisions', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.judge_entry_assignments IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('judge_entry_assignments', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.judge_entry_locks IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('judge_entry_locks', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.judge_scores IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('judge_scores', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.judge_tag_assignments IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('judge_tag_assignments', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.judging_config IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('judging_config', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.judging_rounds IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('judging_rounds', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.raw_commitments IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('raw_commitments', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.referral_codes IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('referral_codes', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.referrals IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('referrals', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.role_applications IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('role_applications', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.round_snapshots IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('round_snapshots', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.wallet_transactions IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('wallet_transactions', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.wallets IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('wallets', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.withdrawal_requests IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('withdrawal_requests', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.competitions IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('competitions', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.friendships IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('friendships', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.image_comments IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('image_comments', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.portfolio_images IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('portfolio_images', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.post_reactions IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('post_reactions', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.post_tags IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('post_tags', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.profile_views IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('profile_views', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.user_badges IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('user_badges', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.user_roles IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('user_roles', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.posts IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('posts', 'ASC');
-COMMIT;
-
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
-LOCK TABLE public.post_comments IN ACCESS SHARE MODE;
-SELECT pg_temp.x1_reorder('post_comments', 'ASC');
 COMMIT;
