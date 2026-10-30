@@ -9,6 +9,18 @@ confirm DB-level items (RLS policy text, grants, SECURITY DEFINER bodies, wallet
 guard, realtime). Code-level findings below are proven from source now.
 
 ## Heartbeat
+- 2026-10-30 ~06:3x — STAGING PROBE 0901 ran clean (run 41011522611). Live staging findings:
+  * wallet_transaction LIVE body HAS the BUG-001 guard (self-credit of positive amount by non-admin REJECTED) — the critical git candidate is MITIGATED on staging. Must confirm on production.
+  * Every base table (186) has RLS ENABLED; 0 with RLS off. auth_login_attempts RLS-on, locked to supabase_auth_admin.
+  * No open (USING true/CHECK true) write policy to anon/authenticated/public anywhere. Only anon write = newsletter_subscribers insert (email-format validated).
+  * UPDATE policies lacking WITH CHECK are SAFE (Postgres uses USING as the check) — no ownership reassignment. INSERT policies all bind ownership.
+  * Privilege escalation BLOCKED: user_roles writes admin-only (+ self-assign only 'registered_photographer'); profiles moderation cols guarded by trg_guard_profile_moderation; role_applications approve is admin-only; competition_entries status frozen in WITH CHECK.
+  * 305 SECURITY DEFINER fns, ALL pin search_path (0 unpinned). Every admin_* fn has a role check. No anon-exec fn writes sensitive data or reads private data unguarded (the 2 anon writes = page-view counter + token-gated CI reporter).
+  * Realtime: supabase_realtime has NO app tables on staging (only internal Broadcast partitions) → members cannot subscribe to others' rows via postgres_changes.
+  * Private buckets (national-ids, entry-originals, support-attachments) = private. BUT no bucket has any size or MIME limit (compounds s3-upload no-limit finding).
+  * STAFF MFA: 0 of admin/content_editor/judge have a verified MFA factor. No 2FA on staff.
+  * Area 11 live fns safe; password_verification_hook implements login lockout (positive). verify_staff_id exposes staff directory incl blood group to anyone with a staff id (likely by design).
+- Production carry PR #654 opened; will run PROBE on production to confirm wallet guard/RLS/MFA/realtime there.
 - 2026-10-30 ~06:2x — CRITICAL CANDIDATE confirmed in git: wallet_transaction RPC is re-granted to authenticated (0032 L198) and its applied-migration body (20260320150533) lets a member self-credit any positive amount (no BUG-001 guard; guard exists only in the UNAPPLIED schema dump). Exploitable => unlimited balance IF production runs this body. Awaiting PROBE FNBODY on staging+production to confirm live body. Staging PROBE still QUEUED (org runner contention, ~14 jobs).
 - 2026-10-30 ~06:1x — anon surface fully verified live on staging: anon reads only public posts (private/friends/draft all 0 rows), public follows graph (514), and public profile views (no email/phone/dob/national_id/privacy_settings/wallet — none of those columns exist on anon views). profiles/friendships/comments/wallet_transactions/bank_details/support_tickets/user_notifications/competition_votes/judge_scores all 0 rows to anon. No DM/messages tables exist. Catalog PROBE 0901 merged (#638) and dispatched to staging; QUEUED behind ~14 concurrent CI jobs (runner contention), not an approval gate.
 - 2026-10-30 ~06:0x — edge-function + storage audit complete; seo leak endpoint
