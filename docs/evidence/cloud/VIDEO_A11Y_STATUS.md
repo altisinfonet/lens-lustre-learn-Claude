@@ -1,14 +1,14 @@
 # Video + accessibility runner — status
 
 Started 2026-10-30 01:47 UTC. Replaces the earlier supervisor session (no GitHub trace after 2026-10-29 14:19 UTC).
-Last update: 2026-10-30 13:48 UTC.
+Last update: 2026-10-30 14:07 UTC.
 
 SECOND RESTART 2026-10-30 ~07:15 UTC: the run stopped silently again at ~05:15 UTC. New rule: ONE PR at a time (#619 → #538 → #539 → #540 → #541 → #542), heartbeat at least every 20 minutes. Checked GitHub 07:15 UTC: nobody pushed to or merged #538-#542 or #619 since 02:00 UTC; each is 21 commits behind staging.
 
 RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. A new run took over at 05:05 UTC. Checked GitHub: nobody else pushed to or merged #538-#542 or #619 since 02:00 UTC.
 
 ## Now
-13:48 UTC — Building two units in parallel worktrees: S10a-2 (P23 CI checks, red first) and S7-f (converter runs the purge worker hourly with its own sign-in). Will push/review/merge one at a time.
+14:07 UTC — Still building S10a-2 (P23 checks) and S7-f (purge tick) in worktrees.
 
 ## Units
 | Unit | PR | State | Merged sha (staging / main) | SQL runs | Live check |
