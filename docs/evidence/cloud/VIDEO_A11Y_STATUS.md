@@ -1,20 +1,20 @@
 # Video + accessibility runner — status
 
 Started 2026-10-30 01:47 UTC. Replaces the earlier supervisor session (no GitHub trace after 2026-10-29 14:19 UTC).
-Last update: 2026-10-30 08:40 UTC.
+Last update: 2026-10-30 08:48 UTC.
 
 SECOND RESTART 2026-10-30 ~07:15 UTC: the run stopped silently again at ~05:15 UTC. New rule: ONE PR at a time (#619 → #538 → #539 → #540 → #541 → #542), heartbeat at least every 20 minutes. Checked GitHub 07:15 UTC: nobody pushed to or merged #538-#542 or #619 since 02:00 UTC; each is 21 commits behind staging.
 
 RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. A new run took over at 05:05 UTC. Checked GitHub: nobody else pushed to or merged #538-#542 or #619 since 02:00 UTC.
 
 ## Now
-08:40 UTC — #538: 19 checks green, 3 running, none red. Merge when green, then #539.
+08:48 UTC — #538 merged on staging (a0e8d849). Next: #539 (S7-a purge-queue deleter) — rebase, CI, review, merge.
 
 ## Units
 | Unit | PR | State | Merged sha (staging / main) | SQL runs | Live check |
 |---|---|---|---|---|---|
 | CI fix: app-origin check reads the routes staging serves (blocks #541) | #619 | MERGED 08:10 UTC (25/25 checks green; review nothing blocking) | staging 5f8c8d5e / main: not yet | none | — |
-| S10a-1 P23 decision note | #538 | rebased 08:12 (f2ce45e6); review 08:22: nothing blocking (posted; 4 wording notes carried to S10a-2); CI queued | — | none | — |
+| S10a-1 P23 decision note | #538 | MERGED 08:48 UTC (22/22 checks green; review nothing blocking) | staging a0e8d849 / main: not yet | none | — |
 | S7-a purge-queue deleter | #539 | rebased; old blocking finding was already fixed; review: nothing blocking; CI running | — | 0700: not run yet | — |
 | S7-e encoder harness fixtures | #540 | rebased; review: nothing blocking; CI running | — | none | — |
 | S7-b VID-4 takedown | #541 | rebased (PostCard conflict resolved); 2 red checks root-caused + fixed; review: nothing blocking; CI running | — | 0701: not run yet | — |
@@ -26,7 +26,7 @@ RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. 
 
 ## Progress
 - S7: 0% merged (6 PRs in review/CI)
-- P23: 0% merged (decision note in CI)
+- P23: 1 of 4 S10-a parts merged on staging (decision note, about 25%). Stages runner may start S10 rest now.
 
 ## For the S7b offline runner
 (a line is added here after each S7 PR merges on staging)
