@@ -57,17 +57,34 @@ export async function photoResumeOn(userId?: string | null): Promise<boolean> {
 }
 
 /** "selected": is the signed-in member on the list? The server's answer, never guessed. */
+const SELECTED_TTL_MS = 60_000;
+const SELECTED_TIMEOUT_MS = 4_000;
+const selectedCache = new Map<string, { on: boolean; at: number }>();
+/** Tests only. */
+export function clearPhotoResumeMemberCache(): void { selectedCache.clear(); }
+
 async function selectedForMe(userId: string | null): Promise<boolean> {
+  // The phone-wide answer is no longer "on" for everyone (review #652).
+  rememberKnown(PHOTO_RESUME_KEY, false);
   if (!userId) return false;
-  const { data, error } = await (supabase.rpc as unknown as (fn: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>)(
+  const hit = selectedCache.get(userId);
+  if (hit && Date.now() - hit.at < SELECTED_TTL_MS) return hit.on;
+  const call = (supabase.rpc as unknown as (fn: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>)(
     "feature_allowed_me", { _feature: PHOTO_RESUME_KEY },
   );
+  // A weak link must not hold the composer: no answer in 4 s counts as a lost network.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<{ data: unknown; error: unknown }>((res) => {
+    timer = setTimeout(() => res({ data: null, error: { name: "TimeoutError", message: "feature_allowed_me timed out" } }), SELECTED_TIMEOUT_MS);
+  });
+  const { data, error } = await Promise.race([call, timeout]).finally(() => clearTimeout(timer));
   if (error) {
     // Lost network: this member's last answer (S7b-5b); a refusal: off.
     return isNetworkError(error) ? (lastKnown(memberKey(userId)) ?? false) : false;
   }
   const on = data === true;
   rememberKnown(memberKey(userId), on);
+  selectedCache.set(userId, { on, at: Date.now() });
   return on;
 }
 

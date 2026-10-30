@@ -65,7 +65,8 @@ BEGIN
   -- otherwise stop rather than drop someone else's key.
   SELECT pg_get_constraintdef(oid) INTO _def FROM pg_constraint
    WHERE conrelid = 'public.feature_access'::regclass AND conname = 'feature_access_feature_check';
-  IF _def IS NULL OR _def !~ 'media_private_photos' OR _def ~ 'photo_upload_resume' THEN
+  -- Exact text (review #652): a key added by another unit and not yet seeded must stop this file.
+  IF _def IS DISTINCT FROM 'CHECK ((feature = ANY (ARRAY[''video_posts''::text, ''video_ads''::text, ''copyright_music_check''::text, ''personal_feed''::text, ''media_ladder_feed''::text, ''media_private_photos''::text])))' THEN
     RAISE EXCEPTION 'S5-0601-PRE-003: feature_access_feature_check is not the 20261029_0101 list (read: %)', coalesce(_def, '<none>')
       USING ERRCODE = 'raise_exception';
   END IF;

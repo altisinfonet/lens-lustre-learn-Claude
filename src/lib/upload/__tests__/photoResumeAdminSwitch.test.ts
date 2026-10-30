@@ -38,7 +38,7 @@ vi.mock("@/integrations/supabase/client", () => ({
   },
 }));
 
-const { photoResumeOn } = await import("@/lib/upload/photoJobDeps");
+const { photoResumeOn, clearPhotoResumeMemberCache } = await import("@/lib/upload/photoJobDeps");
 const { invalidateSiteSetting } = await import("@/lib/siteSettingsCache");
 const { FEATURE_INFO, parseFeatureState } = await import("@/lib/admin/featureSwitches");
 
@@ -60,6 +60,7 @@ const ME = "11111111-1111-1111-1111-111111111111";
 beforeEach(() => {
   localStorage.clear();
   invalidateSiteSetting();
+  clearPhotoResumeMemberCache();
   db.rows = []; db.allowed = false; db.rpcFails = false; db.rpcRefused = false; db.settingsFail = false; db.rpcCalls = [];
 });
 
@@ -93,6 +94,8 @@ describe("admin mode → stored value → photoResumeOn()", () => {
     expect(await photoResumeOn(ME)).toBe(true);
     expect(db.rpcCalls).toEqual([{ fn: "feature_allowed_me", args: { _feature: "photo_upload_resume" } }]);
     db.allowed = false;
+    expect(await photoResumeOn(ME)).toBe(true);           // the member's answer is cached for a minute
+    clearPhotoResumeMemberCache();
     expect(await photoResumeOn(ME)).toBe(false);
   });
 
@@ -103,6 +106,7 @@ describe("admin mode → stored value → photoResumeOn()", () => {
     expect(await photoResumeOn(null)).toBe(false);
     db.rpcRefused = true;
     expect(await photoResumeOn(ME)).toBe(false);
+    clearPhotoResumeMemberCache();
     invalidateSiteSetting();
     db.rpcRefused = false;
     db.rows = [{ key: "photo_upload_resume", value: "ON" }];
@@ -118,6 +122,7 @@ describe("admin mode → stored value → photoResumeOn()", () => {
     expect(await photoResumeOn(ME)).toBe(false);          // never seen
     db.rpcFails = false; db.allowed = true;
     expect(await photoResumeOn(ME)).toBe(true);           // seen on
+    clearPhotoResumeMemberCache();
     db.rpcFails = true;
     expect(await photoResumeOn(ME)).toBe(true);           // lost network: last seen
     // another member on this phone never inherits it
@@ -137,6 +142,33 @@ describe("admin mode → stored value → photoResumeOn()", () => {
     invalidateSiteSetting();
     db.settingsFail = true;
     expect(await photoResumeOn(ME)).toBe(false);
+  });
+});
+
+describe("review #652", () => {
+  it("a server that never answers does not hold the post: 4 s, then this member's last answer", async () => {
+    setStored("selected");
+    db.allowed = true;
+    expect(await photoResumeOn(ME)).toBe(true);           // seen on; the setting itself is now cached
+    clearPhotoResumeMemberCache();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const spy = vi.spyOn(supabase, "rpc").mockImplementation((() => new Promise(() => {})) as never);
+      const p = photoResumeOn(ME);
+      await vi.advanceTimersByTimeAsync(4_000);
+      expect(await p).toBe(true);
+      spy.mockRestore();
+    } finally { vi.useRealTimers(); }
+  });
+  it("everyone then selected: the phone-wide offline answer is no longer on", async () => {
+    setStored("everyone");
+    expect(await photoResumeOn()).toBe(true);
+    setStored("selected");
+    expect(await photoResumeOn()).toBe(false);
+    invalidateSiteSetting();
+    db.settingsFail = true;
+    expect(await photoResumeOn()).toBe(false);
   });
 });
 
