@@ -1,20 +1,20 @@
 # Video + accessibility runner — status
 
 Started 2026-10-30 01:47 UTC. Replaces the earlier supervisor session (no GitHub trace after 2026-10-29 14:19 UTC).
-Last update: 2026-10-30 08:10 UTC.
+Last update: 2026-10-30 08:21 UTC.
 
 SECOND RESTART 2026-10-30 ~07:15 UTC: the run stopped silently again at ~05:15 UTC. New rule: ONE PR at a time (#619 → #538 → #539 → #540 → #541 → #542), heartbeat at least every 20 minutes. Checked GitHub 07:15 UTC: nobody pushed to or merged #538-#542 or #619 since 02:00 UTC; each is 21 commits behind staging.
 
 RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. A new run took over at 05:05 UTC. Checked GitHub: nobody else pushed to or merged #538-#542 or #619 since 02:00 UTC.
 
 ## Now
-08:10 UTC — #619 merged on staging (5f8c8d5e). Next: #538 (P23 decision note) — rebase on staging, CI, review, merge.
+08:21 UTC — #538: rebased, review nothing blocking, CI queued (22 checks). Merge when green, then #539.
 
 ## Units
 | Unit | PR | State | Merged sha (staging / main) | SQL runs | Live check |
 |---|---|---|---|---|---|
-| CI fix: app-origin check reads the routes staging serves (blocks #541) | #619 | MERGED 08:14 UTC (25/25 checks green; review nothing blocking) | staging 5f8c8d5e / main: not yet | none | — |
-| S10a-1 P23 decision note | #538 | rebased; review: nothing blocking (doc fixes applied); CI running | — | none | — |
+| CI fix: app-origin check reads the routes staging serves (blocks #541) | #619 | MERGED 08:10 UTC (25/25 checks green; review nothing blocking) | staging 5f8c8d5e / main: not yet | none | — |
+| S10a-1 P23 decision note | #538 | rebased 08:12 (f2ce45e6); review 08:22: nothing blocking (posted; 4 wording notes carried to S10a-2); CI queued | — | none | — |
 | S7-a purge-queue deleter | #539 | rebased; old blocking finding was already fixed; review: nothing blocking; CI running | — | 0700: not run yet | — |
 | S7-e encoder harness fixtures | #540 | rebased; review: nothing blocking; CI running | — | none | — |
 | S7-b VID-4 takedown | #541 | rebased (PostCard conflict resolved); 2 red checks root-caused + fixed; review: nothing blocking; CI running | — | 0701: not run yet | — |
