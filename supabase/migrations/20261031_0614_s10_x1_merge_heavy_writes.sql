@@ -14,8 +14,15 @@
 -- bounds): activity_logs ≈ 2.3 s, feed_events ≈ 0.9 s; E2-after is part of
 -- that. lock_timeout is 2 s; once taken, the file checks the elapsed time
 -- before each identity in BIND and E2-after and before the final checks and
--- rolls back past 3 s (WIN) — a write that waits on the lock is delayed, not
--- refused. If WIN fires on production, the tables go in separate files.
+-- rolls back past 3 s (WIN). The cap is checked between steps, so one slow
+-- step can run past it (hard ceiling: statement_timeout 60 s). ACCESS
+-- EXCLUSIVE blocks reads as well as writes on both tables; a query that waits
+-- is delayed, not refused. Lock order is name order (activity_logs, then
+-- feed_events); no transaction in the code writes feed_events and then
+-- activity_logs (the account-deletion paths touch them in separate requests),
+-- so no deadlock with member writes is expected — if one happens, Postgres
+-- aborts one side and this file rolls back cleanly. If WIN fires on
+-- production, the tables go in separate files.
 --
 -- WHY IT IS EXACT: Postgres ORs the permissive policies that apply to the
 -- current role, per action (a FOR ALL policy applies to every action; for

@@ -5,13 +5,15 @@
 -- PASSES after.
 --   G0 · lane asserted.
 --   G1 · public.activity_logs and public.feed_events exist with RLS on.
---   G2 · neither has two permissive policies for the same (role, action).
+--   G2 · neither has two permissive policies for the same action.
 --   G3 · their only permissive policies are the x1_merged_* ones.
 --   G4 · the policy backup exists, holds this batch, and is owner-only
 --        (owner postgres, no other grantee — not even service_role).
 --   G5 · each has at least one x1_merged_* policy, and the merged actions are
 --        exactly the actions its backed-up original policies granted (so a
 --        table left with no permissive policy — everyone denied — fails).
+--   G6 · each merged policy is granted to exactly the originals' role set.
+--        (Shape only: the access proof is the migration's E1/BIND/E2.)
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN READ ONLY;
 
@@ -68,6 +70,17 @@ BEGIN
             (SELECT array_agg(p.polcmd::text ORDER BY p.polcmd::text) FROM pg_policy p
               WHERE p.polrelid = rel AND p.polpermissive AND p.polname LIKE 'x1\_merged\_%')) THEN
         _bad := _bad || format(' G5(%s: merged policies missing or their actions differ from the backed-up originals)', t);
+      END IF;
+      -- G6 · every merged policy is granted to exactly the role set of the originals
+      IF EXISTS (SELECT 1 FROM pg_policy p
+                  WHERE p.polrelid = rel AND p.polpermissive AND p.polname LIKE 'x1\_merged\_%'
+                    AND (CASE WHEN p.polroles = '{0}'::oid[] THEN ARRAY['PUBLIC']
+                              ELSE (SELECT array_agg(rr.rolname::text ORDER BY rr.rolname) FROM pg_roles rr WHERE rr.oid = ANY (p.polroles)) END)
+                        IS DISTINCT FROM (SELECT bk.roles FROM public.x1_policy_backup_20261031 bk
+                                           WHERE bk.batch = '0614_heavy' AND bk.tbl = t LIMIT 1))
+         OR (SELECT count(DISTINCT bk.roles) FROM public.x1_policy_backup_20261031 bk
+              WHERE bk.batch = '0614_heavy' AND bk.tbl = t) <> 1 THEN
+        _bad := _bad || format(' G6(%s: merged policies are not granted to the original role set)', t);
       END IF;
     END LOOP;
   END IF;
