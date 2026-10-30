@@ -1,0 +1,42 @@
+<!doctype html>
+<!--
+  P23 S10a-2 · THE CLEAN MODAL PAGE. An open MODAL dialog (aria-modal) that
+  keeps Tab inside itself and closes on Escape — every sheet in the app is
+  one. `a11y-surfaces.mjs --self-test` must report NOTHING: a modal's own
+  focus loop is not a keyboard trap (S10a-DECISION.md §3 D), and the controls
+  behind it are meant to be unreachable while it is open (B's scope).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>a11y-surfaces clean modal page</title>
+<style>
+  body { font: 16px/1.4 system-ui, sans-serif; background: #fff; color: #111; margin: 16px; }
+  button { display: inline-block; margin: 4px; min-width: 44px; min-height: 44px; }
+  #modal { position: fixed; inset: 20% 10%; background: #fff; border: 2px solid #333; padding: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Behind the modal</h1>
+  <!-- Ordinary controls, as Radix leaves them: only the modal's focus loop
+       keeps Tab off them. Out of B's scope while the modal is open. -->
+  <button type="button">Behind one</button>
+  <button type="button">Behind two</button>
+</main>
+<div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <h2 id="modal-title">A modal sheet</h2>
+  <button id="m1" type="button">First</button>
+  <button id="m2" type="button">Last</button>
+</div>
+<script>
+  const m1 = document.getElementById("m1"), m2 = document.getElementById("m2"), modal = document.getElementById("modal");
+  // The modal's own focus loop: Tab from the last returns to the first.
+  m2.addEventListener("keydown", (e) => { if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); m1.focus(); } });
+  m1.addEventListener("keydown", (e) => { if (e.key === "Tab" && e.shiftKey) { e.preventDefault(); m2.focus(); } });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") modal.remove(); });
+  m1.focus();
+</script>
+</body>
+</html>

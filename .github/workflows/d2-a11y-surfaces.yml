@@ -1,0 +1,88 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# D2 · P23 S10a-2 — THE TEN PRIMARY SURFACES, CHECKED A–E, AS A RATCHET.
+#
+# docs/evidence/d2/phase5/P23/S10a-DECISION.md §2 (the 11 scenes) and §3 (the
+# checks): axe (A), Tab reach (B), visible focus (C), no keyboard trap (D),
+# Escape closes an open dialog (E), at iphone-390 and desktop-1280, in Chromium
+# (the Android app's WebView engine), judged per scene AND width against
+# tools/uishot/a11y-surfaces.baseline.json by the axe ratchet's own compareAxe().
+#
+# ITS OWN WORKFLOW, BY DECISION S3: ui-gate.yml is a required check with a
+# 30-minute budget; this does not lengthen it and leaves branch protection
+# untouched. The harness is the UI gate's (uiharness.html on a Vite dev server,
+# the fake backend, synthetic VITE_* values) — it connects to nothing real and
+# holds no secret.
+#
+# ORDER MATTERS: the self-test runs FIRST and must pass — every check must fire
+# on its seeded defect and on nothing in the clean pages — before the real
+# verdict means anything. A check that cannot fire cannot go green honestly.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ─────────────────────────────────────────────────────────────────────────────
+name: D2 · P23 a11y surfaces
+
+on:
+  pull_request:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  a11y-surfaces:
+    name: P23 a11y surfaces (A–E ratchet)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      # `npm ci`, never `npm install`, and no `|| true` — a failed install fails.
+      - name: Clean install
+        run: npm ci --no-audit --no-fund
+
+      # The same browser cache and the same no-apt install as ui-gate.yml, for
+      # the same reason (builds 1107/1109: apt hung the job, not the app).
+      - name: Cache the Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Chromium for Playwright
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            if npx playwright install chromium; then
+              echo "Chromium ready (attempt ${attempt})."
+              exit 0
+            fi
+            echo "::warning::Chromium download attempt ${attempt} failed; retrying."
+            sleep $((attempt * 15))
+          done
+          echo "::error::Chromium could not be downloaded after 3 attempts."
+          exit 1
+
+      - name: Self-test — every check fires on its seeded defect, and on nothing clean
+        run: node tools/uishot/a11y-surfaces.mjs --self-test --json /tmp/a11y-surfaces/self-test.json
+
+      # Starts the harness itself (port 5195) and exits with the verdict.
+      - name: The ten surfaces, A–E, against the baseline
+        env:
+          VITE_SUPABASE_URL: https://testprojectref0000x.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: test-publishable-key-not-real
+          VITE_SUPABASE_PROJECT_ID: testprojectref0000x
+        run: node tools/uishot/a11y-surfaces.mjs --json /tmp/a11y-surfaces/report.json
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p23-a11y-surfaces-report
+          path: /tmp/a11y-surfaces
+          retention-days: 30
+          if-no-files-found: warn

@@ -133,8 +133,12 @@ if (params.get("native") === "1") {
   };
 }
 
-const { SCENES } = await import("./scenes");
-const scene = SCENES[name];
+const { SCENES, A11Y_ONLY_SCENES } = await import("./scenes");
+/**
+ * P23 S10a-2: an a11y-only scene resolves by name, but `Index` below lists
+ * `SCENES` alone — so it never enters the visual sweep's scene list.
+ */
+const scene = SCENES[name] ?? A11Y_ONLY_SCENES[name];
 
 /** Retries and refetching would make two runs of the same scene differ. */
 const queryClient = new QueryClient({
