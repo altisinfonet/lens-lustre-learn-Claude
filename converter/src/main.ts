@@ -23,7 +23,7 @@ import { selfTest } from "./selftest";
 import { ClaimStateStore } from "./state";
 import { sweepJobsRoot, workerLoop } from "./worker";
 
-export const VERSION = "1.2.0";
+export const VERSION = "1.3.0"; // 1.3.0: S7-f purge tick
 
 function launcherFor(c: Config): Launcher {
   return c.launcher === "systemd"
@@ -128,10 +128,11 @@ async function main(argv: string[]): Promise<number> {
   process.once("SIGINT", () => onSignal("SIGINT"));
 
   const swept = await sweepJobsRoot(c.jobsRoot, log);
-  log("worker.start", { version: VERSION, launcher: c.launcher, preset: c.preset, api: c.apiBase, r2_host: c.r2Host, swept });
+  log("worker.start", { version: VERSION, launcher: c.launcher, preset: c.preset, api: c.apiBase, r2_host: c.r2Host, swept, purge_every_ms: c.purgeEveryMs });
   const { fatal } = await workerLoop({
     api, state, launcher, jobsRoot: c.jobsRoot, preset: c.preset, heartbeatMs: c.heartbeatMs,
     pollMs: c.pollMs, pollMaxMs: c.pollMaxMs, log,
+    purgeEveryMs: c.purgeEveryMs, // S7-f: POST /api/video/purge with this session (not during the self-test: that ran above)
     sleep: (ms) => delay(ms).then(() => undefined),
     allowUrl: storageUrlRule(c.r2Host, c.r2Bucket),
     selfTest: async () => { const r = await runSelfTest(); log("worker.selftest", { ...r }); return r; },

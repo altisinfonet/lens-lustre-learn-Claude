@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 /**
  * S7-a · video file deleter — drives POST /api/video/purge on a lane.
+ *
+ * MANUAL / ONE-OFF TOOL. The scheduled hourly run is the converter worker's
+ * purge tick (S7-f, converter/src/worker.ts, CONVERTER_PURGE_EVERY_MS), which
+ * signs in with the converter account and refreshes its token itself. A pasted
+ * JWT here expires in about an hour, so --loop is only for short supervised runs.
+ *
  * Design: docs/evidence/d2/S7/S7-a-purge.md. Holds NO storage key and NO
  * service key: the lane's Pages route deletes through its own R2 binding, and
  * the database (video_purge_claim, 20261030_0700) decides which folders may
