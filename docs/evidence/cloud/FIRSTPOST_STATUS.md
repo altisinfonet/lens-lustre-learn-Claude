@@ -27,13 +27,26 @@ after sign-up in 40 days; 1 active only in the first 10 minutes after sign-up. O
   notice on the realtime socket) — none from this change.
 - Needs the next Android app build: yes (the app-side "session start" call).
 
-## Unit B — "First post after registration" (switch `first_post_nudge`, OFF everywhere)
-- PR #632 → staging: CI green on 522ff4d (35/2 skipped); final tiny redaction commit 0657d80 re-running; independent review: nothing blocking.
-- Reminders reuse the existing push sender and e-mail queue — **no edge-function deploy needed**.
-- Needs the next Android app build: yes (the in-app step and category pre-fill).
+## Unit B — "First post after registration" (switch `first_post_nudge`: OFF on production, ON on staging for tests)
+- Built: (1) "Share your first photo" step after the welcome form (one Choose-a-photo button into the normal post flow,
+  category pre-filled; "Later"); (2) a promise checked against the live feed SQL; (3) reminders at 1/3/7 days — bell + push +
+  e-mail, stopped forever by the first post, opt-outs respected, existing push sender + e-mail queue reused (no edge-function
+  deploy needed); (7) Admin → Health "New members who posted within 7 days" (8 weeks).
+- PR #632 → staging `f0cad78` (CI 35 green / 2 skipped; independent review: nothing blocking) · carry #633 → main (CI running)
+- SQL runs (UTC 2026-10-30):
+  - staging 0200: PROBE FAIL 41006142223 05:02 → apply 41006224072 05:03 → PROBE PASS 41006272343 05:03
+  - staging switch ON (tests): PROBE FAIL 41006325952 → switch-on 41006374289 → PROBE PASS 41006420935 (05:05)
+  - production: after #633 lands — 0200 only; the switch stays OFF
+- Gate evidence (fixture, both lane shapes, CI job "first-post reminders + Health number on lane-shaped databases"): switch off =
+  nothing; queued at +1/+3/+7 d; due → bell + push + e-mail with the post link; first post cancels the rest; opt-outs; late /
+  suspended never sent; Health 50.0 % on a known week; admin only. Step: vitest render tests (Later, web hand-off with
+  category = 2 taps after choosing a photo: Next, Post; app = 1: Share).
+- Needs the next Android app build: yes (the in-app step + category pre-fill).
 
 ## Owner list (plain words)
 1. Unit A works on the website now. Members using the Android app get the fix with the **next app build** (another runner does the version bump).
 2. Members shown "Unknown" were last active before we recorded App/Website, or never came back after signing up. Their chip changes the next time they open the app or site.
 3. To see it yourself: open Admin → Users after a member uses the site — the chip appears within about a minute.
-4. The Auditor's frozen file `docs/gates/P1-interface.md` says only the "session end" call writes App/Website; this fix adds a second writer, as you asked. The Auditor should note it.
+4. The "first post" helper is built and switched OFF on the live site. To switch it ON yourself: GitHub → Actions → "Apply a database migration" → Run workflow on `main`, target `production`, and type this path in both boxes: `supabase/migrations/UNAPPLIED_20261102_0201_first_post_nudge_switch_on.sql`. To switch OFF again, the same with `supabase/rollback/20261102_0201_first_post_nudge_switch_on_ROLLBACK.sql`. (Only after the carry is merged — this file will say when.)
+5. Try it first on staging, where it is already ON: sign up a new test account on staging.50mmretina.com and finish the welcome form — you should see "Share your first photo".
+6. The Auditor's frozen file `docs/gates/P1-interface.md` says only the "session end" call writes App/Website; this fix adds a second writer, as you asked. The Auditor should note it.
