@@ -59,6 +59,7 @@ jobs:
 
           DEST=$(q "SELECT destination FROM public.ops_alarm_settings WHERE id = 1")
           echo "destination: $DEST"
+          if [ -z "$DEST" ]; then echo "::error::ops_alarm_settings row is missing — alarms cannot be routed"; exit 1; fi
           if [ "$DEST" != "github_issue" ]; then echo "Destination is not github_issue; nothing to deliver here."; exit 0; fi
 
           # alarms: open ones, plus ones closed in the last 2 days (to close their issues)

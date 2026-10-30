@@ -11,7 +11,7 @@
 --       (b) UPTIME — GETs every URL in ops_alarm_settings.uptime_targets
 --           (www + apex) through pg_net; two failed checks in a row for a URL
 --           open an alarm, one good check closes it.
---       (a) DEAD-MAN — every 15 minutes reads GitHub's PUBLIC API (no token)
+--       (a) DEAD-MAN — every 30 minutes reads GitHub's PUBLIC API (no token)
 --           for the last SUCCESSFUL run of each workflow in
 --           monitored_workflows (health.yml); no success for dead_man_hours
 --           (3 h) opens an alarm. If the API itself cannot be read for that
@@ -52,15 +52,20 @@ CREATE TABLE IF NOT EXISTS public.ops_alarm_settings (
   id                  smallint PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   lane                text NOT NULL,
   destination         text NOT NULL DEFAULT 'github_issue',
-  uptime_targets      text[] NOT NULL DEFAULT ARRAY['https://www.50mmretina.com/', 'https://50mmretina.com/'],
-  monitored_workflows text[] NOT NULL DEFAULT ARRAY['health.yml'],
+  uptime_targets      text[] NOT NULL DEFAULT '{}' CHECK (cardinality(uptime_targets) <= 5),
+  monitored_workflows text[] NOT NULL DEFAULT '{}' CHECK (cardinality(monitored_workflows) <= 5),
   github_repo         text NOT NULL DEFAULT 'altisinfonet/lens-lustre-learn-Claude',
   dead_man_hours      integer NOT NULL DEFAULT 3 CHECK (dead_man_hours BETWEEN 1 AND 48),
   updated_at          timestamptz NOT NULL DEFAULT now()
 );
 COMMENT ON COLUMN public.ops_alarm_settings.destination IS
   'Where alarms go. github_issue = alarm-relay.yml opens an ALARM issue. Owner contact (e-mail/phone) goes here later.';
-INSERT INTO public.ops_alarm_settings (id, lane) VALUES (1, current_setting('p32.lane'))
+-- Staging starts with nothing to watch (no duplicate pings / GitHub API reads);
+-- the staging alarm test switches targets on and off by its own migrations.
+INSERT INTO public.ops_alarm_settings (id, lane, uptime_targets, monitored_workflows)
+SELECT 1, current_setting('p32.lane'),
+       CASE WHEN current_setting('p32.lane') = 'production' THEN ARRAY['https://www.50mmretina.com/', 'https://50mmretina.com/'] ELSE '{}'::text[] END,
+       CASE WHEN current_setting('p32.lane') = 'production' THEN ARRAY['health.yml'] ELSE '{}'::text[] END
 ON CONFLICT (id) DO NOTHING;
 ALTER TABLE public.ops_alarm_settings ENABLE ROW LEVEL SECURITY;
 
@@ -100,7 +105,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS ops_alarms_one_open_per_key
   ON public.ops_alarms (alarm_key) WHERE closed_at IS NULL;
 ALTER TABLE public.ops_alarms ENABLE ROW LEVEL SECURITY;
 
--- Admins read (Admin → Health banner); admins may change the one setting.
+-- Admins read (Admin → Health banner). Nobody writes through the API.
 DO $pol$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'ops_alarms' AND policyname = 'admins read ops_alarms') THEN
@@ -111,11 +116,6 @@ BEGIN
     CREATE POLICY "admins read ops_alarm_settings" ON public.ops_alarm_settings FOR SELECT TO authenticated
       USING (public.has_role(auth.uid(), 'admin'::public.app_role));
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'ops_alarm_settings' AND policyname = 'admins update ops_alarm_settings') THEN
-    CREATE POLICY "admins update ops_alarm_settings" ON public.ops_alarm_settings FOR UPDATE TO authenticated
-      USING (public.has_role(auth.uid(), 'admin'::public.app_role))
-      WITH CHECK (public.has_role(auth.uid(), 'admin'::public.app_role));
-  END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'ops_probe_requests' AND policyname = 'admins read ops_probe_requests') THEN
     CREATE POLICY "admins read ops_probe_requests" ON public.ops_probe_requests FOR SELECT TO authenticated
       USING (public.has_role(auth.uid(), 'admin'::public.app_role));
@@ -123,9 +123,11 @@ BEGIN
 END
 $pol$;
 
-REVOKE ALL ON public.ops_alarm_settings, public.ops_probe_requests, public.ops_alarms FROM anon;
+-- Supabase's default table privileges give anon/authenticated ALL on new tables;
+-- RLS does not cover TRUNCATE/REFERENCES/TRIGGER, so strip everything and grant
+-- back read only. Settings change by migration only (no member-facing write path).
+REVOKE ALL ON public.ops_alarm_settings, public.ops_probe_requests, public.ops_alarms FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.ops_alarms, public.ops_alarm_settings, public.ops_probe_requests TO authenticated;
-GRANT UPDATE (destination, uptime_targets, monitored_workflows, dead_man_hours, updated_at) ON public.ops_alarm_settings TO authenticated;
 
 -- ── open / close one alarm ─────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.ops_alarm_set(_key text, _firing boolean, _summary text, _detail jsonb)
@@ -274,7 +276,7 @@ BEGIN
   END LOOP;
   FOREACH w IN ARRAY s.monitored_workflows LOOP
     IF NOT EXISTS (SELECT 1 FROM public.ops_probe_requests
-                    WHERE kind = 'gh_runs' AND target = w AND requested_at > now() - interval '14 minutes') THEN
+                    WHERE kind = 'gh_runs' AND target = w AND requested_at > now() - interval '29 minutes') THEN
       _rid := net.http_get(
         url := format('https://api.github.com/repos/%s/actions/workflows/%s/runs?status=success&per_page=1', s.github_repo, w),
         timeout_milliseconds := 15000,
@@ -306,6 +308,14 @@ BEGIN
   IF has_function_privilege('anon', 'public.ops_monitor_tick()', 'EXECUTE')
      OR has_function_privilege('authenticated', 'public.ops_monitor_tick()', 'EXECUTE') THEN
     RAISE EXCEPTION 'OPS-0300-POST: ops_monitor_tick must not be callable by anon/authenticated';
+  END IF;
+  IF has_table_privilege('authenticated', 'public.ops_alarms', 'INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER')
+     OR has_table_privilege('authenticated', 'public.ops_alarm_settings', 'INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER')
+     OR has_table_privilege('authenticated', 'public.ops_probe_requests', 'INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER')
+     OR has_table_privilege('anon', 'public.ops_alarms', 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE')
+     OR has_table_privilege('anon', 'public.ops_alarm_settings', 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE')
+     OR has_table_privilege('anon', 'public.ops_probe_requests', 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE') THEN
+    RAISE EXCEPTION 'OPS-0300-POST: anon/authenticated hold a write privilege on an ops_* table';
   END IF;
   IF (SELECT count(*) FROM public.ops_alarm_settings) <> 1 THEN
     RAISE EXCEPTION 'OPS-0300-POST: exactly one settings row expected';

@@ -50,8 +50,8 @@ const OpsAlarmsBanner = () => {
         <AlertTriangle className="h-4 w-4" aria-hidden="true" /> {isAlarm ? "ALARM" : "Alarms"}
       </div>
       <ul className="mt-2 list-disc pl-5 space-y-1">
-        {banner.lines.map((l) => (
-          <li key={l}>{l}</li>
+        {banner.lines.map((l, i) => (
+          <li key={i}>{l}</li>
         ))}
       </ul>
     </div>
