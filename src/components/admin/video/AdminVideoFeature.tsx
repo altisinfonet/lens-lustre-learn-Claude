@@ -15,7 +15,7 @@
  * bulk remove); the history last, folded.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Clapperboard, Film, KeyRound, Loader2, Music2, Sparkles, Trash2 } from "lucide-react";
+import { Clapperboard, CloudUpload, Film, KeyRound, Loader2, Music2, Sparkles, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import {
@@ -28,7 +28,7 @@ import { MemberAvatar, StatusPill } from "./memberBits";
 type Rpc = (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message?: string } | null }>;
 const rpc: Rpc = (fn, args) => (supabase.rpc as unknown as Rpc)(fn, args);
 
-const ICON: Record<FeatureKey, typeof Film> = { video_posts: Film, video_ads: Clapperboard, copyright_music_check: Music2, personal_feed: Sparkles, media_ladder_feed: Sparkles, media_private_photos: Sparkles };
+const ICON: Record<FeatureKey, typeof Film> = { video_posts: Film, video_ads: Clapperboard, copyright_music_check: Music2, personal_feed: Sparkles, media_ladder_feed: Sparkles, media_private_photos: Sparkles, photo_upload_resume: CloudUpload };
 const MEMBERS_PAGE = 25;
 
 /** A few live numbers for the page (admins read videos/post_videos/ad_videos through RLS). Silent on any error. */
