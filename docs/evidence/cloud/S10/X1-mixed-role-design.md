@@ -76,6 +76,28 @@ group's original expressions. So:
   USING and WITH CHECK, including UPDATE's need for SELECT visibility,
   RETURNING and ON CONFLICT.
 
+**Limit: evaluation order.** Postgres ORs a user's permissive policies in
+policy-name order (the `pg_policy` index scan), and the planner does not
+reorder OR arguments. Inside a merged group, the merged text keeps that
+order: parts are joined `ORDER BY polname`. Across groups, the merged
+policies get new names (`x1_merged_*`), so for a role with two applicable
+groups the order of the groups can change. If a branch that used to be
+skipped can raise at run time (a cast, `current_setting` without
+`missing_ok`, a function that raises), it could now run first. Cost per row
+can also shift. Neither SQL nor Postgres guarantees OR evaluation order, and
+E3 (plan-time) cannot see it. So the exactness claim above covers rows and
+plan-time or rewrite-time errors, not run-time errors from evaluation order.
+On uniform tables (0608–0614) there is one group, so the order is unchanged
+there.
+
+**Grouping keys.**
+- The action key is the policy's command, with `ALL` as its own key. Two
+  `ALL` policies merge as OR(USING) and OR(coalesce(check, using)). An `ALL`
+  policy and a single-command policy with the same role list are not merged
+  and stay in the G7 residual.
+- Role lists are compared as sorted sets of role names, so
+  `{anon,authenticated}` = `{authenticated,anon}`.
+
 **What it does NOT do.** On M1/M2/M3 tables, an action that has one policy in
 each group keeps two policies for a signed-in user. Rev 2 does not merge
 them, because that is exactly what rev 1 did and B1 blocked. They are
@@ -112,16 +134,30 @@ and a recursion check; see the rev 1 review).
   as 0612–0614, keyed by group.
 - **BIND, E2-after, WIN and the lock as in 0613/0614.** E2 runs through real
   RLS as `anon` and `authenticated`.
-- **E3 (new, inside the transaction, before COMMIT):** for every role
-  admitted by any policy on the table, and for each of SELECT, INSERT, UPDATE
-  and DELETE, run `EXPLAIN` of a representative statement in a sub-block,
-  under that role. Planning and executor start with EXPLAIN-only apply the
-  table and function privilege checks and the recursion check, so any new
-  error refuses the file. It is expected to be identical before and after by
-  §3. The roles are anon, authenticated, and every role with a grant on the
-  table per `information_schema.role_table_grants`, except roles that bypass
-  RLS (measured per lane via `rolbypassrls`, not assumed). E3 is the check that
-  B1 showed rev 1 lacked.
+- **E3 (new):** for each role, run `EXPLAIN` of a representative statement
+  in a sub-block, under that role. Planning and executor start with
+  EXPLAIN-only apply the table and function privilege checks and the
+  recursion check, without executing. E3 is the check that B1 showed rev 1
+  lacked.
+  - **When:** E3 runs **before the DDL and again after it**, in the same
+    transaction.
+  - **Pass rule:** for every (role, statement), the outcome must be
+    identical: OK, or the same error code and message. Any difference
+    refuses the file.
+  - **Statements:** `SELECT`; `INSERT … RETURNING *`;
+    `UPDATE … SET <col> = <col> RETURNING *`; `DELETE … RETURNING *`; and
+    `INSERT … ON CONFLICT … DO UPDATE … RETURNING *` where a unique key
+    exists.
+  - **Roles:** every role that has any privilege on the table. This is taken
+    from `aclexplode(relacl)` (including PUBLIC) plus membership via
+    `pg_auth_members`, and checked with `has_table_privilege`, not
+    `information_schema` (which hides grants by other grantors). Excluded:
+    superusers, roles with `rolbypassrls`, and the table owner unless FORCE
+    RLS is on. Each is measured per lane, not assumed.
+  - **Masking:** a role with no privilege for an action fails on the table
+    privilege first. That is harmless, because no policy applies to it, and
+    the outcome compares equal.
+  - **Scope:** E3 does not see run-time errors (§3 limit).
 - **POST:**
   - Per (action, role list): exactly one policy where there was more than one.
   - Groups with one policy are byte-identical.
@@ -131,9 +167,13 @@ and a recursion check; see the rev 1 review).
 - **PROBE:**
   - G2: no two permissive policies with the same (action, role list).
   - G5/G6 per group.
-  - **G7 lists the residual:** for each table and action, the role lists that
-    still have more than one applicable policy for some role. It prints names
-    only and does not fail.
+  - **G7 lists the residual:** for each table and action (counting `ALL`
+    as every action), the pairs of remaining permissive policies that both
+    apply to some role. "Apply" is measured with the role-membership closure
+    over every role with a privilege on the table, PUBLIC included. So M3
+    (`{anon}` and `{authenticated}`, which share no member) is not residual
+    unless some role belongs to both. G7 prints names only and does not
+    fail.
 
 ## 6. Rejected: the rev 1 guarded merge
 
@@ -176,4 +216,18 @@ and raises nothing, so the test needs a run-time guard, as above.
   within a group) are skipped and appear only in the G7 residual.
 - Roles outside {PUBLIC, anon, authenticated} in a policy list are handled the
   same way (grouping is by exact list). E3 covers them if they have a grant.
-- Not measured: query-time effect (§4); a load test is out of scope.
+- Not measured: query-time effect (§4). The only possible per-row effect,
+  in either direction, is the cross-group order change (§3 limit). A load
+  test is out of scope.
+- **Policy names change.** Merging removes the original policy names. Any
+  later or replayed migration that runs `DROP POLICY IF EXISTS "<old>"` then
+  `CREATE POLICY` would silently bring back a duplicate, and `ALTER POLICY
+  "<old>"` would fail. That includes the `UNAPPLIED_…bootstrap.sql` dump.
+  The backup table keeps the old names for reference, and the PROBE's G2/G7
+  would show a reintroduced duplicate.
+- **Lock upgrade.** The early ACCESS SHARE lock is upgraded to ACCESS
+  EXCLUSIVE. That can deadlock only with another session doing the same on
+  these tables, for example a second apply; the apply workflow allows one
+  run per lane. Postgres aborts one side, or `lock_timeout` (2 s) fires.
+  Either way the file rolls back with nothing changed, and it is re-run at a
+  quieter time.
