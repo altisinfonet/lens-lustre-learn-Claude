@@ -122,7 +122,12 @@ WITH cap(kind, key, body) AS (
           OR body ~* 'bearer\s+[A-Za-z0-9._~+/=-]{20,}'
           OR body ~ 'sk_(live|test)_[A-Za-z0-9]'
           OR body ~ '[A-Za-z0-9+/_=-]{48,}'
-          OR body ~* 'password[''"]?\s*[:=]\s*''[^'']{4,}''') AS secret_suspect,
+          OR body ~* 'password[''"]?\s*[:=]\s*''[^'']{4,}'''
+          OR body ~ 'sb_(secret|publishable)_[A-Za-z0-9_-]'
+          OR body ~ '(rk|pk)_(live|test)_|whsec_|\mre_[A-Za-z0-9]{8,}'
+          OR body ~ '[0-9a-fA-F]{32,}'
+          OR body ~ '\$2[aby]\$[0-9]{2}\$'
+          OR body ~* '(api[_-]?key|authorization|secret|token|service[_-]?role)[''"]?\s*[,:=]>?\s*''[^'']{8,}''') AS secret_suspect,
          replace(encode(convert_to(body, 'UTF8'), 'base64'), E'\n', '') AS b64
     FROM cap
 )
