@@ -112,5 +112,16 @@ SELECT 'BUCKET', bucket_id, count(*),
        count(*) FILTER (WHERE created_at < now() - interval '30 days')
   FROM storage.objects GROUP BY 2 ORDER BY 2;
 
+-- 8. Edge functions called from inside the database: only the function NAME
+--    extracted from '/functions/v1/<name>' in cron commands and function bodies.
+SELECT 'EDGE_CRON', j.jobname, m[1]
+  FROM cron.job j, LATERAL regexp_matches(j.command, '/functions/v1/([A-Za-z0-9_-]+)', 'g') AS m
+ ORDER BY 2, 3;
+SELECT 'EDGE_FNBODY', m[1], count(DISTINCT p.oid)
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace,
+       LATERAL regexp_matches(p.prosrc, '/functions/v1/([A-Za-z0-9_-]+)', 'g') AS m
+ WHERE n.nspname IN ('public', 'private', 'app', 'internal')
+ GROUP BY 2 ORDER BY 2;
+
 SELECT 'CLEAN0501_DONE', now();
 ROLLBACK;
