@@ -1,6 +1,6 @@
 # STAGES runner — status
 
-Updated: 2026-10-30 00:18 UTC · runner branch `status/stages-runner` · never merged.
+Updated: 2026-10-30 00:33 UTC · runner branch `status/stages-runner` · never merged.
 
 ## Done per stage
 
@@ -12,7 +12,7 @@ Updated: 2026-10-30 00:18 UTC · runner branch `status/stages-runner` · never m
 | S8 Live debt | 80 | DONE before: F-REV4-2 (prod), one SEO renderer (#508), F-D3-8 SQL 0201 (main #515, prod 40819037088). Today: **sitemap LIVE** (#504 + #577 + #585 carried as #580, main c801512): /sitemap.xml serves the dynamic 729-URL sitemap; F-AUD-8 rotation SQL on main (#581, nothing run); inventory tools on main (#582); PROBE for places the rotation misses (#586; main 6f24ab3 via #599; staging PASS, production run queued). Old PRs: #323, #130 closed as superseded. Blocked on Owner: SUPABASE_ACCESS_TOKEN (function inventory/deploy, send-push), Vault entries for the rotation, converter password. F-REV4-6: finding text not in the repo (Owner/supervisor to paste it). |
 | S11 Reliability | 70 | On staging: #589 stale-chunk recovery, #590 competition single encode, #591 upload size+type signed, #592 profile/Tagged, #593 tap targets, #594 error messages, #595 qrcode lazy, #596 app-build guards. **LIVE (main 26cdaef, 00:17 UTC):** #589 #590 #592 #593 #594 #595 via #605 (main f32c0e9), and #591 via #606 (code only; it takes effect when the functions deploy, item 7). Also on staging: #597 upload type lists + GPS guard on support replies, #601 build-only deps, #602 doc drift, #603 judge-identity PROBE, #604 one Mention award. Reviewed, in CI: #607 drafts PROBE, #608 retire RLS baseline, #609 M2 PROBE, #610 trackPosition (switch judge_resume_ambient, OFF). Already fixed before today (re-verified): `npm ci` has no `npm install` fallback; the AAB web-bundle check is blocking. react-mentions: measured, advisory unreachable, kept (see Findings). Left: PlacementBoard / awards by tag id, judge_id fix (after the #603 measurement), drafts purge, M2; drills D1–D9 and M2 need the Supabase token (item 7). |
 | S10 remainder | 0 | Waits for PR #538 (supervisor). |
-| S12 / S5 | 75 | Switch-state PROBE on staging (#588), carry #600; runs on both lanes next. Switches stay OFF. |
+| S12 / S5 | 90 | Measured on both lanes. **Production: `personal_feed` = everyone (ON for every member)**; the brief said OFF. Git creates it OFF (20261018_0003), so it was switched on outside git, probably from the admin switch screen. Not changed by me (Owner item 13). `photo_upload_resume` is OFF on both lanes; staging `personal_feed` is OFF. |
 | S9 Release | 0 | Last. |
 
 ## Units
@@ -55,7 +55,7 @@ Updated: 2026-10-30 00:18 UTC · runner branch `status/stages-runner` · never m
 | S11 | PROBE: drafts lifecycle (is anything purging 7-day drafts?) | #607 | review nothing blocking (2 rounds); CI | — | — |
 | S11 | Retire the frozen RLS baseline (unrun since cd3dc7ef) | #608 | review nothing blocking; CI | — | — |
 | S11 | PROBE: M2 default EXECUTE privileges vs real callers | #609 | review nothing blocking; CI | — | — |
-| S12/S5 | Switch-state PROBE (confirm OFF) | #588 → #600 | staging 584b305 · main 8af24ef | staging 40972309393 (created 23:19, finished ~00:20): personal_feed **off**, photo_upload_resume **off** (no row), media_ladder_feed off, media_private_photos off, copyright_music_check off; video_ads selected (1), video_posts selected (3), both other sessions' test cohorts · production: queued | `photo_upload_resume` has no row on live = OFF |
+| S12/S5 | Switch-state PROBE (confirm OFF) | #588 → #600 | staging 584b305 · main 8af24ef | staging 40972309393 (created 23:19, finished ~00:20): personal_feed **off**, photo_upload_resume **off** (no row), media_ladder_feed off, media_private_photos off, copyright_music_check off; video_ads selected (1), video_posts selected (3), both other sessions' test cohorts · production 40977645548 (finished 00:32): **personal_feed everyone**, photo_upload_resume off (no row), media switches off, copyright_music_check off, video_ads selected (1), video_posts selected (6) | `photo_upload_resume` has no row on live = OFF |
 
 ## Findings recorded
 
@@ -96,4 +96,5 @@ Updated: 2026-10-30 00:18 UTC · runner branch `status/stages-runner` · never m
 10. **S8 F-REV4-6 (award stamps / judge badge):** the finding text is in your claude.ai Project, not in the repository. Paste it to me (or say "skip").
 11. **GitHub (security, 1 minute):** Settings → Environments → **production** → Deployment branches → "Selected branches" → add `main` only. Same for **staging** with `staging`.
 12. **Judging decision O-3 (Round 4 awards):** before Round 4 can be closed, which awards must be given? Today the site requires only a **Winner**. An unused admin board in the code says the original plan required **Winner, 1st Runner-Up and 2nd Runner-Up**. Reply "O-3 winner only" or "O-3 all three".
+13. **Personal feed is ON for everyone on the live site.** The plan said it should be OFF until you switch it on. If you switched it on, reply "personal feed: keep on". If not, open the website as admin → Admin → Feature switches → **personal_feed** → set it to **Off** → Save, then reply "personal feed: turned off".
 
