@@ -25,7 +25,7 @@ Why each limit is there:
 | no PK / unique | Those indexes enforce constraints. "Unused by queries" says nothing about them. |
 | not on an extension-owned table | The extension owns it, so we cannot drop it. |
 | not FK-backing | Deletes and updates on the parent table rely on it, even when no SELECT ever scans it. |
-| window ≥ 14 days | Counters since the last statistics reset. A short window counts indexes used weekly, or only during judging, as "unused". |
+| window ≥ 14 days | Counters run from the last statistics reset, or from server start when the lane has no reset (production today: `stats_reset` is empty, so its 99.9 d window is measured from server start and is a lower bound). A short window counts indexes used weekly, or only during judging, as "unused". |
 
 ## 2. All methods on both lanes (2026-10-30)
 
@@ -36,7 +36,7 @@ Why each limit is there:
 | M3 | all non-system schemas, every zero-scan index | 375 | 329 |
 | M4 | all non-system schemas, zero-scan, not PK/unique | 196 | 139 |
 | M5 | denominator: every index, all non-system schemas | 692 | 708 |
-| L | Supabase linter `unused_index` rule | 140 | 90 |
+| L | the Supabase linter `unused_index` rule, **as re-created in the PROBE** (not the linter's own output) | 140 | 90 |
 | **P** | **the method in §1** | **85** | **48** |
 
 The September numbers (79 / 78 / 298-of-which-125 / 188, register H-1) are the
@@ -53,24 +53,41 @@ names both differences:
 | staging (run 41064517323) | 140 − 138 = **2** | 2, **all in `pgmq`**: `a_transactional_emails.archived_at_idx_…`, `q_transactional_emails.…_vt_idx` | 0 |
 | production (run 41066255095) | 90 − 82 = **8** | 8, **all in `pgmq`**: the archive and `vt` indexes of the `auth_emails`, `auth_emails_dlq`, `post_jobs`, `transactional_emails` and `transactional_emails_dlq` queues | 0 |
 
-So the linter rule is always **M2 plus the zero-scan indexes of pgmq queues**.
-Nothing separates the two counts except queue tables. A queue table's indexes
-move in and out of "zero scans" as the queue is read. New queues add
-indexes.
+On both lanes on 2026-10-30, L was exactly **M2 plus zero-scan indexes of pgmq
+queues**: nothing else separated the two counts. That is two readings on one
+day, not a law. A queue table's indexes move in and out of "zero scans" as the
+queue is read, and new queues add indexes.
 
-**The 79 accounted for:** the plan's 79 and the linter/M2 78 were the same
-populations, and they differed by one zero-scan pgmq queue index at the moment
-the plan was read. That one index is outside `public`, is owned by the queue
-machinery, and is outside method P by design. It was never a droppable app
-index.
+**The 79 — accounting offered, not proven.** The 79 is not dropped. Two
+explanations fit, and the evidence cannot choose between them:
 
-**Not verified, and why:** the exact pgmq index behind September's "+1" cannot
-be re-measured now. Usage counters are cumulative, and the queues have been
-read since then. What is shown is that, on both lanes today, the **only**
-population that makes L differ from M2 is pgmq. The other explanation, a
-`public` index used between the two September readings, needs the same
-mechanism: a cumulative count read on two days. Either way method P, with its
-scope and window pinned, removes the ambiguity.
+- **(a) A pgmq index.** At the moment the plan was read, one pgmq queue index
+  had zero scans, and the plan counted it with the linter rule. Today's
+  measurement shows this is the only kind of index that separates L from M2.
+  But in September the register records the linter at 78, equal to M2. So pgmq
+  added nothing at that reading, and (a) needs the plan to have been read at a
+  different moment. That is a hypothesis.
+- **(b) A `public` index.** One `public` index had zero scans when the plan was
+  read and was used before D1's reading. If so, the 79th **was an app index**,
+  and its zero count was a timing artifact. That is exactly the kind of index
+  a wrong drop would remove.
+
+**Not verifiable:** which of (a) or (b) happened, and which index it was.
+Counters are cumulative and the lanes have run since September. What the
+accounting establishes is the mechanism common to both: a cumulative
+zero-scan count read at two moments. The safeguard against (b) is in method P
+itself: the ≥ 14-day window, the both-lane rule in §4, and a code search
+before any drop. A number taken from one reading is never a drop list.
+
+**Method limits the Auditor should know:**
+- The FK-backing test matches an index whose leading columns equal the
+  foreign key's columns **in the same order**. An index covering the FK
+  columns in a different order would wrongly appear as a candidate. A-4c's
+  code search must check FK use by hand.
+- `idx_scan` counts only this server. If reads are ever served from a
+  replica, an index used only there looks unused here.
+- The extension-ownership test does not filter `pg_depend` by catalog. It is
+  harmless for counting, but it is not exact.
 
 ## 4. Candidates for A-4c (not a drop list)
 
@@ -123,7 +140,8 @@ scope and window pinned, removes the ambiguity.
 ## 5. What this asks the Auditor
 
 1. Accept method P (§1) as the C-2 method, with its scope as written.
-2. Accept §3 as accounting for the 79.
+2. Accept §3 as the accounting for the 79: the mechanism, the two explanations
+   it cannot choose between, and the safeguards that cover the worse one.
 3. Release H-1 **only** into A-4c's own gate: a drop needs P on both lanes, a code
    search, a rollback that re-creates the index, and its PROBE.
 
