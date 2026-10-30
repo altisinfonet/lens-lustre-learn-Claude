@@ -136,6 +136,7 @@ CREATE TABLE public.first_post_reminders (
   cancel_reason text        CHECK (cancel_reason IN ('posted', 'late', 'no_profile', 'suspended')),
   PRIMARY KEY (user_id, day)
 );
+-- P28: first_post_reminders · ≤ 3 rows per new member (~150/month at launch) · partial, queued rows only; the hourly tick reads due rows by due_at.
 CREATE INDEX idx_first_post_reminders_due ON public.first_post_reminders (due_at) WHERE status = 'queued';
 COMMENT ON TABLE public.first_post_reminders IS
   'FIRST-POST NUDGE (20261102_0200): reminders at sign-up + 1/3/7 days. Queued at sign-up while first_post_nudge is on; cancelled by the first post; sent by first_post_reminders_tick(). Server-only.';
