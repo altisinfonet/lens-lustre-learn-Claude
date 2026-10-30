@@ -1,12 +1,14 @@
 # Video + accessibility runner — status
 
 Started 2026-10-30 01:47 UTC. Replaces the earlier supervisor session (no GitHub trace after 2026-10-29 14:19 UTC).
-Last update: 2026-10-30 05:15 UTC.
+Last update: 2026-10-30 07:16 UTC (heartbeat).
+
+SECOND RESTART 2026-10-30 ~07:15 UTC: the run stopped silently again at ~05:15 UTC. New rule: ONE PR at a time (#619 → #538 → #539 → #540 → #541 → #542), heartbeat at least every 20 minutes. Checked GitHub 07:15 UTC: nobody pushed to or merged #538-#542 or #619 since 02:00 UTC; each is 21 commits behind staging.
 
 RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. A new run took over at 05:05 UTC. Checked GitHub: nobody else pushed to or merged #538-#542 or #619 since 02:00 UTC.
 
 ## Now
-Staging moved 7 commits since 02:00 UTC. Rebasing all six PRs again, then fresh independent reviews (verdict posted as a comment on each PR, because the earlier reviews were not recorded on GitHub and #542's re-review result was lost when the run stopped).
+07:16 UTC — working on #619 only: rebase on staging f7ec574d, then CI, review, merge.
 
 ## Units
 | Unit | PR | State | Merged sha (staging / main) | SQL runs | Live check |
