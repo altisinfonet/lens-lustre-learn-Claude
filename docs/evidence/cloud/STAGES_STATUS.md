@@ -1,6 +1,6 @@
 # STAGES runner — status
 
-Updated: 2026-10-30 00:01 UTC · runner branch `status/stages-runner` · never merged.
+Updated: 2026-10-30 00:18 UTC · runner branch `status/stages-runner` · never merged.
 
 ## Done per stage
 
@@ -10,7 +10,7 @@ Updated: 2026-10-30 00:01 UTC · runner branch `status/stages-runner` · never m
 | S2 Observability | 95 | Live: telemetry SQL, client telemetry, outside monitor + alert, Admin → Health page, and now native crash / OOM / ANR per build (code + SQL live). Left: the reader is inside the app only from the S9 build (its build-file change #562 waits on staging for the S9 bump); Owner reads the page. |
 | S3 Media | 85 | Code live on main (03004ff, 20:32 UTC) and SQL 0100/0101/0102 applied on staging and production, both switches OFF. All PROBEs PASS on both lanes. Left (Owner): backfill secrets (then 1-click backfill to 100 %), PHOTOS binding + Worker route, decisions O-1/O-2, then switch-on and the phone test. |
 | S8 Live debt | 80 | DONE before: F-REV4-2 (prod), one SEO renderer (#508), F-D3-8 SQL 0201 (main #515, prod 40819037088). Today: **sitemap LIVE** (#504 + #577 + #585 carried as #580, main c801512): /sitemap.xml serves the dynamic 729-URL sitemap; F-AUD-8 rotation SQL on main (#581, nothing run); inventory tools on main (#582); PROBE for places the rotation misses (#586; main 6f24ab3 via #599; staging PASS, production run queued). Old PRs: #323, #130 closed as superseded. Blocked on Owner: SUPABASE_ACCESS_TOKEN (function inventory/deploy, send-push), Vault entries for the rotation, converter password. F-REV4-6: finding text not in the repo (Owner/supervisor to paste it). |
-| S11 Reliability | 55 | On staging: #589 stale-chunk recovery, #590 competition single encode, #591 upload size+type signed, #592 profile/Tagged, #593 tap targets, #594 error messages, #595 qrcode lazy, #596 app-build guards. Carries to main: #605 (#589 #590 #592–#595) and #606 (#591, inert until functions deploy, item 7). Also on staging: #597 upload type lists + GPS guard on support replies, #601 build-only deps, #602 doc drift, #603 judge-identity PROBE, #604 one Mention award. Reviewed, in CI: #607 drafts PROBE, #608 retire RLS baseline, #609 M2 PROBE, #610 trackPosition (switch judge_resume_ambient, OFF). Already fixed before today (re-verified): `npm ci` has no `npm install` fallback; the AAB web-bundle check is blocking. react-mentions: measured, advisory unreachable, kept (see Findings). Left: PlacementBoard / awards by tag id, judge_id fix (after the #603 measurement), drafts purge, M2; drills D1–D9 and M2 need the Supabase token (item 7). |
+| S11 Reliability | 70 | On staging: #589 stale-chunk recovery, #590 competition single encode, #591 upload size+type signed, #592 profile/Tagged, #593 tap targets, #594 error messages, #595 qrcode lazy, #596 app-build guards. **LIVE (main 26cdaef, 00:17 UTC):** #589 #590 #592 #593 #594 #595 via #605 (main f32c0e9), and #591 via #606 (code only; it takes effect when the functions deploy, item 7). Also on staging: #597 upload type lists + GPS guard on support replies, #601 build-only deps, #602 doc drift, #603 judge-identity PROBE, #604 one Mention award. Reviewed, in CI: #607 drafts PROBE, #608 retire RLS baseline, #609 M2 PROBE, #610 trackPosition (switch judge_resume_ambient, OFF). Already fixed before today (re-verified): `npm ci` has no `npm install` fallback; the AAB web-bundle check is blocking. react-mentions: measured, advisory unreachable, kept (see Findings). Left: PlacementBoard / awards by tag id, judge_id fix (after the #603 measurement), drafts purge, M2; drills D1–D9 and M2 need the Supabase token (item 7). |
 | S10 remainder | 0 | Waits for PR #538 (supervisor). |
 | S12 / S5 | 50 | Switch-state PROBE on staging (#588), carry #600; runs on both lanes next. Switches stay OFF. |
 | S9 Release | 0 | Last. |
@@ -32,22 +32,25 @@ Updated: 2026-10-30 00:01 UTC · runner branch `status/stages-runner` · never m
 | S8 | Sitemap: held ETag / Range no longer pin the thin file; nosniff + CSP | #585 | staging 77ee4e4 · main c801512 (#580) | — | 23:35 UTC: `/sitemap.xml` 200 `x-sitemap-source: dynamic-cached`, 729 URLs (one cold request served the static 12 as designed); If-None-Match → 200, not a stale 304; nosniff + CSP `default-src 'none'`. Home + /feed in Chromium, Firefox, WebKit: 200, same text, 0 new console errors. PASS |
 | S8 | F-AUD-8 rotation SQL to main (files only) | #581 | main b891559 | not run (Owner Vault step first) | — |
 | S8 | F-REV4-1 inventory tools to main | #582 | main cb21960 | PROBE runs: see below | — |
-| S8 | PROBE: credentials the rotation does not scan | #586 → #599 | staging 1703ac4 · main 6f24ab3 | staging PASS 40968413653 (23:11): trigger args 0, db/role settings 0, pg_net queue 0 | — |
+| S8 | PROBE: credentials the rotation does not scan | #586 → #599 | staging 1703ac4 · main 6f24ab3 | staging PASS 40968413653 (23:11) · production PASS 40973985325 (00:07): trigger args 0, db/role settings 0, pg_net queue 0 | — |
 | S8 | Old open PRs | #323, #130 closed (superseded, comment left) | — | — | — |
 
-| S11 | Stale-chunk recovery installed | #589 | staging 52878b6 · carry #605 | — | after #605 |
-| S11 | Competition photo encoded once (WebP proof) | #590 | staging 78bf997 · carry #605 | — | after #605 |
-| S11 | Photo presign signs size + type | #591 | staging a0dbdd5 · carry #606 | — | edge deploy needs SUPABASE_ACCESS_TOKEN (item 7) |
-| S11 | Admin profile edit refresh; Tagged photos errors | #592 | staging 8fd94b7 · carry #605 | — | after #605 |
-| S11 | Judge tap targets ≥ 44 px | #593 | staging dfe3e69 · carry #605 | — | after #605 |
-| S11 | Plain member messages for 401/403/429/5xx/offline | #594 | staging ad98977 · carry #605 | — | after #605 |
-| S11 | qrcode out of the entry chunk (−25 KB) | #595 | staging d01f8ad · carry #605 | — | after #605 |
+| S11 | Stale-chunk recovery installed | #589 | staging 52878b6 · main f32c0e9 (#605) | — | 00:18 UTC PASS (below) |
+| S11 | Competition photo encoded once (WebP proof) | #590 | staging 78bf997 · main f32c0e9 (#605) | — | 00:18 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors; live entry script 1,602,160 B |
+| S11 | Photo presign signs size + type | #591 | staging a0dbdd5 · main 26cdaef (#606) | — | edge deploy needs SUPABASE_ACCESS_TOKEN (item 7) |
+| S11 | Admin profile edit refresh; Tagged photos errors | #592 | staging 8fd94b7 · main f32c0e9 (#605) | — | 00:18 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors; live entry script 1,602,160 B |
+| S11 | Judge tap targets ≥ 44 px | #593 | staging dfe3e69 · main f32c0e9 (#605) | — | 00:18 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors; live entry script 1,602,160 B |
+| S11 | Plain member messages for 401/403/429/5xx/offline | #594 | staging ad98977 · main f32c0e9 (#605) | — | 00:18 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors; live entry script 1,602,160 B |
+| S11 | qrcode out of the entry chunk (−25 KB) | #595 | staging d01f8ad · main f32c0e9 (#605) | — | 00:18 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors; live entry script 1,602,160 B |
 | S11 | App build: every template edit proven; synced app = this commit; stale root file removed | #596 | staging b0952c2 | — | goes to main with the S9 bump |
 | S11 | Build-only packages to devDependencies (prod audit 33 → 19, critical 0) | #601 | staging b8b99a2 | — | carry next |
 | S11 | Doc drift (queryKeys focus default; realtimeCounts guard name) | #602 | staging 95b3479 | — | carry next |
 | S11 | PROBE: who can read a judge's identity (measure before fixing) | #603 | staging 456025d | staging: queued | — |
 | S11 | One Mention award for all three spellings | #604 | staging 8fbce98 | — | carry next |
 | S11 | trackPosition wired without moving the bookmark (switch `judge_resume_ambient`, OFF) | #610 | review nothing blocking (2 rounds); CI | — | — |
+| S11 | usePwaInstall removes its appinstalled listener | #611 | review nothing blocking; CI | — | — |
+| S11 | Contributor scores cached 5 min (feed remounts stop re-asking) | #612 | review nothing blocking; CI | — | — |
+| S11 | Capacitor plugin-contract test vs the pinned versions | #613 | review nothing blocking (2 rounds); CI | — | — |
 | S11 | One upload type list; support reply photos GPS-guarded; honest "couldn't check" copy | #597 | staging 0c34e68 | — | carry next |
 | S11 | PROBE: drafts lifecycle (is anything purging 7-day drafts?) | #607 | review nothing blocking (2 rounds); CI | — | — |
 | S11 | Retire the frozen RLS baseline (unrun since cd3dc7ef) | #608 | review nothing blocking; CI | — | — |
@@ -62,6 +65,8 @@ Updated: 2026-10-30 00:01 UTC · runner branch `status/stages-runner` · never m
 - **F-REV4-1 inventory:** the DB-caller PROBE does not see Vault-held cron URLs or webhook triggers — never use it alone to remove a function.
 
 - **S8 sitemap #504 "0 vs 12":** not a defect. Staging's static sitemap is empty on purpose (staging tells crawlers to stay out, `scripts/generate-seo-assets.mjs`), and the dynamic route returns the static file when it is empty. Live static has 12 URLs on `50mmretina.com`; live upstream `functions/v1/sitemap` returns 729 URLs on the same host, so on main the dynamic route would serve 729. Carry needs a production-shaped proof, not a staging one.
+- **S11 re-verified, no change needed:** the 300 s presign shared by a photo pair — both files upload in parallel and each side re-presigns once on 403 (s3Upload.ts uploadPairToS3). POST-CAT-002 — the database minimum is OFF by design until Stage B2, and the client enforces it (categoryChipsSelection.test.ts). Competition entries keep full resolution by design (imageUpload.ts); #590 removed the double encode that ran phones out of memory.
+- **S8 F-AUD-8 PROBE:** production PASS 40973985325 (00:07 UTC): trigger args 0, db/role settings 0, pg_net queue 0. The rotation's own scan covers every place a credential sits.
 - **S11 drafts:** git has MARK (`mark_expiring_post_drafts`) and REAP (`reap_post_drafts(uuid[])`) but no PURGE edge function (step 2 of 20260812110000), so nothing would ever call the reaper. #607 measures what each lane really runs.
 - **S11 awards by label:** `complete-round` builds its award map from catalog LABELS; PlacementBoard hard-codes 3 mandatory awards where the server requires only Winner. Which is right is Owner decision O-3 (item 12); pinning awards by tag id is an edge-function change, so its deploy needs item 7.
 - **S11 trackPosition:** wiring it as written would let the 30 s heartbeat overwrite the judge's intentional bookmark (same DB columns; JudgePanel.tsx notes bookmarks are intentional-only). Needs a local-only ambient store, and a switch because judges would see a new resume prompt.
