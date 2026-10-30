@@ -147,6 +147,24 @@ export function recordTiming(metric: string, durationMs: number, ok: boolean): v
   }
 }
 
+/**
+ * S11 · supabase-js auth-lock contention that auth-js itself handles. Its token
+ * refresh tick takes the lock with a zero wait and, when another tick or tab
+ * holds it, catches the error (documented flag `isAcquireTimeout`) and tries
+ * again next tick. Firefox ALSO reports the lock callback's rejection as
+ * unhandled, so every Firefox page load logged a "script error" that is not
+ * one (S11 drills D2–D6, baseline included). Only the documented flag together
+ * with the zero-wait message counts — never the message alone.
+ */
+export function isHandledAuthLockContention(reason: unknown): boolean {
+  if (!reason || typeof reason !== "object") return false;
+  const r = reason as { isAcquireTimeout?: unknown; message?: unknown };
+  // BOTH: the flag, and the zero-wait form. The waited form ("timed out waiting
+  // 10000ms" — getSession, initialize, signOut …) escapes to app code and IS a
+  // real failure, so it stays recorded (review of #614).
+  return r.isAcquireTimeout === true && typeof r.message === "string" && r.message.endsWith("immediately failed");
+}
+
 export function recordError(metric: "onerror" | "unhandledrejection" | "react", err: unknown): void {
   try {
     if (errorCount >= MAX_ERRORS_PER_LOAD) return;
@@ -248,6 +266,7 @@ export function installTelemetry(): void {
       recordError("onerror", ev.error ?? ev.message);
     });
     window.addEventListener("unhandledrejection", (ev: PromiseRejectionEvent) => {
+      if (isHandledAuthLockContention(ev.reason)) return;
       recordError("unhandledrejection", ev.reason);
     });
     patchRealtime();
