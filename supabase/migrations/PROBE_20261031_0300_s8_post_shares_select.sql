@@ -23,6 +23,7 @@
 --   B4 once X is the friends-only author's friend: X sees that share too, still
 --      not the private one
 --   B5 anon sees none
+--   B7 an admin who is none of the authors sees all three
 --   B6 S can still remove their share of the private post (DELETE … WHERE)
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN;
@@ -56,17 +57,17 @@ BEGIN
   END IF;
 
   -- ── B · behaviour (picks live data; writes only shares + one friendship) ──
-  SELECT p.id, p.user_id INTO pu FROM public.posts p JOIN auth.users u ON u.id = p.user_id WHERE p.privacy = 'public'  ORDER BY p.created_at DESC LIMIT 1;
-  SELECT p.id, p.user_id INTO pf FROM public.posts p JOIN auth.users u ON u.id = p.user_id WHERE p.privacy = 'friends' ORDER BY p.created_at DESC LIMIT 1;
-  SELECT p.id, p.user_id INTO pp FROM public.posts p JOIN auth.users u ON u.id = p.user_id WHERE p.privacy = 'private' ORDER BY p.created_at DESC LIMIT 1;
+  SELECT p.id, p.user_id INTO pu FROM public.posts p JOIN auth.users u ON u.id = p.user_id WHERE p.privacy = 'public' AND NOT EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = p.user_id AND ur.role::text = 'admin') ORDER BY p.created_at DESC LIMIT 1;
+  SELECT p.id, p.user_id INTO pf FROM public.posts p JOIN auth.users u ON u.id = p.user_id WHERE p.privacy = 'friends' AND NOT EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = p.user_id AND ur.role::text = 'admin') ORDER BY p.created_at DESC LIMIT 1;
+  SELECT p.id, p.user_id INTO pp FROM public.posts p JOIN auth.users u ON u.id = p.user_id WHERE p.privacy = 'private' AND NOT EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = p.user_id AND ur.role::text = 'admin') ORDER BY p.created_at DESC LIMIT 1;
   IF pu.id IS NOT NULL AND pf.id IS NULL THEN
     SELECT p.id, p.user_id INTO pf FROM public.posts p JOIN auth.users u ON u.id = p.user_id
-     WHERE p.privacy = 'public' AND p.user_id <> pu.user_id ORDER BY p.created_at DESC LIMIT 1;
+     WHERE p.privacy = 'public' AND p.user_id <> pu.user_id AND NOT EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = p.user_id AND ur.role::text = 'admin') ORDER BY p.created_at DESC LIMIT 1;
     UPDATE public.posts SET privacy = 'friends' WHERE id = pf.id;
   END IF;
   IF pu.id IS NOT NULL AND pp.id IS NULL THEN
     SELECT p.id, p.user_id INTO pp FROM public.posts p JOIN auth.users u ON u.id = p.user_id
-     WHERE p.privacy = 'public' AND p.user_id NOT IN (pu.user_id, coalesce(pf.user_id, pu.user_id)) ORDER BY p.created_at DESC LIMIT 1;
+     WHERE p.privacy = 'public' AND p.user_id NOT IN (pu.user_id, coalesce(pf.user_id, pu.user_id)) AND NOT EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = p.user_id AND ur.role::text = 'admin') ORDER BY p.created_at DESC LIMIT 1;
     UPDATE public.posts SET privacy = 'private' WHERE id = pp.id;
   END IF;
   IF pu.id IS NULL OR pf.id IS NULL OR pp.id IS NULL THEN
@@ -80,6 +81,9 @@ BEGIN
   SELECT u.id INTO x FROM auth.users u
    WHERE u.id NOT IN (pu.user_id, pf.user_id, pp.user_id, coalesce(s, u.id))
      AND NOT public.are_friends(u.id, pf.user_id) AND NOT public.are_friends(u.id, pp.user_id)
+     AND NOT EXISTS (SELECT 1 FROM public.friendships f
+                      WHERE (f.requester_id = u.id AND f.addressee_id = pf.user_id)
+                         OR (f.requester_id = pf.user_id AND f.addressee_id = u.id))
      AND NOT EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = u.id AND ur.role::text = 'admin')
    ORDER BY u.created_at LIMIT 1;
   IF s IS NULL OR x IS NULL OR s = x THEN
@@ -138,6 +142,16 @@ BEGIN
   END;
   IF n <> 0 THEN RAISE EXCEPTION 'PROBE FAIL 20261031_0300 SEC-P3E-1: B5 anon sees % share(s)', n; END IF;
   RESET ROLE;
+  -- B7 · an admin who is none of the authors sees all three (posts' admin policy)
+  RESET ROLE;
+  INSERT INTO public.user_roles (user_id, role) VALUES (x, 'admin');
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', x, 'role', 'authenticated')::text, true);
+  PERFORM set_config('request.jwt.claim.sub', x::text, true);
+  SET LOCAL ROLE authenticated;
+  SELECT count(*) INTO n FROM public.post_shares WHERE user_id = s AND post_id IN (pu.id, pf.id, pp.id);
+  IF n <> 3 THEN RAISE EXCEPTION 'PROBE FAIL 20261031_0300 SEC-P3E-1: B7 an admin sees % of 3 shares', n; END IF;
+  RESET ROLE;
+  DELETE FROM public.user_roles WHERE user_id = x AND role::text = 'admin';
   -- B6 · S removes their share of the private post
   PERFORM set_config('request.jwt.claims', json_build_object('sub', s, 'role', 'authenticated')::text, true);
   PERFORM set_config('request.jwt.claim.sub', s::text, true);
@@ -147,7 +161,7 @@ BEGIN
   IF n <> 1 THEN RAISE EXCEPTION 'PROBE FAIL 20261031_0300 SEC-P3E-1: B6 the sharer could not remove their share of a private post (% rows)', n; END IF;
   RESET ROLE;
 
-  RAISE NOTICE 'PROBE PASS 20261031_0300 SEC-P3E-1: S1–S4 static; B1 stranger 1/3, B2 sharer 3/3, B3 authors see theirs, B4 friend 2/3, B5 anon 0, B6 unshare of a private post works (all rolled back)';
+  RAISE NOTICE 'PROBE PASS 20261031_0300 SEC-P3E-1: S1–S4 static; B1 stranger 1/3, B2 sharer 3/3, B3 authors see theirs, B4 friend 2/3, B5 anon 0, B7 admin 3/3, B6 unshare of a private post works (all rolled back)';
 END
 $probe$;
 ROLLBACK;

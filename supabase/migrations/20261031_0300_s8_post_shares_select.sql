@@ -14,6 +14,8 @@
 --     user_id = (select auth.uid())                      -- your own shares
 --     OR EXISTS (posts p WHERE p.id = post_id AND
 --                can_view_post((select auth.uid()), p.user_id, p.privacy))
+--   The third arm mirrors posts' "Admins can manage posts": an admin who can
+--   open any post also sees all of its shares (review of #641).
 --   The second arm is post_reactions' own expression ("Users can view
 --   reactions on visible posts"). The first arm is added on purpose: unsharing
 --   is DELETE … WHERE post_id AND user_id, and PostgreSQL applies SELECT
@@ -80,6 +82,8 @@ CREATE POLICY "Users can view shares on visible posts" ON public.post_shares
     OR EXISTS (SELECT 1 FROM public.posts p
                 WHERE p.id = post_shares.post_id
                   AND public.can_view_post((SELECT auth.uid()), p.user_id, p.privacy))
+    -- admins see every post ("Admins can manage posts"), so every share too
+    OR public.has_role((SELECT auth.uid()), 'admin')
   );
 
 DO $postconditions$
