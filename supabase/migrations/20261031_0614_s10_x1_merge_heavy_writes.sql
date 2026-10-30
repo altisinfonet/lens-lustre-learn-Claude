@@ -241,9 +241,14 @@ BEGIN
       FROM pg_policy p WHERE p.polrelid = rel AND p.polpermissive;
 
     FOREACH a IN ARRAY acts LOOP
-      SELECT array_agg('(' || pg_get_expr(p.polqual, p.polrelid) || ')' ORDER BY p.polname)
+      -- Parts are joined in DESCENDING policy-name order: Postgres builds a
+      -- table's policy list in reverse pg_policy index order (rowsecurity.c,
+      -- "built in reverse order") and ORs permissive quals in that order, so
+      -- this keeps the evaluation order the originals had (polname is type
+      -- name, which compares in the "C" collation like the index).
+      SELECT array_agg('(' || pg_get_expr(p.polqual, p.polrelid) || ')' ORDER BY p.polname DESC)
                FILTER (WHERE a <> 'a' AND p.polqual IS NOT NULL),
-             array_agg('(' || coalesce(pg_get_expr(p.polwithcheck, p.polrelid), pg_get_expr(p.polqual, p.polrelid)) || ')' ORDER BY p.polname)
+             array_agg('(' || coalesce(pg_get_expr(p.polwithcheck, p.polrelid), pg_get_expr(p.polqual, p.polrelid)) || ')' ORDER BY p.polname DESC)
                FILTER (WHERE a IN ('a', 'w'))
         INTO using_parts, check_parts
         FROM pg_policy p
