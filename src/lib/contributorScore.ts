@@ -29,6 +29,18 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * S11 · answers are kept for CACHE_MS (the app's 5-minute staleTime). The feed
+ * window remounts cards while scrolling; without this every remount asked for
+ * the same members again. "No score" is cached too (absent = show nothing).
+ * A failed request caches nothing, so the next mount simply asks again.
+ */
+const CACHE_MS = 5 * 60 * 1000;
+const cache = new Map<string, { score: number | null; at: number }>();
+
+/** Test seam: forget every cached answer. Not used by the app. */
+export const __resetContributorScoreCache = () => { cache.clear(); pendingIds = []; pendingFlight = null; };
+
 let pendingIds: string[] = [];
 let pendingFlight: Promise<Map<string, number>> | null = null;
 
@@ -42,23 +54,35 @@ const runBatch = async (ids: string[]): Promise<Map<string, number>> => {
 
   // A signed-out visitor can execute this — the leaderboard is public — but a
   // network failure is not worth shouting about. The card renders without a
-  // score rather than with an error.
+  // score rather than with an error, and nothing is cached.
   if (error || !Array.isArray(data)) return out;
 
   for (const row of data as any[]) {
     const n = Number(row.contributor_score);
     if (Number.isFinite(n) && n > 0) out.set(row.user_id, n);
   }
+  const at = Date.now();
+  for (const id of ids) cache.set(id, { score: out.get(id) ?? null, at });
   return out;
 };
 
-export const fetchContributorScores = (
+export const fetchContributorScores = async (
   userIds: string[],
 ): Promise<Map<string, number>> => {
   const ids = userIds.filter(Boolean);
-  if (ids.length === 0) return Promise.resolve(new Map());
+  const out = new Map<string, number>();
+  if (ids.length === 0) return out;
 
-  for (const id of ids) if (!pendingIds.includes(id)) pendingIds.push(id);
+  const now = Date.now();
+  const misses: string[] = [];
+  for (const id of ids) {
+    const c = cache.get(id);
+    if (c && now - c.at < CACHE_MS) { if (c.score !== null) out.set(id, c.score); }
+    else misses.push(id);
+  }
+  if (misses.length === 0) return out;
+
+  for (const id of misses) if (!pendingIds.includes(id)) pendingIds.push(id);
 
   if (!pendingFlight) {
     pendingFlight = Promise.resolve().then(() => {
@@ -68,7 +92,9 @@ export const fetchContributorScores = (
       return runBatch(batch);
     });
   }
-  return pendingFlight;
+  const fetched = await pendingFlight;
+  for (const id of misses) { const v = fetched.get(id); if (v !== undefined) out.set(id, v); }
+  return out;
 };
 
 /** "5334" -> "5,334". One definition, so the feed and the wall never disagree. */
