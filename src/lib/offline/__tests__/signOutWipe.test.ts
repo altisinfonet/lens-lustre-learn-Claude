@@ -12,6 +12,7 @@ import { setPersistenceUser, startQueryPersistence } from "../queryPersistence";
 import { persistFeedPage, getCachedFeed } from "@/lib/feedCache";
 import { enqueue, pending, memoryOutboxStore, __setOutboxStore, __resetOutbox } from "../outbox";
 import { __setJobStore, memoryJobStore, createJob, jobsFor } from "@/lib/video/uploadJobs";
+import { hasSavedPreview, savedVideoUsage, __resetOfflineVideo } from "@/lib/video/offlineVideo";
 
 type C = { keys: () => Promise<string[]>; delete: (n: string) => Promise<boolean>; names: Set<string> };
 const fakeCaches = (names: string[]): C => {
@@ -35,7 +36,7 @@ describe("wipeMemberDataOnSignOut", () => {
 
     const r = await wipeMemberDataOnSignOut();
 
-    expect(r).toEqual({ imageCaches: ["gallery-images-v3"], deviceStore: true, feedCache: true, outbox: true, videoUploads: true });
+    expect(r).toEqual({ imageCaches: ["gallery-images-v3"], deviceStore: true, feedCache: true, outbox: true, videoUploads: true, savedVideos: true });
     expect([...c.names]).toEqual(["unrelated"]);
     expect(mem.map.size).toBe(0);
     expect(getCachedFeed("me")).toBeNull();
@@ -58,7 +59,7 @@ describe("wipeMemberDataOnSignOut", () => {
   it("never throws when nothing is available", async () => {
     (globalThis as { caches?: unknown }).caches = undefined;
     setBackend(null);
-    await expect(wipeMemberDataOnSignOut()).resolves.toEqual({ imageCaches: null, deviceStore: false, feedCache: true, outbox: true, videoUploads: true });
+    await expect(wipeMemberDataOnSignOut()).resolves.toEqual({ imageCaches: null, deviceStore: false, feedCache: true, outbox: true, videoUploads: true, savedVideos: true });
   });
 
   it("OFF-2 · wipes the outbox: an unsent action is never sent under the next member", async () => {
@@ -79,5 +80,22 @@ describe("wipeMemberDataOnSignOut", () => {
     const r = await wipeMemberDataOnSignOut();
     expect(r.videoUploads).toBe(true);
     expect(await jobsFor("me")).toEqual([]);
+  });
+
+  it("S7b-6 · wipes the videos saved for no network (Cache Storage + their list)", async () => {
+    __resetOfflineVideo();
+    localStorage.setItem("retina:video-offline:index", JSON.stringify([
+      { videoId: "v1", userId: "me", files: ["master.m3u8"], bytes: 10, seconds: 28, full: false, savedAt: 1 },
+    ]));
+    const deleted: string[] = [];
+    (globalThis as { caches?: unknown }).caches = {
+      keys: async () => ["video-offline-v1"], delete: async (n: string) => { deleted.push(n); return true; },
+    };
+    expect(hasSavedPreview("v1")).toBe(true);
+    const r = await wipeMemberDataOnSignOut();
+    expect(r.savedVideos).toBe(true);
+    expect(hasSavedPreview("v1")).toBe(false);
+    expect(savedVideoUsage()).toEqual({ bytes: 0, videos: 0 });
+    expect(deleted).toContain("video-offline-v1");
   });
 });
