@@ -10,9 +10,9 @@ This note **extends** `DECISION.md` (2026-10-04, merged to `staging`, OWNER-ATTE
 
 ## 1 · The level: WCAG 2.2 AA (unchanged)
 
-The stage plan says "2.1 AA unless the gate says otherwise". The gate sentence names no level, but the already-signed `DECISION.md` L1 chose **WCAG 2.2 AA**, and the binding axe ratchet in `ui-gate.yml` already runs the tags `wcag2a wcag2aa wcag21a wcag21aa wcag22aa`. 2.2 AA contains every 2.1 AA criterion (except 4.1.1 Parsing, which 2.2 made obsolete) and adds 2.5.8 Target Size, the rule already enforced by the UI gate's tap-target check.
+The stage plan says "2.1 AA unless the gate says otherwise". The gate sentence names no level, but the already-signed `DECISION.md` L1 chose **WCAG 2.2 AA**, and the binding axe ratchet in `ui-gate.yml` already runs the tags `wcag2a wcag2aa wcag21a wcag21aa wcag22aa`. 2.2 AA contains every 2.1 AA criterion (except 4.1.1 Parsing, which 2.2 made obsolete) and adds 2.4.11 Focus Not Obscured, 2.5.7 Dragging Movements, 2.5.8 Target Size (24 × 24 CSS px), 3.2.6 Consistent Help, 3.3.7 Redundant Entry and 3.3.8 Accessible Authentication. The UI gate's 44 px tap-target check is stricter than 2.5.8 (it is the AAA 2.5.5 size) and stays as it is.
 
-**Decision S1:** the level stays **WCAG 2.2 AA**. Choosing 2.1 would drop a rule CI already enforces. Recorded as the conservative choice: it is the stricter of the two and it is the one already in force.
+**Decision S1:** the level stays **WCAG 2.2 AA**. It is the level the axe tags in CI already test, and the stricter of the two. Recorded as the conservative choice.
 
 ## 2 · The ten primary surfaces (replaces `DECISION.md` §4's list)
 
@@ -35,7 +35,7 @@ The S10-a stage plan names the ten. They replace the 2026-10-04 list; the surfac
 
 ## 3 · What CI checks (S10a-2 builds it; S10a-3 lowers it)
 
-A new script `tools/uishot/a11y-surfaces.mjs`, run in its own workflow against the same harness server the UI gate uses (fake data, no network, deterministic), over the 11 scenes of §2 at **two widths: `iphone-390` (mobile) and `desktop-1280`**.
+A new script `tools/uishot/a11y-surfaces.mjs`, run in its own workflow against the same harness server the UI gate uses (fake data, no network, deterministic), over the 11 scenes of §2 at **two widths: `iphone-390` (mobile) and `desktop-1280`**, in Chromium (the engine of the Android app's WebView).
 
 | # | Check | Fails when |
 |---|---|---|
@@ -43,9 +43,11 @@ A new script `tools/uishot/a11y-surfaces.mjs`, run in its own workflow against t
 | B | **Tab reach** — every visible, enabled interactive control (links, buttons, inputs, selects, textareas, `[tabindex>=0]`, ARIA widget roles; a radio group counts once) is focused by pressing Tab from the top of the page | a control never receives focus in a full Tab cycle |
 | C | **Visible focus** — when Tab lands on a control, at least one of outline, box-shadow, border, background, colour or text-decoration differs from its unfocused style | Tab lands on a control and nothing visibly changes |
 | D | **No keyboard trap** (2.1.2) — repeated Tab keeps moving and comes back to the start of the page | focus stops moving, or cycles in a subset that excludes reachable controls with no open modal dialog |
-| E | **Esc closes** — where a sheet/dialog (`[role=dialog]`, `[role=alertdialog]`) is open, Escape closes it | it is still open after Escape |
+| E | **Esc closes** — where a sheet/dialog (`[role=dialog]`, `[role=alertdialog]`) is open, Escape closes it (ARIA Authoring Practices, not a WCAG success criterion; kept because every sheet in the app is a dialog) | it is still open after Escape |
 
 B–E are counted per scene/width and judged by the **same ratchet** (`compareAxe`) against a committed baseline `tools/uishot/a11y-surfaces.baseline.json`, so the same rules hold: counts only go down, and every improvement is locked in by the PR that makes it.
+
+**The checks themselves are proven to fire:** a test page with one seeded defect per check (an unnamed button, a control Tab never reaches, a control with no focus style, a focus trap, a dialog that ignores Escape) must report each defect, and a clean page must report none. A check that cannot fire cannot go green honestly.
 
 **Shown failing first (Standing Rule 9):** the first push of S10a-2 runs with no recorded measurement for any scene/width, so the check goes red naming every finding; that run is linked in the PR. The second push records the measured counts as the first baseline (a first measurement, not a raise — `--record` refuses to touch an entry that already exists), and the check goes green. From then on it is binding.
 
@@ -53,7 +55,7 @@ B–E are counted per scene/width and judged by the **same ratchet** (`compareAx
 
 ## 4 · What the walkthrough checks (S10a-4)
 
-The gate's clause 3 is a "keyboard and screen-reader walkthrough". S10a-4 commits a **scripted** walkthrough as a CI job, in **chromium and webkit** (webkit is the iOS app's and Safari's engine), with its report uploaded as an artefact. Per surface and width it records:
+The gate's clause 3 is a "keyboard and screen-reader walkthrough". S10a-4 commits a **scripted** walkthrough as a CI job, in **chromium and webkit** (Chromium is the Android app's WebView engine; WebKit is Safari's), with its report uploaded as an artefact **and committed** as `docs/evidence/d2/phase5/P23/WALKTHROUGH.md` (artefacts expire; the committed file is the evidence). Per surface and width it records:
 
 1. the **Tab order**: each stop's role and accessible name, in order — so an unnamed or out-of-order stop is readable by a person without a screen reader;
 2. the **accessibility tree** (Playwright `ariaSnapshot`): headings, landmarks, and every control with its role and name — what a screen reader is given;
