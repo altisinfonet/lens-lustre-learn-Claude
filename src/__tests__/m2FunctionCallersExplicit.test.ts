@@ -24,12 +24,25 @@ const baseline = new Set<string>(
 
 const stripComments = (sql: string) => sql.replace(/\/\*[\s\S]*?\*\//g, "").replace(/--[^\n]*/g, "");
 
+/** Text of the balanced parenthesis group opening at `open` (s[open] === "("), normalised. */
+const argList = (s: string, open: number): string => {
+  let depth = 0;
+  for (let i = open; i < s.length; i++) {
+    if (s[i] === "(") depth++;
+    else if (s[i] === ")" && --depth === 0) return s.slice(open, i + 1).replace(/\s+/g, "").toLowerCase();
+  }
+  return s.slice(open).replace(/\s+/g, "").toLowerCase();
+};
+
 /** Non-trigger functions created in `public` (or unqualified) that no GRANT/REVOKE in the file names. */
 export function functionsWithoutCallerDecision(sql: string): string[] {
   const s = stripComments(sql);
   const named = new Set<string>();
   for (const st of s.matchAll(/\b(?:grant|revoke)\s+(?:execute|all)\b[^;]*?\bon\s+function\s+([^;]*?)\b(?:to|from)\b/gis)) {
-    for (const n of st[1].matchAll(/(?:public\.)?"?(\w+)"?\s*\(/gi)) named.add(n[1].toLowerCase());
+    for (const n of st[1].matchAll(/(?:"?(\w+)"?\.)?"?(\w+)"?\s*\(/gi)) {
+      const schema = (n[1] ?? "public").toLowerCase();
+      if (schema === "public") named.add(n[2].toLowerCase());
+    }
   }
   if (/\b(?:grant|revoke)\s+(?:execute|all)\b[^;]*?\bon\s+all\s+functions\s+in\s+schema\s+public\b/is.test(s)) return [];
   const missing: string[] = [];
@@ -37,11 +50,19 @@ export function functionsWithoutCallerDecision(sql: string): string[] {
     const schema = m[1].replace(/[".]/g, "").toLowerCase();
     if (schema && schema !== "public") continue;
     const name = m[2].toLowerCase();
-    const head = s.slice(m.index! + m[0].length, m.index! + m[0].length + 800);
-    if (/\breturns\s+trigger\b/i.test(head)) continue;
-    // A throwaway the same file drops again (a postcondition fixture) is not shipped.
-    const after = s.slice(m.index! + m[0].length);
-    if (new RegExp(`\\bdrop\\s+function\\s+(?:if\\s+exists\\s+)?(?:public\\.)?"?${name}"?\\b`, "i").test(after)) continue;
+    const open = m.index! + m[0].length - 1;
+    const args = argList(s, open);
+    // Only this function's own header (up to its body) can say RETURNS trigger.
+    const rest = s.slice(open + args.length);
+    const bodyAt = rest.search(/\bas\s*(?:\$\w*\$|')/i);
+    if (/\breturns\s+trigger\b/i.test(bodyAt >= 0 ? rest.slice(0, bodyAt) : rest.slice(0, 400))) continue;
+    // A throwaway the same file drops again with the SAME argument list (a postcondition fixture) is not shipped.
+    const after = s.slice(open);
+    let dropped = false;
+    for (const d of after.matchAll(new RegExp(`\\bdrop\\s+function\\s+(?:if\\s+exists\\s+)?(?:"?public"?\\.)?"?${name}"?\\s*\\(`, "gi"))) {
+      if (argList(after, d.index! + d[0].length - 1) === args) dropped = true;
+    }
+    if (dropped) continue;
     if (!named.has(name)) missing.push(name);
   }
   return [...new Set(missing)];
@@ -82,6 +103,11 @@ describe("S11 M2 — every new SQL file states who may execute the functions it 
     `;
     expect(functionsWithoutCallerDecision(sql)).toEqual([]);
     expect(functionsWithoutCallerDecision("CREATE FUNCTION public.tmp() RETURNS int LANGUAGE sql AS 'select 1'; DROP FUNCTION public.tmp();")).toEqual([]);
+    // Review gaps closed: a trigger right after a plain function does not exempt it;
+    // dropping an OLD signature does not exempt the new one; a grant in another schema does not count.
+    expect(functionsWithoutCallerDecision("CREATE FUNCTION public.e() RETURNS int LANGUAGE sql AS 'select 1'; CREATE FUNCTION public.f() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RETURN NEW; END$$;")).toEqual(["e"]);
+    expect(functionsWithoutCallerDecision("CREATE FUNCTION public.g(a int, b int) RETURNS int LANGUAGE sql AS 'select 1'; DROP FUNCTION public.g(int);")).toEqual(["g"]);
+    expect(functionsWithoutCallerDecision("CREATE FUNCTION public.q() RETURNS int LANGUAGE sql AS 'select 1'; GRANT EXECUTE ON FUNCTION private.q() TO authenticated;")).toEqual(["q"]);
     expect(functionsWithoutCallerDecision("CREATE FUNCTION public.d() RETURNS int LANGUAGE sql AS 'select 1'; -- GRANT EXECUTE ON FUNCTION public.d() TO authenticated;")).toEqual(["d"]);
   });
 });

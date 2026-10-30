@@ -24,6 +24,9 @@
 -- graphql_public) and postgres's `storage` default are Supabase platform
 -- schemas this app does not create functions in; `postgres` cannot alter
 -- supabase_admin's defaults. service_role keeps its default (edge functions).
+-- An extension later created or updated IN SCHEMA public by postgres would
+-- also get functions closed to authenticated; app extensions live in
+-- `extensions` (0043 keeps PUBLIC there), so install new ones there.
 --
 -- PROBE:    supabase/migrations/PROBE_20261031_0400_s11_m2_public_default_execute.sql
 -- Rollback: supabase/rollback/20261031_0400_s11_m2_public_default_execute_ROLLBACK.sql
