@@ -25,7 +25,7 @@ on:
       - 'supabase/migrations/20261102_0200_first_post_nudge.sql'
       - 'supabase/migrations/PROBE_20261102_0200_first_post_nudge.sql'
       - 'supabase/rollback/20261102_0200_first_post_nudge_ROLLBACK.sql'
-      - 'supabase/migrations/20261102_0201_first_post_nudge_switch_on.sql'
+      - 'supabase/migrations/UNAPPLIED_20261102_0201_first_post_nudge_switch_on.sql'
       - 'supabase/migrations/PROBE_20261102_0201_first_post_nudge_switch_on.sql'
       - 'supabase/rollback/20261102_0201_first_post_nudge_switch_on_ROLLBACK.sql'
       - 'supabase/tests/first-post-nudge/**'

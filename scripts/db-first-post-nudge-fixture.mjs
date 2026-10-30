@@ -33,7 +33,7 @@ const MIG = join(ROOT, "supabase/migrations/20261102_0200_first_post_nudge.sql")
 const PROBE = join(ROOT, "supabase/migrations/PROBE_20261102_0200_first_post_nudge.sql");
 const RB = join(ROOT, "supabase/rollback/20261102_0200_first_post_nudge_ROLLBACK.sql");
 const PUSH = join(ROOT, "supabase/migrations/20260815064043_push_announcements_switch.sql");
-const ON = join(ROOT, "supabase/migrations/20261102_0201_first_post_nudge_switch_on.sql");
+const ON = join(ROOT, "supabase/migrations/UNAPPLIED_20261102_0201_first_post_nudge_switch_on.sql");
 const ON_PROBE = join(ROOT, "supabase/migrations/PROBE_20261102_0201_first_post_nudge_switch_on.sql");
 const OFF = join(ROOT, "supabase/rollback/20261102_0201_first_post_nudge_switch_on_ROLLBACK.sql");
 

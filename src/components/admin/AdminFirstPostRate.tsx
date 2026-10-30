@@ -70,7 +70,11 @@ export default function AdminFirstPostRate() {
         <p className="text-xs text-muted-foreground">Per sign-up week (weeks start Monday, UTC). Last 8 weeks, newest first.</p>
       </div>
       {loading && !rows && <Loader2 className="h-4 w-4 animate-spin" aria-label="Loading" />}
-      {err && <p className="text-sm text-muted-foreground">Not available on this database yet.</p>}
+      {err && (
+        <p className="text-sm text-muted-foreground">
+          {/admin only/i.test(err) ? "Admins only." : "Not available right now (the database may not have this report yet)."}
+        </p>
+      )}
       {rows && rows.length > 0 && (
         <table className="w-full text-sm tabular-nums">
           <thead>

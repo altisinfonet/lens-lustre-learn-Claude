@@ -1,7 +1,10 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- 20261102_0201 · SWITCH ON the first-post nudge (site_settings first_post_nudge).
 --
--- THE OWNER'S SWITCH. Nothing runs this automatically. Applying it turns on,
+-- THE OWNER'S SWITCH. Nothing runs this automatically — and the UNAPPLIED_
+-- prefix keeps it out of any in-order replay of supabase/migrations/ (a new
+-- project or a bootstrap regeneration), so the nudge is never switched on by
+-- accident. Applying it turns on,
 -- for every NEW member from that moment: the "Share your first photo" step
 -- after the welcome form, and reminders at 1, 3 and 7 days after sign-up
 -- (stopped forever by the first post). Members who signed up before it was on
