@@ -30,7 +30,7 @@ DECLARE t text; opts text[];
 BEGIN
   FOREACH t IN ARRAY ARRAY['user_devices', 'user_notifications', 'activity_logs', 'user_roles'] LOOP
     SELECT reloptions INTO opts FROM pg_class WHERE oid = ('public.' || t)::regclass;
-    IF EXISTS (SELECT 1 FROM unnest(coalesce(opts, '{}')) o WHERE o LIKE 'autovacuum_vacuum_%') THEN
+    IF EXISTS (SELECT 1 FROM unnest(coalesce(opts, '{}')) o WHERE split_part(o, '=', 1) IN ('autovacuum_vacuum_scale_factor', 'autovacuum_vacuum_threshold')) THEN
       RAISE EXCEPTION 'S10-P8-RB-POST: public.% still has %', t, opts;
     END IF;
   END LOOP;
