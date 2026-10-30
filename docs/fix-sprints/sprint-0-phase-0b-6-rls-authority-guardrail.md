@@ -1,6 +1,13 @@
 # Sprint 0 — Phase 0B-6: RLS / SECURITY DEFINER Authority Guardrail
 
-> **Status:** ✅ GUARDRAIL ACTIVE — non-runtime, detection only.
+> **Status:** ⛔ RETIRED 2026-10-29 (S11). The workflow that ran this scan was
+> deleted in cd3dc7ef and never re-added, so it guarded nothing; run on the
+> current tree it reports ~495 "new" findings against a baseline frozen
+> 2026-05-12, mostly trigger functions that by design check no caller. The
+> scanner and baseline were removed; read them at `git show 49cfb97f:scripts/audits/rls-authority-scan.mjs`.
+> The same SECURITY DEFINER rule is measured LIVE, per lane, by
+> `supabase/migrations/PROBE_s1_phase0_security_20261028.sql` (S1P0-2).
+> Everything below is history.
 > **Mandate:** Forensic Engineering Mandate (Rules 1–5) fully enforced. Zero
 > policy edits, zero migration edits, zero DB permission changes.
 
