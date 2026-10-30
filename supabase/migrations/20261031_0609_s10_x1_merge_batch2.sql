@@ -1,14 +1,16 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- S10 · X1 batch 2 — duplicate PERMISSIVE policies merged into one policy per
--- action, on 14 more uniform-role tables. Both lanes. Access unchanged, proven.
+-- action, on 11 more uniform-role, low-traffic tables. Both lanes. Access unchanged, proven.
 --
 -- MEASURED (PROBE_20261031_0607, staging 41083370690, production 41085650031,
 -- identical): 82 tables have more than one permissive policy for some
 -- (role, action); on 56 of them every permissive policy names the SAME roles.
 -- The pilot (0608) took 9 of those 56 and is live on both lanes; this batch
--- takes 14 more. Hot feed tables (posts, friendships, post_comments,
--- post_reactions, feed_events, …) are left for their own batches, measured
--- first, because the proof below holds their locks while it runs.
+-- takes 11 more. Tables the feed or profile lookups read on every load
+-- (posts, friendships, post_comments, post_reactions, feed_events, post_tags,
+-- user_badges, portfolio_images, …) are left for their own batches, measured
+-- first, because the proof below holds their locks until COMMIT. The 11 here
+-- are read by admin screens, edge functions, or profile/dashboard pages only.
 --
 -- WHY IT IS EXACT: Postgres ORs the permissive policies that apply to the
 -- current role, per action (a FOR ALL policy applies to every action; for
@@ -76,7 +78,7 @@ CREATE TABLE IF NOT EXISTS public.x1_policy_backup_20261031 (
   PRIMARY KEY (tbl, policyname)
 );
 COMMENT ON TABLE public.x1_policy_backup_20261031 IS
-  'S10 X1: the permissive policies replaced by 20261031_0609+ merges, kept so the rollback can recreate them exactly. No member access. Drop once the merges are accepted (Auditor).';
+  'S10 X1: the permissive policies replaced by 20261031_0608+ merges, kept so the rollback can recreate them exactly. No member access. Drop once the merges are accepted (Auditor).';
 ALTER TABLE public.x1_policy_backup_20261031 ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.x1_policy_backup_20261031 FROM PUBLIC, anon, authenticated, service_role;
 
@@ -84,8 +86,7 @@ DO $x1$
 DECLARE
   v_batch constant text := '0609_batch2';
   tables constant text[] := ARRAY['ad_creatives', 'ai_chat_usage', 'certificates', 'comment_reports', 'course_enrollments',
-                                  'custom_url_history', 'portfolio_images', 'post_reports',
-                                  'post_tags', 'reports', 'support_tickets', 'user_badges',
+                                  'custom_url_history', 'post_reports', 'reports', 'support_tickets',
                                   'user_devices', 'v3_tag_label_alias'];
   acts constant text[] := ARRAY['r', 'a', 'w', 'd'];
   t text; a text; rel oid; r record; id jsonb; c text; k int := 0;

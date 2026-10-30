@@ -1,10 +1,10 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- PROBE · 20261031_0609 — S10 X1 batch 2 (staging and production).
 -- READ ONLY, ROLLBACK. Prints counts and table names only (public log).
--- FAILS before 0609 (the 14 batch-2 tables have duplicate permissive policies);
+-- FAILS before 0609 (the 11 batch-2 tables have duplicate permissive policies);
 -- PASSES after.
 --   G0 · lane asserted.
---   G1 · the 14 batch-2 tables exist with RLS on.
+--   G1 · the 11 batch-2 tables exist with RLS on.
 --   G2 · none has two permissive policies for the same (role, action).
 --   G3 · their only permissive policies are the x1_merged_* ones.
 --   G4 · the policy backup exists, holds this batch, and is owner-only
@@ -15,8 +15,7 @@ BEGIN READ ONLY;
 DO $probe$
 DECLARE
   tables constant text[] := ARRAY['ad_creatives', 'ai_chat_usage', 'certificates', 'comment_reports', 'course_enrollments',
-                                  'custom_url_history', 'portfolio_images', 'post_reports',
-                                  'post_tags', 'reports', 'support_tickets', 'user_badges',
+                                  'custom_url_history', 'post_reports', 'reports', 'support_tickets',
                                   'user_devices', 'v3_tag_label_alias'];
   _bad text := '';
   t text; rel oid; n int; dups text := ''; other text := ''; backup_rows int := 0;
@@ -58,7 +57,7 @@ BEGIN
   IF _bad <> '' THEN
     RAISE EXCEPTION 'PROBE FAIL 20261031_0609 (lane %):%', current_setting('p32.lane'), _bad;
   END IF;
-  RAISE NOTICE 'PROBE PASS 20261031_0609 (lane %): 14 batch-2 tables have one permissive policy per action (x1_merged_*), 0 duplicates; backup holds % original policies, no member access',
+  RAISE NOTICE 'PROBE PASS 20261031_0609 (lane %): 11 batch-2 tables have one permissive policy per action (x1_merged_*), 0 duplicates; backup holds % original policies, no member access',
     current_setting('p32.lane'), backup_rows;
 END
 $probe$;

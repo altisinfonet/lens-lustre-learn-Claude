@@ -1,6 +1,6 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- ROLLBACK · 20261031_0609 — S10 X1 batch 2.
--- Drops the x1_merged_* policies on the 14 batch-2 tables and recreates every
+-- Drops the x1_merged_* policies on the 11 batch-2 tables and recreates every
 -- original permissive policy from public.x1_policy_backup_20261031, byte-for-
 -- byte (checked against the backup after re-creation). Access is the same in
 -- both directions (see the migration header); E2 re-proves it on live rows.
@@ -30,8 +30,7 @@ DO $x1_rb$
 DECLARE
   v_batch constant text := '0609_batch2';
   tables constant text[] := ARRAY['ad_creatives', 'ai_chat_usage', 'certificates', 'comment_reports', 'course_enrollments',
-                                  'custom_url_history', 'portfolio_images', 'post_reports',
-                                  'post_tags', 'reports', 'support_tickets', 'user_badges',
+                                  'custom_url_history', 'post_reports', 'reports', 'support_tickets',
                                   'user_devices', 'v3_tag_label_alias'];
   t text; rel oid; r record; id jsonb; h text; k int := 0; diff text;
   ids jsonb := '[]'; e2_before jsonb := '{}'; e2_after jsonb := '{}';
