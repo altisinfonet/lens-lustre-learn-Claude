@@ -110,6 +110,12 @@ function installHelpers() {
     "borderTopColor", "borderRightColor", "borderBottomColor", "borderLeftColor",
     "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth",
     "borderTopStyle", "backgroundColor", "backgroundImage", "color", "textDecorationLine", "textDecorationColor"];
+  /** A computed colour that paints nothing: transparent, or alpha 0. */
+  const clear = (c) => !c || c === "transparent" || /^rgba\([^)]*,\s*0(\.0+)?\)$/.test(c.trim()) || /\/\s*0(\.0+)?\s*\)$/.test(c.trim());
+  /** Split a computed list (box-shadow) on top-level commas only. */
+  const splitTop = (v) => { const out = []; let depth = 0, cur = ""; for (const ch of v) { if (ch === "(") depth++; if (ch === ")") depth--; if (ch === "," && depth === 0) { out.push(cur.trim()); cur = ""; } else cur += ch; } if (cur.trim()) out.push(cur.trim()); return out; };
+  /** The colour of one computed shadow layer (computed values put it first: "rgb(…) 0px 0px …"). */
+  const colourOf = (layer) => { const m = layer.match(/(rgba?\([^)]*\)|color\([^)]*\)|transparent)/); return m ? m[1] : ""; };
   const sigOf = (el) => {
     const parts = [];
     for (const pseudo of [null, "::before", "::after"]) {
@@ -117,8 +123,14 @@ function installHelpers() {
       if (pseudo && (s.content === "none" || s.content === "normal")) { parts.push("-"); continue; }
       const o = {};
       for (const p of PROPS) o[p] = s[p];
-      // An outline with no style or no width draws nothing, whatever its colour.
-      if (o.outlineStyle === "none" || parseFloat(o.outlineWidth) === 0) { o.outlineStyle = "none"; o.outlineWidth = o.outlineColor = o.outlineOffset = "-"; }
+      // An outline with no style, no width or a fully transparent colour draws
+      // nothing. Tailwind's outline-none IS "2px solid transparent" (review #699).
+      if (o.outlineStyle === "none" || parseFloat(o.outlineWidth) === 0 || clear(o.outlineColor)) { o.outlineStyle = "none"; o.outlineWidth = o.outlineColor = o.outlineOffset = "-"; }
+      // A box-shadow whose every layer is transparent draws nothing either
+      // (Tailwind's ring variables default to "0 0 #0000").
+      if (o.boxShadow !== "none" && splitTop(o.boxShadow).every((layer) => clear(colourOf(layer)))) o.boxShadow = "none";
+      // A transparent border draws nothing whatever its width or style.
+      for (const side of ["Top", "Right", "Bottom", "Left"]) if (clear(o[`border${side}Color`])) o[`border${side}Color`] = "clear";
       parts.push(JSON.stringify(o));
     }
     return parts;
@@ -196,7 +208,10 @@ function controlsInScope([selector, widgetRoles]) {
     groups.get(key).members.push(el);
   }
   const reached = new Set(A.stops);
-  const reachedAt = new Set(A.stopWhere.values());
+  // A position stands in for a stop ONLY when that stop's own node is gone (the
+  // React remount case where() exists for) — never for a node that was merely
+  // moved or had another inserted before it (review #699 note).
+  const reachedAt = new Set([...A.stopWhere.entries()].filter(([id]) => !A.els[id].isConnected).map(([, w]) => w));
   const wasReached = (el) => (A.ids.has(el) && reached.has(A.ids.get(el))) || reachedAt.has(A.where(el));
   const unreached = [];
   let count = 0;
