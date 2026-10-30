@@ -1,6 +1,8 @@
 # STAGES runner — status
 
-Updated: 2026-10-30 02:19 UTC · runner branch `status/stages-runner` · never merged.
+Updated: 2026-10-30 05:12 UTC — **RESTARTED** (previous run stopped silently at 02:19 UTC after the S11 carry #618). Now: re-verifying live, then flake fix #578, S11 rest (npm high-severity updates, drills D1/D9 if the token exists), S8 rest. Heartbeat every ≤30 min.
+
+Previous update: 2026-10-30 02:19 UTC · runner branch `status/stages-runner` · never merged.
 
 ## Done per stage
 
