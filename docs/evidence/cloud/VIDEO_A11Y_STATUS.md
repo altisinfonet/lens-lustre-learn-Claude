@@ -1,14 +1,14 @@
 # Video + accessibility runner — status
 
 Started 2026-10-30 01:47 UTC. Replaces the earlier supervisor session (no GitHub trace after 2026-10-29 14:19 UTC).
-Last update: 2026-10-30 13:44 UTC.
+Last update: 2026-10-30 13:46 UTC.
 
 SECOND RESTART 2026-10-30 ~07:15 UTC: the run stopped silently again at ~05:15 UTC. New rule: ONE PR at a time (#619 → #538 → #539 → #540 → #541 → #542), heartbeat at least every 20 minutes. Checked GitHub 07:15 UTC: nobody pushed to or merged #538-#542 or #619 since 02:00 UTC; each is 21 commits behind staging.
 
 RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. A new run took over at 05:05 UTC. Checked GitHub: nobody else pushed to or merged #538-#542 or #619 since 02:00 UTC.
 
 ## Now
-13:44 UTC — All six units LIVE; final live check clean (run 41064479457). Next: rest of S7 items that need no Owner input, then S10-a P23 (S10a-2 CI checks red-first).
+13:46 UTC — Live converter already set up (account PROBE PASS on production, last seen 13:45 UTC). Owner list updated. P23 S10a-2 build in progress.
 
 ## Units
 | Unit | PR | State | Merged sha (staging / main) | SQL runs | Live check |
@@ -52,6 +52,6 @@ d2-live-check run 41046580661 on main 36c895d1 (11:16 UTC): home + /feed 200 in 
 ## Owner list (plain steps; nothing here is urgent for today's merges)
 1. DECIDE — short clips: there is no written plan for "short clips", and your rule of 12 Aug 2026 says "No REELS and no LIVE anywhere". Reply with what "short clips" should mean (or "drop it"). Nothing is built until you answer.
 2. DECIDE — video frame: the app shows every video in a tall 9:16 card (decision A1.3 in the VID-1 decision note). The brief I was given says "same frame rule as photos (4:5 … 1.91:1)". Reply "keep 9:16" or "use the photo frame". Nothing changes until you answer.
-3. Live video converter (only when you want server conversion on the live site) — Supabase dashboard (live project) → Authentication → Users → Add user → e-mail video-converter@50mmretina.com, tick "Auto Confirm" → Create. Then tell me; I run migration 20261013_0007 and its check through the safe workflow.
-4. Cloudflare dashboard → R2 → Create bucket for the live site videos (the name the converter guide gives), then send me "bucket done". The VM steps (copy files, run setup, seed the sign-in) are in converter/deploy/README.md; I will turn them into a one-page click list when you are ready.
+3. Live video converter: ALREADY SET UP — checked 13:46 UTC (read-only check, run 41065910066): the converter account exists on the live database and the live converter last asked for work at 13:45 UTC today. Nothing to do. When YOU decide the live site should convert videos on the server: Admin → Video Feature → Video Conversion → "server". Until then phones convert videos themselves ("device", today's setting). I will not change it.
+4. DECIDE — cost alert budget (VID-6): the plan says "count checks per day against a budget alert", but no budget number is written anywhere. Reply with the monthly limit you want an alarm at (for example "alarm if Cloudflare R2 storage passes 8 GB or 800,000 calls in a month" — the free plan is 10 GB / 1 million calls). Nothing is built until you answer.
 5. Feature switches stay OFF on live. When you want to try video yourself: Admin → Video Feature → Video posts → choose "Selected members" → add only your own account. Do not choose "All members" yet (the security rule A1.5 allows only your own account until the upload-signing key is set).
