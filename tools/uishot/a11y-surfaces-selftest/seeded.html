@@ -1,0 +1,66 @@
+<!doctype html>
+<!--
+  P23 S10a-2 · THE SEEDED PAGE. Exactly ONE defect per check of
+  tools/uishot/a11y-surfaces.mjs (S10a-DECISION.md §3). `--self-test` must
+  report each one, by its id, and nothing else. clean.html is the same page
+  with every defect repaired; it must report nothing.
+
+    A  #defect-a  a button with no accessible name           (axe button-name)
+    B  #defect-b  a role=button that Tab never reaches        (no tabindex)
+    C  #defect-c  a button whose focus changes nothing        (outline:none)
+       #defect-c2 the same, Tailwind's `outline-none`         (2px solid TRANSPARENT outline —
+                  draws nothing; review #699: C used to call it a visible change)
+    D  #trap-1/2  a focus trap with no modal dialog open      (Tab is swallowed)
+    E  #defect-e  an open dialog that ignores Escape
+
+  The trap sits LAST in the tab order so it does not hide B and C from the walk.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>a11y-surfaces seeded page</title>
+<style>
+  body { font: 16px/1.4 system-ui, sans-serif; background: #fff; color: #111; margin: 16px; }
+  button, [role=button], a { display: inline-block; margin: 4px; min-width: 44px; min-height: 44px; }
+  [role=button] { border: 1px solid #333; padding: 8px; }
+  #defect-c:focus, #defect-c:focus-visible { outline: none; }
+  #defect-c2:focus, #defect-c2:focus-visible { outline: 2px solid transparent; outline-offset: 2px; }
+  [role=dialog] { border: 2px solid #333; padding: 8px; margin-top: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Seeded defects</h1>
+  <a id="ok-link" href="#top">A link</a>
+  <button id="ok-1" type="button">Fine button</button>
+  <button id="defect-a" type="button"><svg aria-hidden="true" width="16" height="16"><circle cx="8" cy="8" r="6"/></svg></button>
+  <div id="defect-b" role="button">Never reached</div>
+  <button id="defect-c" type="button">No focus change</button>
+  <button id="defect-c2" type="button">Transparent outline</button>
+  <fieldset>
+    <legend>Size</legend>
+    <label><input type="radio" name="size" value="s" checked> Small</label>
+    <label><input type="radio" name="size" value="l"> Large</label>
+  </fieldset>
+  <div id="defect-e" role="dialog" aria-label="Sticky dialog">
+    <p>This dialog ignores Escape.</p>
+    <button id="dialog-btn" type="button">Inside the dialog</button>
+  </div>
+  <div id="defect-d">
+    <button id="trap-1" type="button">Trap one</button>
+    <button id="trap-2" type="button">Trap two</button>
+  </div>
+</main>
+<script>
+  // D: Tab on #trap-2 is swallowed and sent back to #trap-1; Shift+Tab on
+  // #trap-1 is sent to #trap-2. Focus can never leave, and no modal is open.
+  const t1 = document.getElementById("trap-1"), t2 = document.getElementById("trap-2");
+  t2.addEventListener("keydown", (e) => { if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); t1.focus(); } });
+  t1.addEventListener("keydown", (e) => { if (e.key === "Tab" && e.shiftKey) { e.preventDefault(); t2.focus(); } });
+  // B: #defect-b is clickable but has no tabindex — a mouse can use it, Tab cannot.
+  document.getElementById("defect-b").addEventListener("click", () => {});
+  // E: #defect-e listens for nothing.
+</script>
+</body>
+</html>

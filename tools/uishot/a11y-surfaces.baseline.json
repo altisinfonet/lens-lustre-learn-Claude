@@ -1,0 +1,97 @@
+{
+  "_about": "P23 S10a-2 a11y-surfaces ratchet baseline (docs/evidence/d2/phase5/P23/S10a-DECISION.md §3). Keyed by scene AND width: surfaces.<scene>.<width>.<rule> = count. Rules: A:<axe rule id> (failing nodes; axe-core pinned in package.json, tags of tools/uishot/axe-ratchet.mjs), B:tab-unreached, C:focus-not-visible, D:keyboard-trap, E:escape-does-not-close. {} = a clean entry. A DEBT, not a standard. An entry is written once, by `node tools/uishot/a11y-surfaces.mjs --record` (which refuses to touch an existing entry), and after that only lowered (`--lower <report.json>`). Never raise to make a red go away.",
+  "surfaces": {
+    "comments-panel": {
+      "desktop-1280": {
+        "C:focus-not-visible": 1
+      },
+      "iphone-390": {
+        "C:focus-not-visible": 1
+      }
+    },
+    "composer-full": {
+      "desktop-1280": {},
+      "iphone-390": {}
+    },
+    "screen-admin-health": {
+      "desktop-1280": {
+        "A:color-contrast": 3
+      },
+      "iphone-390": {
+        "A:button-name": 2
+      }
+    },
+    "screen-discover": {
+      "desktop-1280": {
+        "A:link-name": 10,
+        "A:target-size": 2
+      },
+      "iphone-390": {
+        "A:link-name": 4
+      }
+    },
+    "screen-edit-profile": {
+      "desktop-1280": {
+        "A:aria-progressbar-name": 1,
+        "A:button-name": 1,
+        "A:link-name": 6,
+        "A:select-name": 3,
+        "A:target-size": 2
+      },
+      "iphone-390": {
+        "A:aria-progressbar-name": 1,
+        "A:button-name": 1,
+        "A:select-name": 3
+      }
+    },
+    "screen-feed": {
+      "desktop-1280": {
+        "A:link-name": 6,
+        "A:target-size": 2
+      },
+      "iphone-390": {}
+    },
+    "screen-login": {
+      "desktop-1280": {
+        "A:link-in-text-block": 2
+      },
+      "iphone-390": {
+        "A:link-in-text-block": 2
+      }
+    },
+    "screen-notifications": {
+      "desktop-1280": {
+        "A:link-name": 6,
+        "A:nested-interactive": 2,
+        "A:target-size": 2
+      },
+      "iphone-390": {
+        "A:nested-interactive": 2
+      }
+    },
+    "screen-post-detail": {
+      "desktop-1280": {
+        "A:link-name": 6,
+        "A:target-size": 2
+      },
+      "iphone-390": {}
+    },
+    "screen-profile": {
+      "desktop-1280": {
+        "A:button-name": 1,
+        "A:link-in-text-block": 1,
+        "A:link-name": 6,
+        "A:target-size": 2
+      },
+      "iphone-390": {}
+    },
+    "screen-signup": {
+      "desktop-1280": {
+        "A:link-in-text-block": 3
+      },
+      "iphone-390": {
+        "A:link-in-text-block": 3
+      }
+    }
+  }
+}
