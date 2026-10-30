@@ -34,7 +34,7 @@ Classes: **A** repo/PR/branch (reversible) · **B** DB object · **C** uncertain
 | A-MIG-01 | `UNAPPLIED_*` ×9 | withdrawn/neutralised | each is read by a test (`m2-sql-baseline.json` — owned by just-merged #637, `referralReward0023Withdrawn`, `test-utils/migrations`) or cited by Addendum/DECISIONS; 0023/0027 money, 0029 auth; 0201 is the Owner's first-post switch; the 21k-line bootstrap holds the only git copy of several live-only functions | C | KEEP (Q8) |
 | A-WF-01 | 58 workflows on staging | some rarely run | all ran ≤ 2026-10-30 except: `s3-media-backfill` (never run; manual, tested by `backfillWorkflow.test`), `verify-schema-dependencies` (never run; Addendum names it), `d1-baseline`/`d1-seed-staging` (last 09-04; manual tools with guard tests) | — | KEEP |
 | A-CF-01 | `cloudflare/media-authz`, `cloudflare/seo-edge-injector` | — | media-authz built by `d2-media-authz.yml`; seo-edge-injector cited by D003 handover + ledger | — | KEEP |
-| A-EF-01 | 6 edge functions with no caller in git: `backfill-image-hashes`, `brevo-webhook`, `evaluate-round2`, `handle-email-suppression`, `rank-feed`, `verify-image-hash` | no client/server caller | brevo-webhook / handle-email-suppression are called by external services (Brevo, email hook); evaluate-round2 = judging; cron/trigger callers pending PROBE 0501 §8; live delete blocked (no SUPABASE_ACCESS_TOKEN) | C | ASK OWNER after PROBE (Q9) |
+| A-EF-01 | 6 edge functions with no caller in git: `backfill-image-hashes`, `brevo-webhook`, `evaluate-round2`, `handle-email-suppression`, `rank-feed`, `verify-image-hash` | no client/server caller | brevo-webhook / handle-email-suppression are called by external services (Brevo, email hook); evaluate-round2 = judging; PROBE 0501 §8 found no `/functions/v1/` URL in any cron command or function body on either lane — inconclusive, because crons reach edge functions through vault-held URLs (P9c); live delete blocked (no SUPABASE_ACCESS_TOKEN) | C | ASK OWNER (Q9) |
 
 ## A — GitHub
 
@@ -45,8 +45,26 @@ Classes: **A** repo/PR/branch (reversible) · **B** DB object · **C** uncertain
 | A-PR-03 | #174, #175 (P30/P31 evidence, Sep 5), #254 (Project Knowledge archive, 2 136 files), #285, #289 (held D2 units), #352 (P3 exporter draft) | not superseded by anything provable; content absent from staging | ASK OWNER (Q10) |
 | A-BR-01 | 89 remote branches whose tip is an ancestor of `staging` or `main` (dated 2026-07-12 → 09-06; none status/*, s7b/*, carry/*, none with an open PR, none referenced by a workflow) | `git merge-base --is-ancestor` | DELETE — **blocked**: this session's git proxy refuses ref deletion (HTTP 403 on git push and REST). List + SHAs below (Q1) |
 
-## B — database (pending PROBE 0501, PR #649)
-Known candidate: `posts_dead_host_backup_20260812` (live-only backup table, foundation audit). No drop until PROBE 0501 shows zero callers on both lanes. Live-only objects that are in use (`password_verification_hook`, `trg_enforce_comment_blocklist`, `trg_flag_post_review`, email/re-engagement crons, …) → **KEEP, capture into git (separate job)**.
+## B — database (PROBE 0501: staging run 41018483103, production run 41023653669)
+
+Active app builds (production `client_telemetry`, last 30 days, counts only): android v1129 (133), v1131 (242), v1132 (186), v1133 (281); web 2026-08-20-2 (603). Telemetry starts 2026-10-28, so older Android builds that do not send it cannot be ruled out → no object an app build could call is dropped. `track_functions = none` on both lanes, so function call counts are unavailable.
+
+| ID | Object | Evidence | Class | Decision |
+|---|---|---|---|---|
+| B-IDX-01 | `idx_unsubscribe_tokens_token`, `idx_suppressed_emails_email`, `idx_post_reactions_post_user`, `idx_feed_events_post` | identical twin on both lanes (DUPIDX); no caller by name in git; none backs a constraint | B | DROP — #664 staging, #665 main (runs below) |
+| B-IDX-02 | `judge_decisions` two identical UNIQUE indexes | DUPIDX both lanes | C (judging) | ASK OWNER (Q12) |
+| B-IDX-03 | `referral_codes` `idx_referral_codes_code` duplicates UNIQUE key | DUPIDX both lanes, 0 scans | C (referral rewards) | ASK OWNER (Q12) |
+| B-TBL-01 | `posts_dead_host_backup_20260812` (prod 16 rows) | read by edge fn `detect-orphan-files` + `orphanReferenceSet.test` as a reference set | — | **KEEP** (in use) — capture into git (separate job) |
+| B-TBL-02 | `p5_cron_previous`, `p6_cron_previous`, `f_p35_1_acl_before` | read by their rollback files | — | KEEP while those rollbacks stand |
+| B-TBL-03 | `categories_migration_dropped` (0 rows both lanes) | only its creating migration; holds member ids by design | C (member data) | ASK OWNER (Q13) |
+| B-TBL-04 | `_v3_preflight_snapshot_*`, `_v3_quarantine_*`, `round_snapshots`, `judging_preflight_log`, `vote_adjustment_cleanup_log` | read by `hard-delete-competition` / `complete-round` / types | C (judging) | KEEP |
+| B-TBL-05 | `media_repair_audit` | audit trail of media repairs | C | KEEP |
+| B-LIVE-01 | 37 functions / 5 tables / 5 policies / ~15 triggers / 6 cron jobs live but not in git (foundation audit) — incl. `password_verification_hook`, `trg_enforce_comment_blocklist`, `trg_flag_post_review`, email/re-engagement crons | in use | — | KEEP — capture into git (separate job) |
+| B-SET-01 | `site_settings.ad_slots_backup_20260723` (both lanes) | no code reads it (only a migration comment) | C (ads/revenue config) | ASK OWNER (Q14) |
+| B-SET-02 | all other `site_settings` keys (32) | each read by ≥ 2 code files | — | KEEP |
+
+## D — storage (production, counts only)
+avatars 14 objects / 43.1 MB · email-assets 14 / 57.7 MB · post-images 116 / 8.5 MB · site-assets 7 / 0.2 MB (all older than 30 days). Staging: post-images 4 / 0.18 MB. Orphan matching (object → referencing row) was not measured in this job; `detect-orphan-files` exists for that. Nothing deleted (class C).
 
 ## Merged branches (A-BR-01) — name · SHA · last commit
 - ads-fixed-slot-positions ebe8ee3c1a1a47f57524ad1150d80365e2ff802c 2026-08-01
