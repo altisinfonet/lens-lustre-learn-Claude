@@ -20,14 +20,24 @@
  * rendition under its bytes-per-second ceiling, and ffprobe reads a video
  * stream (+ an audio stream exactly when there is sound).
  *
+ * S7-e adds three phone-shaped files, made here by ffmpeg (nothing binary in
+ * the repo): an iPhone HDR video (10-bit BT.2020 HLG, 90° rotation, picked as
+ * IMG_….MOV), an Android camera video (H.264/AAC, 90° rotation, variable frame
+ * rate) and a 3-minute video (a long case; there is NO member duration cap). Each
+ * must also come out the way the member holds the phone (portrait for the
+ * rotated ones), as long as its source (±0.5 s, measured on the OUTPUT
+ * playlists), and be the very file that was served (sha256) — video-shape.mjs.
+ *
  * Codecs: VP9 + Opus via the encoder's test seam (Playwright's Chromium has no
  * H.264/AAC encoder). Exit code = the verdict.
  */
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium } from "playwright";
+import { judgeShape } from "./video-shape.mjs";
 
 const PORT = 5197;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -36,7 +46,7 @@ const out = process.argv.includes("--json") ? process.argv[process.argv.indexOf(
 function chromePath() {
   const root = process.env.PLAYWRIGHT_BROWSERS_PATH || "/opt/pw-browsers";
   if (!existsSync(root)) return undefined;
-  for (const d of readdirSync(root)) for (const rel of ["chrome-linux/chrome", "chrome-linux/headless_shell"]) {
+  for (const d of readdirSync(root)) for (const rel of ["chrome-linux/chrome", "chrome-linux64/chrome", "chrome-linux/headless_shell"]) {
     const p = join(root, d, rel);
     if (existsSync(p)) return p;
   }
@@ -62,7 +72,35 @@ function ffprobe(dir) {
   catch { return { available: true, streams: [], stderr: (r.stderr || r.stdout).slice(0, 400) }; }
 }
 
-const CASES = [["landscape", false], ["portrait", true], ["held", false], ["crossfade", false]];
+// S7-e · the phone-shaped fixtures. -display_rotation 90 writes the display
+// matrix a phone writes when it is held upright.
+const LAVFI_AUDIO = (hz) => ["-f", "lavfi", "-i", `sine=frequency=${hz}:sample_rate=48000`];
+const GENERATED = {
+  "iphone-hdr": { seconds: 6, portrait: true, args: ["-f", "lavfi", "-i", "testsrc2=size=1920x1080:rate=30", ...LAVFI_AUDIO(440), "-t", "6",
+    "-c:v", "libvpx-vp9", "-profile:v", "2", "-pix_fmt", "yuv420p10le", "-b:v", "1M", "-deadline", "realtime", "-cpu-used", "8",
+    "-color_primaries", "bt2020", "-color_trc", "arib-std-b67", "-colorspace", "bt2020nc", "-c:a", "aac", "-ac", "2"] },
+  android: { seconds: 6, portrait: true, args: ["-f", "lavfi", "-i", "testsrc2=size=1920x1080:rate=30", ...LAVFI_AUDIO(330), "-t", "6",
+    "-vf", "select='not(eq(mod(n\\,7)\\,3))'", "-fps_mode", "vfr", "-c:v", "libx264", "-profile:v", "high", "-pix_fmt", "yuv420p",
+    "-preset", "ultrafast", "-b:v", "2M", "-c:a", "aac", "-ac", "2"] },
+  "three-min": { seconds: 180, portrait: false, rotate: false, args: ["-f", "lavfi", "-i", "testsrc2=size=640x360:rate=30", ...LAVFI_AUDIO(550), "-t", "180",
+    "-c:v", "libx264", "-preset", "ultrafast", "-b:v", "300k", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "64k", "-ac", "2"] },
+};
+function makeFixtures() {
+  const dir = mkdtempSync(join(tmpdir(), "vid-fixtures-"));
+  const files = {};
+  for (const [name, f] of Object.entries(GENERATED)) {
+    const plain = join(dir, `${name}-plain.mp4`), final = join(dir, `${name}.mp4`);
+    const a = spawnSync("ffmpeg", ["-v", "error", "-y", ...f.args, plain], { encoding: "utf8" });
+    if (a.status !== 0) throw new Error(`ffmpeg ${name}: status ${a.status} signal ${a.signal} ${a.error ? a.error.message : ""} ${(a.stderr || "").slice(0, 400)}`);
+    const b = f.rotate === false ? { status: 0 } : spawnSync("ffmpeg", ["-v", "error", "-y", "-display_rotation", "90", "-i", plain, "-c", "copy", final], { encoding: "utf8" });
+    if (b.status !== 0) throw new Error(`ffmpeg rotate ${name}: status ${b.status} ${b.error ? b.error.message : ""} ${(b.stderr || "").slice(0, 400)}`);
+    files[name] = readFileSync(f.rotate === false ? plain : final);
+  }
+  return files;
+}
+
+const CASES = [["landscape", false], ["portrait", true], ["held", false], ["crossfade", false],
+  ["iphone-hdr", false], ["android", false], ["three-min", false]];
 const result = { at: new Date().toISOString(), cases: [], verdict: "FAIL" };
 let code = 1;
 try {
@@ -70,6 +108,11 @@ try {
   const exe = chromePath();
   const browser = await chromium.launch(exe ? { executablePath: exe, args: ["--autoplay-policy=no-user-gesture-required"] } : { args: ["--autoplay-policy=no-user-gesture-required"] });
   const page = await browser.newPage();
+  const fixtures = makeFixtures();
+  await page.route("**/__fixture/*", (route) => {
+    const body = fixtures[new URL(route.request().url()).pathname.split("/").pop()];
+    return body ? route.fulfill({ status: 200, contentType: "video/mp4", body }) : route.fulfill({ status: 404, body: "" });
+  });
   page.on("pageerror", (e) => console.error("pageerror:", e.message));
   await page.goto(`${BASE}/videoharness.html`, { waitUntil: "load" });
   await page.waitForFunction(() => typeof window.__vidEncode === "function", null, { timeout: 60_000 });
@@ -91,7 +134,18 @@ try {
       ceilings: r.ceilings,
       ffprobe: { available: probe.available, streams: probe.streams, stderr: probe.stderr },
     };
-    c.pass = r.problems.length === 0 && r.hashOk && r.ceilings.every((x) => x.bytesPerSecond <= x.ceiling)
+    const g = GENERATED[which];
+    if (g) {
+      // Held upright → a portrait package; and nothing lost or added at the ends.
+      const playlists = Object.fromEntries(Object.entries(r.files).filter(([n]) => n.endsWith(".m3u8"))
+        .map(([n, b]) => [n, Buffer.from(b, "base64").toString("utf8")]));
+      const fixtureSha256 = createHash("sha256").update(fixtures[which]).digest("hex");
+      const v = judgeShape({ manifest: r.manifest, playlists, sourceSha256: r.sourceSha256, fixtureSha256 }, { portrait: g.portrait, seconds: g.seconds });
+      c.shape = { width: r.manifest.width, height: r.manifest.height, expectPortrait: g.portrait, expectSeconds: g.seconds,
+        renditionSeconds: v.renditionSeconds, reasons: v.reasons, sourceSha256: r.sourceSha256, fixtureSha256 };
+      c.shapeOk = v.ok;
+    }
+    c.pass = (!g || c.shapeOk) && r.problems.length === 0 && r.hashOk && r.ceilings.every((x) => x.bytesPerSecond <= x.ceiling)
       && (!probe.available || (types.includes("video") && types.includes("audio") === !mute));
     result.cases.push(c);
   }
