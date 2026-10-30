@@ -113,6 +113,31 @@ BEGIN
     RAISE EXCEPTION 'FIXTURE FAIL H2: late row not cancelled';
   END IF;
 
+  -- ── H2 · a suspended member is never reminded ───────────────────────────
+  INSERT INTO auth.users (id, email) VALUES ('00000000-0000-0000-0000-0000000000c1', 'susp@fixture.invalid');
+  INSERT INTO public.profiles (id, full_name, is_suspended) VALUES ('00000000-0000-0000-0000-0000000000c1', 'Susp', true);
+  UPDATE public.first_post_reminders SET due_at = now() - interval '1 hour' WHERE user_id = '00000000-0000-0000-0000-0000000000c1' AND day = 1;
+  IF public.first_post_reminders_tick() <> 0 THEN RAISE EXCEPTION 'FIXTURE FAIL H3: a suspended member was reminded'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.first_post_reminders WHERE user_id = '00000000-0000-0000-0000-0000000000c1' AND day = 1 AND cancel_reason = 'suspended') THEN
+    RAISE EXCEPTION 'FIXTURE FAIL H4: suspended row not cancelled';
+  END IF;
+
+  -- ── H5 · one failing send does not stop the others ──────────────────────
+  INSERT INTO auth.users (id, email) VALUES ('00000000-0000-0000-0000-0000000000b1', 'boom@fixture.invalid'), ('00000000-0000-0000-0000-0000000000b2', 'fine@fixture.invalid');
+  INSERT INTO public.profiles (id, full_name) VALUES ('00000000-0000-0000-0000-0000000000b1', 'Boom'), ('00000000-0000-0000-0000-0000000000b2', 'Fine');
+  UPDATE public.first_post_reminders SET due_at = now() - interval '1 hour'
+   WHERE user_id IN ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000b2') AND day = 1;
+  CREATE FUNCTION fixture.boom() RETURNS trigger LANGUAGE plpgsql AS $b$
+  BEGIN IF NEW.recipient_email = 'boom@fixture.invalid' THEN RAISE EXCEPTION 'queue down'; END IF; RETURN NEW; END $b$;
+  CREATE TRIGGER boom BEFORE INSERT ON public.email_send_log FOR EACH ROW EXECUTE FUNCTION fixture.boom();
+  IF public.first_post_reminders_tick() <> 1 THEN RAISE EXCEPTION 'FIXTURE FAIL H5: a failing send stopped the batch'; END IF;
+  IF (SELECT status FROM public.first_post_reminders WHERE user_id = '00000000-0000-0000-0000-0000000000b1' AND day = 1) <> 'queued'
+     OR EXISTS (SELECT 1 FROM public.user_notifications WHERE user_id = '00000000-0000-0000-0000-0000000000b1') THEN
+    RAISE EXCEPTION 'FIXTURE FAIL H6: the failed send was not rolled back / left queued for the next hour';
+  END IF;
+  DROP TRIGGER boom ON public.email_send_log;
+  UPDATE public.first_post_reminders SET status = 'cancelled', cancel_reason = 'late' WHERE user_id = '00000000-0000-0000-0000-0000000000b1';
+
   -- ── I · switch back OFF: due rows are left alone, nothing is sent ────────
   INSERT INTO auth.users (id, email) VALUES (u5, 'five@fixture.invalid');
   INSERT INTO public.profiles (id, full_name) VALUES (u5, 'Five');
@@ -180,6 +205,6 @@ BEGIN
   RESET ROLE;
   IF caught <> 'refused' THEN RAISE EXCEPTION 'FIXTURE FAIL K2: a member ran the tick'; END IF;
 
-  RAISE NOTICE 'FIXTURE PASS: A (switch off) B (queued 1/3/7) C (bell+push+email link) D (idempotent) E (first post cancels) F (opt-outs) G (suppressed) H (late) I (off again) J (Health 50.0%% + admin only) K (server-only)';
+  RAISE NOTICE 'FIXTURE PASS: A (switch off) B (queued 1/3/7) C (bell+push+email link) D (idempotent) E (first post cancels) F (opt-outs) G (suppressed) H (late, suspended, one failure isolated) I (off again) J (Health 50.0%% + admin only) K (server-only)';
 END
 $a$;

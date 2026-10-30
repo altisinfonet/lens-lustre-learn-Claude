@@ -61,6 +61,10 @@ BEGIN
   ELSE
     RAISE NOTICE 'feed_score_config ABSENT on this lane · onboarding promise NOT verifiable here';
   END IF;
+  IF to_regclass('public.feature_access') IS NOT NULL THEN
+    SELECT coalesce((SELECT fa.mode::text FROM public.feature_access fa WHERE fa.feature = 'personal_feed'), '(no row)') AS m INTO r;
+    RAISE NOTICE 'personal_feed mode = % (the promise describes the personal feed; members not on it see the newest-first feed)', r.m;
+  END IF;
   RAISE NOTICE 'PROBE PASS: 20261102_0200 present as intended';
 END
 $p$;

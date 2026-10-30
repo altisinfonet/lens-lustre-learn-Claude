@@ -78,14 +78,14 @@ BEGIN
   -- PRE-002 · everything this file reads, with the columns it reads
   IF (SELECT count(*) FROM information_schema.columns WHERE table_schema = 'public' AND
         ((table_name = 'site_settings'      AND column_name IN ('key', 'value')) OR
-         (table_name = 'profiles'           AND column_name IN ('id', 'full_name')) OR
+         (table_name = 'profiles'           AND column_name IN ('id', 'full_name', 'is_suspended')) OR
          (table_name = 'posts'              AND column_name IN ('id', 'user_id', 'created_at')) OR
          (table_name = 'user_notifications' AND column_name IN ('user_id', 'type', 'title', 'message', 'dedup_key', 'email_sent')) OR
          (table_name = 'notification_preferences' AND column_name IN ('user_id', 'email_reengagement')) OR
          (table_name = 'suppressed_emails'  AND column_name = 'email') OR
          (table_name = 'email_unsubscribe_tokens' AND column_name IN ('token', 'email', 'used_at')) OR
          (table_name = 'email_send_log'     AND column_name IN ('message_id', 'template_name', 'recipient_email', 'status'))
-        )) <> 23 THEN
+        )) <> 24 THEN
     RAISE EXCEPTION 'FPN-0200-PRE-002: a table/column this file reads is missing on this lane — refusing';
   END IF;
   -- PRE-003 · the e-mail queue writer, the admin check, pg_cron
@@ -133,7 +133,7 @@ CREATE TABLE public.first_post_reminders (
   status        text        NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'sent', 'cancelled')),
   queued_at     timestamptz NOT NULL DEFAULT now(),
   done_at       timestamptz,
-  cancel_reason text        CHECK (cancel_reason IN ('posted', 'late', 'no_profile')),
+  cancel_reason text        CHECK (cancel_reason IN ('posted', 'late', 'no_profile', 'suspended')),
   PRIMARY KEY (user_id, day)
 );
 CREATE INDEX idx_first_post_reminders_due ON public.first_post_reminders (due_at) WHERE status = 'queued';
@@ -182,13 +182,20 @@ SECURITY DEFINER
 SET search_path = ''
 AS $fn$
 BEGIN
-  UPDATE public.first_post_reminders
-     SET status = 'cancelled', done_at = now(), cancel_reason = 'posted'
-   WHERE user_id = NEW.user_id AND status = 'queued';
-  RETURN NEW;
-EXCEPTION WHEN OTHERS THEN
-  -- A reminder is never worth a failed post; the tick re-checks posts anyway.
-  RAISE LOG 'tg_first_post_reminders_cancel: % / %', SQLSTATE, SQLERRM;
+  -- Almost every post is by a member with nothing queued: a plain index read,
+  -- no write and no subtransaction. Only a member's FIRST post pays for one.
+  IF NOT EXISTS (SELECT 1 FROM public.first_post_reminders q
+                  WHERE q.user_id = NEW.user_id AND q.status = 'queued') THEN
+    RETURN NEW;
+  END IF;
+  BEGIN
+    UPDATE public.first_post_reminders
+       SET status = 'cancelled', done_at = now(), cancel_reason = 'posted'
+     WHERE user_id = NEW.user_id AND status = 'queued';
+  EXCEPTION WHEN OTHERS THEN
+    -- A reminder is never worth a failed post; the tick re-checks posts anyway.
+    RAISE LOG 'tg_first_post_reminders_cancel: % / %', SQLSTATE, SQLERRM;
+  END;
   RETURN NEW;
 END
 $fn$;
@@ -218,6 +225,7 @@ DECLARE
   _mid    text;
   _html   text;
   _text   text;
+  _susp   boolean;
 BEGIN
   -- Off = today's behaviour: nothing is sent, nothing is touched.
   IF NOT public.first_post_nudge_on() THEN
@@ -242,12 +250,23 @@ BEGIN
        WHERE user_id = r.user_id AND day = r.day;
       CONTINUE;
     END IF;
-    SELECT coalesce(nullif(btrim(pr.full_name), ''), 'there') INTO _name FROM public.profiles pr WHERE pr.id = r.user_id;
+    SELECT coalesce(nullif(btrim(pr.full_name), ''), 'there'), coalesce(pr.is_suspended, false)
+      INTO _name, _susp FROM public.profiles pr WHERE pr.id = r.user_id;
     IF NOT FOUND THEN
       UPDATE public.first_post_reminders SET status = 'cancelled', done_at = now(), cancel_reason = 'no_profile'
        WHERE user_id = r.user_id AND day = r.day;
       CONTINUE;
     END IF;
+    IF _susp THEN
+      UPDATE public.first_post_reminders SET status = 'cancelled', done_at = now(), cancel_reason = 'suspended'
+       WHERE user_id = r.user_id AND day = r.day;
+      CONTINUE;
+    END IF;
+
+    -- One member's failure (a bad address, a queue error) must not roll back
+    -- the whole hour: each send is its own subtransaction; on error the row
+    -- stays queued for the next tick and the reason goes to the log.
+    BEGIN
 
     _title := 'Share your first photo';
     _msg := CASE r.day
@@ -304,6 +323,9 @@ BEGIN
     UPDATE public.first_post_reminders SET status = 'sent', done_at = now()
      WHERE user_id = r.user_id AND day = r.day;
     _sent := _sent + 1;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE LOG 'first_post_reminders_tick: day % not sent this hour: % / %', r.day, SQLSTATE, SQLERRM;
+    END;
   END LOOP;
   RETURN _sent;
 END

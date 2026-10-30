@@ -56,8 +56,9 @@ CREATE POLICY read_all ON public.site_settings FOR SELECT USING (true);
 GRANT SELECT ON public.site_settings TO anon, authenticated;
 
 CREATE TABLE public.profiles (
-  id         uuid PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,
-  full_name  text,
+  id           uuid PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,
+  full_name    text,
+  is_suspended boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 

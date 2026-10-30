@@ -119,6 +119,7 @@ export default function FirstPostPrompt({ open, interests, onClose }: FirstPostP
                 accept="image/*"
                 multiple
                 className="sr-only"
+                tabIndex={-1}
                 onChange={onFiles}
                 data-testid="first-post-file"
               />
