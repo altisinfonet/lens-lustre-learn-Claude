@@ -102,6 +102,10 @@ BEGIN
                  WHERE c0.oid = 'public.x1_policy_backup_20261031'::regclass AND x.grantee <> c0.relowner) THEN
     RAISE EXCEPTION 'S10-X1-PRE-007: public.x1_policy_backup_20261031 is not owner-only (owner postgres, no other grantee)';
   END IF;
+  -- only rows this run writes may ever be executed: none may pre-exist for the batch
+  IF EXISTS (SELECT 1 FROM public.x1_policy_backup_20261031 bk WHERE bk.batch = v_batch) THEN
+    RAISE EXCEPTION 'S10-X1-PRE-008: the backup already holds rows for batch % — refusing to trust them', v_batch;
+  END IF;
 
   -- PRE
   FOREACH t IN ARRAY tables LOOP
@@ -304,6 +308,14 @@ BEGIN
     END IF;
     IF EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = rel AND p.polpermissive AND p.polname NOT LIKE 'x1\_merged\_%') THEN
       RAISE EXCEPTION 'S10-X1-POST-003: public.% kept an unmerged permissive policy', t;
+    END IF;
+    -- every action that had an original policy has exactly one merged policy, and no other action has one
+    IF (SELECT array_agg(DISTINCT a2 ORDER BY a2) FROM public.x1_policy_backup_20261031 bk, unnest(acts) a2
+         WHERE bk.batch = v_batch AND bk.tbl = t AND (bk.cmd = '*' OR bk.cmd = a2))
+       IS DISTINCT FROM
+       (SELECT array_agg(p.polcmd::text ORDER BY p.polcmd::text) FROM pg_policy p
+         WHERE p.polrelid = rel AND p.polpermissive AND p.polname LIKE 'x1\_merged\_%') THEN
+      RAISE EXCEPTION 'S10-X1-POST-005: public.% merged actions differ from the actions its original policies granted', t;
     END IF;
   END LOOP;
   IF (SELECT c0.relowner FROM pg_class c0 WHERE c0.oid = 'public.x1_policy_backup_20261031'::regclass) <> 'postgres'::regrole
