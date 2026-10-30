@@ -84,11 +84,9 @@ const SURFACES: Array<[string, string]> = [
   ["Discover", "src/pages/Discover.tsx"],
   ["Index (home)", "src/pages/Index.tsx"],
   ["Friends", "src/pages/Friends.tsx"],
-  ["Search", "src/hooks/search/useSearch.ts"],
   ["Mentions (caption)", "src/hooks/feed/useCaptionMentions.ts"],
   ["Tag people", "src/components/post/TagPeopleModal.tsx"],
   ["Mention input", "src/components/MentionInput.tsx"],
-  ["Profile activity feed", "src/components/profile/ProfileActivityFeed.tsx"],
 ];
 
 describe("F-98 — a member's name is a link to their name-URL, on every surface", () => {

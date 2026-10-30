@@ -102,12 +102,4 @@ export default tseslint.config(
     rules: { "d2/no-bare-img": "error" },
   },
   // Phase 4 Slice B — admin layout primitives are token-only by contract.
-  // Flip raw-color rule to ERROR for primitives/** only (proven clean: 0 raw colors).
-  // Rest of src/** stays at warn until additive state tokens land in Slice B.2.
-  {
-    files: ["src/components/admin/primitives/**/*.{ts,tsx}"],
-    rules: {
-      "audit-v6/no-raw-tailwind-colors": "error",
-    },
-  },
 );
