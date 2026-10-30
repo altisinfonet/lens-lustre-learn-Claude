@@ -9,7 +9,7 @@
  * admin, refuses copyright_music_check On without the music-API key, writes one
  * audit row); a page that hides a control is never the enforcement.
  */
-export type FeatureKey = "video_posts" | "video_ads" | "copyright_music_check" | "personal_feed" | "media_ladder_feed" | "media_private_photos";
+export type FeatureKey = "video_posts" | "video_ads" | "copyright_music_check" | "personal_feed" | "media_ladder_feed" | "media_private_photos" | "photo_upload_resume";
 export type FeatureMode = "off" | "selected" | "everyone";
 
 export const FEATURE_MODES: ReadonlyArray<{ mode: FeatureMode; label: string }> = [
@@ -37,6 +37,11 @@ export const FEATURE_INFO: Record<FeatureKey, { title: string; blurb: string }> 
     title: "Private delivery for friends-only photos",
     blurb: "Who gets friends-only and only-me photos through the private address that needs a short-lived pass. Needs \"Light photos\" on, and the CDN route set up first.",
   },
+  // S5 · the app reads site_settings photo_upload_resume; 20261103_0601 writes it from this switch.
+  photo_upload_resume: {
+    title: "Upload resume",
+    blurb: "Photo and video uploads keep trying on a bad network and continue after the app is closed. Each post is published once.",
+  },
 };
 
 export const NOTE_MAX = 500;
@@ -59,7 +64,7 @@ export interface FeatureState {
   history: FeatureHistoryRow[];
 }
 
-const FEATURES = new Set<string>(["video_posts", "video_ads", "copyright_music_check", "personal_feed", "media_ladder_feed", "media_private_photos"]);
+const FEATURES = new Set<string>(["video_posts", "video_ads", "copyright_music_check", "personal_feed", "media_ladder_feed", "media_private_photos", "photo_upload_resume"]);
 const MODES = new Set<string>(["off", "selected", "everyone"]);
 
 /** feature_admin_state() → cards. Unknown features / modes are dropped, never guessed. */

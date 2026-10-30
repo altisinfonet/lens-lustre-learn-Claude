@@ -20,7 +20,7 @@ import {
   Heart, FileText, Globe, BarChart3, Megaphone, Zap, Bell, HeartPulse,
   UserPlus, HelpCircle, Mail, ClipboardList, Database, LogIn,
   ExternalLink, Tag, Gavel, Search, Shield, BookMarked, Wallet, Gift, ShieldCheck,
-  Bug, Film, Clapperboard, Music2, Server, Sparkles,
+  Bug, Film, Clapperboard, Music2, Server, Sparkles, CloudUpload,
 } from "lucide-react";
 
 // ─── Lazy-loaded modules ────────────────────────────────────
@@ -96,7 +96,7 @@ const VALID_ROUTES = new Set([
   "comments", "keyword_blocklist", "reports", "post_reports",
   "wallet", "gifts", "transactions", "orders",
   "seo", "advertisements", "features", "push_notification", "performance", "announcements", "newsletter_faq", "analytics",
-  "video_posts", "video_ads", "video_music_check", "video_conversion", "personal_feed",
+  "video_posts", "video_ads", "video_music_check", "video_conversion", "personal_feed", "upload_resume",
   "page_management", "menu_builder", "redirects",
   "settings", "auth_pages", "email_templates", "database",
   "health", "app_events", "activity_logs", "admin_notifications", "notifications_health", "test_agent",
@@ -180,6 +180,8 @@ const tabGroups = [
   { label: "Video Feature", items: [
     ["video_posts", "Video Posts", Film],
     ["video_ads", "Video Ads", Clapperboard],
+    /* S5: resumable uploads (site_settings photo_upload_resume, written by the switch). */
+    ["upload_resume", "Upload Resume", CloudUpload],
     ["video_music_check", "Copyright Music Check", Music2],
     ["video_conversion", "Video Conversion", Server],
   ] as const },
@@ -312,6 +314,7 @@ const AdminPanel = () => {
       {currentRoute === "video_music_check" && <LazyTab><AdminVideoFeature feature="copyright_music_check" /></LazyTab>}
       {currentRoute === "video_conversion" && <LazyTab><AdminVideoConversion /></LazyTab>}
       {currentRoute === "personal_feed" && <LazyTab><div className="space-y-4"><AdminVideoFeature feature="personal_feed" /><AdminFeedMix /></div></LazyTab>}
+      {currentRoute === "upload_resume" && <LazyTab><AdminVideoFeature feature="photo_upload_resume" /></LazyTab>}
       {currentRoute === "push_notification" && <LazyTab><AdminPushBroadcast /></LazyTab>}
       {currentRoute === "performance" && <LazyTab><AdminPerformance user={user} /></LazyTab>}
       {currentRoute === "announcements" && <LazyTab><AdminAnnouncements user={user} /></LazyTab>}

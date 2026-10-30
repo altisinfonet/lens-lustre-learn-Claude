@@ -1177,7 +1177,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
    */
   const tryResumablePost = async (): Promise<boolean> => {
     if (!user || scheduleAt || pendingTags.length > 0 || selectedImages.length === 0) return false;
-    if (!(await photoResumeOn()) || !(await isS3Enabled().catch(() => false))) return false;
+    if (!(await photoResumeOn(user.id)) || !(await isS3Enabled().catch(() => false))) return false;
     for (const f of selectedImages) {
       let safe: boolean;
       try { safe = await scanFileWithToast(f, toast, { allowedTypes: "image" }); } catch { return false; }
