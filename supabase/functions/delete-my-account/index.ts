@@ -1,4 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { deleteMemberAccount } from "../_shared/accountDeletion.ts";
+import { extractPath } from "../_shared/referenceSet.ts";
+import { deleteS3Objects, getS3Settings, storageKeyWithPrefix } from "../_shared/s3.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -73,104 +76,44 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Delete the auth user FIRST (proven to work on this project; cascades the
-    // FK-linked public tables and aborts cleanly on failure BEFORE any data is
-    // touched). Mirrors the admin `delete-user` ordering exactly.
-    const { data: authDeleted, error: authError } = await adminClient.rpc(
-      "admin_delete_auth_user",
-      { _uid: user_id },
-    );
-    if (authError) {
-      console.error("admin_delete_auth_user error:", authError);
-      return new Response(
-        JSON.stringify({ error: "Failed to delete account: " + authError.message }),
-        { status: 500, headers: corsHeaders },
-      );
+    // ── Foundation fix U2 (2026-10-30): ALL OR NOTHING, THEN THE FILES. ──────
+    // One database call deletes every personal row and the login LAST in a
+    // single transaction (delete_member_account). If anything fails, nothing
+    // is deleted, the member is still signed in, and we tell them to retry —
+    // the old code deleted the login first and ignored ~40 delete errors.
+    // The member's own files (none that another row still uses) are queued in
+    // the same transaction and removed here from Supabase Storage and S3/CDN;
+    // a file that fails stays queued for the next drain.
+    // Payment / ledger rows are kept with the member's identity removed (see
+    // the migration header for the list and the reason).
+    const s3 = await getS3Settings(adminClient).catch(() => null);
+    const outcome = await deleteMemberAccount(user_id, {
+      rpc: async (fn, args) => {
+        const { data, error } = await adminClient.rpc(fn, args);
+        return { data, error };
+      },
+      removeFromStorage: async (bucket, paths) => {
+        const { error } = await adminClient.storage.from(bucket).remove(paths);
+        return { error };
+      },
+      deleteFromS3: s3 && s3.enabled
+        ? async (paths) => {
+          const keys = paths.map((p) => storageKeyWithPrefix(s3.path_prefix, p)).filter((k): k is string => !!k);
+          await deleteS3Objects(s3, keys);
+        }
+        : null,
+      extractPath,
+    });
+    if (!outcome.ok) {
+      console.error("delete_member_account failed:", outcome.error);
+      return new Response(JSON.stringify({ error: outcome.error, retry: outcome.retry }), {
+        status: outcome.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
-    if (authDeleted === false) {
-      return new Response(JSON.stringify({ error: "Account not found" }), { status: 404, headers: corsHeaders });
+    if (outcome.filesPending > 0) {
+      console.error("account deleted; files still queued for removal:", outcome.filesPending);
     }
-
-    // Delete from all tables with a user_id column (identical set to delete-user).
-    const userIdTables = [
-      "activity_logs", "bank_details", "certificate_testimonials", "certificates",
-      "comment_reactions", "comments", "competition_entries", "competition_votes",
-      "course_enrollments", "featured_photos", "gift_announcements", "highlights",
-      "image_comments", "image_reactions", "lesson_progress", "post_comment_reactions",
-      "post_comments", "post_reactions", "posts", "referral_codes", "role_applications",
-      "stories", "support_tickets", "ticket_replies", "user_badges", "user_notifications",
-      "user_roles", "verification_requests", "wallet_transactions", "wallets",
-      "withdrawal_requests",
-      "user_devices", "scheduled_posts", "post_shares", "photo_albums",
-      "notification_preferences", "newsletter_subscribers",
-    ];
-    // PERF: run deletes in parallel batches instead of ~50 sequential
-    // round-trips (which made deletion take 15-30s and feel hung).
-    const chunk = <T,>(arr: T[], n: number): T[][] =>
-      Array.from({ length: Math.ceil(arr.length / n) }, (_, i) => arr.slice(i * n, i * n + n));
-    for (const batch of chunk(userIdTables, 10)) {
-      await Promise.all(batch.map((table) => adminClient.from(table).delete().eq("user_id", user_id)));
-    }
-
-    // Tables that reference the user via other columns — parallel.
-    await Promise.all([
-      adminClient.from("follows").delete().or(`follower_id.eq.${user_id},following_id.eq.${user_id}`),
-      adminClient.from("friendships").delete().or(`requester_id.eq.${user_id},addressee_id.eq.${user_id}`),
-      adminClient.from("profile_views").delete().or(`profile_id.eq.${user_id},viewer_id.eq.${user_id}`),
-      adminClient.from("referrals").delete().or(`referrer_id.eq.${user_id},referred_id.eq.${user_id}`),
-      adminClient.from("competition_judges").delete().eq("judge_id", user_id),
-      adminClient.from("judge_comments").delete().eq("judge_id", user_id),
-      adminClient.from("judge_scores").delete().eq("judge_id", user_id),
-      adminClient.from("judge_tag_assignments").delete().eq("judge_id", user_id),
-      adminClient.from("portfolio_images").delete().eq("uploaded_by", user_id),
-      adminClient.from("reports").delete().eq("reporter_id", user_id),
-      adminClient.from("comment_reports").delete().eq("reporter_id", user_id),
-      adminClient.from("post_reports").delete().eq("reporter_id", user_id),
-    ]);
-
-    // Nullify references where the parent record must survive — parallel.
-    await Promise.all([
-      adminClient.from("comment_reports").update({ reviewed_by: null }).eq("reviewed_by", user_id),
-      adminClient.from("post_reports").update({ reviewed_by: null }).eq("reviewed_by", user_id),
-      adminClient.from("role_applications").update({ reviewed_by: null }).eq("reviewed_by", user_id),
-      adminClient.from("verification_requests").update({ reviewed_by: null }).eq("reviewed_by", user_id),
-      adminClient.from("withdrawal_requests").update({ reviewed_by: null }).eq("reviewed_by", user_id),
-    ]);
-
-      // ── actor_id is deliberately NOT nulled here. ──────────────────────────
-      // Owner chose option C on 2026-08-10: keep the id, let the profile go,
-      // and let the display say "A deleted account".
-      //
-      // Nulling it looked like anonymisation and was not. The row's
-      // reference_id still pointed at the same person, so the identity was
-      // recoverable anyway — while the bell lost the ONE fact it needed and
-      // read "A member started following you", which is the wording for a
-      // present member who has set no name. Two different facts, one sentence.
-      // Thirty-five live rows were in that state.
-      //
-      // Verified on production before this line was removed, because the whole
-      // change is pointless if something else nulls it anyway:
-      //   * user_notifications has ZERO foreign keys, so no ON DELETE SET NULL
-      //     and no constraint that could block the profile being deleted;
-      //   * no database function sets actor_id — admin_purge_orphan_user_data,
-      //     the only purge routine, does not touch it.
-      // These two edge functions were the only thing doing it.
-      //
-      // THE PROFILE BEING GONE IS THE ANONYMISATION. No name, no avatar, and
-      // nothing revealed that reference_id did not already carry.
-
-
-    // Server-side purge of the remaining user-referencing rows (feed_events,
-    // raw_commitments PII, judge decisions, notification logs, post_tags, and the
-    // user's id inside other users' scheduled_posts.tagged_user_ids[]). Financial
-    // / audit ledgers are intentionally preserved for legal compliance.
-    {
-      const { error: purgeErr } = await adminClient.rpc("admin_purge_orphan_user_data", { _uid: user_id });
-      if (purgeErr) console.error("admin_purge_orphan_user_data error:", purgeErr);
-    }
-
-    // Defensive: profiles cascades from auth.users, but ensure it's gone.
-    await adminClient.from("profiles").delete().eq("id", user_id);
 
     // Erasure-confirmation notice: after the deletion has fully completed, send
     // the (former) account email a written confirmation that the account and
@@ -208,7 +151,12 @@ Deno.serve(async (req) => {
       console.error("account-deleted email skipped: caller had no email on JWT", { user_id });
     }
 
-    return new Response(JSON.stringify({ success: true, confirmation_email_queued: confirmationQueued }), {
+    return new Response(JSON.stringify({
+      success: true,
+      confirmation_email_queued: confirmationQueued,
+      files_deleted: outcome.filesDeleted,
+      files_pending: outcome.filesPending,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
