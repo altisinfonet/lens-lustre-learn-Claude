@@ -26,6 +26,8 @@ export interface Config {
   heartbeatMs: number;
   preset: X264Preset;
   startupSelfTest: boolean;
+  /** S7-f: drain POST /api/video/purge at most this often (ms); 0 = off. Default 1 h. */
+  purgeEveryMs: number;
   /** this lane's R2 S3 endpoint host (<account>.r2.cloudflarestorage.com): the only host presigned URLs may name */
   r2Host: string;
   /** this lane's video bucket: presigned paths must start /<bucket>/upload/ (required with the network config — re-review N4) */
@@ -90,6 +92,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, opts: { require
     heartbeatMs: int("CONVERTER_HEARTBEAT_MS", env.CONVERTER_HEARTBEAT_MS, 120_000, 10_000, 600_000),
     preset,
     startupSelfTest: env.CONVERTER_STARTUP_SELFTEST !== "0",
+    purgeEveryMs: env.CONVERTER_PURGE_EVERY_MS === "0" ? 0 : int("CONVERTER_PURGE_EVERY_MS (0 = off, else ms)", env.CONVERTER_PURGE_EVERY_MS, 3_600_000, 60_000, 86_400_000),
     r2Host,
     r2Bucket,
   };
