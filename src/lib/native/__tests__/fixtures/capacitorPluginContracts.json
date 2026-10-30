@@ -1,0 +1,108 @@
+{
+  "_source": "Each pinned plugin's exported <Name>Plugin interface members, read from dist/esm/definitions.d.ts of the exact version android-build.yml installs (npm pack, 2026-10-30). Refresh this file when a pin moves; the test fails until you do.",
+  "plugins": {
+    "@capacitor/share": {
+      "version": "8.0.1",
+      "interface": "SharePlugin",
+      "methods": [
+        "canShare",
+        "share"
+      ]
+    },
+    "@capacitor/filesystem": {
+      "version": "8.1.2",
+      "interface": "FilesystemPlugin",
+      "methods": [
+        "addListener",
+        "appendFile",
+        "checkPermissions",
+        "copy",
+        "deleteFile",
+        "downloadFile",
+        "getUri",
+        "mkdir",
+        "readFile",
+        "readFileInChunks",
+        "readdir",
+        "removeAllListeners",
+        "rename",
+        "requestPermissions",
+        "rmdir",
+        "stat",
+        "writeFile"
+      ]
+    },
+    "@capacitor/camera": {
+      "version": "8.2.2",
+      "interface": "CameraPlugin",
+      "methods": [
+        "checkPermissions",
+        "chooseFromGallery",
+        "editPhoto",
+        "editURIPhoto",
+        "getLimitedLibraryPhotos",
+        "getPhoto",
+        "pickImages",
+        "pickLimitedLibraryPhotos",
+        "playVideo",
+        "recordVideo",
+        "requestPermissions",
+        "takePhoto"
+      ]
+    },
+    "@capacitor/app": {
+      "version": "8.1.1",
+      "interface": "AppPlugin",
+      "methods": [
+        "addListener",
+        "exitApp",
+        "getAppLanguage",
+        "getInfo",
+        "getLaunchUrl",
+        "getState",
+        "minimizeApp",
+        "toggleBackButtonHandler"
+      ]
+    },
+    "@capacitor/browser": {
+      "version": "8.0.4",
+      "interface": "BrowserPlugin",
+      "methods": [
+        "close",
+        "open"
+      ]
+    },
+    "@capacitor-firebase/messaging": {
+      "version": "8.4.0",
+      "interface": "FirebaseMessagingPlugin",
+      "methods": [
+        "addListener",
+        "checkPermissions",
+        "createChannel",
+        "deleteChannel",
+        "deleteToken",
+        "getDeliveredNotifications",
+        "getToken",
+        "isSupported",
+        "listChannels",
+        "removeAllDeliveredNotifications",
+        "removeAllListeners",
+        "removeDeliveredNotifications",
+        "requestPermissions",
+        "subscribeToTopic",
+        "unsubscribeFromTopic"
+      ]
+    },
+    "@capawesome/capacitor-app-update": {
+      "version": "8.0.3",
+      "interface": "AppUpdatePlugin",
+      "methods": [
+        "completeFlexibleUpdate",
+        "getAppUpdateInfo",
+        "openAppStore",
+        "performImmediateUpdate",
+        "startFlexibleUpdate"
+      ]
+    }
+  }
+}
