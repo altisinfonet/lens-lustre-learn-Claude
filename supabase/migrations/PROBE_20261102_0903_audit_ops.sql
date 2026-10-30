@@ -2,8 +2,8 @@
 -- PROBE · foundation audit 0903 · switches, monitoring flow, cron health,
 -- data-safety constraints, scale counts. READ ONLY, ROLLBACK.
 -- Prints COUNTS and constraint DEFINITIONS only — never member rows, e-mails
--- or ids. site_settings: key plus the value only when it is a short boolean /
--- on-off / number literal; any other value is shown as its LENGTH.
+-- or ids. site_settings: key plus the value only when it is a short boolean or
+-- on-off literal; any other value is shown as its LENGTH.
 -- Changes nothing.
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN READ ONLY;
@@ -34,7 +34,7 @@ BEGIN
   END IF;
   IF to_regclass('public.site_settings') IS NOT NULL THEN
     FOR r IN EXECUTE 'SELECT key, value::text v FROM public.site_settings ORDER BY key' LOOP
-      IF r.v ~* '^"?(true|false|on|off|everyone|selected|null|[0-9]{1,6})"?$' THEN
+      IF r.v ~* '^"?(true|false|on|off|everyone|selected|null)"?$' THEN
         RAISE NOTICE 'SETTING|%|%', r.key, r.v;
       ELSE
         RAISE NOTICE 'SETTING|%|len=%', r.key, length(r.v);

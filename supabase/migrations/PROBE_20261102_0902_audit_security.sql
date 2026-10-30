@@ -92,7 +92,7 @@ SELECT 'VIEW_DEFINER_ANON', c.relname
 
 -- storage buckets: public flag, object count, bytes (no names of objects)
 SELECT 'BUCKET', b.id, b.public, count(o.id) objects,
-       coalesce(sum((o.metadata->>'size')::bigint), 0) bytes,
+       coalesce(sum(CASE WHEN o.metadata->>'size' ~ '^[0-9]{1,18}$' THEN (o.metadata->>'size')::bigint END), 0) bytes,
        b.file_size_limit, array_length(b.allowed_mime_types, 1) mime_rules
   FROM storage.buckets b LEFT JOIN storage.objects o ON o.bucket_id = b.id
  GROUP BY b.id, b.public, b.file_size_limit, b.allowed_mime_types ORDER BY 2;
