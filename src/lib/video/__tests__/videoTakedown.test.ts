@@ -11,12 +11,12 @@ import { takedownVideo } from "../takedown";
 const VID = "33333333-3333-4333-8333-333333333333";
 const REPORT = "55555555-5555-4555-8555-555555555555";
 
-function setup(opts: { dbStatus?: number; dbBody?: unknown; kv?: boolean } = {}) {
+function setup(opts: { dbStatus?: number; dbBody?: unknown; kv?: boolean | "throws" } = {}) {
   const kv = new Map<string, string>();
   const rpc: Array<{ body: Record<string, unknown>; auth: string | null }> = [];
   const env: TakedownEnv = {
     SUPABASE_PROJECT_REF: "testref", SUPABASE_ANON_KEY: "anon",
-    ...(opts.kv === false ? {} : { VIDEO_REVOKED: { put: async (k: string, v: string) => { kv.set(k, v); } } }),
+    ...(opts.kv === false ? {} : { VIDEO_REVOKED: { put: async (k: string, v: string) => { if (opts.kv === "throws") throw new Error("KV down"); kv.set(k, v); } } }),
   };
   const fetchImpl = (async (url: string, init?: RequestInit) => {
     if (url.endsWith("/auth/v1/user")) return new Response(JSON.stringify({ id: "11111111-1111-4111-8111-111111111111" }), { status: 200 });
@@ -52,6 +52,14 @@ describe("S7-b /api/video/takedown", () => {
   it("no list bound → still taken down, and says so", async () => {
     const w = setup({ kv: false });
     expect(await (await w.call({ video_id: VID })).json()).toMatchObject({ status: "taken_down", revoked_list: false });
+  });
+
+  it("the list write fails AFTER the database took it down → still reported as taken down, revoked_list false", async () => {
+    const w = setup({ kv: "throws" });
+    const res = await w.call({ video_id: VID });
+    expect(w.rpc).toHaveLength(1);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ video_id: VID, status: "taken_down", revoked_list: false });
   });
 
   it("a bad video id never reaches the database", async () => {

@@ -35,8 +35,12 @@ async function takedown(request: Request, env: TakedownEnv, fetchImpl: typeof fe
       { method: "POST", body: JSON.stringify({ _video_id: videoId, _reason: reason, _report_id: reportId }) }, fetchImpl);
     let revokedList = false;
     if (env.VIDEO_REVOKED) {
-      await env.VIDEO_REVOKED.put(videoId, "taken_down");
-      revokedList = true;
+      // The database has already taken it down; a failed list write must not
+      // tell the admin "failed". It only means old play tokens run out (15 min).
+      try {
+        await env.VIDEO_REVOKED.put(videoId, "taken_down");
+        revokedList = true;
+      } catch { /* revokedList stays false */ }
     }
     return json(200, { video_id: videoId, status, revoked_list: revokedList });
   } catch (e) {

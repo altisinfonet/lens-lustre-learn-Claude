@@ -10,9 +10,10 @@
 --        anon has no EXECUTE.
 --   G3 · admin: A's ready video → 'taken_down'; again → 'already' (one audit
 --        row, one purge row, one notice). The purge row is A's v1 folder, held
---        ≥ 29 days. A gets the 'video_taken_down' notice. If a post fixture
---        could be made: the post's pending report closes 'video_taken_down',
---        and the video is no longer visible to B through videos RLS.
+--        ≥ 29 days. A gets the 'video_taken_down' notice. The post's
+--        pending report closes 'video_taken_down', and member B, who saw the
+--        ready video before (G0), no longer sees it through videos RLS. A post
+--        fixture that cannot be made FAILS the PROBE (G0) — never a skip.
 --        A draft (uploading) video is refused (VID-TD-002).
 --   G4 · the audit is append-only even for the migration owner.
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -54,7 +55,7 @@ $g1$;
 DO $g2_g4$
 DECLARE
   a uuid; b uuid; adm uuid; va uuid; vd uuid; chk uuid; pid uuid; rid uuid;
-  refused int := 0; ok boolean; r text; n int; post_note text := 'post fixture made';
+  refused int := 0; ok boolean; r text; n int;
 BEGIN
   SELECT p.id INTO a FROM public.profiles p JOIN auth.users u ON u.id = p.id
    WHERE NOT public.has_role(p.id, 'admin'::public.app_role) ORDER BY p.created_at LIMIT 1;
@@ -78,8 +79,16 @@ BEGIN
     INSERT INTO public.post_videos (post_id, video_id) VALUES (pid, va);
     INSERT INTO public.post_reports (post_id, reporter_id, reason) VALUES (pid, b, 'copyright_music') RETURNING id INTO rid;
   EXCEPTION WHEN OTHERS THEN
-    pid := NULL; rid := NULL; post_note := 'post fixture not possible on this lane (' || SQLSTATE || ') — report steps skipped';
+    -- A PASS must mean the report path was tested on this lane, never skipped.
+    RAISE EXCEPTION 'PROBE FAIL G0: the post + report fixture could not be made on this lane (%: %)', SQLSTATE, SQLERRM;
   END;
+  -- before the takedown, member B (not the owner) sees the ready video of a public post
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', b, 'role', 'authenticated')::text, true);
+  PERFORM set_config('request.jwt.claim.sub', b::text, true);
+  SET LOCAL ROLE authenticated;
+  SELECT count(*) INTO n FROM public.videos WHERE id = va;
+  RESET ROLE;
+  IF n <> 1 THEN RAISE EXCEPTION 'PROBE FAIL G0: member B cannot see the ready video before the takedown (% rows)', n; END IF;
 
   -- G2 · owner A and member B refused; anon refused
   FOREACH r IN ARRAY ARRAY[a::text, b::text] LOOP
@@ -128,9 +137,9 @@ BEGIN
     PERFORM set_config('request.jwt.claims', json_build_object('sub', b, 'role', 'authenticated')::text, true);
     PERFORM set_config('request.jwt.claim.sub', b::text, true);
     SET LOCAL ROLE authenticated;
-    SELECT count(*) INTO n FROM public.videos WHERE id = va AND state = 'ready';
+    SELECT count(*) INTO n FROM public.videos WHERE id = va;
     RESET ROLE;
-    IF n <> 0 THEN RAISE EXCEPTION 'PROBE FAIL G3: B still sees the video as ready'; END IF;
+    IF n <> 0 THEN RAISE EXCEPTION 'PROBE FAIL G3: B still sees the taken-down video (% rows)', n; END IF;
   END IF;
 
   -- G4 · append-only
@@ -140,8 +149,8 @@ BEGIN
 
   PERFORM set_config('request.jwt.claims', '', true);
   PERFORM set_config('request.jwt.claim.sub', '', true);
-  RAISE NOTICE 'PROBE PASS 20261030_0701 (lane %): owner + other member refused 4/4, anon refused; ready → taken_down once (idempotent), draft refused; v1 files queued with a 30-day hold; owner notified once; audit append-only; %',
-    current_setting('p32.lane', true), post_note;
+  RAISE NOTICE 'PROBE PASS 20261030_0701 (lane %): owner + other member refused 4/4, anon refused; ready → taken_down once (idempotent), draft refused; v1 files queued with a 30-day hold; owner notified once; audit append-only; report closed video_taken_down; B saw it before and not after',
+    current_setting('p32.lane', true);
 END
 $g2_g4$;
 
