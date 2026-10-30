@@ -69,6 +69,8 @@ import type { ReactionType } from "@/components/ReactionPicker";
 import type { UnifiedPost } from "@/types/post";
 import { avatarInitial } from "@/lib/displayName";
 import { mapServerCounts, applyReactionDelta } from "@/lib/feed/realtimeCounts";
+import { useCategories } from "@/hooks/useCategories";
+import { isSlugShaped, takeFirstPostFiles } from "@/lib/firstPost/firstPostNudge";
 
 /**
  * Re-exported from the chooser so there is ONE list of audiences in the app.
@@ -494,6 +496,10 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
    */
   const [searchParams, setSearchParams] = useSearchParams();
   const composeHandledRef = useRef(false);
+  // The active category list — the same cached query CategoryChips reads, so
+  // no extra request. A `cat=` that is not in it is ignored, never posted.
+  const { data: activeCategories } = useCategories();
+  const activeSlugs = new Set((activeCategories ?? []).map((c) => c.slug));
   useEffect(() => {
     /**
      * ONLY THE FEED'S COMPOSER ANSWERS `?compose=1`.
@@ -553,7 +559,28 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
 
     const next = new URLSearchParams(searchParams);
     next.delete("compose");
+    /* FIRST-POST NUDGE (site_settings `first_post_nudge`). Only the
+     * "Share your first photo" step (FirstPostPrompt) adds these, and it shows
+     * only when the switch is on — without them this is today's path exactly.
+     *   cat=<slug>  pre-fill the category, if it is an active category
+     *   first=1     photos the member already chose on that step are waiting
+     *               in the hand-off: open the composer with them loaded. */
+    const cat = searchParams.get("cat");
+    const first = searchParams.get("first") === "1";
+    next.delete("cat");
+    next.delete("first");
     setSearchParams(next, { replace: true });
+
+    if (isSlugShaped(cat) && activeSlugs.has(cat)) setPostCategories([cat]);
+    if (first) {
+      const files = takeFirstPostFiles();
+      if (files.length > 0) {
+        acceptPicked(files);
+        setComposerStep(appFlow ? "settings" : "compose");
+        setComposerOpen(true);
+        return;
+      }
+    }
 
     if (appFlow) void startAppPost();
     else openComposer();
