@@ -930,10 +930,24 @@ const AdminUsers = ({ user }: { user: AuthUser | null }) => {
                           <Clock className="h-2.5 w-2.5" /> {onlineIds.has(u.id) ? "Active now" : formatLastSeen(u.last_active_at) || "—"}
                         </span>
                       )}
-                      {u.last_platform && (
+                      {u.last_platform ? (
                         <span className="text-[8px] px-1.5 py-0.5 border border-border rounded-sm uppercase tracking-wider text-muted-foreground shrink-0 flex items-center gap-1">
                           {u.last_platform === "app" ? <Smartphone className="h-2.5 w-2.5" /> : <Globe className="h-2.5 w-2.5" />}
                           {u.last_platform === "app" ? "App" : "Website"}
+                        </span>
+                      ) : (
+                        /* Unit A (Owner, 2026-10-30): a blank read as "broken".
+                           NULL means no session of this member has been
+                           recorded with a platform (last seen before platform
+                           recording, or never since). Nothing real exists to
+                           fill it from, so it says so — never a guessed App
+                           or Website. */
+                        <span
+                          className="text-[8px] px-1.5 py-0.5 border border-border/60 rounded-sm uppercase tracking-wider text-muted-foreground/50 shrink-0"
+                          title="No app or website session recorded for this member yet"
+                          data-testid="platform-unknown"
+                        >
+                          Unknown
                         </span>
                       )}
                     </div>

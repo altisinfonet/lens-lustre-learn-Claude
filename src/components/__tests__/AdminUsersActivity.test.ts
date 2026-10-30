@@ -126,12 +126,36 @@ describe("AdminUsers shows both columns from profiles", () => {
     expect(src).not.toContain("isActiveNow");
   });
 
-  it("renders the App / Website pill only when a platform is recorded", () => {
-    expect(src).toContain("u.last_platform && (");
+  it("renders App / Website when a platform is recorded, a grey Unknown when not (Unit A)", () => {
+    // Owner, 2026-10-30: a blank read as broken. NULL is shown as "Unknown" —
+    // never a guessed App or Website.
+    expect(src).toMatch(/u\.last_platform \? \(/);
     expect(src).toMatch(/u\.last_platform === "app" \? "App" : "Website"/);
+    expect(src).toMatch(/data-testid="platform-unknown"[\s\S]{0,80}Unknown/);
+    expect(src).toMatch(/text-muted-foreground\/50[^"]*"[\s\S]{0,200}Unknown/);
   });
 
   it("does not derive origin from client_errors (error rows are not sign-ins)", () => {
     expect(src).not.toContain("client_errors");
   });
 });
+
+describe("Unit A — the platform is recorded when a session starts, not only when it ends", () => {
+  const src = read("hooks/core/useSessionEnd.ts");
+
+  it("calls record_session_platform with the platform the session is on", () => {
+    expect(src).toContain('"record_session_platform"');
+    expect(src).toMatch(/record_session_platform"[\s\S]{0,80}_platform:\s*isNativeCapacitorApp\(\)\s*\?\s*"app"\s*:\s*"web"/);
+  });
+
+  it("calls it on start, on a visible tab and on an app returning to the foreground", () => {
+    expect(src).toMatch(/\}\s*;\s*recordStart\(\);\s*const onPageHide/);
+    expect(src).toMatch(/if \(document\.hidden\) record\(\);\s*else recordStart\(\);/);
+    expect(src).toMatch(/else if \(s\?\.isActive === true\) recordStart\(\);/);
+  });
+
+  it("keeps the method in call position (mediaWritePath RED-1)", () => {
+    expect(src).toMatch(/\(supabase\.rpc as unknown as RecordSessionPlatform\)\("record_session_platform"/);
+  });
+});
+
