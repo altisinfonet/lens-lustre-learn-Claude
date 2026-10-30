@@ -76,6 +76,10 @@ const VerifyCertificate = () => {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const certIdRegex = /^CERT-[0-9A-Za-z]+$/i;
     if (!uuidRegex.test(trimmed) && !certIdRegex.test(trimmed)) {
+      // A malformed ID is "not found"; clear any earlier failure panel so the
+      // two never contradict each other.
+      setSearchUnavailable(false);
+      setLookupFailed(false);
       setNotFound(true);
       setResults([]);
       setSearched(true);
@@ -425,8 +429,8 @@ const VerifyCertificate = () => {
                 Verification Could Not Be Completed
               </p>
               <p className="text-xs text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                We could not reach the verification service. This does not mean the
-                certificate is invalid — please check your connection and try again.
+                We could not complete the check just now. This does not mean the
+                certificate is invalid — please try again in a moment.
               </p>
             </motion.div>
           )}

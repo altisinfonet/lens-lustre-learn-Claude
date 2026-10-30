@@ -293,4 +293,15 @@ describe("VerifyCertificate — a transport failure is its own third state", () 
     await waitFor(() => expect(screen.getByText(/no certificates found/i)).toBeTruthy());
     expect(screen.queryByText(/could not be completed/i)).toBeNull();
   });
+  it("a malformed ID after a failed check shows 'not found', not the stale retry panel", async () => {
+    rpcMock.mockResolvedValue({ data: null, error: TRANSPORT_FAILURE });
+    await runIdVerify();
+    await waitFor(() => expect(screen.getByText(/could not be completed/i)).toBeTruthy());
+
+    fireEvent.change(screen.getByPlaceholderText(/a1b2c3d4/i), { target: { value: "not-an-id" } });
+    fireEvent.click(screen.getByRole("button", { name: /^verify$/i }));
+
+    await waitFor(() => expect(screen.getByText(/no certificates found/i)).toBeTruthy());
+    expect(screen.queryByText(/could not be completed/i)).toBeNull();
+  });
 });
