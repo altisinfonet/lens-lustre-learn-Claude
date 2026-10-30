@@ -1,14 +1,14 @@
 # Video + accessibility runner — status
 
 Started 2026-10-30 01:47 UTC. Replaces the earlier supervisor session (no GitHub trace after 2026-10-29 14:19 UTC).
-Last update: 2026-10-30 07:27 UTC.
+Last update: 2026-10-30 07:47 UTC.
 
 SECOND RESTART 2026-10-30 ~07:15 UTC: the run stopped silently again at ~05:15 UTC. New rule: ONE PR at a time (#619 → #538 → #539 → #540 → #541 → #542), heartbeat at least every 20 minutes. Checked GitHub 07:15 UTC: nobody pushed to or merged #538-#542 or #619 since 02:00 UTC; each is 21 commits behind staging.
 
 RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. A new run took over at 05:05 UTC. Checked GitHub: nobody else pushed to or merged #538-#542 or #619 since 02:00 UTC.
 
 ## Now
-07:27 UTC — #619 rebased + reviewed (nothing blocking); its 25 CI checks are QUEUED: GitHub Actions has ~360 runs queued from all sessions (oldest 06:34 UTC). Waiting; #538 starts only after #619 merges.
+07:47 UTC — still on #619: review nothing blocking; its CI is still queued behind ~190 runs from all sessions (queue now at runs created 07:14; #619's are 07:16). Merge as soon as all checks are green.
 
 ## Units
 | Unit | PR | State | Merged sha (staging / main) | SQL runs | Live check |
