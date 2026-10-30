@@ -13,7 +13,12 @@
 -- PROBE 0610 measured the user_roles proof on production at about 0.08 s
 -- (run 41114463704, lower bound). lock_timeout is 2 s (not 5 s) here: if the
 -- lock cannot be taken quickly the whole file rolls back with nothing changed,
--- rather than queueing every role check on the site behind it.
+-- rather than queueing every role check on the site behind it. Once taken, the
+-- exclusive lock is held at most about 3 s: the file checks the elapsed time
+-- before each identity in BIND and E2-after and before the final checks, and
+-- rolls back if it is over (WIN). An ACCESS SHARE lock taken before the
+-- snapshot keeps any policy change on user_roles from slipping in between the
+-- plan and the DDL.
 --
 -- WHY IT IS EXACT: Postgres ORs the permissive policies that apply to the
 -- current role, per action (a FOR ALL policy applies to every action; for
@@ -62,6 +67,15 @@
 -- REPEATABLE READ cannot raise a serialization failure.
 BEGIN ISOLATION LEVEL REPEATABLE READ;
 
+SET LOCAL lock_timeout = '2s';
+SET LOCAL statement_timeout = '60s';
+SET LOCAL search_path = '';
+-- Taken BEFORE the first statement that takes the snapshot (LOCK and SET do
+-- not), so no policy change on user_roles can commit between the snapshot the
+-- plan reads and the DDL below (CREATE/DROP POLICY need ACCESS EXCLUSIVE).
+-- ACCESS SHARE blocks no reader or writer.
+LOCK TABLE public.user_roles IN ACCESS SHARE MODE;
+
 DO $lane_guard$
 BEGIN
   IF coalesce(current_setting('p32.lane', true), '') NOT IN ('staging', 'production') THEN
@@ -73,10 +87,6 @@ BEGIN
   END IF;
 END
 $lane_guard$;
-
-SET LOCAL lock_timeout = '2s';
-SET LOCAL statement_timeout = '60s';
-SET LOCAL search_path = '';
 
 CREATE TABLE IF NOT EXISTS public.x1_policy_backup_20261031 (
   batch       text        NOT NULL,
@@ -108,6 +118,7 @@ DECLARE
   pname text; made int := 0; dropped int := 0;
   plan jsonb := '{}'; e1hash jsonb := '{}'; pk text; pv jsonb;
   bkr record; one text; old_tids tid[]; part_tids tid[];
+  t_lock timestamptz; win constant interval := interval '3 seconds';
 BEGIN
   IF current_user <> 'postgres' THEN
     RAISE EXCEPTION 'S10-X1UR-PRE-001: running as %, not postgres', current_user;
@@ -273,6 +284,9 @@ BEGIN
 
   -- Lock window starts here: the only table this file changes.
   LOCK TABLE public.user_roles IN ACCESS EXCLUSIVE MODE;
+  -- every role check on the site waits while this lock is held: if the work
+  -- inside it ever runs past 3 s, give up (whole file rolls back, nothing changed).
+  t_lock := clock_timestamp();
   -- create the merged policies, drop the originals.
   FOR pk, pv IN SELECT * FROM jsonb_each(plan) LOOP
     t := split_part(pk, '|', 1); a := split_part(pk, '|', 2);
@@ -297,6 +311,9 @@ BEGIN
   --      the first signed-in one), each STORED merged policy clause accepts
   --      exactly the rows its proven text accepted in E1.
   FOR id IN SELECT e FROM jsonb_array_elements(ids) WITH ORDINALITY AS x(e, o) WHERE o <= 2 LOOP
+    IF clock_timestamp() - t_lock > win THEN
+      RAISE EXCEPTION 'S10-X1UR-WIN: the exclusive lock on user_roles has been held over 3 s — rolled back, nothing changed';
+    END IF;
     PERFORM set_config('request.jwt.claims', CASE WHEN id ->> 'sub' IS NULL THEN json_build_object('role', id ->> 'role')
              ELSE json_build_object('sub', id ->> 'sub', 'role', id ->> 'role') END::text, true);
     PERFORM set_config('request.jwt.claim.sub', coalesce(id ->> 'sub', ''), true);
@@ -321,6 +338,9 @@ BEGIN
 
   -- E2 after
   FOR id IN SELECT * FROM jsonb_array_elements(ids) LOOP
+    IF clock_timestamp() - t_lock > win THEN
+      RAISE EXCEPTION 'S10-X1UR-WIN: the exclusive lock on user_roles has been held over 3 s — rolled back, nothing changed';
+    END IF;
     PERFORM set_config('request.jwt.claims', CASE WHEN id ->> 'sub' IS NULL THEN json_build_object('role', id ->> 'role')
              ELSE json_build_object('sub', id ->> 'sub', 'role', id ->> 'role') END::text, true);
     PERFORM set_config('request.jwt.claim.sub', coalesce(id ->> 'sub', ''), true);
@@ -345,6 +365,9 @@ BEGIN
     RAISE EXCEPTION 'S10-X1UR-E2: visible rows changed for (table|identity):%', diff;
   END IF;
 
+  IF clock_timestamp() - t_lock > win THEN
+    RAISE EXCEPTION 'S10-X1UR-WIN: the exclusive lock on user_roles has been held over 3 s — rolled back, nothing changed';
+  END IF;
   -- S
   SELECT jsonb_object_agg(c2.relname || '|' || p.polname,
            jsonb_build_array(p.polcmd::text, p.polroles::text, pg_get_expr(p.polqual, p.polrelid), pg_get_expr(p.polwithcheck, p.polrelid)))
