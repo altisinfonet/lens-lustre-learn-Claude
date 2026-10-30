@@ -45,9 +45,15 @@ export interface AdVideoButtonProps {
   /** "ready" = the ad has a playable video; "pending" = one is linked but no longer playable (taken down / deleted); null = none */
   videoState: "ready" | "pending" | null;
   onChanged?: () => void;
+  /**
+   * S7-c · "Add a video ad" (the library's own button): the video the admin
+   * already picked. The dialog opens with it, once; the admin then chooses
+   * categories and starts the upload exactly as with "Add video".
+   */
+  initialFile?: File | null;
 }
 
-export default function AdVideoButton({ creativeId, videoState, onChanged }: AdVideoButtonProps) {
+export default function AdVideoButton({ creativeId, videoState, onChanged, initialFile }: AdVideoButtonProps) {
   const allowed = useFeatureAllowed("video_ads");
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
@@ -65,6 +71,16 @@ export default function AdVideoButton({ creativeId, videoState, onChanged }: AdV
   useEffect(() => {
     if (!open) { setFile(null); setUrl(null); setPhase({ kind: "pick" }); setCategories([]); setMute(false); setDeviceAfterAll(false); }
   }, [open]);
+
+  // S7-c: open once with the video picked in the library (after the reset above has run).
+  const handedOver = useRef<File | null>(null);
+  useEffect(() => {
+    if (!allowed || !initialFile || handedOver.current === initialFile) return;
+    handedOver.current = initialFile;
+    setOpen(true);
+    void pick(initialFile);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pick is stable enough: it only sets state
+  }, [allowed, initialFile]);
 
   const facts = phase.kind === "ready" || phase.kind === "starting" ? phase.facts : null;
   /** Server mode: a video this browser can't read is still the converter's to try. */
