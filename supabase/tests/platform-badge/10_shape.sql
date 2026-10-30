@@ -37,7 +37,7 @@ CREATE TABLE auth.users (
 CREATE TABLE public.profiles (
   id             uuid PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,
   full_name      text,
-  last_active_at timestamptz,
+  last_active_at timestamptz DEFAULT now(),   -- as on both lanes (20260330142754:3)
   last_platform  text,
   created_at     timestamptz NOT NULL DEFAULT now()
 );
