@@ -46,9 +46,87 @@ export interface WorkerDeps extends JobDeps {
   /** first back-off after an internal result (default 30 s) and its ceiling (default 15 min) */
   internalBackoffMs?: number;
   internalBackoffMaxMs?: number;
+  /** S7-f: drain POST /api/video/purge at most this often (ms); 0 or absent = off */
+  purgeEveryMs?: number;
+  /** the clock the purge tick is timed by (tests); Date.now when absent */
+  now?: () => number;
 }
 
 export const SELFTEST_AFTER = 3;
+
+/**
+ * S7-f · the purge tick. Rows per POST /api/video/purge: the route's own default,
+ * sized for Cloudflare's per-request call budget (functions/api/video/purge.ts
+ * clamps to 1–10). At most PURGE_MAX_CALLS requests per tick — ONE per loop turn,
+ * before the claim, so a job waits for at most one purge request.
+ */
+export const PURGE_LIMIT = 5;
+export const PURGE_MAX_CALLS = 20;
+
+interface PurgeTally { startedAt: number; calls: number; claimed: number; done: number; failed: number; objects: number }
+
+/** A VID-… style code from a response body, or "" — never a free-text server message. */
+function safeCode(v: unknown): string {
+  const s = String(v ?? "");
+  return /^[A-Z][A-Z0-9-]{0,39}$/.test(s) ? s : "";
+}
+
+/**
+ * The purge tick's state. step() makes at most one purge request, and only when a
+ * tick is due or under way; it never throws. A tick ends on a short page (the queue
+ * is drained), a page that deleted nothing (failed rows are left for the next tick),
+ * the cap, or any error — each with exactly one "worker.purge" log line of counts.
+ * A 401 has already been retried once after a fresh sign-in by Api.send itself.
+ */
+export class PurgeTicker {
+  private dueAt: number;
+  private tick: PurgeTally | null = null;
+  private readonly now: () => number;
+  constructor(private readonly d: Pick<WorkerDeps, "api" | "log" | "purgeEveryMs" | "now">) {
+    this.now = d.now ?? Date.now;
+    this.dueAt = this.now(); // the first tick right after start-up (main runs the self-test before the loop)
+  }
+
+  get enabled(): boolean { return (this.d.purgeEveryMs ?? 0) > 0; }
+
+  async step(): Promise<void> {
+    if (!this.enabled) return;
+    const every = this.d.purgeEveryMs!;
+    if (!this.tick) {
+      const t = this.now();
+      if (t < this.dueAt) return;
+      this.tick = { startedAt: t, calls: 0, claimed: 0, done: 0, failed: 0, objects: 0 };
+    }
+    const tick = this.tick;
+    const end = (fields: Record<string, unknown>, nextAt: number) => {
+      const { startedAt: _s, ...counts } = tick;
+      this.d.log("worker.purge", { ...fields, ...counts });
+      this.dueAt = nextAt;
+      this.tick = null;
+    };
+    tick.calls++;
+    try {
+      const a = await this.d.api.pages("/api/video/purge", { limit: PURGE_LIMIT });
+      if (a.status !== 200) {
+        end({ ok: false, http: a.status, code: safeCode(a.body.error ?? a.body.code), retry_in_ms: every }, this.now() + every);
+        return;
+      }
+      const claimed = Number.isInteger(a.body.claimed) ? Number(a.body.claimed) : 0;
+      const done = Array.isArray(a.body.done) ? (a.body.done as Array<{ objects?: unknown }>) : [];
+      const failed = Array.isArray(a.body.failed) ? a.body.failed.length : 0;
+      tick.claimed += claimed;
+      tick.done += done.length;
+      tick.failed += failed;
+      tick.objects += done.reduce((n, r) => n + (Number.isInteger(r?.objects) ? Number(r.objects) : 0), 0);
+      const more = claimed >= PURGE_LIMIT && done.length > 0;
+      if (!more || tick.calls >= PURGE_MAX_CALLS) end({ ok: true, capped: more }, tick.startedAt + every);
+    } catch (e) {
+      const http = e instanceof ApiError ? e.status : 0;
+      const code = e instanceof ApiError ? safeCode(e.code) : e instanceof ReseedRequired ? "RESEED-REQUIRED" : e instanceof SessionPersistError ? "SESSION-FILE" : "ERROR";
+      end({ ok: false, http, code, retry_in_ms: every }, this.now() + every);
+    }
+  }
+}
 
 /** Did this job end in a way that says more about the VM than about the file? */
 export function endedInternal(o: JobOutcome): boolean {
@@ -128,12 +206,16 @@ export async function workerLoop(d: WorkerDeps, stop?: AbortSignal): Promise<{ j
   let internalStreak = 0;
   const base = d.internalBackoffMs ?? 30_000;
   const max = d.internalBackoffMaxMs ?? 15 * 60_000;
+  const purge = new PurgeTicker(d);
   for (let turn = 0; !stop?.aborted; turn++) {
     if (d.maxTurns !== undefined && turn >= d.maxTurns) break;
     if (!(await recoverStaleClaim(d).catch((e) => { d.log("worker.recover_error", { error: scrub(String(e)) }); return false; }))) {
       await wait(d.pollMs);
       continue;
     }
+    // S7-f: between job polls, never inside a job — at most one purge request per turn.
+    await purge.step().catch(() => undefined);
+    if (stop?.aborted) break;
     let claim;
     try {
       claim = await d.api.claim();
