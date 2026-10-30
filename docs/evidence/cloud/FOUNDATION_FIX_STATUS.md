@@ -1,6 +1,6 @@
-FOUNDATION FIX — IN PROGRESS (U3 carrying to live; U1/U2 measured, fixes drafted; U4 done by stages runner)
+FOUNDATION FIX — PARTIAL: Unit 3 LIVE and proven; Unit 4 done (by stages runner); Units 1 and 2 measured on production, fixes drafted, not yet live — runner stopped at its token budget
 
-# Foundation fix runner — status (heartbeat 08:55Z, 2026-10-30)
+# Foundation fix runner — status (final, 09:35Z, 2026-10-30)
 
 Source: foundation audit #622. Owner exclusions honoured: no backup/PITR work, no judging objects touched, no feature switched on.
 Constraint all day: the repo's Actions queue held 200–335 runs, so every PR took ~1 h to clear CI and every
@@ -11,7 +11,7 @@ dispatch cancels the one waiting (happened to 3 runs today, 2 caused by me — o
 |---|---|---|---|---|---|---|
 | 1 | One truth | MEASURED on production; capture migration + drift CI drafted, not yet in a PR | #646 → staging, #661 → main | 86a08731 (staging), bf6da657 (main) | prod PROBE 0200 **41024992462 PASS 08:34Z** (60 objects, all screened clean) | n/a (read-only) |
 | 2 | Account deletion | MEASURED on production; code fix written, fail-first tests seen FAILING; SQL routine not yet written | #651 → staging, #662 → main | 175c9fb0 (staging), c2cefd73 (main) | prod PROBE 0400 **41027566924 PASS 08:45Z** | n/a |
-| 3 | Alarms | ON STAGING; carry to main open | #650, #660 → staging; #666 → main (CI running, review NOTHING BLOCKING) | f7ec574d, ea482c8d (staging) | staging 0301 **41024048586 FAIL 08:39Z** (fail-first: no alarm table) → 0300 **41028022097 PASS 08:41Z** → 0301 re-run 41028426756 (in flight) | pending production |
+| 3 | Alarms | **LIVE on production, proven on staging** | #650, #660 → staging; #666 → main | f7ec574d, ea482c8d (staging); 678706ad (main) | staging: 0301 **41024048586 FAIL** → 0300 **41028022097 PASS** → 0301 **41028426756 PASS**; simulation 0302 **41029169083** → 0304 **41031992522** (both alarms OPEN) → 0303 **41032821861 PASS** (all closed). production: 0301 **41031205925 FAIL** → 0300 **41031514977 PASS** → 0301 **41032056209 PASS** (09:1xZ) | Chromium: home 200, /feed 200, no new console errors (4 pre-existing: X-Frame-Options meta, CF beacon CSP). Firefox/WebKit not installed in this sandbox; #666 CI ran the 3-browser jobs green |
 | 4 | High-severity deps | SKIPPED — already done by the stages runner (#634 on staging: 14 → 1 high, lockfile only) | #634 (not mine) | b51e0366 | n/a | main carry is the stages runner's |
 
 ## Unit 1 — one truth
@@ -42,11 +42,13 @@ dispatch cancels the one waiting (happened to 3 runs today, 2 caused by me — o
   - local self-test 6/6.
   - staging fail-first 41024048586 FAIL (`relation "public.ops_alarm_settings" does not exist`).
   - staging apply 41028022097 PASS.
-- **Next**:
-  - 0301 PASS on staging.
-  - Simulation 0302 (down.invalid + never-succeeded workflow) → read 0304 → 0303 off.
-  - Merge #666 → production: 0301 (fail) → 0300 → 0301 (pass) → 0304.
-  - Live check in 3 browsers.
+- **Live simulation on staging (real network, 09:05–09:20Z)**: pg_net GET www → 200 ok every 5 min; `https://down.invalid/` → "Couldn't resolve host name" → uptime alarm OPEN 09:15Z after 2 failures; real GitHub API read (HTTP 200) of `d1-deploy-functions.yml` → no success ever → dead-man alarm OPEN 09:10Z; www never alarmed; 0303 closed both. ops-monitor-tick: 8/8 cron runs succeeded.
+- **Production**: monitoring www + apex and `health.yml` since 09:1xZ. The ALARM-issue relay (`alarm-relay.yml`, every 10 min from main) failed its scheduled runs between the #666 merge and the 0300 apply (~20 min, table missing) — expected and now resolved.
+- **Not yet proven on production**: an actual ALARM issue being opened (no alarm has fired there, which is the healthy case). The relay's issue path was reviewed but has not run against a real alarm; first real alarm will exercise it — check the Actions tab for `alarm-relay.yml` if one fires.
+
+## Not finished (next runner picks up here)
+- **U1**: run PROBE 0200 on staging; generate the capture migration from `docs/evidence/cloud/foundation-fix/u1_production_live_only_definitions_20261030.json` (branch `foundation/u1b-capture-drift`) with production-only crons lane-guarded; equality PROBE must PASS before apply; then `db-drift.yml` using `scripts/db-drift-check.mjs` + PROBE 0202.
+- **U2**: write `delete_member_account` from `docs/evidence/cloud/foundation-fix/u2_production_deletion_schema_20261030.txt` (branch `foundation/u2-deletion`), plus `member_file_purge_queue`/`member_file_purge_mark`, the staging rollback-only end-to-end test, update `deletionKeepsTheActor.test.ts` to read the SQL; deploy pending Owner token.
 
 ## Owner list (plain words)
 1. Add `SUPABASE_ACCESS_TOKEN` to the staging and production Environments. Without it, the new account-deletion code (and every edge function) cannot be deployed from git.
