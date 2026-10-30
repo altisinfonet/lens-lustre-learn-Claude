@@ -9,6 +9,7 @@ confirm DB-level items (RLS policy text, grants, SECURITY DEFINER bodies, wallet
 guard, realtime). Code-level findings below are proven from source now.
 
 ## Heartbeat
+- 2026-10-30 ~06:2x — CRITICAL CANDIDATE confirmed in git: wallet_transaction RPC is re-granted to authenticated (0032 L198) and its applied-migration body (20260320150533) lets a member self-credit any positive amount (no BUG-001 guard; guard exists only in the UNAPPLIED schema dump). Exploitable => unlimited balance IF production runs this body. Awaiting PROBE FNBODY on staging+production to confirm live body. Staging PROBE still QUEUED (org runner contention, ~14 jobs).
 - 2026-10-30 ~06:1x — anon surface fully verified live on staging: anon reads only public posts (private/friends/draft all 0 rows), public follows graph (514), and public profile views (no email/phone/dob/national_id/privacy_settings/wallet — none of those columns exist on anon views). profiles/friendships/comments/wallet_transactions/bank_details/support_tickets/user_notifications/competition_votes/judge_scores all 0 rows to anon. No DM/messages tables exist. Catalog PROBE 0901 merged (#638) and dispatched to staging; QUEUED behind ~14 concurrent CI jobs (runner contention), not an approval gate.
 - 2026-10-30 ~06:0x — edge-function + storage audit complete; seo leak endpoint
   confirmed open over HTTP; s3 shared-prefix overwrite/delete logic confirmed in
