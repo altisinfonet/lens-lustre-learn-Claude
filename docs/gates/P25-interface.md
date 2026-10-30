@@ -305,3 +305,23 @@ bucket lookup (defence in depth; it is never served there).
   **a member inserting a row with `render_approved_at`/`render_approved_by`
   set → stored NULL, not rendered**; a member or admin UPDATE of those columns
   or of `issue_path` outside `certificate_approve_render` → refused.
+
+## 10 · Implementation notes (from the rev-5 review; binding on the build)
+
+- For `issue_path = 'member'` rows the insert trigger also forces
+  `published_at` to NULL **and** `certificate_approve_render` refuses
+  `competition_%` types unless the results hold is released by the normal
+  publish path — so an admin click can never approve a self-asserted,
+  pre-published competition certificate.
+- The forcing `BEFORE INSERT` trigger is named to sort **last** (Postgres runs
+  same-event triggers in name order), after `generate_certificate_identifiers`.
+- The approval flag is an `app.*` setting (never `request.*`), set by
+  `certificate_approve_render` only after its admin check and cleared before it
+  returns (the `bypass_round_lock` pattern).
+- Migration order: add `issue_path … DEFAULT 'member'` and backfill **before**
+  creating the `BEFORE UPDATE` guard.
+- Any admin edit of `title`, `type` or `description` on a `member` row also
+  clears `render_approved_*` (a second review before re-render).
+- A claimed orphan whose R2 delete failed stays claimed and is retried by the
+  next purge; `attach` reports it as "pending purge" rather than failing
+  silently.
