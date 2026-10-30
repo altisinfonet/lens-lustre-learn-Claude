@@ -62,6 +62,10 @@ const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const Winners = lazy(() => import("@/pages/Winners"));
 const Discover = lazy(() => import("@/pages/Discover"));
 const CompetitionLightbox = lazy(() => import("@/components/CompetitionLightbox"));
+/* P23 S10a-2 — the three a11y-only surfaces (see A11Y_ONLY_SCREENS below). */
+const Signup = lazy(() => import("@/pages/Signup"));
+const EditProfile = lazy(() => import("@/pages/EditProfile"));
+const AdminPanel = lazy(() => import("@/pages/AdminPanel"));
 
 /**
  * The voting lightbox, open, on the first fixture photograph. The images are
@@ -425,3 +429,40 @@ function homeWithServerCard(open = false, count = 2) {
     </>
   );
 }
+
+/**
+ * ── P23 S10a-2 · THE THREE A11Y-ONLY SURFACES ───────────────────────────────
+ *
+ * docs/evidence/d2/phase5/P23/S10a-DECISION.md §2, decision S2. These are three
+ * of the ten primary surfaces that had no scene. They are reachable by
+ * `?scene=<name>` (main.tsx resolves them) but are deliberately NOT part of
+ * `SCENES`, so the harness index does not list them — which keeps them OUT of
+ * the visual sweep (capture.mjs reads its scene list from that index) and out
+ * of `tools/uishot/baseline.json`. Measured 2026-10-29: all three fail the
+ * sweep's 44 px tap-target rule on the phone widths and admin health has no
+ * admin-RPC fixtures; clearing that is pixel / fixture work, not P23. Only
+ * `tools/uishot/a11y-surfaces.mjs` addresses them, by name. They join the
+ * visual sweep in a separate unit (a follow-up of F-103's tap-target ratchet).
+ *
+ * Each mounts the REAL page, inside the real provider stack, exactly as the
+ * `screen-` scenes above do.
+ */
+export const A11Y_ONLY_SCREENS: Record<string, () => JSX.Element> = {
+  /** Signed OUT (sceneConfig.ts) — /signup, mounted the way screen-login is. */
+  "screen-signup": () => screen(<Signup />, "/signup", "/signup", false),
+
+  /** /edit-profile, signed in as the harness member. */
+  "screen-edit-profile": () => screen(<EditProfile />, "/edit-profile", "/edit-profile"),
+
+  /**
+   * /admin/health — the real AdminPanel on its "Site Health" tab, with the
+   * harness member seeded as an admin (fixtureRoutes: `__harnessRoles`, read by
+   * the dashboard-init fixture only when set). Decision S5: the admin RPCs the
+   * tab calls are NOT fixtured — the missing-data banner says so in the
+   * picture; the tab's controls (refresh, tabs, actions) render regardless.
+   */
+  "screen-admin-health": () => {
+    (globalThis as { __harnessRoles?: string[] }).__harnessRoles = ["admin"];
+    return screen(<AdminPanel />, "/admin/health", "/admin/*");
+  },
+};

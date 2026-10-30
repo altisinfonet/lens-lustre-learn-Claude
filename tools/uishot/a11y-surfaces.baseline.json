@@ -1,0 +1,4 @@
+{
+  "_about": "P23 S10a-2 a11y-surfaces ratchet baseline (docs/evidence/d2/phase5/P23/S10a-DECISION.md §3). Keyed by scene AND width: surfaces.<scene>.<width>.<rule> = count. Rules: A:<axe rule id> (failing nodes; axe-core pinned in package.json, tags of tools/uishot/axe-ratchet.mjs), B:tab-unreached, C:focus-not-visible, D:keyboard-trap, E:escape-does-not-close. {} = a clean entry. A DEBT, not a standard. An entry is written once, by `node tools/uishot/a11y-surfaces.mjs --record` (which refuses to touch an existing entry), and after that only lowered (`--lower <report.json>`). Never raise to make a red go away.",
+  "surfaces": {}
+}

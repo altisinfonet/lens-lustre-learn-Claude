@@ -1,0 +1,68 @@
+<!doctype html>
+<!--
+  P23 S10a-2 · THE CLEAN PAGE. seeded.html with every defect repaired.
+  `a11y-surfaces.mjs --self-test` must report NOTHING here, for any check.
+
+  It also carries the patterns the checks must not mistake for defects:
+    · a control replaced by an identical one once Tab reaches it (a remount);
+    · a native radio group — Tab reaches only the checked radio, and the group
+      counts once (S10a-DECISION.md §3 B);
+    · an aria-hidden, tabindex=-1 input (the shape Radix gives its hidden
+      "bubble" inputs) — removed from the accessibility tree on purpose.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>a11y-surfaces clean page</title>
+<style>
+  body { font: 16px/1.4 system-ui, sans-serif; background: #fff; color: #111; margin: 16px; }
+  button, [role=button], a { display: inline-block; margin: 4px; min-width: 44px; min-height: 44px; }
+  [role=button] { border: 1px solid #333; padding: 8px; }
+  [role=dialog] { border: 2px solid #333; padding: 8px; margin-top: 12px; }
+  .bubble { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; margin: 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>No defects</h1>
+  <a id="ok-link" href="#top">A link</a>
+  <button id="ok-1" type="button">Fine button</button>
+  <button id="defect-a" type="button" aria-label="Named icon button"><svg aria-hidden="true" width="16" height="16"><circle cx="8" cy="8" r="6"/></svg></button>
+  <div id="defect-b" role="button" tabindex="0">Reached</div>
+  <button id="defect-c" type="button">Default focus ring</button>
+  <fieldset>
+    <legend>Size</legend>
+    <label><input type="radio" name="size" value="s" checked> Small</label>
+    <label><input type="radio" name="size" value="l"> Large</label>
+  </fieldset>
+  <input class="bubble" type="checkbox" aria-hidden="true" tabindex="-1">
+  <span id="remount-slot"><button id="remounts" type="button">Replaced every time it is focused</button></span>
+  <div tabindex="-1" id="programmatic-target">A programmatic focus target, not a control.</div>
+  <div id="defect-e" role="dialog" aria-label="Closable dialog">
+    <p>Escape closes this dialog.</p>
+    <button id="dialog-btn" type="button">Inside the dialog</button>
+  </div>
+  <div id="defect-d">
+    <button id="trap-1" type="button">Ordinary one</button>
+    <button id="trap-2" type="button">Ordinary two</button>
+  </div>
+</main>
+<script>
+  // A control REPLACED by an identical one after Tab has visited it — what a
+  // React remount does (screen-feed's category chips, measured 2026-10-30).
+  // It was reached; B and C must not call its stand-in "never reached".
+  document.getElementById("remount-slot").addEventListener("focusout", (e) => {
+    const old = e.target;
+    // Once Tab has moved on (as a re-render after the scroll a focus caused). Deterministic: on leaving.
+    setTimeout(() => {
+      const twin = old.cloneNode(true);
+      old.replaceWith(twin);
+    }, 0);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") document.getElementById("defect-e").hidden = true;
+  });
+</script>
+</body>
+</html>

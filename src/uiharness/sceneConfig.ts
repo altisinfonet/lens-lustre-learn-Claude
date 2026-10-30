@@ -16,6 +16,8 @@
  */
 export const SIGNED_OUT_SCENES: readonly string[] = [
   "screen-login",
+  /** P23 S10a-2 a11y-only scene (realScreens.tsx A11Y_ONLY_SCREENS). */
+  "screen-signup",
   "screen-not-found-signed-out",
   "screen-not-found-in-place-signed-out",
 ];
