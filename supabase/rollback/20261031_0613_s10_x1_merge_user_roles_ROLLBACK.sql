@@ -1,8 +1,9 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- ROLLBACK · 20261031_0613 — S10 X1 user_roles.
 -- Drops the x1_merged_* policies on public.user_roles and recreates every
--- original permissive policy from public.x1_policy_backup_20261031, byte-for-
--- byte (checked against the backup after re-creation). Access is the same in
+-- original permissive policy from public.x1_policy_backup_20261031: name,
+-- action, roles (as a sorted set), USING and WITH CHECK text each checked
+-- against the backup after re-creation. Access is the same in
 -- both directions (see the migration header); E2 re-proves it on live rows.
 -- Removes this batch's backup rows, and the backup table once it is empty.
 -- Refuses unless 0613 is applied.
@@ -33,7 +34,7 @@ DECLARE
   tables constant text[] := ARRAY['user_roles'];
   t text; rel oid; r record; id jsonb; h text; k int := 0; diff text;
   ids jsonb := '[]'; e2_before jsonb := '{}'; e2_after jsonb := '{}';
-  q text; ck text;
+  q text; ck text; got_cmd text; got_roles text[]; got_perm boolean;
 BEGIN
   IF current_user <> 'postgres' THEN
     RAISE EXCEPTION 'S10-X1UR-RB-PRE-001: running as %, not postgres', current_user;
@@ -93,9 +94,14 @@ BEGIN
                           ELSE (SELECT string_agg(quote_ident(x), ', ') FROM unnest(r.roles) x) END)
            || CASE WHEN r.using_expr IS NOT NULL THEN format(' USING (%s)', r.using_expr) ELSE '' END
            || CASE WHEN r.check_expr IS NOT NULL THEN format(' WITH CHECK (%s)', r.check_expr) ELSE '' END;
-      SELECT pg_get_expr(p.polqual, p.polrelid), pg_get_expr(p.polwithcheck, p.polrelid) INTO q, ck
+      SELECT pg_get_expr(p.polqual, p.polrelid), pg_get_expr(p.polwithcheck, p.polrelid), p.polcmd::text,
+             CASE WHEN p.polroles = '{0}'::oid[] THEN ARRAY['PUBLIC']
+                  ELSE (SELECT array_agg(rr.rolname::text ORDER BY rr.rolname) FROM pg_roles rr WHERE rr.oid = ANY (p.polroles)) END,
+             p.polpermissive
+        INTO q, ck, got_cmd, got_roles, got_perm
         FROM pg_policy p WHERE p.polrelid = rel AND p.polname = r.policyname;
-      IF q IS DISTINCT FROM r.using_expr OR ck IS DISTINCT FROM r.check_expr THEN
+      IF q IS DISTINCT FROM r.using_expr OR ck IS DISTINCT FROM r.check_expr
+         OR got_cmd IS DISTINCT FROM r.cmd OR got_roles IS DISTINCT FROM r.roles OR got_perm IS NOT TRUE THEN
         RAISE EXCEPTION 'S10-X1UR-RB-E1: recreated policy "%" on public.% differs from the backup', r.policyname, t;
       END IF;
     END LOOP;
@@ -126,7 +132,7 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.x1_policy_backup_20261031) THEN
     DROP TABLE public.x1_policy_backup_20261031;
   END IF;
-  RAISE NOTICE 'S10 X1 user_roles rolled back (lane %): original policies recreated byte-for-byte on % table; E2 % visible-row sets identical',
+  RAISE NOTICE 'S10 X1 user_roles rolled back (lane %): original policies recreated (action, roles, USING, WITH CHECK checked against the backup) on % table; E2 % visible-row sets identical',
     current_setting('p32.lane'), array_length(tables, 1), (SELECT count(*) FROM jsonb_object_keys(e2_before));
 END
 $x1_rb$;

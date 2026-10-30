@@ -27,7 +27,7 @@
 -- PROOF, in this transaction (any failure rolls the whole file back):
 --   PRE  · each table: RLS on, every permissive policy has the same roles,
 --          at least one duplicate exists, no applicable policy lacks the
---          expression its action needs.
+--          expression its action needs (USING; WITH CHECK for INSERT).
 --   E1   · for every identity (anon, up to 3 users of each app role, up to 3
 --          real row owners per owner column, 3 ordinary members) × every
 --          action: the UNION of the existing rows each ORIGINAL policy accepts
@@ -46,7 +46,7 @@
 --
 -- BACKUP: every replaced policy (name, command, roles, USING, WITH CHECK) is
 -- saved in public.x1_policy_backup_20261031 so the rollback recreates them
--- byte-for-byte. The rollback EXECUTEs that text as postgres, so the table is
+-- (action, roles, USING, WITH CHECK checked against it). The rollback EXECUTEs that text as postgres, so the table is
 -- owner-only: owned by postgres, every grant revoked (PUBLIC, anon,
 -- authenticated AND service_role — Supabase's default privileges grant all
 -- three), RLS on with no policy; checked before use and after.
@@ -142,8 +142,9 @@ BEGIN
       RAISE EXCEPTION 'S10-X1UR-PRE-005: public.% has no duplicate permissive policy — already merged, or the lane drifted', t;
     END IF;
     IF EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = rel AND p.polpermissive
-                  AND p.polcmd IN ('*', 'r', 'w', 'd') AND p.polqual IS NULL) THEN
-      RAISE EXCEPTION 'S10-X1UR-PRE-006: public.% has a permissive policy with no USING for an action that needs one — not handled by this merge', t;
+                  AND ((p.polcmd IN ('*', 'r', 'w', 'd') AND p.polqual IS NULL)
+                       OR (p.polcmd = 'a' AND p.polwithcheck IS NULL))) THEN
+      RAISE EXCEPTION 'S10-X1UR-PRE-006: public.% has a permissive policy missing the expression its action needs (USING, or WITH CHECK for INSERT) — not handled by this merge', t;
     END IF;
   END LOOP;
 
