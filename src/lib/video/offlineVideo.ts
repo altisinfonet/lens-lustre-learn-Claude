@@ -333,7 +333,8 @@ async function saveNow(input: { userId: string; videoId: string; masterUrl: stri
     const cache = await deps.caches.open(OFFLINE_VIDEO_CACHE);
     cacheRef = cache;
     alive();
-    await evictTo(budget - bytes, cache, alive);
+    // only a sign-out stops the making of room, never a network change (round 3)
+    await evictTo(budget - bytes, cache, () => { if (gen !== generation) throw new Wiped(); });
 
     for (const [name, body, type] of bodies) {
       alive();
@@ -359,20 +360,22 @@ async function saveNow(input: { userId: string; videoId: string; masterUrl: stri
   }
 }
 
-/** Remove the oldest saved videos until at most `maxBytes` are used. */
-async function evictTo(maxBytes: number, cache: Cache, alive: () => void = () => {}): Promise<void> {
-  const list = readIndex().slice();
-  let used = list.reduce((n, e) => n + e.bytes, 0);
-  let changed = false;
-  while (used > maxBytes && list.length > 0) {
-    const old = list.shift()!;
-    used -= old.bytes;
-    changed = true;
+/**
+ * Remove the oldest saved videos until at most `maxBytes` are used. The list is
+ * updated BEFORE each video's files go (round 3 of review #674): whatever stops
+ * this midway, the list never names files that are no longer on the phone.
+ * Only a sign-out (`stillOurs` throws) stops it — never a network change.
+ */
+async function evictTo(maxBytes: number, cache: Cache, stillOurs: () => void = () => {}): Promise<void> {
+  for (;;) {
+    stillOurs();
+    const list = readIndex();
+    const used = list.reduce((n, e) => n + e.bytes, 0);
+    if (used <= maxBytes || list.length === 0) return;
+    const [old, ...rest] = list;
+    writeIndex(rest);
     await Promise.all(old.files.map((f) => cache.delete(fileUrl(old.userId, old.videoId, f)).catch(() => false)));
-    alive();
   }
-  alive();
-  if (changed) writeIndex(list);
 }
 
 /** Review #674: hold the budget now (after it was lowered). Runs in turn with saves. */

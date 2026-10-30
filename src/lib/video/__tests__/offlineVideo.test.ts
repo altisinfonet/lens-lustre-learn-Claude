@@ -333,6 +333,29 @@ describe("re-review #674: checks made when a save RUNS, not when it was queued",
   });
 });
 
+describe("re-review #674 round 3: making room never leaves the list naming deleted files", () => {
+  it("the network changes while old videos are being removed: the list still matches what is on the phone", async () => {
+    setVideoOfflineSettings({ budgetMB: 1 });
+    for (const id of ["a", "b", "c"]) await saveVideoPreview({ userId: "u1", videoId: id, masterUrl: MASTER_URL }, deps(cdn(20_000)));
+    // the 4th save must remove "a" to make room; Wi-Fi goes away the moment "a"'s first file is deleted
+    let wifi = true;
+    const api = {
+      ...caches.api,
+      open: async (n: string) => {
+        const c = await caches.api.open(n);
+        return { ...c, delete: async (k: string) => { wifi = false; return c.delete(k); } };
+      },
+    } as unknown as CacheStorage;
+    const r = await saveVideoPreview({ userId: "u1", videoId: "d", masterUrl: MASTER_URL }, { fetch: cdn(20_000).fetchImpl, caches: api, allowed: () => wifi });
+    expect(r).toBe("failed");
+    const store = caches.stores.get("video-offline-v1")!;
+    for (const id of ["a", "b", "c", "d"]) {
+      const onPhone = store.has(`${OFFLINE_VIDEO_ORIGIN}/u1/${id}/master.m3u8`);
+      expect({ id, listed: hasSavedPreview(id) }).toEqual({ id, listed: onPhone });
+    }
+  });
+});
+
 describe("sign-out", () => {
   it("clearSavedVideos removes every saved video and the list", async () => {
     await saveVideoPreview({ userId: "u1", videoId: "vid1", masterUrl: MASTER_URL }, deps());
