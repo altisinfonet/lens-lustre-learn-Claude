@@ -7,8 +7,8 @@
 --   G1 · the 9 pilot tables exist with RLS on.
 --   G2 · none has two permissive policies for the same (role, action).
 --   G3 · their only permissive policies are the x1_merged_* ones.
---   G4 · the policy backup exists, holds this batch, and is not readable by
---        anon or authenticated.
+--   G4 · the policy backup exists, holds this batch, and is owner-only
+--        (owner postgres, no other grantee — not even service_role).
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN READ ONLY;
 
@@ -47,9 +47,10 @@ BEGIN
   ELSE
     EXECUTE 'SELECT count(*) FROM public.x1_policy_backup_20261031 WHERE batch = $1' INTO backup_rows USING '0608_pilot';
     IF backup_rows = 0 THEN _bad := _bad || ' G4(backup holds no 0608_pilot rows)'; END IF;
-    IF has_table_privilege('anon', 'public.x1_policy_backup_20261031', 'SELECT')
-       OR has_table_privilege('authenticated', 'public.x1_policy_backup_20261031', 'SELECT') THEN
-      _bad := _bad || ' G4(backup readable by anon/authenticated)';
+    IF (SELECT c0.relowner FROM pg_class c0 WHERE c0.oid = 'public.x1_policy_backup_20261031'::regclass) <> 'postgres'::regrole
+       OR EXISTS (SELECT 1 FROM pg_class c0, aclexplode(c0.relacl) x
+                   WHERE c0.oid = 'public.x1_policy_backup_20261031'::regclass AND x.grantee <> c0.relowner) THEN
+      _bad := _bad || ' G4(backup is not owner-only: owner postgres, no other grantee)';
     END IF;
   END IF;
 

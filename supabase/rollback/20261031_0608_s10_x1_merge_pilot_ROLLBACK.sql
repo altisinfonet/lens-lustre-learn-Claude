@@ -43,6 +43,12 @@ BEGIN
      OR NOT EXISTS (SELECT 1 FROM public.x1_policy_backup_20261031 b WHERE b.batch = v_batch) THEN
     RAISE EXCEPTION 'S10-X1-RB-PRE-002: no backup rows for batch % — 0608 is not applied', v_batch;
   END IF;
+  -- the rows below are EXECUTEd as postgres: the table must be owner-only.
+  IF (SELECT c0.relowner FROM pg_class c0 WHERE c0.oid = 'public.x1_policy_backup_20261031'::regclass) <> 'postgres'::regrole
+     OR EXISTS (SELECT 1 FROM pg_class c0, aclexplode(c0.relacl) x
+                 WHERE c0.oid = 'public.x1_policy_backup_20261031'::regclass AND x.grantee <> c0.relowner) THEN
+    RAISE EXCEPTION 'S10-X1-RB-PRE-004: public.x1_policy_backup_20261031 is not owner-only — refusing to execute its contents';
+  END IF;
   FOREACH t IN ARRAY tables LOOP
     rel := to_regclass(format('public.%I', t));
     IF EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = rel AND p.polpermissive AND p.polname NOT LIKE 'x1\_merged\_%') THEN
