@@ -1,44 +1,19 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { describeOpsAlarms, type OpsAlarmRow, type OpsBanner } from "@/lib/opsAlarms";
 
 // Admin → Health banner for the in-database alarms (20261103_0300_ops_alarms).
 // Shows every open alarm, and warns when the in-database monitor itself has
 // stopped checking (no check for 20 minutes), so a silent monitor is visible.
 
-export interface OpsAlarmRow {
-  alarm_key: string;
-  summary: string;
-  opened_at: string;
-}
-
-export type OpsBanner =
-  | { level: "none" }
-  | { level: "unknown"; lines: string[] }
-  | { level: "alarm"; lines: string[] };
-
-export const MONITOR_STALE_MINUTES = 20;
-
-export function describeOpsAlarms(
-  alarms: OpsAlarmRow[] | null,
-  lastCheckAt: string | null,
-  now: Date,
-  installed: boolean,
-): OpsBanner {
-  if (!installed) return { level: "unknown", lines: ["In-database alarms are not installed on this lane yet."] };
-  const lines = (alarms ?? []).map((a) => `${a.summary} (since ${new Date(a.opened_at).toISOString().slice(0, 16).replace("T", " ")} UTC)`);
-  const staleMs = MONITOR_STALE_MINUTES * 60_000;
-  if (!lastCheckAt || now.getTime() - new Date(lastCheckAt).getTime() > staleMs) {
-    lines.push(
-      lastCheckAt
-        ? `The in-database monitor has not run since ${new Date(lastCheckAt).toISOString().slice(0, 16).replace("T", " ")} UTC — alarms may be missed.`
-        : "The in-database monitor has never run — alarms may be missed.",
-    );
-  }
-  return lines.length ? { level: "alarm", lines } : { level: "none" };
-}
-
-type Untyped = { from: (t: string) => any };
+type QueryResult<T> = { data: T[] | null; error: { code?: string; message: string } | null };
+type Query<T> = PromiseLike<QueryResult<T>> & {
+  is: (c: string, v: null) => Query<T>;
+  order: (c: string, o: { ascending: boolean }) => Query<T>;
+  limit: (n: number) => Query<T>;
+};
+type Untyped = { from: <T>(t: string) => { select: (cols: string) => Query<T> } };
 
 const OpsAlarmsBanner = () => {
   const [banner, setBanner] = useState<OpsBanner>({ level: "none" });
@@ -48,8 +23,8 @@ const OpsAlarmsBanner = () => {
     (async () => {
       const db = supabase as unknown as Untyped;
       const [alarms, lastCheck] = await Promise.all([
-        db.from("ops_alarms").select("alarm_key, summary, opened_at").is("closed_at", null).order("opened_at", { ascending: false }),
-        db.from("ops_probe_requests").select("requested_at").order("requested_at", { ascending: false }).limit(1),
+        db.from<OpsAlarmRow>("ops_alarms").select("alarm_key, summary, opened_at").is("closed_at", null).order("opened_at", { ascending: false }),
+        db.from<{ requested_at: string }>("ops_probe_requests").select("requested_at").order("requested_at", { ascending: false }).limit(1),
       ]);
       if (cancelled) return;
       const installed = !alarms.error || alarms.error.code !== "42P01";

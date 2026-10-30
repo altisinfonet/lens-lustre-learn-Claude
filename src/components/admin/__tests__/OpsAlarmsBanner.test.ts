@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: vi.fn() } }));
 
-import { describeOpsAlarms } from "@/components/admin/OpsAlarmsBanner";
+import { describeOpsAlarms } from "@/lib/opsAlarms";
 
 const now = new Date("2026-10-30T12:00:00Z");
 
