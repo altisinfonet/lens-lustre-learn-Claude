@@ -150,10 +150,8 @@ for (const f of appFiles) {
   // Reviewed exceptions. Written down WITH A REASON rather than quietly
   // dropped, so the next person can disagree with the judgement instead of
   // wondering why the rule does not fire. Anything not listed still fails.
-  const HTML_REVIEWED = {
-    "src/components/ui/chart.tsx":
-      "Builds a CSS string from the developer-defined THEMES/chart config; the interpolated id comes from React's useId(). No member input reaches it. Reviewed 2026-08-06.",
-  };
+  // (src/components/ui/chart.tsx was the only entry; it was deleted as unused.)
+  const HTML_REVIEWED = {};
   const key = f.split(path.sep).join("/");
   if (/dangerouslySetInnerHTML/.test(t) && !/DOMPurify|sanitiz/i.test(t) && !HTML_REVIEWED[key])
     add("HIGH", "unsanitised-html", "dangerouslySetInnerHTML with no visible sanitisation", f);
