@@ -73,6 +73,7 @@ BEGIN
          AND k.indexrelid = to_regclass('public.' || r.keep_name)
          AND k.indisvalid AND k.indisready
          AND k.indkey::text = d.indkey::text AND k.indclass::text = d.indclass::text
+         AND k.indcollation::text = d.indcollation::text AND k.indoption::text = d.indoption::text
          AND k.indexprs IS NULL AND d.indexprs IS NULL
          AND k.indpred IS NULL AND d.indpred IS NULL
     ) THEN
