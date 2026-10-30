@@ -8,12 +8,12 @@ SECOND RESTART 2026-10-30 ~07:15 UTC: the run stopped silently again at ~05:15 U
 RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. A new run took over at 05:05 UTC. Checked GitHub: nobody else pushed to or merged #538-#542 or #619 since 02:00 UTC.
 
 ## Now
-11:12 UTC — SQL 0700 + 0701 PASS on staging. Next: carry #619 to main (cherry-pick 5f8c8d5e onto main).
+11:12 UTC — Carry #619 → main: PR #675 open, review + CI running.
 
 ## Units
 | Unit | PR | State | Merged sha (staging / main) | SQL runs | Live check |
 |---|---|---|---|---|---|
-| CI fix: app-origin check reads the routes staging serves (blocks #541) | #619 | MERGED 08:10 UTC (25/25 checks green; review nothing blocking) | staging 5f8c8d5e / main: not yet | none | — |
+| CI fix: app-origin check reads the routes staging serves (blocks #541) | #619 | MERGED 08:10 UTC (25/25 checks green; review nothing blocking) | staging 5f8c8d5e / main: carry PR #675 open (f016a57a), review + CI running | none | — |
 | S10a-1 P23 decision note | #538 | MERGED 08:48 UTC (22/22 checks green; review nothing blocking) | staging a0e8d849 / main: not yet | none | — |
 | S7-a PROBE fix: admin read lane-proof | #673 | MERGED 11:08 UTC (33/33 green; review nothing blocking ×2) | staging 9b4e0201 / main: not yet (carried with S7-a) | — | — |
 | S7-a purge-queue deleter | #539 | MERGED 09:10 UTC (36/36 checks green; re-review nothing blocking) | staging 75f78f67 / main: not yet | 0700 STAGING: PROBE-before 41040556611 FAIL G1 (expected) · apply 41040769034 SUCCESS 10:27 · PROBE-after 41042014241 ERROR (PROBE bug → #673) · PROBE-after 41045879133 **PASS** 11:10 UTC. Production: after main | — |
