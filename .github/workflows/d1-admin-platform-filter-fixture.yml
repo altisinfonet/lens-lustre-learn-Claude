@@ -1,0 +1,67 @@
+name: D1 · admin users platform filter (20261103_0101) — fail-first fixture
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING BUT A THROWAWAY postgres:17.6 SERVICE CONTAINER.
+# HOLDS NO SECRET: the container password below is a literal placeholder.
+#
+# WHAT IT PROVES (20261103_0101). scripts/db-admin-platform-filter-fixture.mjs
+# installs has_role and admin_search_users_v2 verbatim from the schema
+# bootstrap, seeds 250 synthetic members (125 web / 63 app / 62 unknown) and
+# requires the "Web users" tab to be RED before 0101 (paged, it lists non-web
+# members), then green after: every tab lists only its members across pages,
+# counts match the fixture for search/role/badge combinations, non-admins get
+# nothing; plus PROBE / apply / rollback refusals, on both lane values.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261103_0101_admin_users_platform_filter.sql'
+      - 'supabase/migrations/PROBE_20261103_0101_admin_users_platform_filter.sql'
+      - 'supabase/rollback/20261103_0101_admin_users_platform_filter_ROLLBACK.sql'
+      - 'supabase/tests/admin-platform-filter/**'
+      - 'scripts/db-admin-platform-filter-fixture.mjs'
+      - '.github/workflows/d1-admin-platform-filter-fixture.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  fixture:
+    name: Web users tab red before 0101 (lists non-web members), every tab and count green after
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_PASSWORD: fixture-not-a-secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: fixture-not-a-secret
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install psql
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: The throwaway server
+        run: psql -X -d postgres -tAc 'select version()'
+
+      - name: Fixture — fail-first, apply, PROBE, behaviour, rollback, re-apply (both lanes)
+        run: node scripts/db-admin-platform-filter-fixture.mjs
