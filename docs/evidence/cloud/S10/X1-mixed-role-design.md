@@ -158,7 +158,8 @@ and a recursion check; see the rev 1 review).
     exists.
   - **Roles:** every role that has any privilege on the table, from
     `aclexplode(coalesce(relacl, acldefault('r', relowner)))` and
-    `aclexplode(pg_attribute.attacl)` for column grants, expanded through
+    `aclexplode(pg_attribute.attacl)` for column grants (live columns only:
+    `attnum > 0`, not `attisdropped`), expanded through
     role inheritance. Each is then confirmed with `has_table_privilege` or
     `has_any_column_privilege`. Not `information_schema`, which hides grants made by other
     grantors. A PUBLIC grant makes every role a candidate; E3 then covers
@@ -175,8 +176,10 @@ and a recursion check; see the rev 1 review).
     refusal, never a miss.
   - **Statements** run with and without `RETURNING`. `UPDATE` uses a column
     the role may update; without RETURNING it sets that column to a
-    constant, so it reads no column and the UPDATE-only policy path is
-    tested on its own. Column-level grants then do not hide the INSERT and
+    constant and has no WHERE clause that references a column (`WHERE true`),
+    so it reads no column, Postgres adds no SELECT policies, and the
+    UPDATE-only policy path is tested on its own (EXPLAIN only: nothing is
+    written). Column-level grants then do not hide the INSERT and
     UPDATE policy paths.
   - **Scope:** E3 does not see run-time errors (§3 limit).
 - **POST:**
@@ -196,7 +199,9 @@ and a recursion check; see the rev 1 review).
     included, and with E3's exclusions for roles that bypass RLS. Whether M3
     (`{anon}` and `{authenticated}`) is residual is measured per lane, not
     asserted. On Supabase, `authenticator` is a NOINHERIT member of both and
-    inherits neither, and `postgres` bypasses RLS, so it is excluded. G7 prints names only and does not
+    inherits neither, and `postgres` has BYPASSRLS there (measured per lane),
+    so it is excluded. Inheritance is followed per membership grant (its
+    INHERIT option, PG16+), as `has_privs_of_role` does. G7 prints names only and does not
     fail.
 
 ## 6. Rejected: the rev 1 guarded merge
@@ -257,4 +262,5 @@ and raises nothing, so the test needs a run-time guard, as above.
   on table A, queued behind this file. Postgres aborts one side, or
   `lock_timeout` (2 s) fires. If the file is the side aborted, it rolls back
   with nothing changed and is re-run at a quieter time. If the other side is
-  aborted, that transaction is aborted with a deadlock error.
+  chosen, its transaction fails with a deadlock error (SQLSTATE 40P01) and is
+  rolled back.
