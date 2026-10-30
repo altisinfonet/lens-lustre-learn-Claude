@@ -54,6 +54,7 @@ const MAPPED_AWARD_LABELS = new Set<string>([
   "2nd runner up",
   "2nd runner-up",
   "honorary mention",
+  "honourable mention",
   "honorable mention",
   "special jury",
   "special jury award",
