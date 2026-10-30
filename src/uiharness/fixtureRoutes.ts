@@ -535,6 +535,19 @@ function applyFilters(rows: unknown[], params: URLSearchParams): unknown[] {
   return out;
 }
 
+/**
+ * P23 S10a-2 · `screen-admin-health` (an a11y-only scene, realScreens.tsx) sets
+ * `window.__harnessRoles = ["admin"]` before its first render so the harness
+ * member reaches the real AdminPanel. Unset — every other scene — this returns
+ * undefined and `user_roles` / dashboard-init answer exactly as before.
+ */
+function harnessRoles(): string[] | undefined {
+  return (globalThis as { __harnessRoles?: string[] }).__harnessRoles;
+}
+function harnessRoleRows(): unknown[] | undefined {
+  return harnessRoles()?.map((role) => ({ user_id: HARNESS_USER_ID, role }));
+}
+
 export const fixtureRoutes: FakeRoute[] = [
   // ── Table reads ──────────────────────────────────────────────────────────
   ({ method, path, params }) => {
@@ -547,7 +560,7 @@ export const fixtureRoutes: FakeRoute[] = [
     if (!m) return undefined;
     const table = m[1];
     if (table in EMPTY_BY_DESIGN) return countable([], method);
-    const rows = TABLES[table];
+    const rows = table === "user_roles" ? harnessRoleRows() ?? TABLES[table] : TABLES[table];
     if (!rows) return undefined; // unknown table: report it, never invent it
     const matched = applyFilters(rows, params);
     return countable(narrow(matched, params) as unknown[], method, matched.length);
@@ -556,7 +569,12 @@ export const fixtureRoutes: FakeRoute[] = [
   // ── Edge functions ───────────────────────────────────────────────────────
   ({ method, path }) => {
     if (method !== "POST") return undefined;
-    if (path === "/functions/v1/dashboard-init") return { body: dashboardInit };
+    if (path === "/functions/v1/dashboard-init") {
+      // P23 S10a-2 — see harnessRoles(). Unset: answered exactly as before.
+      const roles = harnessRoles();
+      if (roles) return { body: { ...dashboardInit, roles: { [HARNESS_USER_ID]: roles } } };
+      return { body: dashboardInit };
+    }
     return undefined;
   },
 

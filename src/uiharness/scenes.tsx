@@ -32,7 +32,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { PrivacyGapNotice } from "@/components/post/PrivacyGapNotice";
 import { PostAudienceChooser, type Privacy } from "@/components/post/PostAudienceChooser";
 import type { UnifiedPost } from "@/types/post";
-import { REAL_SCREENS } from "./realScreens";
+import { REAL_SCREENS, A11Y_ONLY_SCREENS } from "./realScreens";
 import VideoPostComposer from "@/components/video/VideoPostComposer";
 import { ServerJobsTray } from "@/components/video/ServerVideoJobs";
 import ServerVideoReview from "@/components/video/ServerVideoReview";
@@ -1057,3 +1057,10 @@ export const SCENES: Record<string, () => JSX.Element> = {
     </div>
   ),
 };
+
+/**
+ * P23 S10a-2 · scenes reachable by `?scene=` but NOT listed on the harness
+ * index — so the visual sweep (which reads that index) never sees them. Only
+ * `tools/uishot/a11y-surfaces.mjs` opens them, by name. See realScreens.tsx.
+ */
+export const A11Y_ONLY_SCENES: Record<string, () => JSX.Element> = { ...A11Y_ONLY_SCREENS };
