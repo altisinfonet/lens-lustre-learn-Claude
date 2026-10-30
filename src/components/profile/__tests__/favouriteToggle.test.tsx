@@ -1,5 +1,5 @@
 /**
- * S12-F5 · ★ Add to Favourites / Remove on a member's profile.
+ * S12-F5 · ★ Favourites (add / remove) on a member's profile.
  *
  *   * the button reads the viewer's OWN row; tapping flips it at once and sends
  *     favouriteAuthor (outbox, natural key); tapping again sends
@@ -86,6 +86,21 @@ describe("S12-F5 ★ favourite toggle", () => {
     fireEvent.click(btn);
     await waitFor(() => expect(btn.getAttribute("aria-pressed")).toBe("false"));
     expect(h.unfavouriteAuthor).toHaveBeenCalledWith(ME, A);
+  });
+
+  it("visible label is just \"Favourites\" in both states; the star shows the state; a11y label stays descriptive", async () => {
+    mount();
+    const btn = await screen.findByTestId("profile-favourite-button");
+    await waitFor(() => expect((btn as HTMLButtonElement).disabled).toBe(false));
+    expect(btn.textContent?.trim()).toBe("Favourites");
+    expect(btn.textContent ?? "").not.toMatch(/Add to/i);
+    expect(btn.getAttribute("aria-label")).toBe("Add to Favourites");
+    expect(btn.querySelector("svg")?.getAttribute("fill")).toBe("none");
+    fireEvent.click(btn);
+    await waitFor(() => expect(btn.getAttribute("aria-pressed")).toBe("true"));
+    expect(btn.textContent?.trim()).toBe("Favourites");
+    expect(btn.getAttribute("aria-label")).toBe("Remove from Favourites");
+    expect(btn.querySelector("svg")?.getAttribute("fill")).toBe("currentColor");
   });
 
   it("reads an existing favourite from the viewer's own row", async () => {

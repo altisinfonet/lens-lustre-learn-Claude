@@ -510,7 +510,7 @@ const Feed = () => {
             <p className="text-xs text-muted-foreground" style={bodyFont}>
               {feedTab === "following"
                 ? "Follow photographers to see their newest posts here."
-                : "Open a member's profile and tap ★ Add to Favourites to see their posts here, newest first."}
+                : "Open a member's profile and tap ★ Favourites to see their posts here, newest first."}
             </p>
             <Link to="/discover" className="inline-block mt-4 text-[10px] tracking-[0.15em] uppercase text-primary hover:underline" style={headingFont}>
               Discover photographers
