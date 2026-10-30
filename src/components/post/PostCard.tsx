@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import PendingMark from "@/components/offline/PendingMark";
 import { submit } from "@/lib/offline/outbox";
 import ProfileLink from "@/components/ProfileLink";
@@ -18,6 +18,7 @@ import ContributorScore from "@/components/ContributorScore";
 import TaggedPeople from "@/components/post/TaggedPeople";
 import PostMedia from "@/components/post/PostMedia";
 import FeedVideoCard from "@/components/video/FeedVideoCard";
+import { COPYRIGHT_REASON, videoCopyrightReportOn } from "@/lib/video/takedown";
 import { useFeedSignals } from "@/hooks/feed/FeedSignalsContext";
 import { postMedia } from "@/lib/posts/subjectMedia";
 import Caption from "@/components/post/Caption";
@@ -93,6 +94,13 @@ const PostCard = ({
   // App Store 1.2: block the author from the post's own menu.
   const [blockOpen, setBlockOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
+  const [copyrightReportOn, setCopyrightReportOn] = useState(false);
+  useEffect(() => {
+    if (!reportingOpen) return;
+    let live = true;
+    void videoCopyrightReportOn().then((on) => { if (live) setCopyrightReportOn(on); });
+    return () => { live = false; };
+  }, [reportingOpen]);
   const [actionLoading, setActionLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editDraft, setEditDraft] = useState(post.content || "");
@@ -545,10 +553,14 @@ const PostCard = ({
           className="mx-3 mb-2 p-3 border border-border rounded-lg space-y-2.5 bg-muted/20">
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold" style={headingFont}>Why are you reporting this post?</span>
           <div className="flex flex-wrap gap-1.5">
-            {["Inappropriate", "Spam", "Harassment", "Nudity", "Hate Speech", "False Information", "Violence"].map((r) => (
+            {[
+              ...["Inappropriate", "Spam", "Harassment", "Nudity", "Hate Speech", "False Information", "Violence"].map((r) => [r, r]),
+              // S7-b · VID-4: copyright (music), on video posts only, while `video_report_copyright` is on.
+              ...(media.video && copyrightReportOn ? [[COPYRIGHT_REASON, "Copyright (music)"]] : []),
+            ].map(([r, label]) => (
               <button key={r} onClick={() => setReportReason(r)}
                 className={`text-[10px] px-2.5 py-1.5 border rounded-md transition-all ${reportReason === r ? "border-destructive text-destructive bg-destructive/5 font-medium" : "border-border text-muted-foreground hover:border-muted-foreground/50"}`}>
-                {r}
+                {label}
               </button>
             ))}
           </div>

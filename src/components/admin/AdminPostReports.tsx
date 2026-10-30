@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { AlertTriangle, Check, Trash2, Ban, Loader2, XCircle, CheckSquare, Square } from "lucide-react";
+import { AlertTriangle, Check, Trash2, Ban, Loader2, XCircle, CheckSquare, Square, VideoOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cachedFetchProfilesByIds } from "@/lib/profileBatch";
 import { toast } from "@/hooks/core/use-toast";
@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { useConfirmAction } from "@/hooks/admin/useConfirmAction";
 import type { User } from "@supabase/supabase-js";
+import { takedownVideo, COPYRIGHT_REASON } from "@/lib/video/takedown";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 
@@ -28,6 +29,8 @@ interface PostReport {
   post_user_id: string | null;
   post_user_name: string | null;
   reporter_name: string | null;
+  /** S7-b: the post's video, when it is a video post (admins read post_videos through RLS). */
+  video_id: string | null;
 }
 
 const AdminPostReports = ({ user }: Props) => {
@@ -59,9 +62,12 @@ const AdminPostReports = ({ user }: Props) => {
     const postIds = [...new Set(reportsData.map((r: any) => r.post_id))] as string[];
     const reporterIds = [...new Set(reportsData.map((r: any) => r.reporter_id))] as string[];
 
-    const [postsRes] = await Promise.all([
+    const [postsRes, videosRes] = await Promise.all([
       supabase.from("posts").select("id, content, user_id").in("id", postIds),
+      supabase.from("post_videos" as never).select("post_id, video_id").in("post_id", postIds) as unknown as
+        Promise<{ data: Array<{ post_id: string; video_id: string }> | null }>,
     ]);
+    const videoMap = new Map((videosRes.data || []).map((v) => [v.post_id, v.video_id]));
 
     const postMap = new Map((postsRes.data || []).map((p: any) => [p.id, p]));
 
@@ -77,6 +83,7 @@ const AdminPostReports = ({ user }: Props) => {
         post_user_id: post?.user_id || null,
         post_user_name: post?.user_id ? profileMap.get(post.user_id) || null : null,
         reporter_name: profileMap.get(r.reporter_id) || null,
+        video_id: videoMap.get(r.post_id) ?? null,
       };
     });
 
@@ -114,6 +121,24 @@ const AdminPostReports = ({ user }: Props) => {
       fetchReports();
     } catch (err: any) {
       toast({ title: "Action failed", description: err.message, variant: "destructive" });
+    }
+    setProcessing(null);
+  };
+
+  // S7-b · VID-4: hide the video everywhere at once and queue its files; the
+  // database closes every pending report of the post and tells the owner.
+  const handleTakedown = async (r: PostReport) => {
+    if (!r.video_id) return;
+    setProcessing(r.id);
+    try {
+      const res = await takedownVideo(r.video_id, r.id, r.reason === COPYRIGHT_REASON ? "copyright (music)" : r.reason);
+      toast({
+        title: res.status === "already" ? "Video was already taken down" : "Video taken down",
+        description: res.revokedList ? "Hidden everywhere now; playing copies stop within seconds." : "Hidden everywhere now; copies already playing stop within 15 minutes.",
+      });
+      fetchReports();
+    } catch (err) {
+      toast({ title: "Takedown failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     }
     setProcessing(null);
   };
@@ -222,7 +247,7 @@ const AdminPostReports = ({ user }: Props) => {
                       }`}>{r.status}</span>
                       <span className="text-[9px] text-muted-foreground">Reported by: {r.reporter_name || "Unknown"}</span>
                       <span className="text-[9px] text-muted-foreground">· {new Date(r.created_at).toLocaleDateString()}</span>
-                      <span className="text-[9px] px-1.5 py-0.5 bg-muted rounded-sm">{r.reason}</span>
+                      <span className="text-[9px] px-1.5 py-0.5 bg-muted rounded-sm">{r.reason === COPYRIGHT_REASON ? "Copyright (music)" : r.reason}</span>
                     </div>
                     <div className="mt-1.5 p-2 bg-muted/30 border border-border/50 rounded-sm">
                       <p className="text-[10px] text-muted-foreground mb-0.5">Post by <strong>{r.post_user_name || "Unknown"}</strong>:</p>
@@ -238,6 +263,19 @@ const AdminPostReports = ({ user }: Props) => {
                 <div className="flex flex-wrap gap-2 pt-1 pl-8">
                   {r.status === "pending" && (
                     <>
+                      {r.video_id && (
+                        <button onClick={() => confirm({
+                            title: "Take down video",
+                            description: "Hide this video everywhere now (feed, profile, post page). The owner is told and can upload a fixed version; the file is deleted after 30 days.",
+                            confirmLabel: "Take down",
+                            variant: "destructive",
+                            onConfirm: () => handleTakedown(r),
+                          })} disabled={processing === r.id}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-[9px] uppercase tracking-wider border border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground rounded-sm transition-all"
+                          style={headingFont} data-testid="report-takedown-video">
+                          <VideoOff className="h-2.5 w-2.5" /> Take down video
+                        </button>
+                      )}
                       <button onClick={() => handleAction(r.id, "remove_post", r.post_id, r.post_user_id)} disabled={processing === r.id}
                         className="inline-flex items-center gap-1 px-3 py-1.5 text-[9px] uppercase tracking-wider border border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground rounded-sm transition-all"
                         style={headingFont}>
