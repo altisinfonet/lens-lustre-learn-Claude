@@ -21,6 +21,8 @@ const ORIGIN = process.argv[2] || "https://www.50mmretina.com";
 const ENGINES = (process.argv[3] || "chromium,firefox,webkit").split(",");
 const PATHS = ["/", "/feed"];
 const B = { chromium, firefox, webkit };
+/** Never echo a key or token that a browser puts in a logged URL. */
+const scrub = (t) => t.replace(/([?&](?:apikey|access_token|token|key)=)[^&\s"']+/gi, "$1<redacted>");
 let bad = 0;
 
 for (const name of ENGINES) {
@@ -47,7 +49,7 @@ for (const name of ENGINES) {
     if (!ok) bad++;
     console.log(`${ok ? "✓" : "✗"} ${name.padEnd(8)} ${path.padEnd(6)} status=${status} text=${texts[1].length} chars same-both-loads=${texts[0] === texts[1]}`);
     console.log(`    starts: ${texts[1].slice(0, 100)}`);
-    for (const x of [...new Set(errors)]) console.log(`    console: ${x}`);
+    for (const x of [...new Set(errors)]) console.log(`    console: ${scrub(x)}`);
   }
   await browser.close();
 }
