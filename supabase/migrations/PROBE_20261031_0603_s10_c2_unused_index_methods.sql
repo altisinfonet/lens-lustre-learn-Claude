@@ -31,7 +31,9 @@ DO $probe$
 DECLARE
   sys_schemas text[] := ARRAY['auth','storage','realtime','graphql','graphql_public','extensions',
                               'vault','cron','net','pgsodium','pgsodium_masks','supabase_functions',
-                              'supabase_migrations','_realtime','_analytics','pgbouncer','pg_net'];
+                              'supabase_migrations','_realtime','_analytics','pgbouncer','pg_net',
+                              '_timescaledb_cache','_timescaledb_catalog','_timescaledb_config','_timescaledb_internal',
+                              'pgroonga','pgtle','repack','tiger','topology'];
   m1 int; m2 int; m3 int; m4 int; m5 int; l int; p int;
   reset_at timestamptz; window_days numeric;
   names text;
