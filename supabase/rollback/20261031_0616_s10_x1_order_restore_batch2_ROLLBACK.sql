@@ -403,27 +403,22 @@ SELECT pg_temp.x1_ro_prepare('support_tickets', 'ASC');
 SELECT pg_temp.x1_ro_prepare('user_devices', 'ASC');
 SELECT pg_temp.x1_ro_prepare('v3_tag_label_alias', 'ASC');
 
--- Phase 2: every exclusive lock at once,
--- then ALTER, ORDER, BIND, E2-after and POST per table under one 3 s cap.
--- The whole LOCK statement gets 3 s: readers queue behind the locks it already
--- holds while it waits for the next one, so the wait is bounded too.
-SET LOCAL statement_timeout = '3s';
-LOCK TABLE public.ad_creatives, public.ai_chat_usage, public.certificates, public.comment_reports, public.course_enrollments, public.custom_url_history, public.post_reports, public.reports, public.support_tickets, public.user_devices, public.v3_tag_label_alias IN ACCESS EXCLUSIVE MODE;
-SET LOCAL statement_timeout = '60s';
-SELECT set_config('x1ro.t_lock', clock_timestamp()::text, true);
-SELECT pg_temp.x1_ro_finish('ad_creatives', 'ASC');
-SELECT pg_temp.x1_ro_finish('ai_chat_usage', 'ASC');
-SELECT pg_temp.x1_ro_finish('certificates', 'ASC');
-SELECT pg_temp.x1_ro_finish('comment_reports', 'ASC');
-SELECT pg_temp.x1_ro_finish('course_enrollments', 'ASC');
-SELECT pg_temp.x1_ro_finish('custom_url_history', 'ASC');
-SELECT pg_temp.x1_ro_finish('post_reports', 'ASC');
-SELECT pg_temp.x1_ro_finish('reports', 'ASC');
-SELECT pg_temp.x1_ro_finish('support_tickets', 'ASC');
-SELECT pg_temp.x1_ro_finish('user_devices', 'ASC');
-SELECT pg_temp.x1_ro_finish('v3_tag_label_alias', 'ASC');
-DO $done$
+-- Phase 2 in ONE statement (one round trip to the server, so the lock window
+-- holds only the work, not a network round trip per table): every exclusive
+-- lock at once,
+-- then ALTER, ORDER, BIND, E2-after and POST per table. statement_timeout 5 s
+-- is a hard ceiling on the whole phase, lock waits included (it interrupts a
+-- step, unlike the 3 s WIN check, which runs between steps).
+SET LOCAL statement_timeout = '5s';
+DO $phase2$
+DECLARE
+  t text;
 BEGIN
+  LOCK TABLE public.ad_creatives, public.ai_chat_usage, public.certificates, public.comment_reports, public.course_enrollments, public.custom_url_history, public.post_reports, public.reports, public.support_tickets, public.user_devices, public.v3_tag_label_alias IN ACCESS EXCLUSIVE MODE;
+  PERFORM set_config('x1ro.t_lock', clock_timestamp()::text, true);
+  FOREACH t IN ARRAY ARRAY['ad_creatives', 'ai_chat_usage', 'certificates', 'comment_reports', 'course_enrollments', 'custom_url_history', 'post_reports', 'reports', 'support_tickets', 'user_devices', 'v3_tag_label_alias'] LOOP
+    PERFORM pg_temp.x1_ro_finish(t, 'ASC');
+  END LOOP;
   IF clock_timestamp() - current_setting('x1ro.t_lock')::timestamptz > interval '3 seconds' THEN
     RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive locks have been held over 3 s — rolled back, nothing changed';
   END IF;
@@ -431,7 +426,8 @@ BEGIN
     current_setting('p32.lane'), (SELECT count(*) FROM pg_temp.x1_ro_state),
     round(extract(epoch FROM clock_timestamp() - current_setting('x1ro.t_lock')::timestamptz) * 1000);
 END
-$done$;
+$phase2$;
+SET LOCAL statement_timeout = '60s';
 
 -- The helpers are session objects: drop them so a pooled session reused by a
 -- later run cannot trip over them (the state table drops itself at COMMIT).

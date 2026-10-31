@@ -30,7 +30,8 @@
 -- with no exclusive lock: plan, DRIFT, E2-before and E1 for every table, the
 -- state kept in a session-only temp table. Phase 2 takes every exclusive lock
 -- of this batch at once, then ALTER, ORDER, BIND, E2-after and POST per table,
--- under one 3 s WIN cap for the whole batch. The lock window is the same one
+-- all in one statement (no network round trip per table inside the lock
+-- window; 0615 measured 1.6 s on staging with one statement per table). The lock window is the same one
 -- the batch's own merge (0613) already ran on production.
 --
 -- PROOF, per table (REPEATABLE READ; ACCESS SHARE taken before the snapshot;
@@ -51,10 +52,9 @@
 --           before and after.
 --   POST  · restrictive policies byte-identical; the permissive set (names,
 --           commands, roles) unchanged.
---   WIN   · the exclusive locks are held at most about 3 s for the whole
---           batch (checked between steps; one slow step can run past it, up
---           to the 60 s statement_timeout). Taking them is bounded too:
---           lock_timeout 2 s per lock and 3 s for the whole LOCK statement.
+--   WIN   · phase 2 (taking every exclusive lock, then the work) is ONE
+--           statement with a hard 5 s statement_timeout; the 3 s WIN check
+--           runs between steps on top of that; lock_timeout is 2 s per lock.
 --
 -- PROBE:    supabase/migrations/PROBE_20261031_0619_s10_x1_order_restore_user_roles.sql
 -- Rollback: supabase/rollback/20261031_0619_s10_x1_order_restore_user_roles_ROLLBACK.sql
@@ -447,17 +447,22 @@ $f$;
 -- Phase 1, no exclusive lock: plan, DRIFT, E2-before and E1 for every table.
 SELECT pg_temp.x1_ro_prepare('user_roles', 'DESC');
 
--- Phase 2: every exclusive lock at once,
--- then ALTER, ORDER, BIND, E2-after and POST per table under one 3 s cap.
--- The whole LOCK statement gets 3 s: readers queue behind the locks it already
--- holds while it waits for the next one, so the wait is bounded too.
-SET LOCAL statement_timeout = '3s';
-LOCK TABLE public.user_roles IN ACCESS EXCLUSIVE MODE;
-SET LOCAL statement_timeout = '60s';
-SELECT set_config('x1ro.t_lock', clock_timestamp()::text, true);
-SELECT pg_temp.x1_ro_finish('user_roles', 'DESC');
-DO $done$
+-- Phase 2 in ONE statement (one round trip to the server, so the lock window
+-- holds only the work, not a network round trip per table): every exclusive
+-- lock at once,
+-- then ALTER, ORDER, BIND, E2-after and POST per table. statement_timeout 5 s
+-- is a hard ceiling on the whole phase, lock waits included (it interrupts a
+-- step, unlike the 3 s WIN check, which runs between steps).
+SET LOCAL statement_timeout = '5s';
+DO $phase2$
+DECLARE
+  t text;
 BEGIN
+  LOCK TABLE public.user_roles IN ACCESS EXCLUSIVE MODE;
+  PERFORM set_config('x1ro.t_lock', clock_timestamp()::text, true);
+  FOREACH t IN ARRAY ARRAY['user_roles'] LOOP
+    PERFORM pg_temp.x1_ro_finish(t, 'DESC');
+  END LOOP;
   IF clock_timestamp() - current_setting('x1ro.t_lock')::timestamptz > interval '3 seconds' THEN
     RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive locks have been held over 3 s — rolled back, nothing changed';
   END IF;
@@ -465,7 +470,8 @@ BEGIN
     current_setting('p32.lane'), (SELECT count(*) FROM pg_temp.x1_ro_state),
     round(extract(epoch FROM clock_timestamp() - current_setting('x1ro.t_lock')::timestamptz) * 1000);
 END
-$done$;
+$phase2$;
+SET LOCAL statement_timeout = '60s';
 
 -- The helpers are session objects: drop them so a pooled session reused by a
 -- later run cannot trip over them (the state table drops itself at COMMIT).

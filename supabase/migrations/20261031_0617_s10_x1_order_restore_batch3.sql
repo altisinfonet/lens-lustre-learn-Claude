@@ -30,7 +30,8 @@
 -- with no exclusive lock: plan, DRIFT, E2-before and E1 for every table, the
 -- state kept in a session-only temp table. Phase 2 takes every exclusive lock
 -- of this batch at once, then ALTER, ORDER, BIND, E2-after and POST per table,
--- under one 3 s WIN cap for the whole batch. The lock window is the same one
+-- all in one statement (no network round trip per table inside the lock
+-- window; 0615 measured 1.6 s on staging with one statement per table). The lock window is the same one
 -- the batch's own merge (0611) already ran on production.
 --
 -- PROOF, per table (REPEATABLE READ; ACCESS SHARE taken before the snapshot;
@@ -51,10 +52,9 @@
 --           before and after.
 --   POST  · restrictive policies byte-identical; the permissive set (names,
 --           commands, roles) unchanged.
---   WIN   · the exclusive locks are held at most about 3 s for the whole
---           batch (checked between steps; one slow step can run past it, up
---           to the 60 s statement_timeout). Taking them is bounded too:
---           lock_timeout 2 s per lock and 3 s for the whole LOCK statement.
+--   WIN   · phase 2 (taking every exclusive lock, then the work) is ONE
+--           statement with a hard 5 s statement_timeout; the 3 s WIN check
+--           runs between steps on top of that; lock_timeout is 2 s per lock.
 --
 -- PROBE:    supabase/migrations/PROBE_20261031_0617_s10_x1_order_restore_batch3.sql
 -- Rollback: supabase/rollback/20261031_0617_s10_x1_order_restore_batch3_ROLLBACK.sql
@@ -469,39 +469,22 @@ SELECT pg_temp.x1_ro_prepare('wallet_transactions', 'DESC');
 SELECT pg_temp.x1_ro_prepare('wallets', 'DESC');
 SELECT pg_temp.x1_ro_prepare('withdrawal_requests', 'DESC');
 
--- Phase 2: every exclusive lock at once,
--- then ALTER, ORDER, BIND, E2-after and POST per table under one 3 s cap.
--- The whole LOCK statement gets 3 s: readers queue behind the locks it already
--- holds while it waits for the next one, so the wait is bounded too.
-SET LOCAL statement_timeout = '3s';
-LOCK TABLE public.bank_details, public.competition_judges, public.competition_judging_tags, public.competition_orders, public.entry_score_cache, public.judge_activity_logs, public.judge_award_tags, public.judge_comments, public.judge_decisions, public.judge_entry_assignments, public.judge_entry_locks, public.judge_scores, public.judge_tag_assignments, public.judging_config, public.judging_rounds, public.raw_commitments, public.referral_codes, public.referrals, public.role_applications, public.round_snapshots, public.wallet_transactions, public.wallets, public.withdrawal_requests IN ACCESS EXCLUSIVE MODE;
-SET LOCAL statement_timeout = '60s';
-SELECT set_config('x1ro.t_lock', clock_timestamp()::text, true);
-SELECT pg_temp.x1_ro_finish('bank_details', 'DESC');
-SELECT pg_temp.x1_ro_finish('competition_judges', 'DESC');
-SELECT pg_temp.x1_ro_finish('competition_judging_tags', 'DESC');
-SELECT pg_temp.x1_ro_finish('competition_orders', 'DESC');
-SELECT pg_temp.x1_ro_finish('entry_score_cache', 'DESC');
-SELECT pg_temp.x1_ro_finish('judge_activity_logs', 'DESC');
-SELECT pg_temp.x1_ro_finish('judge_award_tags', 'DESC');
-SELECT pg_temp.x1_ro_finish('judge_comments', 'DESC');
-SELECT pg_temp.x1_ro_finish('judge_decisions', 'DESC');
-SELECT pg_temp.x1_ro_finish('judge_entry_assignments', 'DESC');
-SELECT pg_temp.x1_ro_finish('judge_entry_locks', 'DESC');
-SELECT pg_temp.x1_ro_finish('judge_scores', 'DESC');
-SELECT pg_temp.x1_ro_finish('judge_tag_assignments', 'DESC');
-SELECT pg_temp.x1_ro_finish('judging_config', 'DESC');
-SELECT pg_temp.x1_ro_finish('judging_rounds', 'DESC');
-SELECT pg_temp.x1_ro_finish('raw_commitments', 'DESC');
-SELECT pg_temp.x1_ro_finish('referral_codes', 'DESC');
-SELECT pg_temp.x1_ro_finish('referrals', 'DESC');
-SELECT pg_temp.x1_ro_finish('role_applications', 'DESC');
-SELECT pg_temp.x1_ro_finish('round_snapshots', 'DESC');
-SELECT pg_temp.x1_ro_finish('wallet_transactions', 'DESC');
-SELECT pg_temp.x1_ro_finish('wallets', 'DESC');
-SELECT pg_temp.x1_ro_finish('withdrawal_requests', 'DESC');
-DO $done$
+-- Phase 2 in ONE statement (one round trip to the server, so the lock window
+-- holds only the work, not a network round trip per table): every exclusive
+-- lock at once,
+-- then ALTER, ORDER, BIND, E2-after and POST per table. statement_timeout 5 s
+-- is a hard ceiling on the whole phase, lock waits included (it interrupts a
+-- step, unlike the 3 s WIN check, which runs between steps).
+SET LOCAL statement_timeout = '5s';
+DO $phase2$
+DECLARE
+  t text;
 BEGIN
+  LOCK TABLE public.bank_details, public.competition_judges, public.competition_judging_tags, public.competition_orders, public.entry_score_cache, public.judge_activity_logs, public.judge_award_tags, public.judge_comments, public.judge_decisions, public.judge_entry_assignments, public.judge_entry_locks, public.judge_scores, public.judge_tag_assignments, public.judging_config, public.judging_rounds, public.raw_commitments, public.referral_codes, public.referrals, public.role_applications, public.round_snapshots, public.wallet_transactions, public.wallets, public.withdrawal_requests IN ACCESS EXCLUSIVE MODE;
+  PERFORM set_config('x1ro.t_lock', clock_timestamp()::text, true);
+  FOREACH t IN ARRAY ARRAY['bank_details', 'competition_judges', 'competition_judging_tags', 'competition_orders', 'entry_score_cache', 'judge_activity_logs', 'judge_award_tags', 'judge_comments', 'judge_decisions', 'judge_entry_assignments', 'judge_entry_locks', 'judge_scores', 'judge_tag_assignments', 'judging_config', 'judging_rounds', 'raw_commitments', 'referral_codes', 'referrals', 'role_applications', 'round_snapshots', 'wallet_transactions', 'wallets', 'withdrawal_requests'] LOOP
+    PERFORM pg_temp.x1_ro_finish(t, 'DESC');
+  END LOOP;
   IF clock_timestamp() - current_setting('x1ro.t_lock')::timestamptz > interval '3 seconds' THEN
     RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive locks have been held over 3 s — rolled back, nothing changed';
   END IF;
@@ -509,7 +492,8 @@ BEGIN
     current_setting('p32.lane'), (SELECT count(*) FROM pg_temp.x1_ro_state),
     round(extract(epoch FROM clock_timestamp() - current_setting('x1ro.t_lock')::timestamptz) * 1000);
 END
-$done$;
+$phase2$;
+SET LOCAL statement_timeout = '60s';
 
 -- The helpers are session objects: drop them so a pooled session reused by a
 -- later run cannot trip over them (the state table drops itself at COMMIT).
