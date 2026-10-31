@@ -7,7 +7,7 @@ function laneImageHosts(): string[] {
   const hosts: string[] = [];
   for (const read of [() => cdnHost(), () => new URL(siteOrigin()).hostname,
                       () => new URL(Deno.env.get("SUPABASE_URL") ?? "").hostname]) {
-    try { const h = read(); if (h) hosts.push(h); } catch { /* not configured on this lane */ }
+    try { const h = read(); if (h) hosts.push(h.toLowerCase()); } catch { /* not configured on this lane */ }
   }
   return hosts;
 }
@@ -130,13 +130,14 @@ Deno.serve(async (req) => {
     const accessToken = await getAccessToken(sa);
     const endpoint = `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`;
 
+    const imageHosts = image_url ? laneImageHosts() : [];   // once per call, not per device
     let sent = 0;
     const stale: string[] = [];
     for (const { token } of tokens) {
       const message = buildFcmMessage({
         token, title, body, data,
         imageUrl: image_url, category, groupKey: group_key, deliveryId: delivery_id,
-        imageHosts: image_url ? laneImageHosts() : [],
+        imageHosts,
       });
       const r = await fetch(endpoint, {
         method: "POST",

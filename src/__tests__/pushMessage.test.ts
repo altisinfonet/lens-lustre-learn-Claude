@@ -95,6 +95,6 @@ describe("send-push uses the builder (so what is tested is what is sent)", () =>
     expect(src).toMatch(/import \{ buildFcmMessage \} from "\.\.\/_shared\/pushMessage\.ts"/);
     expect(src).toMatch(/buildFcmMessage\(\{/);
     expect(src).not.toMatch(/notification:\s*\{\s*title/);
-    expect(src).toMatch(/imageHosts: image_url \? laneImageHosts\(\) : \[\]/);
+    expect(src).toMatch(/image_url \? laneImageHosts\(\) : \[\]/);
   });
 });
