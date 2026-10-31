@@ -17,25 +17,15 @@
       "desktop-1280": {
         "A:color-contrast": 3
       },
-      "iphone-390": {
-        "A:button-name": 2
-      }
+      "iphone-390": {}
     },
     "screen-discover": {
       "desktop-1280": {},
       "iphone-390": {}
     },
     "screen-edit-profile": {
-      "desktop-1280": {
-        "A:aria-progressbar-name": 1,
-        "A:button-name": 1,
-        "A:select-name": 3
-      },
-      "iphone-390": {
-        "A:aria-progressbar-name": 1,
-        "A:button-name": 1,
-        "A:select-name": 3
-      }
+      "desktop-1280": {},
+      "iphone-390": {}
     },
     "screen-feed": {
       "desktop-1280": {},
@@ -63,7 +53,6 @@
     },
     "screen-profile": {
       "desktop-1280": {
-        "A:button-name": 1,
         "A:link-in-text-block": 1
       },
       "iphone-390": {}

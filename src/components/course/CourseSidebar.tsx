@@ -114,7 +114,7 @@ const CourseSidebar = ({
                 {progressPercent}%
               </span>
             </div>
-            <Progress value={progressPercent} className="h-1.5" />
+            <Progress value={progressPercent} className="h-1.5" aria-label="Course progress" />
             <p className="text-[10px] text-muted-foreground mt-2" style={bodyFont}>
               {completedLessons.size} {t("crs.of")} {lessons.length} {t("crs.lessonsCompleted")}
             </p>
