@@ -1,7 +1,7 @@
 # Video + accessibility runner — status
 
 Started 2026-10-30 01:47 UTC. Replaces the earlier supervisor session (no GitHub trace after 2026-10-29 14:19 UTC).
-Last update: 2026-10-31 03:55 UTC.
+Last update: 2026-10-31 04:05 UTC.
 
 THIRD RESTART 2026-10-31 ~03:55 UTC: previous run stopped silently after its 18:23 UTC heartbeat (S10a-4 never pushed; will be rebuilt fresh later). PAUSE cancelled by Owner RESUME. Order now, one PR at a time: 1 VID-6 cost alerts → 2 privacy text → 3 S7 gate table → 4 Android 1.2.33 → 5 S10a-3, S10a-4.
 
@@ -10,7 +10,7 @@ SECOND RESTART 2026-10-30 ~07:15 UTC: the run stopped silently again at ~05:15 U
 RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. A new run took over at 05:05 UTC. Checked GitHub: nobody else pushed to or merged #538-#542 or #619 since 02:00 UTC.
 
 ## Now
-03:55 UTC — Restarted. Inspecting VID-6 (8 GB R2 storage alarm via public.ops_alarms).
+04:05 UTC — VID-6 PR #724 open (SQL 0702 video alarms: 8 GB storage line + 6-h music wait). Local PROBE FAIL→PASS on both lane fixtures. Waiting for CI + independent review.
 
 ## Units
 | Unit | PR | State | Merged sha (staging / main) | SQL runs | Live check |
@@ -20,6 +20,7 @@ RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. 
 | S10a-2 P23 CI checks A–E (red first) | #699 | MERGED 15:07 UTC (26/26 green incl. the new P23 check; RED-FIRST run 41073429903; review BLOCKING → fail-first 305a1c70 → fix → re-review nothing blocking) | staging fd2077f9 / main d682ae66 (carry #701, 15:24 UTC, 25/25 green incl. P23 check on main, review nothing blocking) | none | live run 41080648000 (main d682ae66): 6/6 pages 200, same text, no new console errors |
 | S10a-4 P23 scripted keyboard + screen-reader walkthrough (Chromium + WebKit) | — | NOT STARTED (earlier local build lost; restart after S7) | — | none | — |
 | S7-f converter runs the purge hourly (own refreshing sign-in) | #695 | MERGED 14:37 UTC (24/24 green incl. converter aarch64 + x86_64; review nothing blocking) | staging 3919424b / main b6437294 (carry #697, 14:37 UTC, 24/24 green after re-running the flaky ads job; review nothing blocking) | none | — |
+| S7 VID-6 video alarms (8 GB storage, 6-h music wait) | #724 | OPEN — CI + review running | — | 0702: not run yet | — |
 | S7-a PROBE fix: admin read lane-proof | #673 | MERGED 11:08 UTC (33/33 green; review nothing blocking ×2) | staging 9b4e0201 / main 50a1ff9f (in #681) | — | — |
 | S7-a purge-queue deleter | #539 | MERGED 09:10 UTC (36/36 checks green; re-review nothing blocking) | staging 75f78f67 / main 50a1ff9f (carry #681 with #673, 12:07 UTC, 35/35 green, review nothing blocking) | 0700 STAGING: PROBE-before 41040556611 FAIL G1 (expected) · apply 41040769034 SUCCESS 10:27 · PROBE-after 41042014241 ERROR (PROBE bug → #673) · PROBE-after 41045879133 **PASS** 11:10 UTC. Production: PROBE-before 41053131761 FAIL G1 (expected, 12:25) · apply 41055299050 COMMIT 12:31 · PROBE-after 41056104158 **PASS** 12:33 UTC | live run 41053135653 (main 50a1ff9f): 6/6 pages 200, same text, no new console errors | — |
 | S7-e encoder harness fixtures | #540 | MERGED 09:45 UTC (25/25 checks green incl. encoder harness; review BLOCKING ×3 → fixed with fail-first test f6723b2b → re-review nothing blocking) | staging 9e943369 / main 628ddea9 (carry #685, 12:50 UTC, 24/24 green, review nothing blocking) | none | live run 41058422608: 6/6 pages 200, same text, no new console errors |
