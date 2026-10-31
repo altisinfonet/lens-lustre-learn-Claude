@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildFcmMessage } from "../_shared/pushMessage.ts";
 import { startPushReceipt, finishPushReceipt, fcmErrorCode } from "../_shared/pushReceipts.ts";
+import { sendWithRetry } from "../_shared/pushRetry.ts";
 import { cdnHost, siteOrigin } from "../_shared/laneConfig.ts";
 
 /** This lane's own hosts, from its environment. Missing config → no images (never a guess). */
@@ -154,11 +155,14 @@ Deno.serve(async (req) => {
           imageUrl: image_url, category, groupKey: group_key, deliveryId,
           imageHosts,
         });
-        const r = await fetch(endpoint, {
+        const post = () => fetch(endpoint, {
           method: "POST",
           headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
           body: JSON.stringify({ message }),
         });
+        // N4: one retry on a temporary failure, only for a push with a receipt
+        // (its group is switched on); every other push is sent once, as today.
+        const r = receiptId !== null ? await sendWithRetry(post) : await post();
         if (r.ok) {
           sent++;
         } else {
