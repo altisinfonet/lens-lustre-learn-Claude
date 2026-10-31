@@ -4,8 +4,13 @@
  * bell. The centre reads the saved row (0110) and, for a group switched on,
  * push follows it (0170). Shown only with the centre screens on.
  *
- * Saving is optimistic only after the server says yes: a failed save shows an
- * alert and leaves the control as it was.
+ * - The control changes only after the server says yes; a failed save shows
+ *   an alert and leaves things as they were.
+ * - A failed LOAD is said out loud and the switch stays disabled, so a member
+ *   who already has quiet hours can never overwrite them by accident.
+ * - Times save when the member leaves the field, not on every keystroke.
+ * - Old zone names that phones still report (Asia/Calcutta …) are sent under
+ *   today's name, which the database knows.
  */
 import { useEffect, useState } from "react";
 import { Moon } from "lucide-react";
@@ -13,14 +18,37 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useT } from "@/i18n/I18nContext";
 
-type Saved = { starts: string; ends: string } | null;
+type Hours = { starts: string; ends: string };
+type QuietRow = { starts?: string | null; ends?: string | null };
 
 const DEFAULT_STARTS = "22:00";
 const DEFAULT_ENDS = "07:00";
 const hhmm = (t: string) => t.slice(0, 5);
+
+/** Old IANA names some browsers still report → the current names. */
+const OLD_ZONE_NAMES: Record<string, string> = {
+  "Asia/Calcutta": "Asia/Kolkata",
+  "Asia/Katmandu": "Asia/Kathmandu",
+  "Asia/Saigon": "Asia/Ho_Chi_Minh",
+  "Asia/Rangoon": "Asia/Yangon",
+  "Asia/Dacca": "Asia/Dhaka",
+  "Asia/Thimbu": "Asia/Thimphu",
+  "Asia/Ulan_Bator": "Asia/Ulaanbaatar",
+  "Europe/Kiev": "Europe/Kyiv",
+  "America/Buenos_Aires": "America/Argentina/Buenos_Aires",
+  "Atlantic/Faeroe": "Atlantic/Faroe",
+  "Pacific/Truk": "Pacific/Chuuk",
+  "Pacific/Ponape": "Pacific/Pohnpei",
+};
+
+export function canonicalZone(zone: string): string {
+  if (!zone) return "UTC";
+  return OLD_ZONE_NAMES[zone] ?? zone;
+}
+
 const phoneZone = () => {
   try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    return canonicalZone(Intl.DateTimeFormat().resolvedOptions().timeZone || "");
   } catch {
     return "UTC";
   }
@@ -28,22 +56,30 @@ const phoneZone = () => {
 
 export default function QuietHoursSetting() {
   const t = useT();
-  const [loaded, setLoaded] = useState(false);
-  const [saved, setSaved] = useState<Saved>(null);
+  const [state, setState] = useState<"loading" | "ready" | "load_failed">("loading");
+  const [saved, setSaved] = useState<Hours | null>(null);
+  const [draft, setDraft] = useState<Hours | null>(null);
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const zone = phoneZone();
 
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const { data } = await supabase.rpc("notif_quiet_hours_get" as never);
-        const row = Array.isArray(data) ? (data[0] as { starts?: string; ends?: string } | undefined) : undefined;
-        if (alive && row?.starts && row?.ends) setSaved({ starts: hhmm(row.starts), ends: hhmm(row.ends) });
+        const { data, error } = await supabase.rpc("notif_quiet_hours_get" as never);
+        if (error) throw error;
+        const rows = ((data ?? []) as unknown as QuietRow[]) ?? [];
+        const row = rows[0];
+        if (!alive) return;
+        if (row?.starts && row?.ends) {
+          const h = { starts: hhmm(row.starts), ends: hhmm(row.ends) };
+          setSaved(h);
+          setDraft(h);
+        }
+        setState("ready");
       } catch {
-        /* nothing saved is the safe reading */
-      } finally {
-        if (alive) setLoaded(true);
+        if (alive) setState("load_failed");
       }
     })();
     return () => {
@@ -51,22 +87,30 @@ export default function QuietHoursSetting() {
     };
   }, []);
 
-  const save = async (next: Saved) => {
+  const save = async (next: Hours | null) => {
     setBusy(true);
-    setFailed(false);
+    setSaveFailed(false);
     try {
       const { error } = await supabase.rpc("notif_quiet_hours_set" as never, {
         _starts: next ? next.starts : null,
         _ends: next ? next.ends : null,
-        _tz: next ? phoneZone() : null,
+        _tz: next ? zone : null,
       } as never);
       if (error) throw error;
       setSaved(next);
+      setDraft(next);
     } catch {
-      setFailed(true);
+      setSaveFailed(true);
+      setDraft(saved);                          // back to what is really saved
     } finally {
       setBusy(false);
     }
+  };
+
+  const commit = () => {
+    if (!draft || !saved) return;
+    if (!draft.starts || !draft.ends) return setDraft(saved);
+    if (draft.starts !== saved.starts || draft.ends !== saved.ends) void save(draft);
   };
 
   const on = saved !== null;
@@ -79,44 +123,50 @@ export default function QuietHoursSetting() {
         <div className="min-w-0 flex-1">
           <p id="quiet-hours-title" className="text-sm font-medium text-foreground">{label}</p>
           <p id="quiet-hours-desc" className="text-xs text-muted-foreground">
-            {t("notif.quiet.desc", "No phone alerts between these times. They still appear in your notifications.")}
+            {t("notif.quiet.desc", "No phone alerts between these times. They still appear in your notifications.")}{" "}
+            {t("notif.quiet.zone", "Times are in your phone's time zone")} ({zone}).
           </p>
         </div>
         <Switch
           aria-label={label}
           aria-describedby="quiet-hours-desc"
           checked={on}
-          disabled={!loaded || busy}
+          disabled={state !== "ready" || busy}
           onCheckedChange={(v) => save(v ? { starts: DEFAULT_STARTS, ends: DEFAULT_ENDS } : null)}
         />
       </div>
 
-      {on && (
+      {on && draft && (
         <div className="mt-3 flex flex-wrap items-center gap-4 pl-7">
-          <label className="flex items-center gap-2 text-xs text-foreground">
+          <label className="flex items-center gap-2 text-sm text-foreground">
             {t("notif.quiet.from", "From")}
             <input
               type="time"
-              value={saved.starts}
-              disabled={busy}
-              onChange={(e) => e.target.value && save({ starts: e.target.value, ends: saved.ends })}
-              className="rounded-md border border-input bg-background px-2 py-1 text-xs"
+              value={draft.starts}
+              onChange={(e) => setDraft({ ...draft, starts: e.target.value })}
+              onBlur={commit}
+              className="min-h-11 rounded-md border border-input bg-background px-2 py-1 text-base"
             />
           </label>
-          <label className="flex items-center gap-2 text-xs text-foreground">
+          <label className="flex items-center gap-2 text-sm text-foreground">
             {t("notif.quiet.to", "To")}
             <input
               type="time"
-              value={saved.ends}
-              disabled={busy}
-              onChange={(e) => e.target.value && save({ starts: saved.starts, ends: e.target.value })}
-              className="rounded-md border border-input bg-background px-2 py-1 text-xs"
+              value={draft.ends}
+              onChange={(e) => setDraft({ ...draft, ends: e.target.value })}
+              onBlur={commit}
+              className="min-h-11 rounded-md border border-input bg-background px-2 py-1 text-base"
             />
           </label>
         </div>
       )}
 
-      {failed && (
+      {state === "load_failed" && (
+        <p role="alert" className="mt-2 pl-7 text-xs text-destructive">
+          {t("notif.quiet.load_failed", "Could not load quiet hours. Please try again later.")}
+        </p>
+      )}
+      {saveFailed && (
         <p role="alert" className="mt-2 pl-7 text-xs text-destructive">
           {t("notif.quiet.failed", "Could not save quiet hours. Try again.")}
         </p>

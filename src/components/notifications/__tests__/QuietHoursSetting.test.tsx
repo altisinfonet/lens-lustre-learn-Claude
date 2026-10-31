@@ -10,9 +10,9 @@ const rpc = vi.fn();
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { rpc: (...a: unknown[]) => rpc(...a) } }));
 vi.mock("@/i18n/I18nContext", () => ({ useT: () => (_k: string, fb?: string) => fb ?? _k }));
 
-import QuietHoursSetting from "@/components/notifications/QuietHoursSetting";
+import QuietHoursSetting, { canonicalZone } from "@/components/notifications/QuietHoursSetting";
 
-const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const zone = canonicalZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
 
 describe("QuietHoursSetting", () => {
   beforeEach(() => {
@@ -49,6 +49,9 @@ describe("QuietHoursSetting", () => {
     expect(from).toHaveValue("23:00");
     expect(screen.getByLabelText("To")).toHaveValue("06:30");
     fireEvent.change(screen.getByLabelText("To"), { target: { value: "07:15" } });
+    // typing alone saves nothing (no save per keystroke, no lost focus)
+    expect(rpc).not.toHaveBeenCalledWith("notif_quiet_hours_set", expect.anything());
+    fireEvent.blur(screen.getByLabelText("To"));
     await waitFor(() => expect(rpc).toHaveBeenCalledWith("notif_quiet_hours_set", { _starts: "23:00", _ends: "07:15", _tz: zone }));
     fireEvent.click(screen.getByRole("switch", { name: "Quiet hours" }));
     await waitFor(() => expect(rpc).toHaveBeenCalledWith("notif_quiet_hours_set", { _starts: null, _ends: null, _tz: null }));
@@ -64,5 +67,29 @@ describe("QuietHoursSetting", () => {
     fireEvent.click(sw);
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not save quiet hours. Try again.");
     expect(sw).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("a failed load says so and offers no switch to press (never overwrites saved hours)", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "network" } });
+    render(<QuietHoursSetting />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not load quiet hours.");
+    expect(screen.getByRole("switch", { name: "Quiet hours" })).toBeDisabled();
+  });
+
+  it("names the time zone the times are in", async () => {
+    rpc.mockResolvedValue({ data: [], error: null });
+    render(<QuietHoursSetting />);
+    expect(await screen.findByText(new RegExp(`Times are in your phone's time zone \\(${zone.replace(/[/+]/g, (c) => "\\" + c)}\\)`))).toBeInTheDocument();
+  });
+});
+
+describe("canonicalZone", () => {
+  it("maps old zone names phones still report to today's names", () => {
+    expect(canonicalZone("Asia/Calcutta")).toBe("Asia/Kolkata");
+    expect(canonicalZone("Asia/Katmandu")).toBe("Asia/Kathmandu");
+    expect(canonicalZone("Asia/Saigon")).toBe("Asia/Ho_Chi_Minh");
+    expect(canonicalZone("Europe/Kiev")).toBe("Europe/Kyiv");
+    expect(canonicalZone("Asia/Kolkata")).toBe("Asia/Kolkata");
+    expect(canonicalZone("")).toBe("UTC");
   });
 });
