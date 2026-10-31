@@ -1,7 +1,7 @@
 # Video + accessibility runner — status
 
 Started 2026-10-30 01:47 UTC. Replaces the earlier supervisor session (no GitHub trace after 2026-10-29 14:19 UTC).
-Last update: 2026-10-31 08:20 UTC.
+Last update: 2026-10-31 09:05 UTC.
 
 THIRD RESTART 2026-10-31 ~03:55 UTC: previous run stopped silently after its 18:23 UTC heartbeat (S10a-4 never pushed; will be rebuilt fresh later). PAUSE cancelled by Owner RESUME. Order now, one PR at a time: 1 VID-6 cost alerts → 2 privacy text → 3 S7 gate table → 4 Android 1.2.33 → 5 S10a-3, S10a-4.
 
@@ -11,7 +11,7 @@ RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. 
 
 ## Now
 07:30 UTC — **S7 100% (Owner steps left: Play Data safety, Apple App Privacy, video rollout + phone/3-browser test, install 1.2.33 and test video + Upload resume).** Android 1.2.33 built: run **41178510127** SUCCESS.
-08:20 UTC — S10a-3 part A LIVE on main 6c996b1a (carry #737; live check 41183379027 clean). Part B PR #738: RED-first run 41183915257, fix 79c5285d pushed (local: axe nodes 31 → 14; found and fixed: every progress bar was announced 'indeterminate'). CI + independent review running.
+09:05 UTC — S10a-3 part A LIVE on main 6c996b1a. Part B #738: review found and I fixed (each with a fail-first test) a headless screen-reader label for rows of deleted accounts, a nav-journey regression (run 41184132307: row text no longer clickable) and a UI-gate reachability failure (run 41185664796: the full-row button was covered by text). Now the open button holds the visible action text; re-checking UI gate, nav journeys and a11y harness locally before pushing.
 
 ## Units
 | Unit | PR | State | Merged sha (staging / main) | SQL runs | Live check |
