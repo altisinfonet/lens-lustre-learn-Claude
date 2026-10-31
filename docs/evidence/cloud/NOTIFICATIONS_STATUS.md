@@ -2,7 +2,7 @@ N0 IN PROGRESS
 
 # Notification centre runner — status
 
-Heartbeat: 2026-10-31 12:05 UTC — N0 PROBE #748 in review round 4 (rounds 1–3 each found a way the public CI log could show a secret or personal data; final design prints no function source at all). N5 guard #752 in review round 2. Branch for status only; never merged.
+Heartbeat: 2026-10-31 11:26 UTC (measured with `date -u`) — N0 PROBE #748: review nothing blocking after 4 rounds, waiting on CI (repo-wide runner queue ~280; I cancelled my own 108 superseded runs). N5 guard #752: review nothing blocking, final one-line confirm pending. N2 core drafted and passing 24 local fixture cases. Branch for status only; never merged.
 
 | Step | What | PR | Merged sha (staging / main) | SQL runs (lane · run id · result · UTC) | Live check | % |
 |---|---|---|---|---|---|---|
@@ -17,6 +17,9 @@ Heartbeat: 2026-10-31 12:05 UTC — N0 PROBE #748 in review round 4 (rounds 1–
 | N8 | Staged rollout steps for the Owner | — | — | — | — | 0 |
 
 ## Notes
+- CORRECTION: the two earlier heartbeats on this branch were stamped 11:40 and
+  12:05 UTC; those times were estimated, not measured, and were wrong (the
+  real clock was earlier). Every time from here is read from the clock.
 - N2 shadow on production will be a READ-ONLY replay PROBE over the 24 h after
   N2 is applied (the centre's decision is computed for every real row from that
   window and compared) — nothing new runs or is switched on in production.
