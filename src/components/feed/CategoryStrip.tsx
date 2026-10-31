@@ -60,6 +60,65 @@ export interface CategoryStripProps {
 /** How far one press of ‹ or › travels. Roughly five chips. */
 const NUDGE_PX = 320;
 
+/*
+ * Chip and Arrow live at module scope ON PURPOSE. Declared inside
+ * CategoryStrip, every render made them new component types, so React rebuilt
+ * every chip button; a Tab into the strip scrolls it, the scroll flips the
+ * arrow state, and the focused chip was destroyed (focus fell to <body>).
+ * src/__tests__/categoryStripFocus.test.tsx pins this.
+ */
+function Chip({
+  slug, label, Icon, active, onPick,
+}: {
+  slug: string; label: string; Icon: ReturnType<typeof categoryIcon>;
+  active: boolean; onPick: (slug: string, active: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onPick(slug, active)}
+      aria-pressed={active}
+      className={cn(
+        "flex shrink-0 flex-col items-center gap-1 px-3 py-2 transition-colors",
+        "border-b-2",
+        // ⚠ AMBER, NOT `primary`. Owner's app mock, 2026-08-12: the selected
+        // chip and its underline are orange. `text-primary` is the site's
+        // blue and is what shipped first — it is not this control's colour.
+        active
+          ? "border-amber-500 text-amber-500"
+          : "border-transparent text-muted-foreground hover:text-foreground",
+      )}
+    >
+      <Icon className="h-6 w-6" aria-hidden="true" />
+      <span className="whitespace-nowrap text-xs font-medium">{label}</span>
+    </button>
+  );
+}
+
+function Arrow({
+  dir, show, label, onNudge,
+}: { dir: -1 | 1; show: boolean; label: string; onNudge: (dir: -1 | 1) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onNudge(dir)}
+      aria-label={label}
+      // `hidden md:flex` — a phone swipes, and an arrow there is a chip's worth
+      // of stolen width. `invisible` rather than unmounted at the ends so the
+      // row does not jump sideways as the last chip scrolls into view.
+      className={cn(
+        "absolute top-0 bottom-0 z-10 hidden w-8 items-center justify-center md:flex",
+        "bg-gradient-to-r from-card via-card/90 to-transparent text-muted-foreground",
+        "hover:text-foreground",
+        dir === -1 ? "left-0" : "right-8 rotate-180",
+        !show && "pointer-events-none opacity-0",
+      )}
+    >
+      <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+    </button>
+  );
+}
+
 export default function CategoryStrip({ value, onChange, className }: CategoryStripProps) {
   const { data: categories = [] } = useCategories();
   const t = useT();
@@ -100,52 +159,6 @@ export default function CategoryStrip({ value, onChange, className }: CategorySt
     onChange(active && slug !== ALL_FILTER ? ALL_FILTER : slug);
     setGridOpen(false);
   };
-
-  const Chip = ({
-    slug, label, Icon,
-  }: { slug: string; label: string; Icon: ReturnType<typeof categoryIcon> }) => {
-    const active = value === slug;
-    return (
-      <button
-        type="button"
-        onClick={() => pick(slug, active)}
-        aria-pressed={active}
-        className={cn(
-          "flex shrink-0 flex-col items-center gap-1 px-3 py-2 transition-colors",
-          "border-b-2",
-          // ⚠ AMBER, NOT `primary`. Owner's app mock, 2026-08-12: the selected
-          // chip and its underline are orange. `text-primary` is the site's
-          // blue and is what shipped first — it is not this control's colour.
-          active
-            ? "border-amber-500 text-amber-500"
-            : "border-transparent text-muted-foreground hover:text-foreground",
-        )}
-      >
-        <Icon className="h-6 w-6" aria-hidden="true" />
-        <span className="whitespace-nowrap text-xs font-medium">{label}</span>
-      </button>
-    );
-  };
-
-  const Arrow = ({ dir, show }: { dir: -1 | 1; show: boolean }) => (
-    <button
-      type="button"
-      onClick={() => nudge(dir)}
-      aria-label={dir === -1 ? t("common.previous", "Previous") : t("common.next", "Next")}
-      // `hidden md:flex` — a phone swipes, and an arrow there is a chip's worth
-      // of stolen width. `invisible` rather than unmounted at the ends so the
-      // row does not jump sideways as the last chip scrolls into view.
-      className={cn(
-        "absolute top-0 bottom-0 z-10 hidden w-8 items-center justify-center md:flex",
-        "bg-gradient-to-r from-card via-card/90 to-transparent text-muted-foreground",
-        "hover:text-foreground",
-        dir === -1 ? "left-0" : "right-8 rotate-180",
-        !show && "pointer-events-none opacity-0",
-      )}
-    >
-      <ChevronLeft className="h-5 w-5" aria-hidden="true" />
-    </button>
-  );
 
   return (
     <div className={cn("relative border-b bg-card/60", className)}>
@@ -196,7 +209,8 @@ export default function CategoryStrip({ value, onChange, className }: CategorySt
         aria-label={t("feed.categories", "Categories")}
       >
         {/* Always first, always present, default selection. */}
-        <Chip slug={ALL_FILTER} label={t("cat.all", "All")} Icon={ALL_ICON} />
+        <Chip slug={ALL_FILTER} label={t("cat.all", "All")} Icon={ALL_ICON}
+          active={value === ALL_FILTER} onPick={pick} />
         {categories.map((c) => (
           <Chip
             key={c.slug}
@@ -204,12 +218,14 @@ export default function CategoryStrip({ value, onChange, className }: CategorySt
             // The slug is a storage key and is never rendered.
             label={t(categoryLabelKey(c.slug), c.name)}
             Icon={categoryIcon(c.icon_name)}
+            active={value === c.slug}
+            onPick={pick}
           />
         ))}
       </div>
 
-      <Arrow dir={-1} show={canLeft} />
-      <Arrow dir={1} show={canRight} />
+      <Arrow dir={-1} show={canLeft} label={t("common.previous", "Previous")} onNudge={nudge} />
+      <Arrow dir={1} show={canRight} label={t("common.next", "Next")} onNudge={nudge} />
 
       {/* The way out of scrolling entirely: every category, one screen. */}
       <button
