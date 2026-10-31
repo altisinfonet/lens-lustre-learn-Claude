@@ -21,7 +21,7 @@ SET LOCAL statement_timeout = '60s';
 DO $probe$
 DECLARE
   r record; ln text; i int; def text;
-  secret_re constant text := '(eyJ[A-Za-z0-9_-]{10,}|bearer\s|apikey|api_key|service_role|sk_(live|test)_|secret|password)';
+  secret_re constant text := '(eyJ[A-Za-z0-9_-]{10,}|bearer\s|basic\s|authorization|api[-_]?key|access[-_]?key|private[-_]?key|(access|auth|refresh|api|bot|bearer|id)[-_]?token|["'']token["'']\s*[:=]|service_role|sk_(live|test)_|ghp_|AKIA|secret|password|passwd)';
 BEGIN
   IF coalesce(current_setting('p32.lane', true), '') NOT IN ('staging', 'production') THEN
     RAISE EXCEPTION 'PROBE REFUSED — p32.lane is not staging or production';
@@ -49,16 +49,17 @@ BEGIN
     RAISE NOTICE 'DEF|END|fn|%|lines=%', r.sig, i;
   END LOOP;
 
-  IF to_regclass('public.v_judging_drift') IS NOT NULL THEN
+  IF (SELECT relkind FROM pg_class WHERE oid = to_regclass('public.v_judging_drift')) IN ('v', 'm') THEN
     SELECT pg_get_viewdef('public.v_judging_drift'::regclass) INTO def;
     IF def ~* secret_re THEN
-      RAISE EXCEPTION 'PROBE STOP 0624 — v_judging_drift text looks like it holds a credential; not printed';
+      RAISE NOTICE 'DEF|REDACTED|view|public.v_judging_drift|md5=%|looks like it holds a credential; definition not printed', md5(def);
+      def := NULL;
     END IF;
     RAISE NOTICE 'DEF|BEGIN|view|public.v_judging_drift|md5=%|reloptions=%|owner=%', md5(def),
       (SELECT coalesce(array_to_string(reloptions, ','), '-') FROM pg_class WHERE oid = 'public.v_judging_drift'::regclass),
       (SELECT relowner::regrole FROM pg_class WHERE oid = 'public.v_judging_drift'::regclass);
     i := 0;
-    FOREACH ln IN ARRAY string_to_array(def, E'\n') LOOP
+    FOREACH ln IN ARRAY coalesce(string_to_array(def, E'\n'), ARRAY[]::text[]) LOOP
       i := i + 1;
       RAISE NOTICE 'DEF|public.v_judging_drift|%|%', lpad(i::text, 5, '0'), ln;
     END LOOP;
@@ -70,8 +71,12 @@ BEGIN
             WHERE NOT tg.tgisinternal
               AND (p.prosrc ~ '(wallet_ledger_v2_diff_log|v3_mirror_log|wallet_ledger_v2_rows)' OR p.prosrc ~ 'db_audit_logs')
             ORDER BY tg.tgrelid::regclass::text, tg.tgname LOOP
-    RAISE NOTICE 'TRG|%|%|enabled=%|%', r.tbl, r.tgname,
-      (SELECT tgenabled FROM pg_trigger WHERE tgname = r.tgname AND tgrelid = r.tbl), r.d;
+    IF r.d ~* secret_re THEN
+      RAISE NOTICE 'TRG|REDACTED|%|%|definition looks like it holds a credential; not printed', r.tbl, r.tgname;
+    ELSE
+      RAISE NOTICE 'TRG|%|%|enabled=%|%', r.tbl, r.tgname,
+        (SELECT tgenabled FROM pg_trigger WHERE tgname = r.tgname AND tgrelid = r.tbl), r.d;
+    END IF;
   END LOOP;
 
   RAISE NOTICE 'P0624|done';
