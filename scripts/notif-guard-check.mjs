@@ -28,6 +28,11 @@
 //   · Anything applied outside git. The nightly live count (N5 part 2) reads
 //     the live catalogue for that.
 //
+//   · Functions in any schema are read; a public one is keyed "sql:<name>",
+//     any other "sql:<schema>.<name>". Overloads share one key (by name).
+//   · supabase-js shapes seen: .from("t"), .from("t" as any), .from(CONST) where
+//     CONST = "t" in the same file, and const q = x.from("t"); q.insert(...).
+//
 // ALLOW-LIST: { "sql:<function_name>": "<reason>", "file:<path>": "<reason>" }.
 // An empty reason is an error; an entry that matches nothing is an error, so
 // the list cannot rot and a removed writer must also leave the list.
@@ -43,15 +48,46 @@ import { fileURLToPath } from "node:url";
 
 const TABLES = "(?:user_notifications|admin_notifications)";
 const SQL_INSERT = new RegExp(`\\binsert\\s+into\\s+(?:"?public"?\\s*\\.\\s*)?"?${TABLES}"?\\b`, "i");
-const CREATE_FN = /\bcreate\s+(?:or\s+replace\s+)?(function|procedure)\s+(?:"?public"?\s*\.\s*)?"?([a-z0-9_]+)"?\s*\(/gi;
-const DROP_FN = /\bdrop\s+(?:function|procedure)\s+(?:if\s+exists\s+)?(?:"?public"?\s*\.\s*)?"?([a-z0-9_]+)"?/gi;
+const IDENT = String.raw`"?([A-Za-z_][A-Za-z0-9_]*)"?`;
+const QUAL = String.raw`(?:${IDENT}\s*\.\s*)?${IDENT}`;
+const CREATE_FN = new RegExp(String.raw`\bcreate\s+(?:or\s+replace\s+)?(function|procedure)\s+${QUAL}\s*\(`, "gi");
+const DROP_FN = new RegExp(String.raw`\bdrop\s+(?:function|procedure)\s+(?:if\s+exists\s+)?${QUAL}`, "gi");
 
-/** Remove -- and /* *\/ comments (not inside dollar-quoted strings — bodies are passed in already unquoted). */
+/** "public.x" and "x" are both keyed "x"; any other schema keeps its prefix ("private.x"). */
+const fnKey = (schema, name) => {
+  const sch = (schema || "public").toLowerCase();
+  return sch === "public" ? name.toLowerCase() : `${sch}.${name.toLowerCase()}`;
+};
+
+/** Remove -- and /* *\/ comments that are outside single-quoted SQL strings. */
 export function stripSqlComments(s) {
-  return s.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/--[^\n]*/g, " ");
+  let out = "";
+  for (let i = 0; i < s.length; ) {
+    const c = s[i];
+    if (c === "'") {
+      let j = i + 1;
+      while (j < s.length) { if (s[j] === "'") { if (s[j + 1] === "'") { j += 2; continue; } break; } j++; }
+      out += s.slice(i, j + 1); i = j + 1;
+    } else if (c === "-" && s[i + 1] === "-") {
+      const j = s.indexOf("\n", i); out += " "; i = j < 0 ? s.length : j;
+    } else if (c === "/" && s[i + 1] === "*") {
+      const j = s.indexOf("*/", i + 2); out += " "; i = j < 0 ? s.length : j + 2;
+    } else { out += c; i++; }
+  }
+  return out;
 }
 
-/** Every function/procedure body in one SQL text, in order: [{name, body, at}] plus drops [{name, at}]. */
+/** Read a single-quoted SQL string starting at s[i] === "'"; returns [content, endIndex]. */
+function readQuoted(s, i) {
+  let j = i + 1, out = "";
+  while (j < s.length) {
+    if (s[j] === "'") { if (s[j + 1] === "'") { out += "'"; j += 2; continue; } return [out, j + 1]; }
+    out += s[j++];
+  }
+  return [out, j];
+}
+
+/** Every function/procedure body in one SQL text, in order: creates {name, body, at} and drops {name, at}. */
 export function sqlEvents(text) {
   const events = [];
   let m;
@@ -59,26 +95,30 @@ export function sqlEvents(text) {
   while ((m = CREATE_FN.exec(text))) {
     const lineStart = text.lastIndexOf("\n", m.index) + 1;
     if (text.slice(lineStart, m.index).trim().startsWith("--")) continue;
-    const rest = text.slice(m.index + m[0].length);
-    const as = /\bAS\s+(\$[A-Za-z0-9_]*\$)/i.exec(rest);
-    const atomic = /\bBEGIN\s+ATOMIC\b/i.exec(rest);
+    const from = m.index + m[0].length;
+    // The body is the first AS <dollar-quote> / AS '<string>' / BEGIN ATOMIC after the
+    // header, and must start before the next CREATE (so a body never comes from the next function).
+    const nextCreate = text.slice(from).search(/\bcreate\s+(?:or\s+replace\s+)?(?:function|procedure|trigger|table|view|index|policy)\b/i);
+    const header = nextCreate >= 0 ? text.slice(from, from + nextCreate) : text.slice(from);
+    const as = /\bAS\s+(\$[A-Za-z0-9_]*\$|')/i.exec(header);
+    const atomic = /\bBEGIN\s+ATOMIC\b/i.exec(header);
     let body = null;
     if (as && (!atomic || as.index < atomic.index)) {
-      const start = m.index + m[0].length + as.index + as[0].length;
-      const end = text.indexOf(as[1], start);
-      if (end > 0) body = text.slice(start, end);
+      const start = from + as.index + as[0].length;
+      if (as[1] === "'") body = readQuoted(text, start - 1)[0];
+      else { const end = text.indexOf(as[1], start); if (end > 0) body = text.slice(start, end); }
     } else if (atomic) {
-      const start = m.index + m[0].length + atomic.index;
+      const start = from + atomic.index;
       const end = text.slice(start).search(/\bEND\s*;/i);
       body = end > 0 ? text.slice(start, start + end) : text.slice(start);
     }
-    if (body !== null) events.push({ kind: "create", name: m[2].toLowerCase(), body, at: m.index });
+    if (body !== null) events.push({ kind: "create", name: fnKey(m[2], m[3]), body, at: m.index });
   }
   DROP_FN.lastIndex = 0;
   while ((m = DROP_FN.exec(text))) {
     const lineStart = text.lastIndexOf("\n", m.index) + 1;
     if (text.slice(lineStart, m.index).trim().startsWith("--")) continue;
-    events.push({ kind: "drop", name: m[1].toLowerCase(), at: m.index });
+    events.push({ kind: "drop", name: fnKey(m[1], m[2]), at: m.index });
   }
   return events.sort((a, b) => a.at - b.at);
 }
@@ -97,16 +137,45 @@ export function sqlWriters(files) {
   return out;
 }
 
+/** Remove // and /* *\/ comments that are outside JS string / template literals. */
+export function stripJsComments(s) {
+  let out = "";
+  for (let i = 0; i < s.length; ) {
+    const c = s[i];
+    if (c === '"' || c === "'" || c === "`") {
+      let j = i + 1;
+      while (j < s.length && s[j] !== c) { if (s[j] === "\\") j++; else if (c !== "`" && s[j] === "\n") break; j++; }
+      out += s.slice(i, j + 1); i = j + 1;
+    } else if (c === "/" && s[i + 1] === "/") {
+      const j = s.indexOf("\n", i); i = j < 0 ? s.length : j;
+    } else if (c === "/" && s[i + 1] === "*") {
+      const j = s.indexOf("*/", i + 2); out += " "; i = j < 0 ? s.length : j + 2;
+    } else { out += c; i++; }
+  }
+  return out;
+}
+
+const TABLE_LIT = String.raw`["'\x60]${TABLES}["'\x60]`;
+
 /** Does this TS/TSX text insert/upsert into a notification table via supabase-js? */
 export function tsWrites(text) {
-  const re = new RegExp(`\\.from\\(\\s*["'\`]${TABLES}["'\`]\\s*\\)`, "g");
+  const src = stripJsComments(text);
+  // identifiers bound to the table name:  const TABLE = "user_notifications"
+  const names = [...src.matchAll(new RegExp(String.raw`\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::\s*[\w<>\[\]|" ]+)?=\s*${TABLE_LIT}`, "g"))].map((m) => m[1]);
+  const ref = names.length ? `(?:${TABLE_LIT}|${names.map((n) => n.replace(/\$/g, "\\$")).join("|")})` : TABLE_LIT;
+  const fromRe = new RegExp(String.raw`\.from\(\s*${ref}\s*(?:as\s+[\w<>\[\]]+\s*)?\)`, "g");
   let m;
-  const noComments = text.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/[^\n]*/g, "$1");
-  while ((m = re.exec(noComments))) {
-    const tail = noComments.slice(m.index + m[0].length, m.index + m[0].length + 400);
-    const stop = tail.search(/;|\n\s*\n/);
+  while ((m = fromRe.exec(src))) {
+    // The chain continues while the next line starts with "." (method chaining);
+    // it ends at ";", a blank line, or a line that starts with anything else.
+    const tail = src.slice(m.index + m[0].length, m.index + m[0].length + 600);
+    const stop = tail.search(/;|\n\s*\n|\n(?!\s*\.)/);
     const chain = stop >= 0 ? tail.slice(0, stop) : tail;
-    if (/^\s*(?:\.\s*\w+\([^)]*\)\s*)*?\.\s*(insert|upsert)\s*\(/.test(chain) || /\.\s*(insert|upsert)\s*\(/.test(chain)) return true;
+    if (/\.\s*(insert|upsert)\s*\(/.test(chain)) return true;
+    // query builder held in a variable:  const q = sb.from("t"); … q.insert(
+    const before = src.slice(Math.max(0, m.index - 200), m.index);
+    const v = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:await\s+)?[\w$.]*$/.exec(before);
+    if (v && new RegExp(String.raw`\b${v[1].replace(/\$/g, "\\$")}\s*\.\s*(insert|upsert)\s*\(`).test(src.slice(m.index))) return true;
   }
   return false;
 }
@@ -115,7 +184,9 @@ function walk(dir, pred, acc = []) {
   if (!existsSync(dir)) return acc;
   for (const n of readdirSync(dir)) {
     const p = join(dir, n);
-    if (statSync(p).isDirectory()) {
+    let st;
+    try { st = statSync(p); } catch { continue; } // broken symlink: nothing to read
+    if (st.isDirectory()) {
       if (n === "node_modules" || n === "__tests__") continue;
       walk(p, pred, acc);
     } else if (pred(p)) acc.push(p);
@@ -175,4 +246,6 @@ function main() {
   console.log("notif-guard: OK — no writer outside the allow-list.");
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) main();
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  try { main(); } catch (e) { console.error(`notif-guard: error — ${e.stack || e}`); process.exit(2); }
+}

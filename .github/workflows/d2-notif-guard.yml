@@ -6,16 +6,10 @@ name: D2 · Notification stray-writer guard
 # moves each group of makers onto it. See the header of
 # scripts/notif-guard-check.mjs for what it reads and what it cannot see.
 
+# No path filter: the job takes seconds, and a filtered check that is ever made
+# required would leave unrelated PRs waiting on it forever.
 on:
   pull_request:
-    paths:
-      - 'supabase/migrations/**'
-      - 'supabase/functions/**'
-      - 'src/**'
-      - 'scripts/notif-guard-check.mjs'
-      - 'scripts/notif-guard-check.test.mjs'
-      - 'scripts/notif-guard-allow.json'
-      - '.github/workflows/d2-notif-guard.yml'
   workflow_dispatch:
 
 permissions:

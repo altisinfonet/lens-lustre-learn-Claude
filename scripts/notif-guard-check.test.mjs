@@ -21,6 +21,14 @@ ok(w(fn("a3", 'BEGIN INSERT INTO "public"."user_notifications" (user_id) VALUES 
 ok(w("CREATE PROCEDURE public.a4() LANGUAGE plpgsql AS $$ BEGIN INSERT INTO public.admin_notifications(type) VALUES ('p'); END $$;").includes("a4"), "a procedure");
 ok(w(fn("a5", "BEGIN RETURN NEW; END;"), fn("a5", "BEGIN INSERT INTO public.user_notifications(user_id) VALUES (1); END;")).includes("a5"), "a later definition that adds an insert");
 
+ok(w("CREATE FUNCTION private.a6() RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$ BEGIN INSERT INTO public.user_notifications(user_id) VALUES (1); END $$;").includes("private.a6"), "a function in another schema (keyed schema.name)");
+ok(w("CREATE FUNCTION public.a7() RETURNS int LANGUAGE sql AS 'select 1';\n" + fn("a8", "BEGIN INSERT INTO public.user_notifications(user_id) VALUES (1); END;")).join() === "a8", "a single-quoted body (same file) does not swallow the next function's body");
+ok(w("CREATE FUNCTION public.a9() RETURNS void LANGUAGE sql AS 'INSERT INTO public.admin_notifications(type) VALUES (''x'')';").includes("a9"), "a single-quoted body that inserts");
+
+console.log("SQL — schema and string edge cases");
+ok(w(fn("b7", "BEGIN INSERT INTO public.user_notifications(user_id) VALUES (1); END;"), "DROP FUNCTION private.b7();").includes("b7"), "dropping private.b7 does not forget public.b7");
+ok(w(fn("b8", "BEGIN PERFORM 'a /* b'; INSERT INTO public.user_notifications(user_id) VALUES (1); PERFORM '*/'; END;")).includes("b8"), "comment markers inside SQL strings do not hide an insert");
+
 console.log("SQL — must NOT be a writer");
 ok(!w(fn("b1", "BEGIN -- INSERT INTO public.user_notifications would be wrong\n RETURN NEW; END;")).includes("b1"), "insert only in a -- comment");
 ok(!w(fn("b2", "BEGIN /* INSERT INTO user_notifications */ RETURN NEW; END;")).includes("b2"), "insert only in a /* */ comment");
@@ -34,7 +42,13 @@ ok(tsWrites(`await supabase.from("user_notifications").insert({ user_id: x });`)
 ok(tsWrites(`await admin\n  .from('admin_notifications')\n  .upsert(rows);`), "multi-line .upsert(");
 ok(tsWrites("const { error } = await db.from(`admin_notifications`).insert(notifRows);"), "template-literal table name");
 
+ok(tsWrites(`await supabase.from("user_notifications" as any).insert({ user_id: x });`), "from(\"t\" as any).insert(");
+ok(tsWrites(`const TABLE = "admin_notifications";\nawait sb.from(TABLE).insert(rows);`), "table name held in a const");
+ok(tsWrites(`const q = sb.from("user_notifications");\nawait q.insert({ user_id: u });`), "query builder held in a variable");
+ok(tsWrites(`const glob = "src/**";\nawait sb.from("user_notifications").insert({});\nconst end = "*/";`), "comment markers inside strings do not hide an insert");
+
 console.log("TS — must NOT be a writer");
+ok(!tsWrites(`const a = await sb.from("user_notifications").select("id")\nconst b = await sb.from("posts").insert({})`), "no-semicolon style: insert on another table on the next line");
 ok(!tsWrites(`await supabase.from("user_notifications").select("id").eq("user_id", u);`), "select");
 ok(!tsWrites(`await supabase.from("user_notifications").delete().in("id", ids);`), "delete");
 ok(!tsWrites(`await supabase.from("user_notifications").update({ is_read: true }).eq("id", 1);`), "update");
