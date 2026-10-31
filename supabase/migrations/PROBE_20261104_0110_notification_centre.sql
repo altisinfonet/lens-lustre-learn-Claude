@@ -38,7 +38,7 @@ BEGIN
      OR has_function_privilege('authenticated', 'public.notification_centre_emit(text, uuid, uuid, uuid, text, text, text)', 'EXECUTE')
      OR has_function_privilege('authenticated', 'public.notification_centre_decide(text, uuid, uuid, uuid, timestamptz, uuid)', 'EXECUTE')
      OR has_function_privilege('authenticated', 'public.notification_centre_replay(timestamptz, timestamptz)', 'EXECUTE')
-     OR has_function_privilege('authenticated', 'public.notification_centre_live(text)', 'EXECUTE') THEN
+     OR has_function_privilege('authenticated', 'public.notification_centre_live(text, uuid)', 'EXECUTE') THEN
     RAISE EXCEPTION 'PROBE FAIL: anon/authenticated can reach a centre table or function';
   END IF;
   IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.notification_types'::regclass)
@@ -49,9 +49,14 @@ BEGIN
 
   -- every switch OFF
   SELECT count(*) INTO n FROM public.site_settings s
-   WHERE s.key LIKE 'notif\_centre\_%' AND s.value = to_jsonb('live'::text);
+   WHERE s.key LIKE 'notif\_centre\_%' AND (s.value = to_jsonb('live'::text) OR jsonb_typeof(s.value) = 'object');
   IF n <> 0 THEN
-    RAISE EXCEPTION 'PROBE FAIL: % notif_centre_* switch(es) are live — N2 ships with every group OFF', n;
+    RAISE EXCEPTION 'PROBE FAIL: % notif_centre_* switch(es) are on (live or a members list) — N2 ships with every group OFF', n;
+  END IF;
+  -- every "always on" type names no settings column (the CHECK, re-read)
+  IF EXISTS (SELECT 1 FROM public.notification_types WHERE NOT member_can_disable
+               AND (pref_in_app IS NOT NULL OR pref_push IS NOT NULL OR pref_email IS NOT NULL)) THEN
+    RAISE EXCEPTION 'PROBE FAIL: an always-on type names a settings column';
   END IF;
 
   -- the registry is seeded, and every preference column it names exists

@@ -8,8 +8,10 @@
 -- type: rows today wrote, rows the centre would also send, rows it would
 -- skip and why (reason → count), and how many would get push / e-mail.
 --
--- Window: [apply, apply + 24 h), apply = the registry seed time
--- (min(notification_types.updated_at), written once by 0110's seed).
+-- Window: [apply, apply + 24 h), apply = min(notification_types.seeded_at),
+-- written once by 0110's seed and never updated (an N6 wording edit cannot
+-- move the window). Refuses to replay without an index that leads with
+-- user_notifications.user_id (each decision looks up that member's rows).
 -- FAILS (expected) until the window is complete; PASSES once it is, and
 -- prints the comparison. "Every difference explained" is then written up in
 -- docs/evidence/notifications/N2_SHADOW.md — a PROBE cannot judge a reason.
@@ -34,7 +36,11 @@ BEGIN
   IF to_regclass('public.notification_types') IS NULL THEN
     RAISE EXCEPTION 'PROBE FAIL: 0110 not applied on this lane';
   END IF;
-  SELECT min(updated_at) INTO since FROM public.notification_types;
+  IF NOT EXISTS (SELECT 1 FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = i.indkey[0]
+                  WHERE i.indrelid = 'public.user_notifications'::regclass AND a.attname = 'user_id') THEN
+    RAISE EXCEPTION 'PROBE FAIL: no index leads with user_notifications.user_id — replay would scan per row; not run';
+  END IF;
+  SELECT min(seeded_at) INTO since FROM public.notification_types;
   until := since + interval '24 hours';
   IF now() < until THEN
     RAISE EXCEPTION 'SHADOW INCOMPLETE (lane %): window % → %, % elapsed — run again after %',

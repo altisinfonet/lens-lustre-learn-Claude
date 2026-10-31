@@ -24,8 +24,8 @@ BEGIN
     RAISE EXCEPTION 'NC-0110-RB-PRE-001: 20261104_0110 is not applied on this lane — nothing to roll back';
   END IF;
   IF EXISTS (SELECT 1 FROM public.site_settings s
-              WHERE s.key LIKE 'notif\_centre\_%' AND s.value = to_jsonb('live'::text)) THEN
-    RAISE EXCEPTION 'NC-0110-RB-PRE-002: a notif_centre_* switch is live — switch it off (and move its makers back) first';
+              WHERE s.key LIKE 'notif\_centre\_%' AND (s.value = to_jsonb('live'::text) OR jsonb_typeof(s.value) = 'object')) THEN
+    RAISE EXCEPTION 'NC-0110-RB-PRE-002: a notif_centre_* switch is on (live or a members list) — switch it off (and move its makers back) first';
   END IF;
   IF EXISTS (SELECT 1 FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace
               AND p.proname NOT LIKE 'notification\_centre\_%'
@@ -38,7 +38,7 @@ $pre$;
 DROP FUNCTION IF EXISTS public.notification_centre_replay(timestamptz, timestamptz);
 DROP FUNCTION IF EXISTS public.notification_centre_emit(text, uuid, uuid, uuid, text, text, text);
 DROP FUNCTION IF EXISTS public.notification_centre_decide(text, uuid, uuid, uuid, timestamptz, uuid);
-DROP FUNCTION IF EXISTS public.notification_centre_live(text);
+DROP FUNCTION IF EXISTS public.notification_centre_live(text, uuid);
 DROP TABLE IF EXISTS public.notification_centre_log;
 DROP TABLE IF EXISTS public.notification_quiet_hours;
 DROP TABLE IF EXISTS public.notification_types;

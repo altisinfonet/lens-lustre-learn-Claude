@@ -13,8 +13,10 @@
 --            (empty until N7's settings screen; read by the decision only).
 --   table    public.notification_centre_log   one row per centre decision,
 --            written ONLY by notification_centre_emit while a group is live.
---   function public.notification_centre_live(group)  the switch, per group:
---            site_settings key notif_centre_<group> = "live". No row = OFF.
+--   function public.notification_centre_live(group, recipient)  the switch,
+--            per group: site_settings notif_centre_<group> = "live" (everyone)
+--            or {"users": [...]} (only those members — staged rollout). No
+--            row = OFF.
 --            THIS FILE INSERTS NO SWITCH ROW. Switching on is the Owner's.
 --   function public.notification_centre_decide(type, recipient, actor,
 --            reference, at, exclude_id) → {send, reasons[], channels{}}.
@@ -99,8 +101,13 @@ CREATE TABLE public.notification_types (
                        CHECK (dedup_window BETWEEN interval '0' AND interval '7 days'),
   rate_per_hour      integer     CHECK (rate_per_hour IS NULL OR rate_per_hour > 0),
   enabled            boolean     NOT NULL DEFAULT true,
+  seeded_at          timestamptz NOT NULL DEFAULT now(),   -- never updated: anchors the N2 shadow window
   updated_at         timestamptz NOT NULL DEFAULT now(),
-  updated_by         uuid
+  updated_by         uuid,
+  -- a channel a member may switch off names its settings column; an
+  -- "always on" type names none (N7 shows those as "Always on" rows)
+  CONSTRAINT notification_types_disable_consistent
+    CHECK (member_can_disable OR (pref_in_app IS NULL AND pref_push IS NULL AND pref_email IS NULL))
 );
 ALTER TABLE public.notification_types ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.notification_types FROM PUBLIC, anon, authenticated;
@@ -137,16 +144,25 @@ ALTER TABLE public.notification_centre_log ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.notification_centre_log FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT ON public.notification_centre_log TO service_role;
 
--- ── 4. the switch, per group: site_settings notif_centre_<group> = "live" ──
-CREATE FUNCTION public.notification_centre_live(_group text)
+-- ── 4. the switch, per group: site_settings notif_centre_<group>
+--      "live"                      → on for everyone
+--      {"users": ["<uuid>", …]}    → on only for those recipients (staged
+--                                     rollout, N8: the Owner first, then a few)
+--      no row / anything else      → OFF
+CREATE FUNCTION public.notification_centre_live(_group text, _recipient uuid DEFAULT NULL)
 RETURNS boolean
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = ''
 AS $fn$
-  SELECT EXISTS (SELECT 1 FROM public.site_settings s
-                  WHERE s.key = 'notif_centre_' || _group AND s.value = to_jsonb('live'::text));
+  SELECT EXISTS (
+    SELECT 1 FROM public.site_settings s
+     WHERE s.key = 'notif_centre_' || _group
+       AND (s.value = to_jsonb('live'::text)
+            OR (_recipient IS NOT NULL AND jsonb_typeof(s.value) = 'object'
+                AND jsonb_typeof(s.value -> 'users') = 'array'
+                AND (s.value -> 'users') ? _recipient::text)));
 $fn$;
 
 -- ── 5. the decision: type on? → self / blocked → duplicate → rate → member
@@ -208,20 +224,26 @@ BEGIN
     SELECT to_jsonb(np) INTO prefs FROM public.notification_preferences np WHERE np.user_id = _recipient;
     prefs := coalesce(prefs, '{}'::jsonb);
 
+    -- a channel's member setting applies when the registry names its column
+    -- (the CHECK keeps that consistent with member_can_disable)
     ch_inapp := 'in_app' = ANY (t.channels) AND t.default_on
-                AND NOT (t.member_can_disable AND t.pref_in_app IS NOT NULL AND coalesce(prefs ->> t.pref_in_app = 'false', false));
+                AND NOT (t.pref_in_app IS NOT NULL AND coalesce(prefs ->> t.pref_in_app = 'false', false));
     ch_push  := 'push' = ANY (t.channels) AND t.default_on
                 AND NOT coalesce(prefs ->> 'push_enabled' = 'false', false)          -- master switch covers every push
-                AND NOT (t.member_can_disable AND t.pref_push IS NOT NULL AND coalesce(prefs ->> t.pref_push = 'false', false));
+                AND NOT (t.pref_push IS NOT NULL AND coalesce(prefs ->> t.pref_push = 'false', false));
     ch_email := 'email' = ANY (t.channels) AND t.default_on
-                AND NOT (t.member_can_disable AND t.pref_email IS NOT NULL AND coalesce(prefs ->> t.pref_email = 'false', false));
+                AND NOT (t.pref_email IS NOT NULL AND coalesce(prefs ->> t.pref_email = 'false', false));
 
     IF 'in_app' = ANY (t.channels) AND NOT ch_inapp THEN reasons := array_append(reasons, 'pref_in_app_off'); END IF;
 
     IF ch_push THEN
       SELECT * INTO qh FROM public.notification_quiet_hours q WHERE q.user_id = _recipient;
       IF FOUND THEN
-        local_t := (_at AT TIME ZONE coalesce(nullif(qh.tz, ''), 'UTC'))::time;
+        BEGIN
+          local_t := (_at AT TIME ZONE coalesce(nullif(qh.tz, ''), 'UTC'))::time;
+        EXCEPTION WHEN invalid_parameter_value OR data_exception THEN
+          local_t := (_at AT TIME ZONE 'UTC')::time;          -- an unknown zone never breaks a send
+        END;
         IF (qh.starts < qh.ends AND local_t >= qh.starts AND local_t < qh.ends)
            OR (qh.starts > qh.ends AND (local_t >= qh.starts OR local_t < qh.ends)) THEN
           ch_push := false;                                 -- held, not a reason to skip the bell row
@@ -268,9 +290,14 @@ DECLARE
   nid uuid;
 BEGIN
   SELECT * INTO t FROM public.notification_types nt WHERE nt.type = _type;
-  IF NOT FOUND OR NOT public.notification_centre_live(t.group_key) THEN
+  IF NOT FOUND OR NOT public.notification_centre_live(t.group_key, _recipient) THEN
     RETURN NULL;
   END IF;
+
+  -- two emits for the same (type, recipient, reference) at once must not both
+  -- pass the duplicate check: serialise them for this transaction
+  PERFORM pg_advisory_xact_lock(hashtextextended(
+    'notif:' || _type || ':' || coalesce(_recipient::text, '-') || ':' || coalesce(_reference::text, '-'), 0));
 
   d := public.notification_centre_decide(_type, _recipient, _actor, _reference, now(), NULL);
 
@@ -335,11 +362,11 @@ AS $fn$
    ORDER BY 1, 2;
 $fn$;
 
-REVOKE ALL ON FUNCTION public.notification_centre_live(text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.notification_centre_live(text, uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.notification_centre_decide(text, uuid, uuid, uuid, timestamptz, uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.notification_centre_emit(text, uuid, uuid, uuid, text, text, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.notification_centre_replay(timestamptz, timestamptz) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.notification_centre_live(text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.notification_centre_live(text, uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.notification_centre_decide(text, uuid, uuid, uuid, timestamptz, uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.notification_centre_emit(text, uuid, uuid, uuid, text, text, text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.notification_centre_replay(timestamptz, timestamptz) TO service_role;
@@ -373,14 +400,14 @@ FROM (VALUES
   ('friend_accepted',        'member','follows_friends','users',    '{in_app,push}',      true, 'inapp_social',NULL,              NULL,                  'none','1 hour', NULL),
   -- competitions & judging & awards
   ('competition_vote',       'member','competitions','star',  '{in_app,push,email}', true,  'inapp_competitions','push_competition_updates','email_competition_updates','reference','60 seconds', NULL),
-  ('entry_approved',         'member','competitions','check', '{in_app,push,email}', false, NULL,'push_competition_updates','email_competition_updates','none','0 seconds', NULL),
-  ('entry_rejected',         'member','competitions','x',     '{in_app,push,email}', false, NULL,'push_competition_updates','email_competition_updates','none','0 seconds', NULL),
+  ('entry_approved',         'member','competitions','check', '{in_app,push,email}', true,  NULL,'push_competition_updates','email_competition_updates','none','0 seconds', NULL),
+  ('entry_rejected',         'member','competitions','x',     '{in_app,push,email}', true,  NULL,'push_competition_updates','email_competition_updates','none','0 seconds', NULL),
   ('entry_shortlisted',      'member','competitions','star',  '{in_app,push}',       false, NULL,NULL,NULL,'none','0 seconds', NULL),
   ('entry_qualified',        'member','competitions','star',  '{in_app,push}',       false, NULL,NULL,NULL,'none','0 seconds', NULL),
   ('entry_qualified_round',  'member','competitions','star',  '{in_app,push}',       false, NULL,NULL,NULL,'none','0 seconds', NULL),
   ('entry_finalist',         'member','competitions','award', '{in_app,push}',       false, NULL,NULL,NULL,'none','0 seconds', NULL),
   ('entry_award',            'member','competitions','award', '{in_app,push}',       false, NULL,NULL,NULL,'none','0 seconds', NULL),
-  ('competition_winner',     'member','competitions','trophy','{in_app,push,email}', false, NULL,'push_competition_updates','email_competition_updates','none','0 seconds', NULL),
+  ('competition_winner',     'member','competitions','trophy','{in_app,push,email}', true,  NULL,'push_competition_updates','email_competition_updates','none','0 seconds', NULL),
   ('round_published',        'member','competitions','list',  '{in_app,push}',       false, NULL,NULL,NULL,'reference','0 seconds', NULL),
   ('round_results_published','member','competitions','list',  '{in_app,push}',       false, NULL,NULL,NULL,'reference','0 seconds', NULL),
   ('needs_review',           'member','competitions','alert', '{in_app,push,email}', false, NULL,NULL,NULL,'none','0 seconds', NULL),

@@ -3,7 +3,10 @@
 INSERT INTO public.notification_types(type,audience,group_key,wording_key,channels,pref_in_app,pref_push,pref_email,rate_per_hour) VALUES
  ('post_reaction','member','likes_comments','post_reaction','{in_app,push,email}','inapp_reactions','push_reactions','email_reactions',3),
  ('new_ticket','admin','admin_alerts','new_ticket','{in_app}',NULL,NULL,NULL,NULL),
- ('off_type','member','account','x','{in_app}',NULL,NULL,NULL,NULL);
+ ('off_type','member','account','x','{in_app}',NULL,NULL,NULL,NULL)
+ON CONFLICT (type) DO UPDATE SET audience = EXCLUDED.audience, group_key = EXCLUDED.group_key, channels = EXCLUDED.channels,
+  pref_in_app = EXCLUDED.pref_in_app, pref_push = EXCLUDED.pref_push, pref_email = EXCLUDED.pref_email,
+  rate_per_hour = EXCLUDED.rate_per_hour, dedup_window = interval '60 seconds', member_can_disable = true;
 UPDATE public.notification_types SET enabled=false WHERE type='off_type';
 -- people
 \set A '''aaaaaaaa-0000-0000-0000-000000000001'''
@@ -47,3 +50,15 @@ SELECT 'emit_live_suppressed_self_null', public.notification_centre_emit('post_r
 SELECT 'emit_off_group_null', public.notification_centre_emit('new_ticket', NULL, NULL, gen_random_uuid(), 't', 'm') IS NULL;
 SELECT 'log_rows(2: one sent, one self)', count(*), count(*) FILTER (WHERE sent) FROM public.notification_centre_log;
 SELECT 'replay', r.* FROM public.notification_centre_replay(now() - interval '1 day', now() + interval '1 day') r;
+-- review round 1 cases
+INSERT INTO auth.users VALUES ('eeeeeeee-0000-0000-0000-000000000005') ON CONFLICT DO NOTHING;
+INSERT INTO public.notification_quiet_hours VALUES ('eeeeeeee-0000-0000-0000-000000000005', '22:00', '07:00', 'Mars/Olympus');
+SELECT 'bad_tz_no_error', (public.notification_centre_decide('post_reaction', 'eeeeeeee-0000-0000-0000-000000000005', :A, gen_random_uuid()) ->> 'send');
+INSERT INTO public.notification_preferences(user_id, push_competition_updates) VALUES ('eeeeeeee-0000-0000-0000-000000000005', false);
+SELECT 'entry_approved_push_pref_honoured', public.notification_centre_decide('entry_approved', 'eeeeeeee-0000-0000-0000-000000000005', NULL, gen_random_uuid()) -> 'channels' ->> 'push';
+DELETE FROM public.site_settings WHERE key = 'notif_centre_likes_comments';
+INSERT INTO public.site_settings VALUES ('notif_centre_likes_comments', '{"users": ["cccccccc-0000-0000-0000-000000000003"]}'::jsonb);
+SELECT 'members_list_on_for_listed', public.notification_centre_live('likes_comments', :C);
+SELECT 'members_list_off_for_others', public.notification_centre_live('likes_comments', :A);
+SELECT 'members_list_off_without_recipient', public.notification_centre_live('likes_comments');
+SELECT 'emit_off_for_unlisted_null', public.notification_centre_emit('post_reaction', :A, :B, gen_random_uuid(), 't', 'm') IS NULL;

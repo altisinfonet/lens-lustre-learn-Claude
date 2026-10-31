@@ -41,3 +41,16 @@ quiet hours 22:00–07:00 hold push at 03:00 and not at 12:00; a replayed row is
 not its own duplicate; admin duplicate by reference; switch default OFF and
 `"live"` read as on; emit writes when live, returns NULL for a skipped
 decision and for a group that is off; the log holds one row per decision.
+
+## Review round 1 (nothing blocking; medium points applied)
+
+| Case | Previous version | Now |
+|---|---|---|
+| quiet hours with an unknown zone (`Mars/Olympus`) | ERROR `time zone "Mars/Olympus" not recognized` — would break a send | falls back to UTC, `send: true` |
+| `entry_approved`, member has competition pushes off | push `true` (setting ignored: `member_can_disable` was false) | push `false`; a CHECK now keeps "always on" types free of settings columns |
+| switch = `{"users": [C]}` | `notification_centre_live(text, uuid)` did not exist | on for C, off for others, off with no recipient; emit for an unlisted member returns NULL |
+| shadow PROBE on a table without a `user_id` index | (no check) | refuses: `no index leads with user_notifications.user_id` |
+| shadow window anchor | `min(updated_at)` (moves on any edit) | `min(seeded_at)`, never updated |
+| two emits at once for the same (type, recipient, reference) | could both pass the duplicate check | `pg_advisory_xact_lock` serialises them |
+
+Full cycle re-run: PROBE FAIL → apply → PROBE PASS (49 types) → shadow refuses without index / INCOMPLETE with it; 31 decision cases as designed.
