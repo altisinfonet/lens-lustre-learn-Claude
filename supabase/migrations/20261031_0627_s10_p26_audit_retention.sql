@@ -83,7 +83,6 @@ CREATE TABLE p26_archive.db_audit_logs (
   created_at timestamptz,
   moved_at   timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX ON p26_archive.db_audit_logs (table_name, created_at);
 REVOKE ALL ON ALL TABLES IN SCHEMA p26_archive FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE PROCEDURE public.p26_move_old_audit_rows(_keep interval DEFAULT interval '180 days',
