@@ -4,8 +4,13 @@
 --   (b) any other cron command deleting from cron.job_run_details (unbounded purge);
 --   (c) a finished row older than 49 h (36 h retention + 1 h cadence + 12 h slack,
 --       still inside the gate's 48 h + the hour between runs);
---   (d) cron.job_run_details among the ten largest relations in the database
---       (pg_total_relation_size over every table and matview, catalogs included).
+--   (d) REPORTED, NOT RAISED: cron.job_run_details' size rank among every table
+--       and matview (catalogs included). Owner decision 14, 2026-10-31 08:13 UTC
+--       (PR #553): the gate's "not among the ten largest" clause is DROPPED. It
+--       is relative, and on databases of a few tens of MB a ~2 MB table that is
+--       purged hourly stays in the top ten (staging #5 run 41048721411,
+--       production #8 run 41048818929, down from 76 MB). Clauses (a)–(c) are the
+--       gate now; the rank is printed so a regrowth stays visible.
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN READ ONLY;
 DO $probe$
@@ -29,10 +34,7 @@ BEGIN
     SELECT c.oid, pg_total_relation_size(c.oid) s, row_number() OVER (ORDER BY pg_total_relation_size(c.oid) DESC) r
       FROM pg_class c WHERE c.relkind IN ('r', 'm')) x
    WHERE x.oid = 'cron.job_run_details'::regclass;
-  IF rnk <= 10 THEN
-    RAISE EXCEPTION 'PROBE FAIL P6: cron.job_run_details is #% largest relation (% ) — gate: not among the ten largest', rnk, sz;
-  END IF;
-  RAISE NOTICE 'PROBE PASS P6: hourly bounded purge, oldest run % old, job_run_details is #% (%)', date_trunc('minute', coalesce(oldest, interval '0')), rnk, sz;
+  RAISE NOTICE 'PROBE PASS P6: hourly bounded purge, oldest run % old, job_run_details is #% (%) [rank reported only, Owner decision 14]', date_trunc('minute', coalesce(oldest, interval '0')), rnk, sz;
 END
 $probe$;
 ROLLBACK;
