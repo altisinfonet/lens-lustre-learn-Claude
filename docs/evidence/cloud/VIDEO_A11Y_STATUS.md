@@ -1,7 +1,7 @@
 # Video + accessibility runner — status
 
 Started 2026-10-30 01:47 UTC. Replaces the earlier supervisor session (no GitHub trace after 2026-10-29 14:19 UTC).
-Last update: 2026-10-31 06:57 UTC.
+Last update: 2026-10-31 07:20 UTC.
 
 THIRD RESTART 2026-10-31 ~03:55 UTC: previous run stopped silently after its 18:23 UTC heartbeat (S10a-4 never pushed; will be rebuilt fresh later). PAUSE cancelled by Owner RESUME. Order now, one PR at a time: 1 VID-6 cost alerts → 2 privacy text → 3 S7 gate table → 4 Android 1.2.33 → 5 S10a-3, S10a-4.
 
@@ -10,7 +10,7 @@ SECOND RESTART 2026-10-30 ~07:15 UTC: the run stopped silently again at ~05:15 U
 RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. A new run took over at 05:05 UTC. Checked GitHub: nobody else pushed to or merged #538-#542 or #619 since 02:00 UTC.
 
 ## Now
-06:57 UTC — Item 4: Android 1.2.33 on staging 550a9171 (#734) and main 2f13f196 (carry #735). android-build.yml run 41178510127 (#136) started automatically on main — waiting for it.
+07:20 UTC — Android build run 41178510127 (#136, 1.2.33) still running on main 2f13f196. Meanwhile inspecting S10a-3 (read-only): the 6 unnamed links on each desktop screen are avatar/thumbnail links in the feed sidebars (FeedRightSidebar.tsx:188/416, FeedLeftSidebar.tsx:251/334).
 
 ## Units
 | Unit | PR | State | Merged sha (staging / main) | SQL runs | Live check |
