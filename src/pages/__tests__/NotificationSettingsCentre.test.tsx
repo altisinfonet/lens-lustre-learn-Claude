@@ -12,6 +12,7 @@ vi.mock("@/hooks/core/useAuth", () => ({ useAuth: () => ({ user: { id: "me" }, l
 vi.mock("@/hooks/core/useNotificationSound", () => ({ useNotificationSound: () => ({ soundEnabled: true, setSoundEnabled: vi.fn() }) }));
 vi.mock("@/i18n/I18nContext", () => ({ useT: () => (k: string, fb?: string) => fb ?? k }));
 vi.mock("@/components/PageSEO", () => ({ default: () => null }));
+vi.mock("@/integrations/supabase/client", () => ({ supabase: { rpc: vi.fn(async () => ({ data: [], error: null })) } }));
 const prefs = {
   email_reactions: true, email_comments: true, email_friend_requests: true, email_new_followers: true,
   email_competition_updates: true, email_gift_credits: true, email_certificates: true, email_course_updates: true,
@@ -35,11 +36,18 @@ describe("notification settings — which screen", () => {
     expect(screen.queryByRole("table", { name: /notification settings/i })).toBeNull();
     expect(screen.getAllByRole("switch").length).toBeGreaterThanOrEqual(15);
     expect(screen.getAllByText("notif.pushAll").length).toBeGreaterThan(0);   // today's push section heading row
+    expect(screen.queryByRole("switch", { name: "Quiet hours" })).toBeNull();
   });
 
   it("switch on: the one table", () => {
     centre = true;
     renderPage();
     expect(screen.getByRole("table", { name: /notification settings/i })).toBeInTheDocument();
+  });
+
+  it("switch on: quiet hours sit under the table", async () => {
+    centre = true;
+    renderPage();
+    expect(await screen.findByRole("switch", { name: "Quiet hours" })).toBeInTheDocument();
   });
 });
