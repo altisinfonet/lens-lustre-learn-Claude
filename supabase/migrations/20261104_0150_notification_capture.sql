@@ -14,7 +14,10 @@
 --         of its live source (a newer live body is never overwritten);
 --   SNAP  records every attribute of each function (definer, search_path,
 --         volatility, strictness, leakproof, parallel, return type, argument
---         types and defaults, owner, grants, language, kind);
+--         types and defaults, owner, grants, language, kind, planner cost and
+--         rows, support function, SQL body, transforms) — a re-create without
+--         a COST/ROWS clause resets those, so a live value off the default
+--         makes the file roll back instead of silently changing it;
 --   then  CREATE OR REPLACE with the identical text;
 --   POST  refuses (and so rolls everything back) unless each source md5 and
 --         every recorded attribute is unchanged, and the oid is the same;
@@ -64,6 +67,9 @@ BEGIN
     IF (SELECT md5(prosrc) FROM pg_proc WHERE oid = r.oid) <> r.md5 THEN
       RAISE EXCEPTION 'NC-0150-PRE-002: live source of % is not the pinned version (md5 %) — refusing to overwrite it', r.sig, r.md5;
     END IF;
+    IF coalesce(obj_description(r.oid, 'pg_proc'), '') LIKE '%captured in git by 20261104_0150%' THEN
+      RAISE EXCEPTION 'NC-0150-PRE-003: % is already tagged — 20261104_0150 was applied on this lane', r.sig;
+    END IF;
   END LOOP;
 END
 $pre$;
@@ -74,7 +80,9 @@ SELECT p.oid, n.sig,
                      p.proleakproof, p.proparallel, p.prorettype::regtype::text, p.proretset, oidvectortypes(p.proargtypes),
                      coalesce(pg_get_expr(p.proargdefaults, 0), ''), pg_get_userbyid(p.proowner),
                      coalesce(p.proacl::text, ''), p.prolang, p.prokind, coalesce(array_to_string(p.proallargtypes::regtype[], ','), ''),
-                     coalesce(array_to_string(p.proargmodes, ','), ''), coalesce(array_to_string(p.proargnames, ','), ''))) AS attrs
+                     coalesce(array_to_string(p.proargmodes, ','), ''), coalesce(array_to_string(p.proargnames, ','), ''),
+                     p.procost, p.prorows, p.prosupport::text, coalesce(p.prosqlbody::text, ''),
+                     coalesce(array_to_string(p.protrftypes, ','), ''))) AS attrs
   FROM n1_pin n JOIN pg_proc p ON p.oid = to_regprocedure(n.sig);
 
 -- ── the captured text, verbatim from the live functions (via the snapshot) ──
@@ -751,7 +759,9 @@ BEGIN
                      p.proleakproof, p.proparallel, p.prorettype::regtype::text, p.proretset, oidvectortypes(p.proargtypes),
                      coalesce(pg_get_expr(p.proargdefaults, 0), ''), pg_get_userbyid(p.proowner),
                      coalesce(p.proacl::text, ''), p.prolang, p.prokind, coalesce(array_to_string(p.proallargtypes::regtype[], ','), ''),
-                     coalesce(array_to_string(p.proargmodes, ','), ''), coalesce(array_to_string(p.proargnames, ','), '')))
+                     coalesce(array_to_string(p.proargmodes, ','), ''), coalesce(array_to_string(p.proargnames, ','), ''),
+                     p.procost, p.prorows, p.prosupport::text, coalesce(p.prosqlbody::text, ''),
+                     coalesce(array_to_string(p.protrftypes, ','), '')))
       INTO now_attrs FROM pg_proc p WHERE p.oid = r.oid;
     IF now_attrs <> r.attrs THEN
       RAISE EXCEPTION 'NC-0150-POST-003: an attribute of % changed (definer / search_path / volatility / grants / defaults …) — rolled back', r.sig;

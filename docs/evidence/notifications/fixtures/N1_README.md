@@ -16,3 +16,12 @@ The 12 functions created from the snapshot text (= live on both lanes, N0).
 N5 guard after this file: git now matches live — `notify_post_reaction /
 _comment / _tag` queue jobs (no direct write → removed from the allow-list) and
 `pj_handle_tag_notification` writes (added).
+
+## Review round 1 (blocking: planner cost not covered)
+
+A re-create without a COST/ROWS clause resets them. Reproduced: live
+`get_my_notifications_grouped` set to COST 7 ROWS 20 → the first version
+applied cleanly and silently reset them to 100 / 1000. Now the attribute hash
+also covers procost, prorows, prosupport, prosqlbody and protrftypes → that
+case ROLLS BACK (`NC-0150-POST-003`). Matching functions still PASS 12/12. A
+second apply is refused (`NC-0150-PRE-003`, already tagged).
