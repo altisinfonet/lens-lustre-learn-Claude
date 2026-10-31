@@ -161,7 +161,10 @@ DEDUP_KEY; PUSH_HTTP; EMAIL). 30 triggers fire makers on each lane, the same
   rows with `email_sent = true`) into the e-mail queue (`process-email-queue`
   cron, every minute).
 - `prune_old_notifications` cron (03:20 UTC daily) and
-  `emit-birthday-notifications` (03:30 UTC) run on both lanes.
+  `emit-birthday-notifications` (03:30 UTC) run on both lanes. The e-mail
+  queue cron (`process-email-queue`, every minute) and `send-reengagement-emails`
+  exist on **production only** — staging's 104 queued notification e-mails sit
+  as `pending` with none `sent`.
 
 ## 2. Gap list
 
@@ -178,12 +181,11 @@ DEDUP_KEY; PUSH_HTTP; EMAIL). 30 triggers fire makers on each lane, the same
 | G7 | **Four edge functions write notification rows directly** (backup-reminder, judging-invariants-nightly, manage-notifications, submit-deposit). | `supabase/functions/*` | N3 group 4/5; listed in the N5 ratchet. |
 | G8 | **No push receipts**: send-push counts successes in memory and prunes dead tokens; nothing records sent / failed / opened per notification, and nothing raises an alarm when pushes fail. | `supabase/functions/send-push/index.ts` | N4 delivery queue + receipts + `ops_alarms`. |
 | G9 | **35 direct writers** in git (31 SQL functions by their last definition + 4 edge functions) — now pinned by the N5 ratchet (#752). | — | N3 removes them group by group. |
-
 | G10 | **12 live functions exist only in a commented-out snapshot** — no applied migration creates them; a rebuild from git would lose them (incl. the live like/comment/tag path and the e-mail trigger). | live | **N1** captures all 12 from the snapshot text (identical md5 on both lanes; no live body needs printing). |
 | G11 | **The in-app settings are dead (G1) — measured**: 1 member on production has a settings row at all (switched off e-mail for likes and comments, and new-post pushes). | production | N7 table + N3 gate make them work when a group goes live. |
 | G12 | **Duplicates are rare but real**: 3 rows within 60 s of an identical row in 30 days (comment_reply, new_follower, post_comment). | production | N2 duplicate window (60 s default per type). |
 | G13 | **Grouping potential is small today**: 6 like-buckets of 3+ in 30 days (max 4 on one photo in one day). | production | "A and N others" in N7 rows is enough; no server merge needed yet. |
-| G14 | **Self and blocked: 0** in 30 days on every type (the makers' own checks work). | production | N2 keeps both checks; no fix needed. |
+| G14 | **Self and blocked: 0** on every type. Self: `self=0` on all 17 types (all time). Blocked: the PROBE's `UN_BLOCKED` section (30 d, either direction) prints a line only for a non-zero type and printed none, with no `COUNT_SKIP` line — so 0 was measured, not assumed. | production | N2 keeps both checks; no fix needed. |
 | G15 | **pg_net errors**: 6 failed of 239 HTTP calls retained today (pg_net keeps ~6 h; push and other calls mixed). No record ties a failure to a notification. | production | N4 delivery receipts + `ops_alarms`. |
 | G16 | The **e-mail log writes two rows per mail** (pending + sent: 1,296 each for `notification-alert` in 30 d). Counting "sent" must filter by status. | production | N6 numbers read status = sent. |
 
