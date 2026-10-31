@@ -60,6 +60,9 @@ const NOT_A_CONSUMER = new Set([
   SETTINGS_PAGE,
   PREFS_HOOK,
   "src/integrations/supabase/types.ts",
+  // The settings page's new one-table layout (N7, behind notif_centre_ui):
+  // part of the page that renders and saves the switches, not a reader.
+  "src/components/notifications/NotificationSettingsTable.tsx",
   // The notification centre (N2) names the in-app columns in its type registry
   // and its decision reads them — but ONLY for a group whose switch is live
   // (notif_centre_<group>). Every switch ships OFF, so for members these
