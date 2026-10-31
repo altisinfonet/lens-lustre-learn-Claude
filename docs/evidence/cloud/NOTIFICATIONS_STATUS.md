@@ -2,7 +2,7 @@ N0 COMPLETE
 
 # Notification centre runner — status
 
-Heartbeat: 2026-10-31 17:46 UTC (measured) — Production N6: PROBE FAIL 41223352518 (17:30, expected) → apply 0120 queued 41225000305. Staging N4 0160: apply OK 41221982432 (17:22) → PASS probe 41224537603 queued. MERGED to staging since last beat: #779 headlines (40961d4), #783 Owner guide (6ba4aa4), #790 push retry (149adad), #789 weekly summary (c4fdbaf), #791 push picture (8c768bc). Waiting on CI (all reviewed nothing blocking): #786, #787, #792, #795, #796, carry #793 to main. Runner pool ~350 queued repo-wide. Branch for status only; never merged.
+Heartbeat: 2026-10-31 18:10 UTC (measured) — N4 0160 STAGING VERIFIED (FAIL 41220309779 → apply 41221982432 → PASS 41224537603, 18:06). Carry #793 MERGED to main c4d95f5 (tabs, receipts, nightly check, push follows centre, new-posts switch, quiet hours, admin label). MERGED to staging: #792 announcements (27b2a83), #786 mutual follows (043162b). Queued: staging 0130 PROBE 41227868353; production N6 0120 apply 41225000305. #787 rebuilt on staging after #786 (same reviewed content; verification running). CI: #787, #795, #796. Branch for status only; never merged.
 
 | Step | What | PR | Merged sha (staging / main) | SQL runs (lane · run id · result · UTC) | Live check | % |
 |---|---|---|---|---|---|---|
@@ -10,7 +10,7 @@ Heartbeat: 2026-10-31 17:46 UTC (measured) — Production N6: PROBE FAIL 4122335
 | N1 | Capture live-only pieces into git | #766; carry #778 | staging 0abac4e / main b4b05b8 | staging: FAIL 41216994890 → apply 41218922667 → PASS 41219638033 (16:31); production next | — | 85 |
 | N2 | Centre, switch OFF, 24 h shadow | #754; carry #759 | staging 6c2f4c8 / main 832863d | staging: FAIL 41205948948 → apply 41206399056 → PASS 41206575315 (13:41); production: FAIL 41208395319 → apply 41210622019 (14:44) → PASS 41211534028 (14:51) | 24 h shadow running until ~14:44 UTC 1 Nov | 75 |
 | N3 | Move makers onto the centre, by group | #760; carry #770 | staging ef4eed9 / main c36374b | staging VERIFIED; production: FAIL 41215290658 → apply 41215600877 → PASS 41221752484 (17:09) | live 15:47, 16:27 = baseline | 90 |
-| N4 | Delivery (push + e-mail queue, receipts) | #757 (main); #777 #780 (staging; carry #793); #789 weekly summary, #790 retry, #791 picture (open) | staging 39134ef, 8ad8884, 7b827c2 / main b4b05b8 | staging 0160: FAIL 41220309779 → apply 41221982432 queued | — | 80 |
+| N4 | Delivery (push + e-mail queue, receipts) | #757 (main), #777 #780 (main c4d95f5), #789 #790 #791 (staging) | staging 8ad8884, 7b827c2, c4fdbaf, 149adad, 8c768bc / main c4d95f5 | staging 0160 VERIFIED (PASS 41224537603, 18:06) | — | 85 |
 | N5 | Guard (CI stray-insert test + nightly count) | #752 (main); #774 nightly (staging 4527b1d) | staging 0ad80af, 4527b1d / main c36374b | staging 0130 next | — | 80 |
 | N6 | Admin Notification Centre page | #764 (main), #785 (staging; carry #793), #792 announce (open) | staging 11e5d18, 38e992e / main b4b05b8 | staging VERIFIED (PASS 41216460747); production PROBE 41223352518 queued | — | 85 |
 | N7 | Member screens | merged: #755 #762 #773 #775 #782; open: #779 #781 #786 #787 | staging …, 128d558, 6b549e0 / main b4b05b8 | 0180 (#781), 0190 (#786) after merge | live 16:27 = baseline | 85 |
