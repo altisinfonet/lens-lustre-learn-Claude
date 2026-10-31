@@ -1,0 +1,14 @@
+    ✗ screen-feed @ desktop-1280: CLEAN scene now has 6 A:link-name violation(s)
+    ✗ screen-feed @ desktop-1280: CLEAN scene now has 2 A:target-size violation(s)
+    ✗ screen-post-detail @ desktop-1280: CLEAN scene now has 6 A:link-name violation(s)
+    ✗ screen-post-detail @ desktop-1280: CLEAN scene now has 2 A:target-size violation(s)
+    ✗ screen-profile @ desktop-1280: NEW rule A:link-name (6 node(s)) — not in the baseline
+    ✗ screen-profile @ desktop-1280: NEW rule A:target-size (2 node(s)) — not in the baseline
+    ✗ screen-edit-profile @ desktop-1280: NEW rule A:link-name (6 node(s)) — not in the baseline
+    ✗ screen-edit-profile @ desktop-1280: NEW rule A:target-size (2 node(s)) — not in the baseline
+    ✗ screen-notifications @ desktop-1280: NEW rule A:link-name (6 node(s)) — not in the baseline
+    ✗ screen-notifications @ desktop-1280: NEW rule A:target-size (2 node(s)) — not in the baseline
+    ✗ screen-discover @ iphone-390: CLEAN scene now has 4 A:link-name violation(s)
+    ✗ screen-discover @ desktop-1280: CLEAN scene now has 10 A:link-name violation(s)
+    ✗ screen-discover @ desktop-1280: CLEAN scene now has 2 A:target-size violation(s)
+[a11y-surfaces] FAIL (exit 1)
