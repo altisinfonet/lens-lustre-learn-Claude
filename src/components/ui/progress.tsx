@@ -10,6 +10,9 @@ const Progress = React.forwardRef<
   <ProgressPrimitive.Root
     ref={ref}
     className={cn("relative h-4 w-full overflow-hidden rounded-full bg-secondary", className)}
+    // P23 S10a-3 (B): the root must get the value too, or Radix marks the bar
+    // "indeterminate" and a screen reader never hears how full it is.
+    value={value}
     {...props}
   >
     <ProgressPrimitive.Indicator

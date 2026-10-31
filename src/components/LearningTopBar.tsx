@@ -38,7 +38,7 @@ const LearningTopBar = ({
 
       {/* Center — Progress */}
       <div className="flex items-center gap-3 flex-1 max-w-xs mx-auto">
-        <Progress value={progress} className="h-1.5 flex-1 bg-muted" />
+        <Progress value={progress} className="h-1.5 flex-1 bg-muted" aria-label="Course progress" />
         <span
           className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground whitespace-nowrap"
           style={headingFont}
