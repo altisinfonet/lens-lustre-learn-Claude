@@ -45,7 +45,7 @@ DECLARE
   u_desc text; u_asc text; c_desc text; c_asc text; nu int; nc int;
   stored text; arm record; pos int; lastpos int; cand text; depth int; is_wrapped boolean; ch text;
   found_dir boolean; d text; joined text; nparts int; firstpart text; expect_hit boolean;
-  t_lock timestamptz; win constant interval := interval '3 seconds'; altered int := 0;
+  t_lock timestamptz; win constant interval := CASE current_setting('p32.lane') WHEN 'production' THEN interval '3 seconds' ELSE interval '20 seconds' END; altered int := 0;
 BEGIN
   IF coalesce(current_setting('p32.lane', true), '') NOT IN ('staging', 'production') THEN
     RAISE EXCEPTION 'S10-X1RO-PRE-000: p32.lane is not staging or production';
@@ -259,7 +259,7 @@ DECLARE
   u_desc text; u_asc text; c_desc text; c_asc text; nu int; nc int;
   stored text; arm record; pos int; lastpos int; cand text; depth int; is_wrapped boolean; ch text;
   found_dir boolean; d text; joined text; nparts int; firstpart text; expect_hit boolean;
-  t_lock timestamptz; win constant interval := interval '3 seconds'; altered int := 0;
+  t_lock timestamptz; win constant interval := CASE current_setting('p32.lane') WHEN 'production' THEN interval '3 seconds' ELSE interval '20 seconds' END; altered int := 0;
 BEGIN
   SELECT s.v_batch, s.plan, s.ids, s.e1hash, s.e2_before, s.restr_before, s.shape_before
     INTO v_batch, plan, ids, e1hash, e2_before, restr_before, shape_before
@@ -268,7 +268,7 @@ BEGIN
   rel := to_regclass(format('public.%I', t));
   t_lock := current_setting('x1ro.t_lock')::timestamptz;
   IF clock_timestamp() - t_lock > win THEN
-    RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive locks have been held over 3 s — rolled back, nothing changed';
+    RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive locks have been held over the lane''s cap — rolled back, nothing changed';
   END IF;
   FOR pk, pv IN SELECT * FROM jsonb_each(plan) LOOP
     EXECUTE format('ALTER POLICY %I ON public.%I', pk, t)
@@ -325,7 +325,7 @@ BEGIN
   -- BIND: for anon and the first signed-in identity, each stored clause accepts the rows E1 proved.
   FOR id IN SELECT e FROM jsonb_array_elements(ids) WITH ORDINALITY AS x(e, o) WHERE o <= 2 LOOP
     IF clock_timestamp() - t_lock > win THEN
-      RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive locks have been held over 3 s (at %) — rolled back, nothing changed', t;
+      RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive locks have been held over the lane''s cap (at %) — rolled back, nothing changed', t;
     END IF;
     PERFORM set_config('request.jwt.claims', CASE WHEN id ->> 'sub' IS NULL THEN json_build_object('role', id ->> 'role')
              ELSE json_build_object('sub', id ->> 'sub', 'role', id ->> 'role') END::text, true);
@@ -348,7 +348,7 @@ BEGIN
   -- E2 after
   FOR id IN SELECT * FROM jsonb_array_elements(ids) LOOP
     IF clock_timestamp() - t_lock > win THEN
-      RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive locks have been held over 3 s (at %) — rolled back, nothing changed', t;
+      RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive locks have been held over the lane''s cap (at %) — rolled back, nothing changed', t;
     END IF;
     PERFORM set_config('request.jwt.claims', CASE WHEN id ->> 'sub' IS NULL THEN json_build_object('role', id ->> 'role')
              ELSE json_build_object('sub', id ->> 'sub', 'role', id ->> 'role') END::text, true);
@@ -372,7 +372,7 @@ BEGIN
 
   -- POST: restrictive policies and the permissive set (names, commands, roles) unchanged.
   IF clock_timestamp() - t_lock > win THEN
-    RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive locks have been held over 3 s (at %) — rolled back, nothing changed', t;
+    RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive locks have been held over the lane''s cap (at %) — rolled back, nothing changed', t;
   END IF;
   SELECT jsonb_object_agg(p.polname, jsonb_build_array(p.polcmd::text, p.polroles::text, pg_get_expr(p.polqual, p.polrelid), pg_get_expr(p.polwithcheck, p.polrelid)))
     INTO restr_after FROM pg_policy p WHERE p.polrelid = rel AND NOT p.polpermissive;
@@ -405,10 +405,15 @@ SELECT pg_temp.x1_ro_prepare('user_badges', 'ASC');
 -- Phase 2 in ONE statement (one round trip to the server, so the lock window
 -- holds only the work, not a network round trip per table): every exclusive
 -- lock at once (children first, posts last, as in 0612),
--- then ALTER, ORDER, BIND, E2-after and POST per table. statement_timeout 5 s
--- is a hard ceiling on the whole phase, lock waits included (it interrupts a
+-- then ALTER, ORDER, BIND, E2-after and POST per table. statement_timeout (by
+-- lane, below) is a hard ceiling on the whole phase, lock waits included (it interrupts a
 -- step, unlike the 3 s WIN check, which runs between steps).
-SET LOCAL statement_timeout = '5s';
+-- Hard ceiling by lane: 5 s on production; 30 s on staging, whose posts table
+-- holds ~10.9k seeded rows, so the in-lock proof there takes ~3 s for posts
+-- alone (measured: 0618's first staging run stopped at the 3 s cap at posts,
+-- run 41152659001, nothing changed). Production's posts proof is ~0.4 s
+-- (PROBE 0610, run 41114463704).
+SELECT set_config('statement_timeout', CASE current_setting('p32.lane') WHEN 'production' THEN '5s' ELSE '30s' END, true);
 DO $phase2$
 DECLARE
   t text;
@@ -418,8 +423,9 @@ BEGIN
   FOREACH t IN ARRAY ARRAY['competitions', 'friendships', 'image_comments', 'portfolio_images', 'post_comments', 'post_reactions', 'post_tags', 'posts', 'profile_views', 'user_badges'] LOOP
     PERFORM pg_temp.x1_ro_finish(t, 'ASC');
   END LOOP;
-  IF clock_timestamp() - current_setting('x1ro.t_lock')::timestamptz > interval '3 seconds' THEN
-    RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive locks have been held over 3 s — rolled back, nothing changed';
+  IF clock_timestamp() - current_setting('x1ro.t_lock')::timestamptz
+     > (CASE current_setting('p32.lane') WHEN 'production' THEN interval '3 seconds' ELSE interval '20 seconds' END) THEN
+    RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive locks have been held over the lane''s cap — rolled back, nothing changed';
   END IF;
   RAISE NOTICE 'S10 X1 order restore 0618 (ASC, lane %): % of 10 tables reordered; exclusive locks held % ms',
     current_setting('p32.lane'), (SELECT count(*) FROM pg_temp.x1_ro_state),
