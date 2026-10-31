@@ -63,6 +63,10 @@ const NOT_A_CONSUMER = new Set([
   // The settings page's new one-table layout (N7, behind notif_centre_ui):
   // part of the page that renders and saves the switches, not a reader.
   "src/components/notifications/NotificationSettingsTable.tsx",
+  // The weekly summary e-mail (N4, 0200) reads email_weekly_digest — but only
+  // for members notif_centre_ui covers, which is OFF on live. Like 0110 below,
+  // a reader behind an OFF switch does not make the switch work for members.
+  "supabase/migrations/20261104_0200_notification_weekly_summary.sql",
   // The notification centre (N2) names the in-app columns in its type registry
   // and its decision reads them — but ONLY for a group whose switch is live
   // (notif_centre_<group>). Every switch ships OFF, so for members these
@@ -88,7 +92,7 @@ const UNWIRED_TOGGLES: Record<string, string> = {
   inapp_competitions:
     "OWNER DECISION: same choice as inapp_reactions; covers competition activity. Dead since 2026-04-07",
   email_weekly_digest:
-    "OWNER DECISION: there is no weekly digest feature anywhere in the codebase, so this switch controls something that does not exist. Build the digest, or remove the switch",
+    "BUILT in 20261104_0200 (weekly summary e-mail), but it only reaches members the new screens (notif_centre_ui) cover — OFF on live, so for members on today's page this switch still does nothing. Delete this entry and the 0200 exemption above when notif_centre_ui is on for everyone (N8)",
 };
 
 function walk(dir: string, out: string[] = []): string[] {
