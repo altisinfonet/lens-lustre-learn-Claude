@@ -1,0 +1,80 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# D2 · P23 S10a-4 — THE SCRIPTED KEYBOARD + SCREEN-READER WALKTHROUGH.
+#
+# docs/evidence/d2/phase5/P23/S10a-DECISION.md §4: for the ten surfaces (11
+# scenes) at iphone-390 and desktop-1280, in Chromium (the Android app's
+# WebView engine) and WebKit (Safari's), record the Tab order (role + name of
+# every stop), the accessibility tree a screen reader is given (ariaSnapshot:
+# headings, landmarks, controls) and counted findings (unnamed controls, no h1,
+# no main). The Markdown report is uploaded and is the file committed as
+# docs/evidence/d2/phase5/P23/WALKTHROUGH.md (artefacts expire).
+#
+# A REPORT, NOT A RATCHET: red only when the self-test fails (every finding
+# must fire on its seeded defect and none on a clean page) or a scene does not
+# run. It reads the tree; it does not listen to TalkBack / VoiceOver / NVDA —
+# that hands-on half of clause 3 stays the Owner/D2 item.
+#
+# Its own workflow (decision S3): ui-gate.yml keeps its 30-minute budget. The
+# harness is the UI gate's (uiharness.html, fake backend, synthetic VITE_*) —
+# it connects to nothing real and holds no secret.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ─────────────────────────────────────────────────────────────────────────────
+name: D2 · P23 a11y walkthrough
+
+on:
+  pull_request:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  a11y-walkthrough:
+    name: P23 keyboard + screen-reader walkthrough (Chromium + WebKit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      # `npm ci`, never `npm install`, and no `|| true` — a failed install fails.
+      - name: Clean install
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Chromium and WebKit for Playwright (with their system libraries)
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            if npx playwright install --with-deps chromium webkit; then
+              echo "Browsers ready (attempt ${attempt})."
+              exit 0
+            fi
+            echo "::warning::Browser download attempt ${attempt} failed; retrying."
+            sleep $((attempt * 15))
+          done
+          echo "::error::Chromium / WebKit could not be installed after 3 attempts."
+          exit 1
+
+      - name: Self-test — every finding fires on its seeded defect, and none on a clean page
+        run: node tools/uishot/a11y-walkthrough.mjs --self-test --browser chromium,webkit
+
+      - name: The ten surfaces, both widths, Chromium + WebKit
+        env:
+          VITE_SUPABASE_URL: https://testprojectref0000x.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: test-publishable-key-not-real
+          VITE_SUPABASE_PROJECT_ID: testprojectref0000x
+        run: node tools/uishot/a11y-walkthrough.mjs --browser chromium,webkit --md /tmp/a11y-walkthrough/WALKTHROUGH.md --json /tmp/a11y-walkthrough/walkthrough.json
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p23-a11y-walkthrough
+          path: /tmp/a11y-walkthrough
+          retention-days: 30
+          if-no-files-found: warn

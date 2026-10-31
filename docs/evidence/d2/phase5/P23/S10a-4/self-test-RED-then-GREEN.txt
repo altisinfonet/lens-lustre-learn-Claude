@@ -1,0 +1,15 @@
+# 2026-10-31 local, Chromium. MUTANT (findingsFromSnapshot never counts an unnamed control):
+[a11y-walkthrough] chromium self-test FAIL seeded page: 3 unnamed controls found (0)
+[a11y-walkthrough] chromium self-test ok   seeded page: missing h1 found
+[a11y-walkthrough] chromium self-test ok   seeded page: missing main found
+[a11y-walkthrough] chromium self-test ok   clean page: no finding ({"unnamed":[],"noH1":false,"noMain":false})
+[a11y-walkthrough] chromium self-test ok   clean page: Tab order reads every stop from the top, also with an autofocused field (link "Home", button "Go", textbox "Name")
+[a11y-walkthrough] self-test FAIL
+
+# The real script:
+[a11y-walkthrough] chromium self-test ok   seeded page: 3 unnamed controls found (3)
+[a11y-walkthrough] chromium self-test ok   seeded page: missing h1 found
+[a11y-walkthrough] chromium self-test ok   seeded page: missing main found
+[a11y-walkthrough] chromium self-test ok   clean page: no finding ({"unnamed":[],"noH1":false,"noMain":false})
+[a11y-walkthrough] chromium self-test ok   clean page: Tab order reads every stop from the top, also with an autofocused field (link "Home", button "Go", textbox "Name")
+[a11y-walkthrough] self-test PASS
