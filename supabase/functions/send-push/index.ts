@@ -1,4 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildFcmMessage } from "../_shared/pushMessage.ts";
+import { cdnHost, siteOrigin } from "../_shared/laneConfig.ts";
+
+/** This lane's own hosts, from its environment. Missing config → no images (never a guess). */
+function laneImageHosts(): string[] {
+  const hosts: string[] = [];
+  for (const read of [() => cdnHost(), () => new URL(siteOrigin()).hostname,
+                      () => new URL(Deno.env.get("SUPABASE_URL") ?? "").hostname]) {
+    try { const h = read(); if (h) hosts.push(h.toLowerCase()); } catch { /* not configured on this lane */ }
+  }
+  return hosts;
+}
 
 // Send a push notification to all of a user's registered devices via Firebase
 // Cloud Messaging HTTP v1. Auth: either an internal secret header (for calls from
@@ -91,7 +103,10 @@ Deno.serve(async (req) => {
       authorized = true;
     }
 
-    const { user_id, title, body, data } = await req.json();
+    // image_url / category / group_key / delivery_id are optional (N4: sent by
+    // the notification centre's delivery queue); without them the message is
+    // exactly the one this function always sent.
+    const { user_id, title, body, data, image_url, category, group_key, delivery_id } = await req.json();
     if (!user_id || !title) {
       return new Response(JSON.stringify({ error: "user_id and title are required" }), { status: 400, headers: corsHeaders });
     }
@@ -115,16 +130,15 @@ Deno.serve(async (req) => {
     const accessToken = await getAccessToken(sa);
     const endpoint = `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`;
 
+    const imageHosts = image_url ? laneImageHosts() : [];   // once per call, not per device
     let sent = 0;
     const stale: string[] = [];
     for (const { token } of tokens) {
-      const message: any = {
-        token,
-        notification: { title, body: body || "" },
-        data: data ? Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])) : undefined,
-        android: { priority: "high" },
-        apns: { payload: { aps: { sound: "default" } } },
-      };
+      const message = buildFcmMessage({
+        token, title, body, data,
+        imageUrl: image_url, category, groupKey: group_key, deliveryId: delivery_id,
+        imageHosts,
+      });
       const r = await fetch(endpoint, {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
