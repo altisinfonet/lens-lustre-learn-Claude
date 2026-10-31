@@ -402,26 +402,22 @@ SELECT pg_temp.x1_ro_prepare('posts', 'ASC');
 SELECT pg_temp.x1_ro_prepare('profile_views', 'ASC');
 SELECT pg_temp.x1_ro_prepare('user_badges', 'ASC');
 
--- Phase 2: every exclusive lock at once (children first, posts last, as in 0612),
--- then ALTER, ORDER, BIND, E2-after and POST per table under one 3 s cap.
--- The whole LOCK statement gets 3 s: readers queue behind the locks it already
--- holds while it waits for the next one, so the wait is bounded too.
-SET LOCAL statement_timeout = '3s';
-LOCK TABLE public.profile_views, public.image_comments, public.post_reactions, public.post_comments, public.post_tags, public.user_badges, public.portfolio_images, public.friendships, public.competitions, public.posts IN ACCESS EXCLUSIVE MODE;
-SET LOCAL statement_timeout = '60s';
-SELECT set_config('x1ro.t_lock', clock_timestamp()::text, true);
-SELECT pg_temp.x1_ro_finish('competitions', 'ASC');
-SELECT pg_temp.x1_ro_finish('friendships', 'ASC');
-SELECT pg_temp.x1_ro_finish('image_comments', 'ASC');
-SELECT pg_temp.x1_ro_finish('portfolio_images', 'ASC');
-SELECT pg_temp.x1_ro_finish('post_comments', 'ASC');
-SELECT pg_temp.x1_ro_finish('post_reactions', 'ASC');
-SELECT pg_temp.x1_ro_finish('post_tags', 'ASC');
-SELECT pg_temp.x1_ro_finish('posts', 'ASC');
-SELECT pg_temp.x1_ro_finish('profile_views', 'ASC');
-SELECT pg_temp.x1_ro_finish('user_badges', 'ASC');
-DO $done$
+-- Phase 2 in ONE statement (one round trip to the server, so the lock window
+-- holds only the work, not a network round trip per table): every exclusive
+-- lock at once (children first, posts last, as in 0612),
+-- then ALTER, ORDER, BIND, E2-after and POST per table. statement_timeout 5 s
+-- is a hard ceiling on the whole phase, lock waits included (it interrupts a
+-- step, unlike the 3 s WIN check, which runs between steps).
+SET LOCAL statement_timeout = '5s';
+DO $phase2$
+DECLARE
+  t text;
 BEGIN
+  LOCK TABLE public.profile_views, public.image_comments, public.post_reactions, public.post_comments, public.post_tags, public.user_badges, public.portfolio_images, public.friendships, public.competitions, public.posts IN ACCESS EXCLUSIVE MODE;
+  PERFORM set_config('x1ro.t_lock', clock_timestamp()::text, true);
+  FOREACH t IN ARRAY ARRAY['competitions', 'friendships', 'image_comments', 'portfolio_images', 'post_comments', 'post_reactions', 'post_tags', 'posts', 'profile_views', 'user_badges'] LOOP
+    PERFORM pg_temp.x1_ro_finish(t, 'ASC');
+  END LOOP;
   IF clock_timestamp() - current_setting('x1ro.t_lock')::timestamptz > interval '3 seconds' THEN
     RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive locks have been held over 3 s — rolled back, nothing changed';
   END IF;
@@ -429,7 +425,8 @@ BEGIN
     current_setting('p32.lane'), (SELECT count(*) FROM pg_temp.x1_ro_state),
     round(extract(epoch FROM clock_timestamp() - current_setting('x1ro.t_lock')::timestamptz) * 1000);
 END
-$done$;
+$phase2$;
+SET LOCAL statement_timeout = '60s';
 
 -- The helpers are session objects: drop them so a pooled session reused by a
 -- later run cannot trip over them (the state table drops itself at COMMIT).
