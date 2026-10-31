@@ -34,6 +34,5 @@
   "sql:notify_user_ticket_reply": "existed 2026-10-31; moves in N3 group 4 (wallet / support / roles)",
   "sql:pj_handle_comment_notification": "existed 2026-10-31; moves in N3 group 1 (likes & comments)",
   "sql:pj_handle_reaction_notification": "existed 2026-10-31; moves in N3 group 1 (likes & comments)",
-  "sql:video_takedown": "existed 2026-10-31; moves in N3 group 3 (competition, judging, awards, announcements)",
-  "sql:wallet_ledger_v2_diff_snapshot": "existed 2026-10-31; moves in N3 group 4 (wallet / support / roles)"
+  "sql:video_takedown": "existed 2026-10-31; moves in N3 group 3 (competition, judging, awards, announcements)"
 }
