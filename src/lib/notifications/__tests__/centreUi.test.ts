@@ -18,3 +18,35 @@ describe("notification centre UI switch (site_settings notif_centre_ui)", () => 
     }
   });
 });
+
+// ── the hook: reads the switch once per member, resets on a member change ──
+import { renderHook, waitFor } from "@testing-library/react";
+import { vi } from "vitest";
+
+vi.mock("@/lib/siteSettingsCache", () => ({ readSiteSettingState: vi.fn() }));
+import { readSiteSettingState } from "@/lib/siteSettingsCache";
+import { useCentreUi } from "@/lib/notifications/centreUi";
+
+describe("useCentreUi", () => {
+  it("is false until read, true for a listed member, false for the next unlisted one", async () => {
+    const read = vi.mocked(readSiteSettingState);
+    read.mockResolvedValue({ known: true, value: { users: ["owner-id"] } });
+    const { result, rerender } = renderHook(({ id }) => useCentreUi(id), { initialProps: { id: "owner-id" } });
+    expect(result.current).toBe(false);
+    await waitFor(() => expect(result.current).toBe(true));
+    let resolveNext: (v: { known: boolean; value: unknown }) => void = () => {};
+    read.mockReturnValue(new Promise((r) => { resolveNext = r; }) as never);
+    rerender({ id: "someone-else" });
+    expect(result.current).toBe(false);            // reset at once, not the previous member's answer
+    resolveNext({ known: true, value: { users: ["owner-id"] } });
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+    expect(result.current).toBe(false);
+  });
+
+  it("an unreadable switch is off", async () => {
+    vi.mocked(readSiteSettingState).mockRejectedValue(new Error("offline"));
+    const { result } = renderHook(() => useCentreUi("owner-id"));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(result.current).toBe(false);
+  });
+});

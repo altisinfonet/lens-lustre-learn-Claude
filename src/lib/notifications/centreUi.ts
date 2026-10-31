@@ -38,6 +38,7 @@ export function useCentreUi(userId: string | null | undefined): boolean {
   const [on, setOn] = useState(false);
   useEffect(() => {
     let alive = true;
+    setOn(false); // a new member starts on today's screens until their own answer arrives
     void centreUiOn(userId).then((v) => { if (alive) setOn(v); });
     return () => { alive = false; };
   }, [userId]);

@@ -110,7 +110,7 @@ describe("/notifications — centre rows (switch on)", () => {
   it("names the whole sentence once, as the row button's accessible name", () => {
     withGroups([group({ type: "post_reaction", actor_names: ["Anindita"], actor_usernames: ["aninditahidayat"] })]);
     renderPage();
-    const btn = screen.getByRole("button", { name: /^Unread\. Anindita reacted to your photo\./ });
+    const btn = screen.getByRole("button", { name: /^Unread, Anindita reacted to your photo\./ });
     expect(btn).toHaveAttribute("data-notif-row-open", "true");
   });
 

@@ -40,7 +40,7 @@ import {
 // The sentence itself comes from the shared layer, NOT from this page. The bell
 // composes from the same function, so the two surfaces cannot drift apart
 // again — see src/lib/notifications/describe.ts for the naming rules.
-import { describeNotification, actorDisplayName, actorPhrase } from "@/lib/notifications/describe";
+import { describeNotification, actorDisplayName } from "@/lib/notifications/describe";
 import { subjectFromGroup } from "@/lib/notifications/adapters";
 import { useAdminIds } from "@/hooks/core/useAdminIds";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
@@ -130,9 +130,6 @@ function NotificationRow({
     group.type === "new_follower" && !!actorId && followReady && !isFollowing;
 
   if (centreRows) {
-    const sentence = described.hasActor
-      ? `${actorPhrase(subject)} ${described.action}`
-      : described.text;
     return (
       <div
         className={`flex items-center gap-3 px-4 py-3 border-b border-border/50 transition-colors ${
@@ -142,7 +139,6 @@ function NotificationRow({
         <button
           data-notif-row-open="true"
           onClick={() => onOpen(group)}
-          aria-label={`${unread ? `${t("notifications.unread", "Unread")}. ` : ""}${sentence} ${described.age}`}
           className="flex items-center gap-3 flex-1 min-w-0 text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="relative shrink-0">
@@ -156,6 +152,9 @@ function NotificationRow({
             )}
           </span>
           <span className="text-xs leading-relaxed text-foreground min-w-0 flex-1" style={bodyFont}>
+            {/* The accessible name IS the visible text (WCAG 2.5.3); the
+                unread state is spoken first, the dot is decoration. */}
+            {unread && <span className="sr-only">{t("notifications.unread", "Unread")}, </span>}
             {described.hasActor ? (
               <>
                 <ActorPhrase subject={subject} plain /> {described.action}
