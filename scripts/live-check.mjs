@@ -2,7 +2,7 @@
 /**
  * LIVE CHECK — the carry-to-main rule's last step, in all three engines.
  *
- * "Check live in Chromium, Firefox, WebKit: home + /feed 200, same text, no NEW
+ * "Check live in Chromium, Firefox, WebKit: home + /feed (+ /notifications) 200, same text, no NEW
  * console errors." For each engine and path it loads the public site twice and
  * prints: HTTP status, whether the visible text is the same both times
  * (digits masked — live counters move), and every console error / page error.
@@ -19,7 +19,10 @@ import { chromium, firefox, webkit } from "playwright";
 
 const ORIGIN = process.argv[2] || "https://www.50mmretina.com";
 const ENGINES = (process.argv[3] || "chromium,firefox,webkit").split(",");
-const PATHS = ["/", "/feed"];
+// "/notifications" added for the notification centre carries. Logged out it
+// lands on the sign-in screen (measured 2026-10-31: 200, /login, text shown),
+// like /feed — so it proves the route and the page bundle still load.
+const PATHS = ["/", "/feed", "/notifications"];
 const B = { chromium, firefox, webkit };
 /** Never echo a key or token that a browser puts in a logged URL. */
 const scrub = (t) => t.replace(/([?&](?:apikey|access_token|token|key)=)[^&\s"']+/gi, "$1<redacted>");
