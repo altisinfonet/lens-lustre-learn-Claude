@@ -1,7 +1,7 @@
 # Video + accessibility runner — status
 
 Started 2026-10-30 01:47 UTC. Replaces the earlier supervisor session (no GitHub trace after 2026-10-29 14:19 UTC).
-Last update: 2026-10-31 10:45 UTC.
+Last update: 2026-10-31 11:20 UTC.
 
 THIRD RESTART 2026-10-31 ~03:55 UTC: previous run stopped silently after its 18:23 UTC heartbeat (S10a-4 never pushed; will be rebuilt fresh later). PAUSE cancelled by Owner RESUME. Order now, one PR at a time: 1 VID-6 cost alerts → 2 privacy text → 3 S7 gate table → 4 Android 1.2.33 → 5 S10a-3, S10a-4.
 
@@ -11,7 +11,7 @@ RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. 
 
 ## Now
 07:30 UTC — **S7 100% (Owner steps left: Play Data safety, Apple App Privacy, video rollout + phone/3-browser test, install 1.2.33 and test video + Upload resume).** Android 1.2.33 built: run **41178510127** SUCCESS.
-10:45 UTC — S10a-3 part C #745: review nothing blocking; UI gate red on 6e981c2b — root cause: its layout baseline names each control by tag + first two classes (tools/uishot/capture.mjs:270) and I replaced `hover:underline`, so the links read as 'gone'. Fix keeps the first two classes; re-checking the UI gate locally. S10a-4 walkthrough script drafted (tools/uishot/a11y-walkthrough.mjs).
+11:20 UTC — S10a-3 part C LIVE on main 87f6a47c (carry #746). S10a-3 done: axe nodes on the ten surfaces 87 → 7, focus findings 2 → 0; the 7 left need decisions (4 notification-row = Owner item 7; 3 Admin Health contrast = a second red colour token). S10a-4 walkthrough PR #751 open: CI runs Chromium + WebKit; WALKTHROUGH.md is added from its artefact.
 
 ## Units
 | Unit | PR | State | Merged sha (staging / main) | SQL runs | Live check |
@@ -27,7 +27,8 @@ RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. 
 | Android 1.2.33 (carries S7) | #734 | MERGED 06:40 UTC (23/23 green; review nothing blocking) | staging 550a9171 / main 2f13f196 (carry #735, 06:55 UTC, 23/23 green, review nothing blocking) | none | android-build run **41178510127 SUCCESS** 07:15 UTC |
 | P23 S10a-3 (A) sidebar / Discover avatar links (−56 axe nodes) | #736 | MERGED 07:49 UTC (26/26 green incl. P23 + UI gate; RED-first 41180210560; review nothing blocking; review note fixed with fail-first test 01241d71; re-review nothing blocking) | staging 7d339442 / main 6c996b1a (carry #737, 08:05 UTC, 25/25 green, review nothing blocking) | none | live run 41183379027: 6/6 pages 200, same text, no new console errors |
 | P23 S10a-3 (B) progress value, icon buttons, selects (−13) | #738 | MERGED 09:49 UTC (26/26 green; RED-first 41183915257; review BLOCKING ×2 fixed with fail-first tests, then the row change withdrawn; final review nothing blocking) | staging 0dd783c8 / main ad430baa (carry #744, 10:03 UTC, 25/25 green, review nothing blocking) | none | live run 41191774877: pages 200 |
-| P23 S10a-3 (C) underlined links in sentences, comment-box focus (−11, −2 focus) | #745 | OPEN — RED-first 41191775892; fix pushed; CI + review | — | none | — |
+| P23 S10a-3 (C) underlined links in sentences, comment-box focus (−11, −2 focus) | #745 | MERGED 10:58 UTC (27/27 green; RED-first 41191775892; UI-gate root cause fixed 6e3008cf; reviews nothing blocking) | staging 8195639e / main 87f6a47c (carry #746, 11:14 UTC, 26/26 green, review nothing blocking) | none | live check after merge |
+| P23 S10a-4 scripted keyboard + screen-reader walkthrough | #751 | OPEN — CI (Chromium + WebKit) | — | none | — |
 | S7-a PROBE fix: admin read lane-proof | #673 | MERGED 11:08 UTC (33/33 green; review nothing blocking ×2) | staging 9b4e0201 / main 50a1ff9f (in #681) | — | — |
 | S7-a purge-queue deleter | #539 | MERGED 09:10 UTC (36/36 checks green; re-review nothing blocking) | staging 75f78f67 / main 50a1ff9f (carry #681 with #673, 12:07 UTC, 35/35 green, review nothing blocking) | 0700 STAGING: PROBE-before 41040556611 FAIL G1 (expected) · apply 41040769034 SUCCESS 10:27 · PROBE-after 41042014241 ERROR (PROBE bug → #673) · PROBE-after 41045879133 **PASS** 11:10 UTC. Production: PROBE-before 41053131761 FAIL G1 (expected, 12:25) · apply 41055299050 COMMIT 12:31 · PROBE-after 41056104158 **PASS** 12:33 UTC | live run 41053135653 (main 50a1ff9f): 6/6 pages 200, same text, no new console errors | — |
 | S7-e encoder harness fixtures | #540 | MERGED 09:45 UTC (25/25 checks green incl. encoder harness; review BLOCKING ×3 → fixed with fail-first test f6723b2b → re-review nothing blocking) | staging 9e943369 / main 628ddea9 (carry #685, 12:50 UTC, 24/24 green, review nothing blocking) | none | live run 41058422608: 6/6 pages 200, same text, no new console errors |
@@ -43,7 +44,7 @@ d2-live-check run 41046580661 on main 36c895d1 (11:16 UTC): home + /feed 200 in 
 
 ## Progress
 - S7: **100% (Owner steps left — see the Owner list).** All VID gates PASS on staging and production (S7-GATE.md), VID-6 alarms + privacy text live, Android 1.2.33 built (run 41178510127). Short clips dropped by the Owner.
-- P23: S10a-1 + S10a-2 live; S10a-3 part A merged (87 → 31 axe nodes). Left: S10a-3 parts B (edit-profile / profile / notifications / admin-health ARIA) and C (link-in-text-block, contrast, 2 focus findings), then S10a-4 walkthrough. About 60% of S10-a.
+- P23: S10a-1, S10a-2, S10a-3 (A, B, C) live. 87 → 7 axe nodes, 2 → 0 focus findings. Open: S10a-4 walkthrough (#751), and 7 nodes needing decisions. About 85% of S10-a.
 
 ## For the S7b offline runner
 (a line is added here after each S7 PR merges on staging)
