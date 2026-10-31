@@ -31,3 +31,9 @@ Behaviour (staging-shaped):
 | apply while a stray already exists | REFUSED `NC-0130-POST-001` naming it; nothing created |
 | apply without `p32.lane` | REFUSED |
 | re-apply after rollback | OK, PROBE PASS |
+
+## Known limits (accepted, from review)
+
+- Dynamic SQL (`EXECUTE format('INSERT INTO %I …')`) and writers outside schema `public` are not seen.
+- The list matches by name, so a new overload of a listed name is not flagged.
+- A comment mentioning such an insert counts as a stray: a false alarm, which is the safe direction.

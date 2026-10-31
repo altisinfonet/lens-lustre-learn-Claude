@@ -7,9 +7,16 @@
 --   table    public.notification_writer_allowlist (fn_name, reason) — every
 --            public function allowed to INSERT into user_notifications /
 --            admin_notifications. Seeded with the CI ratchet's SQL entries
---            (scripts/notif-guard-allow.json on staging after N1, 2026-10-31:
+--            (scripts/notif-guard-allow.json as N1 / #766 leaves it, 2026-10-31:
 --            28 makers + pj_handle_tag_notification + the centre's two write
---            functions = 31). N3 deletes rows as makers move.
+--            functions = 31; the three notify_post_* functions are left OUT on
+--            purpose — their live bodies only queue, so if one ever writes the
+--            tables directly the alarm fires). N3 deletes rows as makers move.
+--
+-- KNOWN LIMITS (accepted): dynamic SQL (EXECUTE format('INSERT INTO %I'))
+-- and writers outside schema public are not seen; the list matches by name,
+-- so a new overload of a listed name is not flagged; a comment mentioning an
+-- insert counts as a stray (false alarm, the safe direction).
 --   function public.notification_stray_writer_check()  READ-ONLY scan of
 --            pg_proc: live public functions whose source inserts into either
 --            table and are not allow-listed. Opens (or closes) the ops alarm
