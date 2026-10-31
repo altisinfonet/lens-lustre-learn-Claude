@@ -185,7 +185,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
             ) : (
               suggestions.map((s: any) => (
                 <div key={s.id} className="flex items-center gap-3 px-4 py-3">
-                  <ProfileLink userId={s.id} handle={handleFor(s)} className="shrink-0">
+                  <ProfileLink userId={s.id} handle={handleFor(s)} className="shrink-0" aria-label={`${s.full_name || "Member"} — profile`}>
                     {s.avatar_url ? (
                       <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={s.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
                     ) : (
@@ -413,7 +413,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
                 */}
               {winners.map((w: any) => (
                 <div key={w.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
-                  <Link to={`/competitions`} className="shrink-0">
+                  <Link to={`/competitions`} className="shrink-0" aria-label={`${w.title || "Winning photo"} — competitions`}>
                     {w.photos?.[0] ? (
                       <img loading="lazy" decoding="async" src={w.photos[0]} alt="" className="w-10 h-10 rounded-sm object-cover shrink-0" />
                     ) : (
@@ -430,7 +430,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
                       <ProfileLink
                         userId={w.user_id}
                         handle={w.user_custom_url}
-                        className="text-[9px] text-muted-foreground truncate hover:underline"
+                        className="text-[9px] text-muted-foreground truncate hover:underline inline-block pt-[8px] -mt-[8px]"
                         style={bodyFont}
                       >
                         {w.user_name || "Photographer"}
