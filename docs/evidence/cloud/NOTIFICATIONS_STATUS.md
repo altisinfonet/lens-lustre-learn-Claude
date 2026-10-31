@@ -2,12 +2,12 @@ N0 IN PROGRESS
 
 # Notification centre runner — status
 
-Heartbeat: 2026-10-31 13:48 UTC (measured) — MERGED: carry #759 → main (832863d: N0 PROBE + N2 centre), #752 N5 CI guard → staging (0ad80af), #760 N3 centre gate → staging (ef4eed9). Production N0 PROBE dispatched: run 41206791083. Opened #764 N6 admin page (in review). CORRECTION: at 13:42 I dispatched the N3 staging PROBE without re-checking the STAGING lane (I had checked production) while another runner's staging run was queued; I cancelled mine (41206815161) within a minute and will re-dispatch when the lane is free. Branch for status only; never merged.
+Heartbeat: 2026-10-31 13:55 UTC (measured) — N0 PROBE PASSED on production: run 41206791083 (13:49). All 53 notification functions identical on both lanes; 12 exist only in the commented-out snapshot. N0 map PR #765 (review nothing blocking). N1 capture PR #766 opened (guarded no-op, in review). #764 N6 admin reviewed nothing blocking. Both apply lanes currently hold other runners' queued runs; N2 production apply and N3 staging apply wait for them. Branch for status only; never merged.
 
 | Step | What | PR | Merged sha (staging / main) | SQL runs (lane · run id · result · UTC) | Live check | % |
 |---|---|---|---|---|---|---|
-| N0 | Measure (read-only map) | #748; carry #759 | staging d4aa554 / main 832863d | staging 41202968098 PASS 13:19; production 41206791083 (running) | — | 70 |
-| N1 | Capture live-only pieces into git | — | — | — | — | 0 |
+| N0 | Measure (read-only map) | #748; carry #759; map #765 | staging d4aa554 / main 832863d | staging 41202968098 PASS 13:19; production 41206791083 PASS 13:49 | live check 13:46 Chromium: same as baseline | 90 |
+| N1 | Capture live-only pieces into git | #766 | — | — | — | 40 |
 | N2 | Centre, switch OFF, 24 h shadow | #754; carry #759 | staging 6c2f4c8 / main 832863d | staging: FAIL 41205948948 → apply 41206399056 → PASS 41206575315 (13:41) | — | 60 |
 | N3 | Move makers onto the centre, by group | #760 (centre gate) | staging ef4eed9 | — | — | 40 |
 | N4 | Delivery (push + e-mail queue, receipts) | #757 (part 1: push builder) | — | — | — | 10 |
