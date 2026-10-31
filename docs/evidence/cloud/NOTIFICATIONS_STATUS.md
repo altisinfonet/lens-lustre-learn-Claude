@@ -2,18 +2,18 @@ N0 IN PROGRESS
 
 # Notification centre runner — status
 
-Heartbeat: 2026-10-31 11:26 UTC (measured with `date -u`) — N0 PROBE #748: review nothing blocking after 4 rounds, waiting on CI (repo-wide runner queue ~280; I cancelled my own 108 superseded runs). N5 guard #752: review nothing blocking, final one-line confirm pending. N2 core drafted and passing 24 local fixture cases. Branch for status only; never merged.
+Heartbeat: 2026-10-31 11:43 UTC (measured) — open PRs: #748 N0 PROBE (review nothing blocking; CI nearly done), #752 N5 guard (review nothing blocking; CI queued), #754 N2 centre (review nothing blocking; seeds to reconcile with N0 live list; CI queued), #755 N7 part 1 rows (in review). Nothing applied to any database yet. Branch for status only; never merged.
 
 | Step | What | PR | Merged sha (staging / main) | SQL runs (lane · run id · result · UTC) | Live check | % |
 |---|---|---|---|---|---|---|
-| N0 | Measure (read-only map) | #748 (PROBE 0100) | — | — | — | 20 |
+| N0 | Measure (read-only map) | #748 (PROBE 0100) | — | — | — | 40 |
 | N1 | Capture live-only pieces into git | — | — | — | — | 0 |
-| N2 | Centre, switch OFF, 24 h shadow | — | — | — | — | 0 |
+| N2 | Centre, switch OFF, 24 h shadow | #754 | — | — | — | 35 |
 | N3 | Move makers onto the centre, by group | — | — | — | — | 0 |
 | N4 | Delivery (push + e-mail queue, receipts) | — | — | — | — | 0 |
 | N5 | Guard (CI stray-insert test + nightly count) | #752 (CI guard, part 1) | — | — | — | 30 |
 | N6 | Admin Notification Centre page | — | — | — | — | 0 |
-| N7 | Member screens | — | — | — | — | 0 |
+| N7 | Member screens | #755 (part 1: rows) | — | — | — | 10 |
 | N8 | Staged rollout steps for the Owner | — | — | — | — | 0 |
 
 ## Notes
