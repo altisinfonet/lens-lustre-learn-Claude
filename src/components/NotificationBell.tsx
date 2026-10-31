@@ -13,6 +13,7 @@ import { useNotificationsQuery, type UserNotificationGroup } from "@/hooks/notif
 import { useNotificationSound } from "@/hooks/core/useNotificationSound";
 import { getNotifLink } from "@/lib/notificationLinks";
 import { useCentreUi } from "@/lib/notifications/centreUi";
+import { centreHeadline, isBigMoment } from "@/lib/notifications/centreWording";
 import { useT } from "@/i18n/I18nContext";
 import { notificationEntryState } from "@/lib/navigationContract";
 import { useDismissOnRouteChange } from "@/hooks/core/useDismissOnRouteChange";
@@ -559,7 +560,13 @@ const NotificationBell = () => {
                           const described = describeNotification(subjectFromGroup(group, adminIds));
                           return (
                             centreRows ? (
-                            <div key={group.group_key} className="flex items-center gap-3 px-4 py-3 border-b border-border/50 hover:bg-muted/20 transition-colors">
+                            <div
+                              key={group.group_key}
+                              data-notif-big={isBigMoment(group.type) ? "true" : undefined}
+                              className={`flex items-center gap-3 px-4 py-3 border-b border-border/50 hover:bg-muted/20 transition-colors ${
+                                isBigMoment(group.type) ? "border-l-4 border-l-primary bg-primary/10" : ""
+                              }`}
+                            >
                               {/* N7 · notif_centre_ui: ONE link per row — avatar, sentence and
                                   time inside it, so a screen reader meets one named control
                                   instead of an unnamed avatar link plus a second link. */}
@@ -579,7 +586,16 @@ const NotificationBell = () => {
                                 <span className="flex-1 min-w-0">
                                   <span className="text-xs block line-clamp-2" style={bodyFont}>
                                     {(group.unread_count ?? 0) > 0 && <span className="sr-only">{t("notifications.unread", "Unread")}, </span>}
-                                    {described.text}
+                                    {(() => {
+                                      // N7 · same headline + server detail as the history page.
+                                      const headline = described.hasActor ? null : centreHeadline(group.type);
+                                      return headline ? (
+                                        <>
+                                          <strong className="font-semibold">{t(headline.key, headline.fallback)}</strong>{" "}
+                                          {described.text}
+                                        </>
+                                      ) : described.text;
+                                    })()}
                                   </span>
                                   <span className="text-[9px] text-muted-foreground" style={headingFont}>{timeAgoFn(group.latest_at)}</span>
                                 </span>

@@ -15,6 +15,7 @@ import { useMemo, useState } from "react";
 import ActorPhrase from "@/components/notifications/ActorPhrase";
 import { useCentreUi } from "@/lib/notifications/centreUi";
 import { NOTIFICATION_TABS, TAB_LABEL, inTab, type NotificationTab } from "@/lib/notifications/tabs";
+import { centreHeadline, isBigMoment } from "@/lib/notifications/centreWording";
 import { useMemberHandles } from "@/hooks/profile/useMemberHandles";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Bell, X } from "lucide-react";
@@ -131,10 +132,15 @@ function NotificationRow({
     group.type === "new_follower" && !!actorId && followReady && !isFollowing;
 
   if (centreRows) {
+    // N7 · impersonal types lead with an app headline; the server text stays
+    // underneath (it names the competition / award). Big moments are cards.
+    const headline = described.hasActor ? null : centreHeadline(group.type);
+    const big = isBigMoment(group.type);
     return (
       <div
+        data-notif-big={big ? "true" : undefined}
         className={`flex items-center gap-3 px-4 py-3 border-b border-border/50 transition-colors ${
-          unread ? "bg-primary/5" : ""
+          big ? "border-l-4 border-l-primary bg-primary/10" : unread ? "bg-primary/5" : ""
         } hover:bg-muted/20`}
       >
         <button
@@ -159,6 +165,11 @@ function NotificationRow({
             {described.hasActor ? (
               <>
                 <ActorPhrase subject={subject} plain /> {described.action}
+              </>
+            ) : headline ? (
+              <>
+                <strong className="font-semibold">{t(headline.key, headline.fallback)}</strong>{" "}
+                <span className="block">{described.text}</span>
               </>
             ) : (
               described.text
