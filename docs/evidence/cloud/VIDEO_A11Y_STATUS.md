@@ -2,7 +2,7 @@ VIDEO + A11Y COMPLETE — S7 100% and P23 S10-a gate clauses met (Owner steps le
 
 # Video + accessibility runner — status
 
-Started 2026-10-30 01:47 UTC. Third restart 2026-10-31 ~03:55 UTC (Owner RESUME). Last update: 2026-10-31 14:25 UTC.
+Started 2026-10-30 01:47 UTC. Third restart 2026-10-31 ~03:55 UTC (Owner RESUME). Last update: 2026-10-31 14:52 UTC. Final live check: run 41209256390 on main ab2f29a1, success.
 
 ## Summary (31 Oct)
 **S7 "Video complete" — 100% (Owner steps left).**
