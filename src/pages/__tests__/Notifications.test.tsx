@@ -27,6 +27,8 @@ vi.mock("@/hooks/core/useAuth", () => ({ useAuth: () => ({ user: { id: "me" } })
 vi.mock("@/hooks/social/useFriendshipMutations", () => ({
   useToggleFollow: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
+// Today's rows: the notification centre switch (notif_centre_ui) is OFF.
+vi.mock("@/lib/notifications/centreUi", () => ({ useCentreUi: () => false }));
 vi.mock("@/i18n/I18nContext", () => ({
   useT: () => (_key: string, fallback?: string) => fallback ?? _key,
 }));

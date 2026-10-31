@@ -31,6 +31,8 @@ import NotificationBell from "@/components/NotificationBell";
 
 // ---- mocks: hermetic component (no network, no auth, no animation) ----
 
+// Today's bell: the notification centre switch (notif_centre_ui) is OFF.
+vi.mock("@/lib/notifications/centreUi", () => ({ useCentreUi: () => false }));
 vi.mock("@/hooks/core/useAuth", () => ({
   useAuth: () => ({ user: { id: "user-1" } }),
 }));
