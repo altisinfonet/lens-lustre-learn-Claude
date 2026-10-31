@@ -52,7 +52,9 @@
 --   POST  · restrictive policies byte-identical; the permissive set (names,
 --           commands, roles) unchanged.
 --   WIN   · the exclusive locks are held at most about 3 s for the whole
---           batch (checked between steps); lock_timeout is 2 s per lock.
+--           batch (checked between steps; one slow step can run past it, up
+--           to the 60 s statement_timeout). Taking them is bounded too:
+--           lock_timeout 2 s per lock and 3 s for the whole LOCK statement.
 --
 -- PROBE:    supabase/migrations/PROBE_20261031_0615_s10_x1_order_restore_pilot.sql
 -- Rollback: supabase/rollback/20261031_0615_s10_x1_order_restore_pilot_ROLLBACK.sql
@@ -455,7 +457,11 @@ SELECT pg_temp.x1_ro_prepare('photo_of_the_day', 'DESC');
 
 -- Phase 2: every exclusive lock at once,
 -- then ALTER, ORDER, BIND, E2-after and POST per table under one 3 s cap.
+-- The whole LOCK statement gets 3 s: readers queue behind the locks it already
+-- holds while it waits for the next one, so the wait is bounded too.
+SET LOCAL statement_timeout = '3s';
 LOCK TABLE public.blocked_keywords, public.categories, public.certificate_testimonials, public.courses, public.gift_announcements, public.hero_banners, public.journal_articles, public.lessons, public.photo_of_the_day IN ACCESS EXCLUSIVE MODE;
+SET LOCAL statement_timeout = '60s';
 SELECT set_config('x1ro.t_lock', clock_timestamp()::text, true);
 SELECT pg_temp.x1_ro_finish('blocked_keywords', 'DESC');
 SELECT pg_temp.x1_ro_finish('categories', 'DESC');
@@ -476,5 +482,9 @@ BEGIN
     round(extract(epoch FROM clock_timestamp() - current_setting('x1ro.t_lock')::timestamptz) * 1000);
 END
 $done$;
+
+-- The helpers are session objects: drop them so a pooled session reused by a
+-- later run cannot trip over them (the state table drops itself at COMMIT).
+DROP FUNCTION pg_temp.x1_ro_prepare(text, text), pg_temp.x1_ro_finish(text, text);
 
 COMMIT;
