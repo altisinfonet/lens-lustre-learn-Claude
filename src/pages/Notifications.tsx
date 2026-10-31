@@ -16,6 +16,7 @@ import ActorPhrase from "@/components/notifications/ActorPhrase";
 import { useCentreUi } from "@/lib/notifications/centreUi";
 import { NOTIFICATION_TABS, TAB_LABEL, inTab, type NotificationTab } from "@/lib/notifications/tabs";
 import { centreHeadline, isBigMoment } from "@/lib/notifications/centreWording";
+import { useMutualFollowCounts } from "@/hooks/notifications/useMutualFollows";
 import { useMemberHandles } from "@/hooks/profile/useMemberHandles";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Bell, X } from "lucide-react";
@@ -104,10 +105,13 @@ function NotificationRow({
   adminIds,
   video,
   centreRows = false,
+  mutualFollows,
 }: {
   group: NotificationGroup;
   /** N7 (site_settings notif_centre_ui): one control per row, plain bold names, unread dot. */
   centreRows?: boolean;
+  /** N7 · new followers only: how many people the member follows that this follower also follows. */
+  mutualFollows?: number;
   /** BUG-VID-HOME: the post's playable video when the notification is about a video post (one batched read for the list). */
   video: FeedVideo | null;
   isFollowing: boolean;
@@ -165,6 +169,16 @@ function NotificationRow({
             {described.hasActor ? (
               <>
                 <ActorPhrase subject={subject} plain /> {described.action}
+                {group.type === "new_follower" && (mutualFollows ?? 0) > 0 && (
+                  <>
+                    {" "}
+                    <span className="block text-muted-foreground">
+                      {mutualFollows === 1
+                        ? t("notifications.mutual_one", "Also follows 1 person you know")
+                        : t("notifications.mutual_many", "Also follows {n} people you know").replace("{n}", String(mutualFollows))}
+                    </span>
+                  </>
+                )}
               </>
             ) : headline ? (
               <>
@@ -339,12 +353,13 @@ const Notifications = () => {
     return v && v !== "hidden" ? v : null;
   };
 
-  const { following, ready: followReady } = useFollowingSet(
-    useMemo(
-      () => groups.filter((g) => g.type === "new_follower").map((g) => g.actor_ids?.[0]).filter(Boolean) as string[],
-      [groups],
-    ),
+  const newFollowerIds = useMemo(
+    () => groups.filter((g) => g.type === "new_follower").map((g) => g.actor_ids?.[0]).filter(Boolean) as string[],
+    [groups],
   );
+  const { following, ready: followReady } = useFollowingSet(newFollowerIds);
+  // N7 · "Also follows N people you know" (SQL 0190) — centre rows only.
+  const mutualFollows = useMutualFollowCounts(newFollowerIds, centreRows);
 
   const buckets = useMemo(() => {
     const now = new Date();
@@ -523,6 +538,7 @@ const Notifications = () => {
                 adminIds={adminIds}
                 video={videoFor(group)}
                 centreRows={centreRows}
+                mutualFollows={mutualFollows.get(group.actor_ids?.[0] ?? "")}
               />
             ))}
           </section>

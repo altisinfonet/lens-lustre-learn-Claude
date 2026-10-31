@@ -34,6 +34,8 @@ vi.mock("@/hooks/social/useFriendshipMutations", () => ({
   useToggleFollow: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock("@/lib/notifications/centreUi", () => ({ useCentreUi: () => true }));
+let mutual = new Map<string, number>();
+vi.mock("@/hooks/notifications/useMutualFollows", () => ({ useMutualFollowCounts: () => mutual }));
 vi.mock("@/i18n/I18nContext", () => ({
   useT: () => (_key: string, fallback?: string) => fallback ?? _key,
 }));
@@ -222,5 +224,39 @@ describe("/notifications — app headlines (switch on)", () => {
     const btn = screen.getByRole("button", { name: /^Unread, You're a finalist Your entry/ });
     expect(btn.querySelector('[data-notif-unread-dot="true"]')).not.toBeNull();
     expect(btn.closest('[data-notif-big="true"]')).not.toBeNull();
+  });
+});
+
+describe("/notifications — new follower: people you know (switch on)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFollowingSet.mockReturnValue({ following: new Set<string>(), ready: true });
+    mutual = new Map();
+  });
+
+  it("says how many people you know the new follower also follows", () => {
+    mutual = new Map([["f1", 3]]);
+    withGroups([group({ type: "new_follower", actor_ids: ["f1"], actor_names: ["Follower One"], actor_usernames: ["f1"], unread_count: 0 })]);
+    renderPage();
+    const btn = screen.getByRole("button", { name: /Follower One started following you\. .*Also follows 3 people you know/ });
+    expect(btn).toHaveAttribute("data-notif-row-open", "true");
+  });
+
+  it("one person reads in the singular; none says nothing", () => {
+    mutual = new Map([["f1", 1], ["f2", 0]]);
+    withGroups([
+      group({ group_key: "x1", type: "new_follower", actor_ids: ["f1"], actor_names: ["Follower One"], actor_usernames: ["f1"] }),
+      group({ group_key: "x2", type: "new_follower", actor_ids: ["f2"], actor_names: ["Follower Two"], actor_usernames: ["f2"] }),
+    ]);
+    renderPage();
+    expect(screen.getByText("Also follows 1 person you know")).toBeInTheDocument();
+    expect(screen.queryAllByText(/Also follows/)).toHaveLength(1);
+  });
+
+  it("other types never get the line", () => {
+    mutual = new Map([["actor-1", 5]]);
+    withGroups([group({ type: "post_reaction" })]);
+    renderPage();
+    expect(screen.queryByText(/Also follows/)).toBeNull();
   });
 });
