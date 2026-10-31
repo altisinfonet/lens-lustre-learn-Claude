@@ -28,3 +28,14 @@ G (named `<b>Evil</b>`). A, B, C, D, E and G each have 7 notifications from the 
 | production-shaped | the links are `https://www.50mmretina.com/…` |
 | a member runs it | permission denied |
 | rollback → PROBE; re-apply → PROBE | job gone, FAIL; PASS |
+
+## Review round 1 (blocking, both fixed)
+
+1. **Wiring guard.** Removing the `email_weekly_digest` entry let 0200 count as a reader, but 0200 only reaches
+   members the new screens cover (OFF on live). So the switch still did nothing for every member on today's page.
+   The entry is restored with an honest reason, and 0200 is added to `NOT_A_CONSUMER` (the same rule as 0110).
+   Shown: without the exemption the guard fails ("no longer true: email_weekly_digest"); with it, it passes.
+2. **Members past the first 2000.** With one weekly run capped at 2000, the reviewer reproduced members 2001+
+   never getting a summary. The job now runs hourly 02:41–08:41 UTC on Mondays (`41 2-8 * * 1`), and the PROBE
+   pins it. Reproduced: 2,500 members with activity, three runs gave 1999 + 504 + 0, so **all 2,500 were e-mailed
+   that Monday**.

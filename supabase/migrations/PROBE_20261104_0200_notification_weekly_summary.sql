@@ -1,7 +1,8 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- PROBE · 20261104_0200 weekly summary e-mail. READ ONLY, ROLLBACK.
 -- PASS = table (RLS on, members cannot read it), the send function (SECURITY
--- DEFINER, search_path="", service_role only), the Monday cron job active.
+-- DEFINER, search_path="", service_role only), the Monday cron job active
+-- (hourly 02:41–08:41 UTC, so more than 2000 members are all covered).
 -- Reports (does not fail) whether notif_centre_ui is on — while it is off the
 -- job sends nothing. FAILS before apply. Prints counts only.
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -30,12 +31,14 @@ BEGIN
     RAISE EXCEPTION 'PROBE FAIL: members can run the weekly summary';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'notification-weekly-summary' AND active
-                  AND schedule = '41 2 * * 1' AND command ILIKE '%notification_weekly_summary_send()%') THEN
+                  AND schedule = '41 2-8 * * 1' AND command ILIKE '%notification_weekly_summary_send()%') THEN
     RAISE EXCEPTION 'PROBE FAIL: weekly cron job missing or inactive';
   END IF;
   RAISE NOTICE 'NC0200 PASS (lane %): weekly summary in place; new screens switch is %; % summary row(s) recorded',
     current_setting('p32.lane'),
-    CASE WHEN EXISTS (SELECT 1 FROM public.site_settings s WHERE s.key = 'notif_centre_ui') THEN 'ON for some/all (summaries will send)' ELSE 'off (nothing sends)' END,
+    CASE WHEN EXISTS (SELECT 1 FROM public.site_settings s WHERE s.key = 'notif_centre_ui'
+                        AND (s.value = to_jsonb('on'::text) OR jsonb_typeof(s.value -> 'users') = 'array'))
+         THEN 'ON for some/all (summaries will send)' ELSE 'off (nothing sends)' END,
     (SELECT count(*) FROM public.notification_weekly_summaries);
 END
 $p$;

@@ -19,7 +19,8 @@
 -- enqueue_email('transactional_emails', …) with the live sender settings).
 -- Links point at this lane's own site (ops_alarm_settings.lane). At most one
 -- per member per week (notification_weekly_summaries + idempotency key).
--- pg_cron notification-weekly-summary: Mondays 02:41 UTC (08:11 in India).
+-- pg_cron notification-weekly-summary: Mondays, hourly 02:41–08:41 UTC (from
+-- 08:11 in India); at most 2000 per run, each member once per week.
 --
 -- Rollback: supabase/rollback/20261104_0200_notification_weekly_summary_ROLLBACK.sql
 -- PROBE:    supabase/migrations/PROBE_20261104_0200_notification_weekly_summary.sql
@@ -178,7 +179,10 @@ $fn$;
 REVOKE ALL ON FUNCTION public.notification_weekly_summary_send() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.notification_weekly_summary_send() TO service_role;
 
-SELECT cron.schedule('notification-weekly-summary', '41 2 * * 1',
+-- Hourly 02:41–08:41 UTC on Mondays: each run sends at most 2000, and the
+-- per-week record makes later runs pick up only who is left — so a large
+-- member base is covered the same Monday instead of the same 2000 every week.
+SELECT cron.schedule('notification-weekly-summary', '41 2-8 * * 1',
                      $cron$SELECT public.notification_weekly_summary_send();$cron$);
 
 COMMIT;
