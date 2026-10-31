@@ -72,10 +72,14 @@ BEGIN
     END IF;
 
     IF t = 'v3_mirror_log' THEN
+     BEGIN
       FOR r IN EXECUTE 'SELECT action, count(*) c, count(*) FILTER (WHERE occurred_at > now() - interval ''30 days'') c30
                           FROM public.v3_mirror_log GROUP BY 1 ORDER BY 1' LOOP
         RAISE NOTICE 'P27|v3_mirror_log|action=%|rows=%|last30d=%', r.action, r.c, r.c30;
       END LOOP;
+     EXCEPTION WHEN undefined_column THEN
+      RAISE NOTICE 'P27|v3_mirror_log|action breakdown skipped: %', SQLERRM;
+     END;
     END IF;
 
     SELECT string_agg(format('%s(%s,%s)', p.polname, p.polcmd, CASE WHEN p.polpermissive THEN 'perm' ELSE 'restr' END), '; ' ORDER BY p.polname)
@@ -102,9 +106,11 @@ BEGIN
      WHERE pr.prrelid = ('public.' || t)::regclass;
     RAISE NOTICE 'P27|%|publications|%', t, coalesce(ln, 'none');
 
-    SELECT string_agg(format('%s.%s/%s', g.grantee, g.privilege_type, g.is_grantable), ', ' ORDER BY g.grantee, g.privilege_type)
-      INTO ln FROM information_schema.role_table_grants g
-     WHERE g.table_schema = 'public' AND g.table_name = t AND g.grantee IN ('anon', 'authenticated', 'service_role', 'PUBLIC');
+    SELECT string_agg(format('%s.%s', CASE WHEN a.grantee = 0 THEN 'PUBLIC' ELSE a.grantee::regrole::text END, a.privilege_type),
+                      ', ' ORDER BY 1)
+      INTO ln FROM pg_class c, aclexplode(c.relacl) a
+     WHERE c.oid = ('public.' || t)::regclass
+       AND (a.grantee = 0 OR a.grantee::regrole::text IN ('anon', 'authenticated', 'service_role'));
     RAISE NOTICE 'P27|%|grants|%', t, coalesce(ln, 'none');
 
     -- functions whose body names the table
@@ -155,6 +161,7 @@ BEGIN
       INTO ln FROM pg_class c JOIN pg_stat_user_tables s ON s.relid = c.oid WHERE c.oid = 'public.db_audit_logs'::regclass;
     RAISE NOTICE 'P26|size|%', ln;
 
+   BEGIN
     SELECT format('min=%s max=%s | <30d=%s 30-90d=%s 90-180d=%s 180-365d=%s >365d=%s',
                   date_trunc('day', min(created_at)), date_trunc('day', max(created_at)),
                   count(*) FILTER (WHERE created_at >  now() - interval '30 days'),
@@ -174,6 +181,9 @@ BEGIN
       RAISE NOTICE 'P26|by|%|%|rows=%|last30d=%|stored=%|two_copies=%|first=%',
         r.table_name, r.operation, r.c, r.c30, r.bytes, r.both_copies, r.first_at;
     END LOOP;
+   EXCEPTION WHEN undefined_column THEN
+    RAISE NOTICE 'P26|age/by skipped: %', SQLERRM;
+   END;
 
     FOR r IN SELECT tg.tgname, tg.tgrelid::regclass AS tbl, tg.tgfoid::regproc AS fn, tg.tgenabled,
                     concat_ws('/', CASE WHEN tg.tgtype & 4 = 4 THEN 'INSERT' END,
@@ -182,7 +192,7 @@ BEGIN
                     CASE WHEN tg.tgtype & 1 = 1 THEN 'row' ELSE 'stmt' END AS lvl
                FROM pg_trigger tg JOIN pg_proc p ON p.oid = tg.tgfoid
               WHERE NOT tg.tgisinternal AND p.prosrc ILIKE '%db_audit_logs%'
-              ORDER BY 2::text, 1 LOOP
+              ORDER BY tg.tgrelid::regclass::text, 1 LOOP
       RAISE NOTICE 'P26|trigger|%|ON %|%|%|fn=%|enabled=%', r.tgname, r.tbl, r.events, r.lvl, r.fn, r.tgenabled;
     END LOOP;
 
