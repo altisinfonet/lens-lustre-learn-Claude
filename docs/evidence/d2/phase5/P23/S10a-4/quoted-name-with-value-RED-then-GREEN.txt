@@ -1,0 +1,20 @@
+# Review #751 re-review BLOCKING: a quoted name followed by an inline value ('textbox "City: home"': Pune). Local Chromium, 2026-10-31.
+# BEFORE:
+[a11y-walkthrough] chromium self-test ok   seeded page: 3 unnamed controls found (3)
+[a11y-walkthrough] chromium self-test ok   seeded page: missing h1 found
+[a11y-walkthrough] chromium self-test ok   seeded page: missing main found
+[a11y-walkthrough] chromium self-test ok   clean page: no finding ({"unnamed":[],"noH1":false,"noMain":false})
+[a11y-walkthrough] chromium self-test ok   clean page: a name YAML must quote ("Terms: of use") is in the tree
+[a11y-walkthrough] chromium self-test FAIL clean page: a quoted name WITH a value after it ("City: home" = Pune) is in the tree
+[a11y-walkthrough] chromium self-test FAIL clean page: Tab order reads every stop from the top, also with an autofocused field (link "Home", button "Go", link "Terms: of use", textbox "Name", (input) "")
+[a11y-walkthrough] self-test FAIL
+
+# AFTER:
+[a11y-walkthrough] chromium self-test ok   seeded page: 3 unnamed controls found (3)
+[a11y-walkthrough] chromium self-test ok   seeded page: missing h1 found
+[a11y-walkthrough] chromium self-test ok   seeded page: missing main found
+[a11y-walkthrough] chromium self-test ok   clean page: no finding ({"unnamed":[],"noH1":false,"noMain":false})
+[a11y-walkthrough] chromium self-test ok   clean page: a name YAML must quote ("Terms: of use") is in the tree
+[a11y-walkthrough] chromium self-test ok   clean page: a quoted name WITH a value after it ("City: home" = Pune) is in the tree
+[a11y-walkthrough] chromium self-test ok   clean page: Tab order reads every stop from the top, also with an autofocused field (link "Home", button "Go", link "Terms: of use", textbox "Name", textbox "City: home")
+[a11y-walkthrough] self-test PASS

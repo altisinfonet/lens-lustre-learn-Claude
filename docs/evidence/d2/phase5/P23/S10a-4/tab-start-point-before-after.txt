@@ -1,0 +1,13 @@
+# screen-login @ iphone-390, Chromium, local 2026-10-31.
+# BEFORE (the walk started from blur(): the browser's Tab starting point stayed on the autofocused Email field):
+1. button "Proceed"
+2. link "Create one"
+3. link "Terms of Use & Community Guidelines"
+# AFTER (a non-tabbable start marker at the top of <body> is focused first):
+1. link "Back"
+2. button "Continue with Google"
+3. textbox "Email"
+4. button "Proceed"
+5. link "Create one"
+6. link "Terms of Use & Community Guidelines"
+# Note: a plain setContent() test page does not reproduce the start-point behaviour, so the self-test cannot show this one red; this before/after on the real scene is the evidence.

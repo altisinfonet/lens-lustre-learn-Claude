@@ -1,0 +1,18 @@
+# Review #751 BLOCKING: names YAML must quote (': ', '#', quotes) — local Chromium, 2026-10-31.
+# BEFORE the fix (new self-test case on the old parser):
+[a11y-walkthrough] chromium self-test ok   seeded page: 3 unnamed controls found (3)
+[a11y-walkthrough] chromium self-test ok   seeded page: missing h1 found
+[a11y-walkthrough] chromium self-test ok   seeded page: missing main found
+[a11y-walkthrough] chromium self-test ok   clean page: no finding ({"unnamed":[],"noH1":false,"noMain":false})
+[a11y-walkthrough] chromium self-test FAIL clean page: a name YAML must quote ("Terms: of use") is in the tree
+[a11y-walkthrough] chromium self-test FAIL clean page: Tab order reads every stop from the top, also with an autofocused field (link "Home", button "Go", (a) "", textbox "Name")
+[a11y-walkthrough] self-test FAIL
+
+# AFTER the fix (unquoteLine):
+[a11y-walkthrough] chromium self-test ok   seeded page: 3 unnamed controls found (3)
+[a11y-walkthrough] chromium self-test ok   seeded page: missing h1 found
+[a11y-walkthrough] chromium self-test ok   seeded page: missing main found
+[a11y-walkthrough] chromium self-test ok   clean page: no finding ({"unnamed":[],"noH1":false,"noMain":false})
+[a11y-walkthrough] chromium self-test ok   clean page: a name YAML must quote ("Terms: of use") is in the tree
+[a11y-walkthrough] chromium self-test ok   clean page: Tab order reads every stop from the top, also with an autofocused field (link "Home", button "Go", link "Terms: of use", textbox "Name")
+[a11y-walkthrough] self-test PASS
