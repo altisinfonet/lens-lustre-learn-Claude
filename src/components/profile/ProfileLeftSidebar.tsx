@@ -68,7 +68,7 @@ const ProfileLeftSidebar = () => {
           {!profile.pronouns && !profile.current_city && !profile.workplace && !profile.education && (
             <p className="text-[10px] text-muted-foreground" style={bodyFont}>
               Add details about yourself in{" "}
-              <Link to="/edit-profile" className="text-primary underline underline-offset-2">Edit Profile</Link>
+              <Link to="/edit-profile" className="text-primary hover:underline underline underline-offset-2">Edit Profile</Link>
             </p>
           )}
         </div>

@@ -306,9 +306,9 @@ const Signup = () => {
               />
               <span>
                 I agree to the{" "}
-                <Link to="/community-guidelines" className="text-primary underline underline-offset-2">Terms of Use &amp; Community Guidelines</Link>
+                <Link to="/community-guidelines" className="text-primary hover:underline underline underline-offset-2">Terms of Use &amp; Community Guidelines</Link>
                 {" "}and the{" "}
-                <Link to="/page/privacy-policy" className="text-primary underline underline-offset-2">Privacy Policy</Link>.
+                <Link to="/page/privacy-policy" className="text-primary hover:underline underline underline-offset-2">Privacy Policy</Link>.
                 I understand there is no tolerance for objectionable content or abusive users.
               </span>
             </label>
@@ -461,7 +461,7 @@ const Signup = () => {
 
         <p className="text-[10px] text-muted-foreground mt-4 text-center" style={{ fontFamily: "var(--font-body)" }}>
           Already have an account?{" "}
-          <Link to="/login" className="text-primary underline underline-offset-2">Sign in</Link>
+          <Link to="/login" className="text-primary hover:underline underline underline-offset-2">Sign in</Link>
         </p>
 
         <p className="text-[8px] text-muted-foreground/60 mt-1.5 text-center" style={{ fontFamily: "var(--font-body)" }}>
