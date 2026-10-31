@@ -138,44 +138,57 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ success: true, sent: 0, note: "no devices registered" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const accessToken = await getAccessToken(sa);
-    const endpoint = `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`;
-
-    const imageHosts = image_url ? laneImageHosts() : [];   // once per call, not per device
     let sent = 0;
     let failed = 0;
     let lastError: string | null = null;
     const stale: string[] = [];
-    for (const { token } of tokens) {
-      const message = buildFcmMessage({
-        token, title, body, data,
-        imageUrl: image_url, category, groupKey: group_key, deliveryId,
-        imageHosts,
-      });
-      const r = await fetch(endpoint, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
-      });
-      if (r.ok) {
-        sent++;
-      } else {
-        const errText = await r.text();
-        failed++;
-        // Receipt keeps the HTTP status and FCM's error code only — never the
-        // raw body, which can echo request details.
-        lastError = `${r.status} ${fcmErrorCode(errText)}`;
-        // Token no longer valid → prune it.
-        if (r.status === 404 || /UNREGISTERED|INVALID_ARGUMENT/i.test(errText)) stale.push(token);
-        console.error("FCM send failed", r.status, errText);
+    let threw = false;
+    try {
+      const accessToken = await getAccessToken(sa);
+      const endpoint = `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`;
+
+      const imageHosts = image_url ? laneImageHosts() : [];   // once per call, not per device
+      for (const { token } of tokens) {
+        const message = buildFcmMessage({
+          token, title, body, data,
+          imageUrl: image_url, category, groupKey: group_key, deliveryId,
+          imageHosts,
+        });
+        const r = await fetch(endpoint, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ message }),
+        });
+        if (r.ok) {
+          sent++;
+        } else {
+          const errText = await r.text();
+          failed++;
+          // Receipt keeps the HTTP status and FCM's error code only — never the
+          // raw body, which can echo request details.
+          lastError = `${r.status} ${fcmErrorCode(errText)}`;
+          // Token no longer valid → prune it.
+          if (r.status === 404 || /UNREGISTERED|INVALID_ARGUMENT/i.test(errText)) stale.push(token);
+          console.error("FCM send failed", r.status, errText);
+        }
       }
-    }
 
-    if (stale.length > 0) {
-      await admin.from("push_tokens").delete().in("token", stale);
+      if (stale.length > 0) {
+        await admin.from("push_tokens").delete().in("token", stale);
+      }
+    } catch (err) {
+      threw = true;
+      throw err;                                     // today's 500 response, below
+    } finally {
+      // N4: the receipt records what really happened, even when sending threw
+      // part-way (devices already reached count as sent).
+      await finishPushReceipt(admin, receiptId, {
+        ok: sent,
+        failed: threw && sent === 0 ? Math.max(failed, 1) : failed,
+        pruned: stale.length,
+        error: threw ? "exception while sending" : lastError,
+      });
     }
-
-    await finishPushReceipt(admin, receiptId, { ok: sent, failed, pruned: stale.length, error: lastError });
 
     return new Response(JSON.stringify({ success: true, sent, pruned: stale.length }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {

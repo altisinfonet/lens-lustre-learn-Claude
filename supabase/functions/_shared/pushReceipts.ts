@@ -10,6 +10,14 @@
 type RpcResult = { data?: unknown; error?: unknown } | null | undefined;
 export type RpcClient = { rpc: (fn: string, args: Record<string, unknown>) => unknown };
 
+export const START_TIMEOUT_MS = 2000;
+
+function withTimeout<T>(p: T, ms: number): Promise<Awaited<T> | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), ms); });
+  return Promise.race([Promise.resolve(p), timeout]).finally(() => clearTimeout(timer));
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function startPushReceipt(
@@ -20,12 +28,13 @@ export async function startPushReceipt(
 ): Promise<number | null> {
   if (typeof type !== "string" || type === "") return null;
   try {
-    const res = (await client.rpc("notification_delivery_start", {
+    // Bounded: a slow database must not hold up the push (2 s, then "no receipt").
+    const res = (await withTimeout(client.rpc("notification_delivery_start", {
       _user: userId,
       _type: type,
       _channel: "push",
       _notification: typeof notificationId === "string" && UUID.test(notificationId) ? notificationId : null,
-    })) as RpcResult;
+    }), START_TIMEOUT_MS)) as RpcResult;
     if (!res || res.error) return null;
     const data = res.data;
     const id = typeof data === "number" ? data : typeof data === "string" ? Number(data) : NaN;

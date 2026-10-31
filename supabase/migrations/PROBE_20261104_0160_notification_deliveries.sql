@@ -2,10 +2,9 @@
 -- PROBE · 20261104_0160 push receipts + failure alarm. READ ONLY, ROLLBACK.
 -- PASS = table (RLS on, members cannot read it), the four functions
 -- (SECURITY DEFINER, search_path=""), the right callers (start/finish/tick:
--- service_role only; opened: members), an active 15-minute cron job, and —
--- because every group switch is off unless an admin turned one on — start()
--- records nothing for an unregistered type. FAILS before apply. Prints counts
--- only.
+-- service_role only; opened: members) and an active 15-minute cron job.
+-- FAILS before apply. Prints counts only. (That start() records nothing while
+-- a group is off is shown on the fixture — a read-only PROBE cannot call it.)
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN READ ONLY;
 SET LOCAL statement_timeout = '30s';

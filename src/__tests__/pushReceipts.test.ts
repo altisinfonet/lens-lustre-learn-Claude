@@ -67,3 +67,17 @@ describe("fcmErrorCode", () => {
     expect(fcmErrorCode(JSON.stringify({ error: { status: "has spaces and abc123" } }))).toBe("error");
   });
 });
+
+describe("startPushReceipt is bounded", () => {
+  it("gives up after 2 s and returns null when the database hangs", async () => {
+    vi.useFakeTimers();
+    try {
+      const c = { rpc: vi.fn(() => new Promise(() => { /* never answers */ })) };
+      const p = startPushReceipt(c, "u1", "post_reaction");
+      await vi.advanceTimersByTimeAsync(2001);
+      await expect(p).resolves.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

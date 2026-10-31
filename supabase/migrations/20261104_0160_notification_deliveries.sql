@@ -167,7 +167,8 @@ BEGIN
   PERFORM public.ops_alarm_set(
     'notif_push_failing',
     total >= 20 AND bad * 2 >= total,
-    format('%s of %s pushes in the last hour failed', bad, total),
+    format('[%s] %s of %s pushes in the last hour failed',
+           coalesce((SELECT a.lane FROM public.ops_alarm_settings a WHERE a.id = 1), '?'), bad, total),
     jsonb_build_object('failed', bad, 'finished', total, 'checked_at', now()));
 
   DELETE FROM public.notification_deliveries d WHERE d.created_at < now() - interval '30 days';
