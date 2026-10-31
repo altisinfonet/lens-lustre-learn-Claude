@@ -10,7 +10,8 @@
 --   A  user_roles: column types, rows/pages/all-visible pages, scan counters
 --      (seq vs index, since the last stats reset), every index with its scans.
 --   B  every function (any non-system schema) whose body names user_roles,
---      flagged when it compares role through a ::text cast.
+--      flagged [::text] when its body has a ...role::text cast (a candidate
+--      only: it also matches _role::text, and on a text column it is a no-op).
 --   C  every policy whose USING / WITH CHECK names user_roles directly.
 --   D  the plan of each query shape found in B/C, with the planner's default
 --      settings and with enable_seqscan off (can an index serve it at all?),
@@ -18,6 +19,8 @@
 --      check for index-only "Heap Fetches".
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN READ ONLY;
+SET LOCAL lock_timeout = '5s';      -- never queue behind a DDL lock on user_roles
+SET LOCAL statement_timeout = '60s';
 
 DO $probe$
 DECLARE
@@ -44,7 +47,7 @@ BEGIN
   SELECT string_agg(a.attname || ' ' || format_type(a.atttypid, a.atttypmod), ', ' ORDER BY a.attnum)
     INTO ln FROM pg_attribute a
    WHERE a.attrelid = 'public.user_roles'::regclass AND a.attnum > 0 AND NOT a.attisdropped;
-  out := out || E'\n  A columns: ' || ln;
+  out := out || E'\n  A columns: ' || coalesce(ln, 'n/a');
 
   SELECT format('rows~%s pages=%s all_visible=%s | seq_scan=%s seq_tup_read=%s idx_scan=%s | n_live=%s n_dead=%s | stats since %s',
                 c.reltuples::bigint, c.relpages, c.relallvisible,
@@ -55,7 +58,7 @@ BEGIN
     JOIN pg_stat_user_tables s ON s.relid = c.oid
     LEFT JOIN pg_stat_database d ON d.datname = current_database()
    WHERE c.oid = 'public.user_roles'::regclass;
-  out := out || E'\n  A counters: ' || ln;
+  out := out || E'\n  A counters: ' || coalesce(ln, 'n/a (no pg_stat_user_tables row)');
 
   FOR rec IN
     SELECT i.indexrelid::regclass::text AS name, pg_get_indexdef(i.indexrelid) AS def, s.idx_scan
