@@ -9,8 +9,9 @@ goes straight back to working exactly as it does today.
 **Notification Centre**.
 
 At the top is a box called **Switches**. Each row has four buttons:
-**Off** · **Only me** · **Chosen members** · **Everyone**. The filled-in button
-shows what is on now. Every row starts at **Off**.
+**Off** · **Only me** · **Chosen members** · **Everyone**. Your screen reader
+reads the button that is on now as "pressed" (on screen it is filled in).
+Every row starts at **Off**.
 
 Do the parts **one at a time, in this order**, and wait the time shown before
 starting the next part. If anything looks wrong at any point, click **Off** on
@@ -30,16 +31,17 @@ part is ready, leave that row at **Off**.
 
 1. On the row **New notification screens**, click **Only me**.
 2. Open the bell and the Notifications page on your phone and on your computer. Check:
-   - each notification is one tap and opens the right post;
-   - names are in bold;
-   - unread ones have a small dot;
-   - the Notifications page has tabs: **All**, **Comments & mentions**, **Follows**, **Competitions**;
-   - competition and award notifications start with a short headline, with the details underneath;
-   - wins and features show as a highlighted card.
+   - each notification is one button that opens the right post;
+   - your screen reader says **Unread** before a notification you haven't opened;
+   - the Notifications page has buttons **All**, **Comments & mentions**, **Follows** and **Competitions** to filter the list;
+   - competition and award notifications start with a short headline, with the details after it.
+
+   Some of this is still being finished and reviewed. The runner tells you when it is on the live site.
 3. Open **Notification settings**. You should see one table with **Bell**, **Phone** and **E-mail** columns.
    Under it is **Quiet hours**: set times when your phone stays silent. Notifications still appear in the bell.
 4. If you are happy after a day: ask the runner for the member ids of 3–5 trusted members, paste them
-   into the box on that row, and click **Chosen members**.
+   into the box on that row, and click **Chosen members**. **Paste your own id as well.** The list replaces
+   "Only me", so without your id you would stop seeing the new screens.
 5. After 2 days with no complaints, click **Everyone**.
 
 ## Part 2: likes and comments (the first group run through the centre)
@@ -50,11 +52,12 @@ part is ready, leave that row at **Off**.
    - it says the right thing;
    - your phone gets a push if you allow pushes;
    - no push arrives during your quiet hours.
-3. The next day: **Chosen members** (the same few members as in Part 1).
+3. The next day: **Chosen members**. Each row has its own box, so paste the same ids again, your own included.
 4. Two days after that: **Everyone**.
 
-From this part on, the 4 **In-app** settings people choose in Notification
-settings start to work for that group. Today they do nothing.
+From this part on, the **Bell** switches people choose in Notification settings
+start to work for this group (likes, and comments and replies). Today they do
+nothing. They start working for the other groups as each group is switched on.
 
 ## Part 3: follows and friends
 
@@ -83,8 +86,11 @@ for a few days.
 
 ## Changing a notification for everyone
 
-The **Notification types** list sits under the switches:
-- untick **On** to stop that kind of notification for everyone;
+The **Notification types** list sits under the switches. These changes only
+take effect for members whose row above is switched on. While a row is
+**Off**, its notifications work exactly as today and these boxes change
+nothing for anyone.
+- untick **On** to stop that kind of notification for the members whose row is switched on;
 - click **Edit** to:
   - choose **Bell**, **Phone push** or **E-mail**;
   - change the wording (you see a preview first);
@@ -93,6 +99,9 @@ The **Notification types** list sits under the switches:
 
 The numbers beside each type show how many were written in the last 24 hours
 and 7 days, and what the centre sent or skipped.
+
+**To stop something quickly**, click **Off** on its row in **Switches**. That
+always works, for everyone, straight away.
 
 ## Helping a member
 
@@ -116,5 +125,8 @@ alarm itself.
 - **Before any group is switched on:**
   - 0170 (#780) must be applied on that lane, so that push obeys the member's settings and quiet hours;
   - 0160 (#777) must be applied, for receipts and the alarm;
+  - 0180 (#781) must be applied before "New notification screens" goes on, or quiet hours cannot be saved;
+  - #779 (headlines), #781 (quiet hours) and #782 (new-posts phone switch) must be on main and deployed
+    before Part 1 is offered to the Owner;
   - the edge deploy needs the Owner's `SUPABASE_ACCESS_TOKEN` (Owner list item 1).
 - Never switch anything on yourself.
