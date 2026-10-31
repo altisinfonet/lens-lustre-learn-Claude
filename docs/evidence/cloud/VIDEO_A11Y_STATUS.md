@@ -1,7 +1,7 @@
 # Video + accessibility runner — status
 
 Started 2026-10-30 01:47 UTC. Replaces the earlier supervisor session (no GitHub trace after 2026-10-29 14:19 UTC).
-Last update: 2026-10-31 05:27 UTC.
+Last update: 2026-10-31 05:43 UTC.
 
 THIRD RESTART 2026-10-31 ~03:55 UTC: previous run stopped silently after its 18:23 UTC heartbeat (S10a-4 never pushed; will be rebuilt fresh later). PAUSE cancelled by Owner RESUME. Order now, one PR at a time: 1 VID-6 cost alerts → 2 privacy text → 3 S7 gate table → 4 Android 1.2.33 → 5 S10a-3, S10a-4.
 
@@ -10,7 +10,7 @@ SECOND RESTART 2026-10-30 ~07:15 UTC: the run stopped silently again at ~05:15 U
 RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. A new run took over at 05:05 UTC. Checked GitHub: nobody else pushed to or merged #538-#542 or #619 since 02:00 UTC.
 
 ## Now
-05:27 UTC — Item 2 privacy COMPLETE (staging + production PASS, on main, live page shows the new text). Starting item 3: re-run every VID PROBE on staging and production, write the S7 gate table + rollout steps.
+05:43 UTC — Item 3: re-ran all 15 video PROBEs on staging AND production (05:26–05:42 UTC): 30/30 PASS. Found: on LIVE, 'Video posts' is already 'Selected members' (6 accounts) and 'Video ads' 'Selected' (1); upload-signing key IS configured on production (A1.5 met). Writing the S7 gate table next.
 
 ## Units
 | Unit | PR | State | Merged sha (staging / main) | SQL runs | Live check |
