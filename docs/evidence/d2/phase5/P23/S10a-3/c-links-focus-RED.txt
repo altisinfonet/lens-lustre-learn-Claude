@@ -1,0 +1,10 @@
+# Local run 2026-10-31 ~10:15 UTC with the baselines lowered and NO fix. The screen-feed @ iphone-390 B line is the known local-only flake (different local Chromium; CI never shows it).
+    ✗ screen-feed @ iphone-390: CLEAN scene now has 50 B:tab-unreached violation(s)
+    ✗ comments-panel @ iphone-390: CLEAN scene now has 1 C:focus-not-visible violation(s)
+    ✗ comments-panel @ desktop-1280: CLEAN scene now has 1 C:focus-not-visible violation(s)
+    ✗ screen-profile @ desktop-1280: CLEAN scene now has 1 A:link-in-text-block violation(s)
+    ✗ screen-login @ iphone-390: CLEAN scene now has 2 A:link-in-text-block violation(s)
+    ✗ screen-login @ desktop-1280: CLEAN scene now has 2 A:link-in-text-block violation(s)
+    ✗ screen-signup @ iphone-390: CLEAN scene now has 3 A:link-in-text-block violation(s)
+    ✗ screen-signup @ desktop-1280: CLEAN scene now has 3 A:link-in-text-block violation(s)
+[a11y-surfaces] FAIL (exit 1)
