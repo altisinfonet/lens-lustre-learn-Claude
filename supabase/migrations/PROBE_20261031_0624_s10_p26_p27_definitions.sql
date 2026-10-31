@@ -11,6 +11,9 @@
 --   view (with reloptions); every trigger that calls those functions.
 -- Each definition is printed one source line per NOTICE, prefixed with the
 -- object and a line number, so the text can be rebuilt exactly from the log.
+-- THE CI LOG IS PUBLIC (public repository): a definition that looks like it
+-- holds a credential (JWT, bearer token, api key, service_role, sk_live/test,
+-- "secret", "password") is NOT printed — only its md5 and a REDACTED line.
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN READ ONLY;
 SET LOCAL statement_timeout = '60s';
@@ -18,6 +21,7 @@ SET LOCAL statement_timeout = '60s';
 DO $probe$
 DECLARE
   r record; ln text; i int; def text;
+  secret_re constant text := '(eyJ[A-Za-z0-9_-]{10,}|bearer\s|apikey|api_key|service_role|sk_(live|test)_|secret|password)';
 BEGIN
   IF coalesce(current_setting('p32.lane', true), '') NOT IN ('staging', 'production') THEN
     RAISE EXCEPTION 'PROBE REFUSED — p32.lane is not staging or production';
@@ -33,23 +37,30 @@ BEGIN
             ORDER BY 2 LOOP
     def := pg_get_functiondef(r.oid);
     RAISE NOTICE 'DEF|BEGIN|fn|%|prosrc_md5=%|prosrc_len=%|def_md5=%', r.sig, r.m, r.len, md5(def);
+    IF def ~* secret_re THEN
+      RAISE NOTICE 'DEF|REDACTED|fn|%|looks like it holds a credential; definition not printed', r.sig;
+      CONTINUE;
+    END IF;
     i := 0;
     FOREACH ln IN ARRAY string_to_array(def, E'\n') LOOP
       i := i + 1;
-      RAISE NOTICE 'DEF|%|%|%', r.sig, lpad(i::text, 4, '0'), ln;
+      RAISE NOTICE 'DEF|%|%|%', r.sig, lpad(i::text, 5, '0'), ln;
     END LOOP;
     RAISE NOTICE 'DEF|END|fn|%|lines=%', r.sig, i;
   END LOOP;
 
   IF to_regclass('public.v_judging_drift') IS NOT NULL THEN
     SELECT pg_get_viewdef('public.v_judging_drift'::regclass) INTO def;
+    IF def ~* secret_re THEN
+      RAISE EXCEPTION 'PROBE STOP 0624 — v_judging_drift text looks like it holds a credential; not printed';
+    END IF;
     RAISE NOTICE 'DEF|BEGIN|view|public.v_judging_drift|md5=%|reloptions=%|owner=%', md5(def),
       (SELECT coalesce(array_to_string(reloptions, ','), '-') FROM pg_class WHERE oid = 'public.v_judging_drift'::regclass),
       (SELECT relowner::regrole FROM pg_class WHERE oid = 'public.v_judging_drift'::regclass);
     i := 0;
     FOREACH ln IN ARRAY string_to_array(def, E'\n') LOOP
       i := i + 1;
-      RAISE NOTICE 'DEF|public.v_judging_drift|%|%', lpad(i::text, 4, '0'), ln;
+      RAISE NOTICE 'DEF|public.v_judging_drift|%|%', lpad(i::text, 5, '0'), ln;
     END LOOP;
     RAISE NOTICE 'DEF|END|view|public.v_judging_drift|lines=%', i;
   END IF;
@@ -58,7 +69,7 @@ BEGIN
              FROM pg_trigger tg JOIN pg_proc p ON p.oid = tg.tgfoid
             WHERE NOT tg.tgisinternal
               AND (p.prosrc ~ '(wallet_ledger_v2_diff_log|v3_mirror_log|wallet_ledger_v2_rows)' OR p.prosrc ~ 'db_audit_logs')
-            ORDER BY 2::text, 1 LOOP
+            ORDER BY tg.tgrelid::regclass::text, tg.tgname LOOP
     RAISE NOTICE 'TRG|%|%|enabled=%|%', r.tbl, r.tgname,
       (SELECT tgenabled FROM pg_trigger WHERE tgname = r.tgname AND tgrelid = r.tbl), r.d;
   END LOOP;
