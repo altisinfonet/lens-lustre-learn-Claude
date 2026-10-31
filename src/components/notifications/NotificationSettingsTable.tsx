@@ -10,13 +10,18 @@
  * Every switch writes an existing notification_preferences column — the same
  * columns the old three lists wrote — so switching the new screen on or off
  * never loses a member's choices. The weekly summary e-mail is not offered
- * until it exists (N4).
+ * until it exists (N4). push_new_posts has no row on purpose, as on today's
+ * page: the push trigger never reads it (new-post pushes follow the master
+ * switch only), and a switch that does nothing is what this screen removes.
+ * With the master switch off nothing is pushed at all — so no Phone cell may
+ * say "Always on" then; it says "Off".
  */
 import type { NotificationPreferences } from "@/hooks/notifications/useNotificationPreferences";
 import { Switch } from "@/components/ui/switch";
 import { useT } from "@/i18n/I18nContext";
 
 type Col = keyof NotificationPreferences;
+/** `same` names the ROW whose setting this cell shares (its key). */
 type Cell = Col | "always" | "none" | { same: string };
 interface Row { key: string; label: string; bell: Cell; phone: Cell; email: Cell }
 
@@ -24,7 +29,7 @@ const ROWS: Row[] = [
   { key: "reactions", label: "Likes on your photos", bell: "inapp_reactions", phone: "push_reactions", email: "email_reactions" },
   { key: "comments", label: "Comments and replies", bell: "inapp_comments", phone: "push_comments", email: "email_comments" },
   { key: "followers", label: "New followers", bell: "inapp_social", phone: "push_new_followers", email: "email_new_followers" },
-  { key: "friends", label: "Friend requests", bell: { same: "New followers" }, phone: "push_friend_requests", email: "email_friend_requests" },
+  { key: "friends", label: "Friend requests", bell: { same: "followers" }, phone: "push_friend_requests", email: "email_friend_requests" },
   { key: "competitions", label: "Competitions", bell: "inapp_competitions", phone: "push_competition_updates", email: "email_competition_updates" },
   { key: "announcements", label: "Announcements (Journal, courses)", bell: "always", phone: "push_announcements", email: "email_course_updates" },
   { key: "gifts", label: "Gift credits", bell: "always", phone: "always", email: "email_gift_credits" },
@@ -91,12 +96,18 @@ export default function NotificationSettingsTable({
                     return (
                       <td key={c.key} className="py-3 px-2 text-center">
                         {cell === "always" ? (
-                          <span className="text-xs text-muted-foreground">{t("notif.table.always", "Always on")}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {c.key === "phone" && !pushOn ? t("notif.table.off", "Off") : t("notif.table.always", "Always on")}
+                          </span>
                         ) : cell === "none" ? (
-                          <span className="text-xs text-muted-foreground" aria-label={t("notif.table.none", "Not sent here")}>—</span>
+                          <span className="text-xs text-muted-foreground">
+                            <span aria-hidden="true">—</span>
+                            <span className="sr-only">{t("notif.table.none", "Not sent here")}</span>
+                          </span>
                         ) : typeof cell === "object" ? (
                           <span className="text-xs text-muted-foreground">
-                            {t("notif.table.same", "Same as")} {t(`notif.table.row.followers`, cell.same)}
+                            {t("notif.table.same", "Same as")}{" "}
+                            {t(`notif.table.row.${cell.same}`, ROWS.find((x) => x.key === cell.same)?.label ?? cell.same)}
                           </span>
                         ) : (
                           <Switch

@@ -34,6 +34,7 @@ describe("notification settings — which screen", () => {
     renderPage();
     expect(screen.queryByRole("table", { name: /notification settings/i })).toBeNull();
     expect(screen.getAllByRole("switch").length).toBeGreaterThanOrEqual(15);
+    expect(screen.getAllByText("notif.pushAll").length).toBeGreaterThan(0);   // today's push section heading row
   });
 
   it("switch on: the one table", () => {

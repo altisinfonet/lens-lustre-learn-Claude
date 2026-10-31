@@ -43,9 +43,29 @@ describe("NotificationSettingsTable", () => {
   it("the phone master switch greys out EVERY phone switch, not just one", () => {
     render(<NotificationSettingsTable preferences={{ ...prefs, push_enabled: false }} onChange={vi.fn()} />);
     const phone = screen.getAllByRole("switch").filter((s) => / — Phone$/.test(s.getAttribute("aria-label") || ""));
-    expect(phone.length).toBeGreaterThanOrEqual(5);
+    expect(phone.length).toBe(6);
     for (const s of phone) expect(s).toBeDisabled();
     expect(screen.getByRole("switch", { name: /All phone notifications/ })).not.toBeDisabled();
+  });
+
+  it("with phone notifications off, no Phone cell claims 'Always on' (nothing is pushed at all)", () => {
+    render(<NotificationSettingsTable preferences={{ ...prefs, push_enabled: false }} onChange={vi.fn()} />);
+    const row = screen.getByRole("rowheader", { name: /Account and security/ }).closest("tr")!;
+    const phoneCell = row.querySelectorAll("td")[1];
+    expect(phoneCell.textContent).toBe("Off");
+  });
+
+  it("the master switch saves push_enabled", () => {
+    const onChange = vi.fn();
+    render(<NotificationSettingsTable preferences={prefs} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("switch", { name: /All phone notifications/ }));
+    expect(onChange).toHaveBeenCalledWith("push_enabled", false);
+  });
+
+  it("a 'not sent here' cell is announced as text, not a bare dash", () => {
+    render(<NotificationSettingsTable preferences={prefs} onChange={vi.fn()} />);
+    const row = screen.getByRole("rowheader", { name: /Reminders/ }).closest("tr")!;
+    expect(within(row).getAllByText("Not sent here").length).toBe(2);
   });
 
   it("safety rows say Always on and offer no switch", () => {
