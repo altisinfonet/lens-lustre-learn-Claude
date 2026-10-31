@@ -2,7 +2,7 @@ N0 COMPLETE
 
 # Notification centre runner — status
 
-Heartbeat: 2026-10-31 15:00 UTC (measured) — MERGED to staging: #765 N0 map (0fffef3), #762 N7 settings table (cd2b6ac), #764 N6 admin page + SQL 0120 (11e5d18). #766 N1: CI found two real issues (explicit grants; and live notify_round_published/_insert lack git's Phase 7 stageKey → excluded from capture, recorded as a gap) — fixed, review nothing blocking, CI re-running. #757 N4: P23 phone-feed keyboard walk failed once on a no-UI change while passing on PRs before and after it — re-running that job to confirm it does not reproduce before treating it as flaky. Carry #770 → main in CI. N6 staging apply waits for the staging lane (another runner). Branch for status only; never merged.
+Heartbeat: 2026-10-31 15:27 UTC (measured) — ROOT CAUSE of the P23 phone-feed keyboard flake found (it hit #757 and carry #770; also on main before this work): src/components/feed/CategoryStrip.tsx:104/:133 declared Chip/Arrow inside render, so every scroll-driven re-render rebuilt every chip and threw away keyboard focus. Fix PR #773 to staging (test failed first, passes after; local walk now stable). #770 failed job re-run (cause is not in #770's changes). N6 staging apply waits for the staging lane (other runners busy). Branch for status only; never merged.
 
 | Step | What | PR | Merged sha (staging / main) | SQL runs (lane · run id · result · UTC) | Live check | % |
 |---|---|---|---|---|---|---|
