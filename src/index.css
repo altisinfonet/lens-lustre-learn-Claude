@@ -623,6 +623,14 @@
   font-weight: 500;
 }
 
+/* P23 S10a-3 (C): the comment box sets outline:none inline (react-mentions
+ * style object), so keyboard focus showed no change at all (check C). A ring
+ * on keyboard focus only; the box looks the same until it is focused. */
+.mention-input-wrapper textarea:focus-visible,
+.mention-input-wrapper input:focus-visible {
+  box-shadow: 0 0 0 2px hsl(var(--ring));
+}
+
 /* react-mentions placeholder visibility in both themes */
 .mention-input-wrapper input::placeholder,
 .mention-input-wrapper textarea::placeholder {

@@ -447,12 +447,12 @@ const Login = () => {
 
         <p className="text-[10px] text-muted-foreground mt-4 text-center" style={{ fontFamily: "var(--font-body)" }}>
           {t("auth.noAccount")}{" "}
-          <Link to="/signup" className="text-primary hover:underline">{t("auth.createOne")}</Link>
+          <Link to="/signup" className="text-primary hover:underline underline underline-offset-2">{t("auth.createOne")}</Link>
         </p>
 
         <p className="text-[10px] text-muted-foreground mt-2 text-center max-w-sm" style={{ fontFamily: "var(--font-body)" }}>
           By signing in you agree to our{" "}
-          <Link to="/community-guidelines" className="text-primary hover:underline">Terms of Use &amp; Community Guidelines</Link>
+          <Link to="/community-guidelines" className="text-primary hover:underline underline underline-offset-2">Terms of Use &amp; Community Guidelines</Link>
           {" "}— no tolerance for objectionable content or abusive users.
         </p>
       </div>
