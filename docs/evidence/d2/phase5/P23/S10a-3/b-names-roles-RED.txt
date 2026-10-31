@@ -1,0 +1,11 @@
+    ✗ screen-profile @ desktop-1280: NEW rule A:button-name (1 node(s)) — not in the baseline
+    ✗ screen-edit-profile @ iphone-390: CLEAN scene now has 1 A:aria-progressbar-name violation(s)
+    ✗ screen-edit-profile @ iphone-390: CLEAN scene now has 1 A:button-name violation(s)
+    ✗ screen-edit-profile @ iphone-390: CLEAN scene now has 3 A:select-name violation(s)
+    ✗ screen-edit-profile @ desktop-1280: CLEAN scene now has 1 A:aria-progressbar-name violation(s)
+    ✗ screen-edit-profile @ desktop-1280: CLEAN scene now has 1 A:button-name violation(s)
+    ✗ screen-edit-profile @ desktop-1280: CLEAN scene now has 3 A:select-name violation(s)
+    ✗ screen-notifications @ iphone-390: CLEAN scene now has 2 A:nested-interactive violation(s)
+    ✗ screen-notifications @ desktop-1280: CLEAN scene now has 2 A:nested-interactive violation(s)
+    ✗ screen-admin-health @ iphone-390: CLEAN scene now has 2 A:button-name violation(s)
+[a11y-surfaces] FAIL (exit 1)

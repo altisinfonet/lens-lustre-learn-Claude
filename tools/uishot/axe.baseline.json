@@ -44,9 +44,7 @@
     "screen-not-found-in-place-signed-out": {},
     "screen-not-found-signed-out": {},
     "screen-notification-settings": {},
-    "screen-notifications": {
-      "nested-interactive": 2
-    },
+    "screen-notifications": {},
     "screen-post-detail": {},
     "screen-profile": {},
     "screen-voting-lightbox": {},
