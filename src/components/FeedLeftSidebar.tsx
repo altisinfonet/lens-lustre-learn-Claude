@@ -248,7 +248,7 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
           <div className="divide-y divide-border">
             {milestones.map((m: any) => (
               <div key={m.id} className="flex items-center gap-3 px-4 py-3">
-                <ProfileLink userId={m.id} handle={handleFor(m)} className="shrink-0">
+                <ProfileLink userId={m.id} handle={handleFor(m)} className="shrink-0" aria-label={`${m.full_name || "Member"} — profile`}>
                   {m.avatar_url ? (
                     <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={m.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
                   ) : (
@@ -331,7 +331,7 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
             <div className="divide-y divide-border">
               {birthdayUsers.map((u: any) => (
                 <div key={u.id} className="flex items-center gap-3 px-4 py-3">
-                  <ProfileLink userId={u.id} handle={u.custom_url} className="shrink-0">
+                  <ProfileLink userId={u.id} handle={u.custom_url} className="shrink-0" aria-label={`${u.full_name || "Member"} — profile`}>
                     {u.avatar_url ? (
                       <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={u.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
                     ) : (

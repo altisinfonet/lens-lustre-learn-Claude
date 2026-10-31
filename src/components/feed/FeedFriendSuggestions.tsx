@@ -251,7 +251,7 @@ const FeedFriendSuggestions = () => {
                 <X className="h-3.5 w-3.5" />
               </button>
 
-              <ProfileLink userId={s.id} handle={handleFor(s)} className="shrink-0">
+              <ProfileLink userId={s.id} handle={handleFor(s)} className="shrink-0" aria-label={`${s.full_name || "Member"} — profile`}>
                 {s.avatar_url ? (
                   <img
                     referrerPolicy="no-referrer"

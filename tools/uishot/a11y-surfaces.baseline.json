@@ -22,21 +22,14 @@
       }
     },
     "screen-discover": {
-      "desktop-1280": {
-        "A:link-name": 10,
-        "A:target-size": 2
-      },
-      "iphone-390": {
-        "A:link-name": 4
-      }
+      "desktop-1280": {},
+      "iphone-390": {}
     },
     "screen-edit-profile": {
       "desktop-1280": {
         "A:aria-progressbar-name": 1,
         "A:button-name": 1,
-        "A:link-name": 6,
-        "A:select-name": 3,
-        "A:target-size": 2
+        "A:select-name": 3
       },
       "iphone-390": {
         "A:aria-progressbar-name": 1,
@@ -45,10 +38,7 @@
       }
     },
     "screen-feed": {
-      "desktop-1280": {
-        "A:link-name": 6,
-        "A:target-size": 2
-      },
+      "desktop-1280": {},
       "iphone-390": {}
     },
     "screen-login": {
@@ -61,27 +51,20 @@
     },
     "screen-notifications": {
       "desktop-1280": {
-        "A:link-name": 6,
-        "A:nested-interactive": 2,
-        "A:target-size": 2
+        "A:nested-interactive": 2
       },
       "iphone-390": {
         "A:nested-interactive": 2
       }
     },
     "screen-post-detail": {
-      "desktop-1280": {
-        "A:link-name": 6,
-        "A:target-size": 2
-      },
+      "desktop-1280": {},
       "iphone-390": {}
     },
     "screen-profile": {
       "desktop-1280": {
         "A:button-name": 1,
-        "A:link-in-text-block": 1,
-        "A:link-name": 6,
-        "A:target-size": 2
+        "A:link-in-text-block": 1
       },
       "iphone-390": {}
     },
