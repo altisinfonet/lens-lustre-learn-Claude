@@ -80,9 +80,10 @@ describe("buildFcmMessage", () => {
 
 describe("send-push uses the builder (so what is tested is what is sent)", () => {
   it("imports buildFcmMessage and no longer shapes the message inline", async () => {
+    // Repo-root relative, like the other source-reading tests here (vitest runs from the root).
     const { readFileSync } = await import("node:fs");
-    const { fileURLToPath } = await import("node:url");
-    const src = readFileSync(fileURLToPath(new URL("../../supabase/functions/send-push/index.ts", import.meta.url)), "utf8");
+    const { join } = await import("node:path");
+    const src = readFileSync(join(process.cwd(), "supabase/functions/send-push/index.ts"), "utf8");
     expect(src).toMatch(/import \{ buildFcmMessage \} from "\.\.\/_shared\/pushMessage\.ts"/);
     expect(src).toMatch(/buildFcmMessage\(\{/);
     expect(src).not.toMatch(/notification:\s*\{\s*title/);
