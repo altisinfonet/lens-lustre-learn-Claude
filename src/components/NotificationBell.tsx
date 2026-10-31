@@ -463,7 +463,7 @@ const NotificationBell = () => {
                       <NotifSection title="Friend Requests">
                         {friendRequests.map((fr) => (
                           <div key={fr.id} className="flex items-center gap-3 px-4 py-3 border-b border-border/50 hover:bg-muted/20 transition-colors">
-                            <ProfileLink userId={fr.requester_id} handle={fr.requester_handle} onClick={() => setOpen(false)} className="shrink-0">
+                            <ProfileLink userId={fr.requester_id} handle={fr.requester_handle} onClick={() => setOpen(false)} className="shrink-0" aria-label={`${fr.requester_name || "Someone"} — profile`}>
                               {fr.requester_avatar ? (
                                 <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={fr.requester_avatar} alt="" className="w-9 h-9 rounded-full object-cover" />
                               ) : (

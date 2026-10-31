@@ -33,9 +33,7 @@
     "profile-grid-single": {},
     "screen-account-sheet": {},
     "screen-dashboard": {},
-    "screen-discover": {
-      "link-name": 4
-    },
+    "screen-discover": {},
     "screen-feed": {},
     "screen-friends": {},
     "screen-login": {

@@ -61,12 +61,15 @@ const ProfileLink = ({ userId, handle, children, className, ...rest }: ProfileLi
      * `handle === null` is a caller SAYING there is no link. undefined is
      * nobody having decided.
      */
+    // aria-label names a LINK (P23 S10a-3); on a span with no role it is a
+    // prohibited attribute (axe aria-prohibited-attr), so it does not travel here.
+    const { "aria-label": _ariaLabel, ...spanRest } = rest as React.HTMLAttributes<HTMLSpanElement>;
     return (
       <span
         className={className}
         onMouseEnter={handleMouseEnter}
         data-unlinked={handle === null ? "deliberate" : "missing"}
-        {...(rest as React.HTMLAttributes<HTMLSpanElement>)}
+        {...spanRest}
       >
         {children}
       </span>

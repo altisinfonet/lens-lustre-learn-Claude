@@ -127,7 +127,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
   return (
     <div className="flex items-start gap-3 px-3 md:px-4 py-3 border-b border-border">
       {/* Large circular avatar — clickable */}
-      <ProfileLink userId={profile.id} handle={profile.custom_url} className="shrink-0">
+      <ProfileLink userId={profile.id} handle={profile.custom_url} className="shrink-0" aria-label={`${profile.full_name || "Member"} — profile`}>
         {profile.avatar_url ? (
           <img loading="lazy" decoding="async"
             src={profile.avatar_url}
