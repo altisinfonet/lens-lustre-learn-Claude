@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildFcmMessage } from "../_shared/pushMessage.ts";
+import { startPushReceipt, finishPushReceipt, fcmErrorCode } from "../_shared/pushReceipts.ts";
 import { cdnHost, siteOrigin } from "../_shared/laneConfig.ts";
 
 /** This lane's own hosts, from its environment. Missing config → no images (never a guess). */
@@ -123,7 +124,17 @@ Deno.serve(async (req) => {
     // src/lib/native/iosReview.ts isWalletNotificationType.
     const walletType = isWalletNotificationType(data?.type);
     const tokens = (allTokens ?? []).filter((t: { platform?: string }) => !(walletType && t.platform === "ios"));
+
+    // N4 receipt: an id only when this type's group is switched on for the
+    // member; otherwise null and the message below is today's message. A
+    // caller that already passed delivery_id keeps it and gets no new row.
+    const receiptId = delivery_id == null
+      ? await startPushReceipt(admin, user_id, data?.type, data?.notification_id)
+      : null;
+    const deliveryId = delivery_id ?? receiptId ?? undefined;
+
     if (tokens.length === 0) {
+      await finishPushReceipt(admin, receiptId, { ok: 0, failed: 0, pruned: 0 });
       return new Response(JSON.stringify({ success: true, sent: 0, note: "no devices registered" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -132,11 +143,13 @@ Deno.serve(async (req) => {
 
     const imageHosts = image_url ? laneImageHosts() : [];   // once per call, not per device
     let sent = 0;
+    let failed = 0;
+    let lastError: string | null = null;
     const stale: string[] = [];
     for (const { token } of tokens) {
       const message = buildFcmMessage({
         token, title, body, data,
-        imageUrl: image_url, category, groupKey: group_key, deliveryId: delivery_id,
+        imageUrl: image_url, category, groupKey: group_key, deliveryId,
         imageHosts,
       });
       const r = await fetch(endpoint, {
@@ -148,6 +161,10 @@ Deno.serve(async (req) => {
         sent++;
       } else {
         const errText = await r.text();
+        failed++;
+        // Receipt keeps the HTTP status and FCM's error code only — never the
+        // raw body, which can echo request details.
+        lastError = `${r.status} ${fcmErrorCode(errText)}`;
         // Token no longer valid → prune it.
         if (r.status === 404 || /UNREGISTERED|INVALID_ARGUMENT/i.test(errText)) stale.push(token);
         console.error("FCM send failed", r.status, errText);
@@ -157,6 +174,8 @@ Deno.serve(async (req) => {
     if (stale.length > 0) {
       await admin.from("push_tokens").delete().in("token", stale);
     }
+
+    await finishPushReceipt(admin, receiptId, { ok: sent, failed, pruned: stale.length, error: lastError });
 
     return new Response(JSON.stringify({ success: true, sent, pruned: stale.length }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {

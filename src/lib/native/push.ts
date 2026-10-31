@@ -13,6 +13,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { logger } from "@/lib/logger";
+import { reportPushOpened } from "@/lib/notifications/pushOpened";
 
 const FILE = "src/lib/native/push.ts";
 import { isNativeCapacitorApp } from "@/lib/native/authDeepLink";
@@ -101,6 +102,7 @@ export async function initPushNotifications(
     await fm.addListener("notificationActionPerformed", (e: Record<string, unknown>) => {
       const notification = (e as { notification?: { data?: Record<string, unknown> } })?.notification;
       onOpen?.(notification?.data ?? {});
+      void reportPushOpened(notification?.data ?? {});   // N4 receipt; no-op without delivery_id
     });
   } catch (err) {
     logger.error({
