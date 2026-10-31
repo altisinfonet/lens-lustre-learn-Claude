@@ -40,8 +40,12 @@
       }
     },
     "screen-notifications": {
-      "desktop-1280": {},
-      "iphone-390": {}
+      "desktop-1280": {
+        "A:nested-interactive": 2
+      },
+      "iphone-390": {
+        "A:nested-interactive": 2
+      }
     },
     "screen-post-detail": {
       "desktop-1280": {},

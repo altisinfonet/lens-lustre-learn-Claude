@@ -9,3 +9,9 @@
     ✗ screen-notifications @ desktop-1280: CLEAN scene now has 2 A:nested-interactive violation(s)
     ✗ screen-admin-health @ iphone-390: CLEAN scene now has 2 A:button-name violation(s)
 [a11y-surfaces] FAIL (exit 1)
+
+NOTE (2026-10-31 09:30 UTC): the two screen-notifications A:nested-interactive lines above were taken OUT of this unit.
+The name links inside the row's open button are a recorded decision (F-98c: names are links on /notifications);
+three structural fixes each broke another gate (nav journey run 41184132307, UI-gate reachability run 41185664796,
+then tap-target size locally). It needs a design decision (e.g. names as plain text in the row like the bell, or no
+whole-row tap target), so the row is unchanged and its baseline entries (2 per width) stay as on staging.

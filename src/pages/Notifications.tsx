@@ -115,40 +115,22 @@ function NotificationRow({
         unread ? "bg-primary/5" : ""
       } hover:bg-muted/20`}
     >
-      {/*
-       * P23 S10a-3 (B) — axe nested-interactive: the name links (F-98c) used to
-       * sit INSIDE the row's open button, which is invalid HTML and hides them
-       * from a screen reader. The open button is now a full-size layer behind
-       * the row, named with the whole sentence (describeNotification's, so a
-       * deleted actor reads "A member …", review #738). A mouse click anywhere
-       * on the row's text or avatar opens it through the wrapper (the nav
-       * harness taps the actor's name text); a click on a name LINK is left to
-       * the link. Same pixels.
-       */}
-      <div
-        className="relative flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer"
-        onClick={(e) => { if (!(e.target as HTMLElement).closest("a, button")) onOpen(group); }}
+      <button
+        onClick={() => onOpen(group)}
+        className="flex items-center gap-3 flex-1 min-w-0 text-left"
       >
-        <button
-          type="button"
-          onClick={() => onOpen(group)}
-          aria-label={`${described.text} ${described.age}`.trim()}
-          className="absolute inset-0"
-        />
-        <span className="relative flex items-center gap-3 min-w-0">
-          <Avatar url={group.actor_avatars?.[0] || undefined} alt={actorDisplayName(subject.actors[0])} />
-          <span className="text-xs leading-relaxed text-foreground min-w-0" style={bodyFont}>
-            {described.hasActor ? (
-              <>
-                <span className="font-semibold"><ActorPhrase subject={subject} /></span> {described.action}
-              </>
-            ) : (
-              described.text
-            )}{" "}
-            <span className="text-muted-foreground">{described.age}</span>
-          </span>
+        <Avatar url={group.actor_avatars?.[0] || undefined} alt={actorDisplayName(subject.actors[0])} />
+        <span className="text-xs leading-relaxed text-foreground min-w-0" style={bodyFont}>
+          {described.hasActor ? (
+            <>
+              <span className="font-semibold"><ActorPhrase subject={subject} /></span> {described.action}
+            </>
+          ) : (
+            described.text
+          )}{" "}
+          <span className="text-muted-foreground">{described.age}</span>
         </span>
-      </div>
+      </button>
 
       {showFollowBack && (
         <button

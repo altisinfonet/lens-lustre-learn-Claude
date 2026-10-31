@@ -8,7 +8,7 @@
  * mistake here would show Follow back for someone the user already follows.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { NotificationGroup } from "@/lib/notificationText";
@@ -112,73 +112,6 @@ describe("/notifications", () => {
     // 3 names came back but the true distinct count is 5 → "and 3 others".
     expect(screen.getByText("3 others")).toBeInTheDocument();
     expect(screen.getByText(/shared 33 photos\./)).toBeInTheDocument();
-  });
-
-  it("keeps the name links OUT of the row's open button (P23 S10a-3 B: axe nested-interactive)", () => {
-    // A link inside a <button> is invalid HTML and axe's nested-interactive:
-    // a screen reader announces one button and the names inside it are not
-    // reachable as links. The row's open action is its own button, named with
-    // the whole sentence, and the name links are its siblings.
-    withGroups([
-      group({
-        type: "new_post_from_following",
-        actor_ids: ["a1", "a2"],
-        actor_names: ["Anindita Hidayat", "Vicky Roy"],
-        actor_usernames: ["aninditahidayat", "vickyroy87"],
-        actor_count: 2,
-        event_count: 3,
-      }),
-    ]);
-    const { container } = renderPage();
-    expect(container.querySelectorAll("button a, button [role=link]").length).toBe(0);
-    const link = screen.getByRole("link", { name: "Anindita Hidayat" });
-    expect(link.closest("button")).toBeNull();
-    expect(screen.getByRole("button", { name: /Anindita Hidayat and Vicky Roy.*shared 3 photos/ })).toBeInTheDocument();
-  });
-
-  it("names the open button with a subject even when the actor's account is gone (review #738)", () => {
-    // delete-user nulls actor_id; describeNotification falls back to NAME_UNKNOWN.
-    // The open button's name must use that same sentence, never a headless one.
-    withGroups([
-      group({
-        type: "new_follower",
-        actor_ids: [],
-        actor_names: [],
-        actor_usernames: [],
-        actor_count: 0,
-        event_count: 1,
-      }),
-    ]);
-    renderPage();
-    const open = screen.getAllByRole("button").find((b) => /follow/i.test(b.getAttribute("aria-label") || ""));
-    expect(open?.getAttribute("aria-label")).toMatch(/^A member /);
-  });
-
-  it("opens the notification when its TEXT is clicked, and a name link is not hijacked (nav-harness journey)", async () => {
-    // nav-harness.mjs:746 taps the row's text. Clicking the text must run the
-    // open path (markGroupRead for an unread row); clicking a name LINK must not.
-    const { markGroupRead } = await import("@/hooks/notifications/useNotificationHistory");
-    const mark = vi.mocked(markGroupRead);
-    mark.mockClear();
-    mark.mockResolvedValue(undefined as never);
-    withGroups([
-      group({
-        type: "new_post_from_following",
-        actor_ids: ["a1"],
-        actor_names: ["Anindita Hidayat"],
-        actor_usernames: ["aninditahidayat"],
-        actor_count: 1,
-        event_count: 3,
-        unread_count: 1,
-        notification_ids: ["n1"],
-      }),
-    ]);
-    renderPage();
-    fireEvent.click(screen.getByRole("link", { name: "Anindita Hidayat" }));
-    expect(mark).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByText(/shared 3 photos/));
-    expect(mark).toHaveBeenCalledTimes(1);
-    expect(mark).toHaveBeenCalledWith(["n1"]);
   });
 
   it("links every named actor to their handle and never to their id", () => {
