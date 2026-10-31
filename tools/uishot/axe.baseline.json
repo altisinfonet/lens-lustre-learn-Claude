@@ -36,9 +36,7 @@
     "screen-discover": {},
     "screen-feed": {},
     "screen-friends": {},
-    "screen-login": {
-      "link-in-text-block": 2
-    },
+    "screen-login": {},
     "screen-not-found": {},
     "screen-not-found-in-place": {},
     "screen-not-found-in-place-signed-out": {},
