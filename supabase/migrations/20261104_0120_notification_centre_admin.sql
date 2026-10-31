@@ -71,6 +71,7 @@ CREATE TABLE public.notification_centre_changes (
   old_value   jsonb,
   new_value   jsonb
 );
+-- P28: notification_centre_changes · 0 rows at launch (one row per admin edit) · the change-history panel reads one subject newest-first
 CREATE INDEX notification_centre_changes_subject_idx ON public.notification_centre_changes (subject, changed_at DESC);
 ALTER TABLE public.notification_centre_changes ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.notification_centre_changes FROM PUBLIC, anon, authenticated;
