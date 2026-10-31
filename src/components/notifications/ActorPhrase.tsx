@@ -24,9 +24,23 @@ import type { NotificationSubject } from "@/lib/notifications/describe";
  * There is no deliberate case here — a notification names other people, never
  * the reader, so every actor in it should be reachable.
  */
-export default function ActorPhrase({ subject }: { subject: NotificationSubject }) {
+export default function ActorPhrase({ subject, plain = false }: { subject: NotificationSubject; plain?: boolean }) {
   const parts = actorPhraseParts(subject);
   if (parts.length === 0) return null;
+
+  // Notification centre rows (N7): the whole row is ONE control that opens the
+  // target, so a name must not be a second control inside it — a link nested in
+  // a button is announced badly (or not at all) by screen readers. Names are
+  // bold text; the member's profile is one tap away from the target.
+  if (plain) {
+    return (
+      <>
+        {parts.map((part, i) =>
+          part.actor ? <strong key={i} className="font-semibold">{part.text}</strong> : <span key={i}>{part.text}</span>,
+        )}
+      </>
+    );
+  }
 
   return (
     <>

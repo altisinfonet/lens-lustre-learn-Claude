@@ -13,6 +13,7 @@
  */
 import { useMemo, useState } from "react";
 import ActorPhrase from "@/components/notifications/ActorPhrase";
+import { useCentreUi } from "@/lib/notifications/centreUi";
 import { useMemberHandles } from "@/hooks/profile/useMemberHandles";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Bell, X } from "lucide-react";
@@ -39,7 +40,7 @@ import {
 // The sentence itself comes from the shared layer, NOT from this page. The bell
 // composes from the same function, so the two surfaces cannot drift apart
 // again — see src/lib/notifications/describe.ts for the naming rules.
-import { describeNotification, actorDisplayName } from "@/lib/notifications/describe";
+import { describeNotification, actorDisplayName, actorPhrase } from "@/lib/notifications/describe";
 import { subjectFromGroup } from "@/lib/notifications/adapters";
 import { useAdminIds } from "@/hooks/core/useAdminIds";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
@@ -74,6 +75,22 @@ function Avatar({ url, alt }: { url?: string; alt: string }) {
   );
 }
 
+/** The post's picture for a row: its video's poster, else its photograph. */
+function RowThumb({ media }: { media: ReturnType<typeof postMedia> }) {
+  return media.video ? (
+    <VideoPoster video={media.video} />
+  ) : (
+    <img
+      src={media.imageUrls[0]}
+      alt=""
+      referrerPolicy="no-referrer"
+      loading="lazy"
+      decoding="async"
+      className="w-11 h-14 object-cover rounded-sm"
+    />
+  );
+}
+
 function NotificationRow({
   group,
   isFollowing,
@@ -84,8 +101,11 @@ function NotificationRow({
   followPending,
   adminIds,
   video,
+  centreRows = false,
 }: {
   group: NotificationGroup;
+  /** N7 (site_settings notif_centre_ui): one control per row, plain bold names, unread dot. */
+  centreRows?: boolean;
   /** BUG-VID-HOME: the post's playable video when the notification is about a video post (one batched read for the list). */
   video: FeedVideo | null;
   isFollowing: boolean;
@@ -108,6 +128,72 @@ function NotificationRow({
   // Unknown state must disable the action, never enable it (§0).
   const showFollowBack =
     group.type === "new_follower" && !!actorId && followReady && !isFollowing;
+
+  if (centreRows) {
+    const sentence = described.hasActor
+      ? `${actorPhrase(subject)} ${described.action}`
+      : described.text;
+    return (
+      <div
+        className={`flex items-center gap-3 px-4 py-3 border-b border-border/50 transition-colors ${
+          unread ? "bg-primary/5" : ""
+        } hover:bg-muted/20`}
+      >
+        <button
+          data-notif-row-open="true"
+          onClick={() => onOpen(group)}
+          aria-label={`${unread ? `${t("notifications.unread", "Unread")}. ` : ""}${sentence} ${described.age}`}
+          className="flex items-center gap-3 flex-1 min-w-0 text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span className="relative shrink-0">
+            <Avatar url={group.actor_avatars?.[0] || undefined} alt="" />
+            {unread && (
+              <span
+                data-notif-unread-dot="true"
+                aria-hidden="true"
+                className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-background"
+              />
+            )}
+          </span>
+          <span className="text-xs leading-relaxed text-foreground min-w-0 flex-1" style={bodyFont}>
+            {described.hasActor ? (
+              <>
+                <ActorPhrase subject={subject} plain /> {described.action}
+              </>
+            ) : (
+              described.text
+            )}{" "}
+            <span className="text-muted-foreground">{described.age}</span>
+          </span>
+          {(media.video || media.imageUrls[0]) && (
+            <span className="shrink-0 relative w-11 h-14 overflow-hidden rounded-sm">
+              <RowThumb media={media} />
+            </span>
+          )}
+        </button>
+
+        {showFollowBack && (
+          <button
+            onClick={() => onFollowBack(actorId!)}
+            disabled={followPending}
+            className="shrink-0 px-3 py-1.5 tap-44 rounded-md bg-primary text-primary-foreground text-[11px] font-semibold disabled:opacity-50"
+            style={headingFont}
+          >
+            {t("notifications.follow_back", "Follow back")}
+          </button>
+        )}
+
+        <button
+          onClick={() => onDelete(group)}
+          aria-label={t("notifications.delete", "Delete")}
+          title={t("notifications.delete", "Delete")}
+          className="shrink-0 h-7 w-7 tap-44 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 transition-colors"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -152,18 +238,7 @@ function NotificationRow({
           photograph — decided by subjectMedia.ts, as on every other surface. */}
       {(media.video || media.imageUrls[0]) && (
         <button onClick={() => onOpen(group)} className="shrink-0 relative w-11 h-14 overflow-hidden rounded-sm">
-          {media.video ? (
-            <VideoPoster video={media.video} />
-          ) : (
-            <img
-              src={media.imageUrls[0]}
-              alt=""
-              referrerPolicy="no-referrer"
-              loading="lazy"
-              decoding="async"
-              className="w-11 h-14 object-cover rounded-sm"
-            />
-          )}
+          <RowThumb media={media} />
         </button>
       )}
 
@@ -194,6 +269,8 @@ const Notifications = () => {
   // One admin lookup for the whole list, not one per row.
   const adminIds = useAdminIds();
   const { user } = useAuth();
+  // N7 · notification centre rows, behind site_settings notif_centre_ui (OFF on live).
+  const centreRows = useCentreUi(user?.id);
   const queryClient = useQueryClient();
   const followMutation = useToggleFollow();
   const [busyActor, setBusyActor] = useState<string | null>(null);
@@ -396,6 +473,7 @@ const Notifications = () => {
                 onDelete={removeGroup}
                 adminIds={adminIds}
                 video={videoFor(group)}
+                centreRows={centreRows}
               />
             ))}
           </section>
