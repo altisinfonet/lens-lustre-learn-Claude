@@ -1,6 +1,6 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- PROBE · 20261104_0230 one log row per notification. READ ONLY, ROLLBACK.
--- PASS = notification_centre_emit is exactly the 0230 body (md5 863c5412…), still
+-- PASS = notification_centre_emit is exactly the 0230 body (md5 87714653…), still
 -- SECURITY DEFINER with search_path="". FAILS before apply. md5 + length only.
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN READ ONLY;
@@ -14,7 +14,7 @@ BEGIN
     RAISE EXCEPTION 'PROBE REFUSED — p32.lane is not asserted';
   END IF;
   SELECT prosrc INTO src FROM pg_proc WHERE oid = to_regprocedure('public.notification_centre_emit(text, uuid, uuid, uuid, text, text, text)');
-  IF src IS NULL OR md5(src) <> '863c541252b3885063958f3f9ea506d5' THEN
+  IF src IS NULL OR md5(src) <> '87714653c4e037d1ed8557d5b772ddb6' THEN
     RAISE EXCEPTION 'PROBE FAIL: notification_centre_emit is not the 0230 body (md5 %, length %)', md5(src), length(src);
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE oid = to_regprocedure('public.notification_centre_emit(text, uuid, uuid, uuid, text, text, text)')

@@ -83,11 +83,15 @@ BEGIN
   -- through the gate (0140), which logs it — so emit logs only what it skips
   -- (nothing is inserted, the gate never sees it). Without the gate on the
   -- target table (a lane before 0140), emit logs everything, as before.
+  -- Also log a row emit inserted when the gate left no log row for it (a
+  -- fault inside the gate, or its live check differing from emit's), so a
+  -- sent notification is never left without one.
   IF NOT (d ->> 'send')::boolean
      OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_trigger tg
                      WHERE tg.tgname = 'aaa_notification_centre_gate' AND NOT tg.tgisinternal AND tg.tgenabled <> 'D'
                        AND tg.tgrelid = CASE WHEN t.audience = 'member' THEN 'public.user_notifications'::regclass
-                                             ELSE 'public.admin_notifications'::regclass END) THEN
+                                             ELSE 'public.admin_notifications'::regclass END)
+     OR (nid IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.notification_centre_log l WHERE l.notification_id = nid)) THEN
     INSERT INTO public.notification_centre_log (type, recipient_id, actor_id, reference_id, sent, reasons, channels, notification_id)
     VALUES (_type, _recipient, _actor, _reference, (d ->> 'send')::boolean,
             ARRAY(SELECT jsonb_array_elements_text(d -> 'reasons')), d -> 'channels', nid);

@@ -17,7 +17,7 @@ SET LOCAL lock_timeout = '5s';
 DO $pre$
 BEGIN
   IF (SELECT md5(prosrc) FROM pg_proc WHERE oid = to_regprocedure('public.notification_centre_emit(text, uuid, uuid, uuid, text, text, text)'))
-     IS DISTINCT FROM '863c541252b3885063958f3f9ea506d5' THEN
+     IS DISTINCT FROM '87714653c4e037d1ed8557d5b772ddb6' THEN
     RAISE EXCEPTION 'NC-0230-RB-PRE-001: 20261104_0230 is not what is live — nothing to roll back';
   END IF;
 END
