@@ -2,17 +2,17 @@ N0 IN PROGRESS
 
 # Notification centre runner — status
 
-Heartbeat: 2026-10-31 13:41 UTC (measured) — N2 STAGING-APPLIED and verified: PROBE 0110 FAIL 41205948948 → apply 41206399056 (13:38, 49 types, COMMIT) → PROBE PASS 41206575315 (13:41). Staging 24 h shadow window runs 13:38 → tomorrow 13:38. Production waits for carry #759 (N0+N2). Merged #758 live-check. #757 N4 fixed a lane-isolation CI failure (production ref was hardcoded) — reviewed nothing blocking. Branch for status only; never merged.
+Heartbeat: 2026-10-31 13:48 UTC (measured) — MERGED: carry #759 → main (832863d: N0 PROBE + N2 centre), #752 N5 CI guard → staging (0ad80af), #760 N3 centre gate → staging (ef4eed9). Production N0 PROBE dispatched: run 41206791083. Opened #764 N6 admin page (in review). CORRECTION: at 13:42 I dispatched the N3 staging PROBE without re-checking the STAGING lane (I had checked production) while another runner's staging run was queued; I cancelled mine (41206815161) within a minute and will re-dispatch when the lane is free. Branch for status only; never merged.
 
 | Step | What | PR | Merged sha (staging / main) | SQL runs (lane · run id · result · UTC) | Live check | % |
 |---|---|---|---|---|---|---|
-| N0 | Measure (read-only map) | #748; carry #759 | staging d4aa554 | staging 41202968098 PASS 13:19 | — | 65 |
+| N0 | Measure (read-only map) | #748; carry #759 | staging d4aa554 / main 832863d | staging 41202968098 PASS 13:19; production 41206791083 (running) | — | 70 |
 | N1 | Capture live-only pieces into git | — | — | — | — | 0 |
-| N2 | Centre, switch OFF, 24 h shadow | #754; carry #759 | staging 6c2f4c8 | staging: FAIL 41205948948 → apply 41206399056 → PASS 41206575315 (13:41) | — | 60 |
-| N3 | Move makers onto the centre, by group | #760 (centre gate) | — | — | — | 30 |
+| N2 | Centre, switch OFF, 24 h shadow | #754; carry #759 | staging 6c2f4c8 / main 832863d | staging: FAIL 41205948948 → apply 41206399056 → PASS 41206575315 (13:41) | — | 60 |
+| N3 | Move makers onto the centre, by group | #760 (centre gate) | staging ef4eed9 | — | — | 40 |
 | N4 | Delivery (push + e-mail queue, receipts) | #757 (part 1: push builder) | — | — | — | 10 |
-| N5 | Guard (CI stray-insert test + nightly count) | #752 (CI guard); part 2 local | — | — | — | 45 |
-| N6 | Admin Notification Centre page | (local, stacked on #754) | — | — | — | 25 |
+| N5 | Guard (CI stray-insert test + nightly count) | #752 (CI guard); part 2 local | staging 0ad80af | — | — | 55 |
+| N6 | Admin Notification Centre page | #764 | — | — | — | 40 |
 | N7 | Member screens | #755 (rows) merged; #762 settings table | staging 2d295e1 | — | — | 45 |
 | N8 | Staged rollout steps for the Owner | (draft) | — | — | — | 15 |
 
