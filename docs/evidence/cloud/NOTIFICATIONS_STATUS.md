@@ -2,11 +2,11 @@ N0 IN PROGRESS
 
 # Notification centre runner — status
 
-Heartbeat: 2026-10-31 11:05 UTC — started. Branch for status only; never merged.
+Heartbeat: 2026-10-31 11:40 UTC — N0 PROBE PR #748 in review round 2 (round 1 found a blocking secret-screen gap; fixed, fixture shows old version leaking 5/5 and new withholding 5/5). Branch for status only; never merged.
 
 | Step | What | PR | Merged sha (staging / main) | SQL runs (lane · run id · result · UTC) | Live check | % |
 |---|---|---|---|---|---|---|
-| N0 | Measure (read-only map) | — | — | — | — | 5 |
+| N0 | Measure (read-only map) | #748 (PROBE 0100) | — | — | — | 20 |
 | N1 | Capture live-only pieces into git | — | — | — | — | 0 |
 | N2 | Centre, switch OFF, 24 h shadow | — | — | — | — | 0 |
 | N3 | Move makers onto the centre, by group | — | — | — | — | 0 |
