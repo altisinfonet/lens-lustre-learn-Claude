@@ -69,6 +69,11 @@ BEGIN
 END;
 $fn$;
 
+
+-- the same callers as 0110 (CREATE OR REPLACE keeps them; stated explicitly, S11 M2)
+REVOKE ALL ON FUNCTION public.notification_centre_emit(text, uuid, uuid, uuid, text, text, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.notification_centre_emit(text, uuid, uuid, uuid, text, text, text) TO service_role;
+
 DO $post$
 BEGIN
   IF (SELECT md5(prosrc) FROM pg_proc WHERE oid = to_regprocedure('public.notification_centre_emit(text, uuid, uuid, uuid, text, text, text)'))
