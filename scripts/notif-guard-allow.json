@@ -34,5 +34,6 @@
   "sql:notify_user_ticket_reply": "existed 2026-10-31; moves in N3 group 4 (wallet / support / roles)",
   "sql:pj_handle_comment_notification": "existed 2026-10-31; moves in N3 group 1 (likes & comments)",
   "sql:pj_handle_reaction_notification": "existed 2026-10-31; moves in N3 group 1 (likes & comments)",
-  "sql:video_takedown": "existed 2026-10-31; moves in N3 group 3 (competition, judging, awards, announcements)"
+  "sql:video_takedown": "existed 2026-10-31; moves in N3 group 3 (competition, judging, awards, announcements)",
+  "sql:notification_centre_emit": "THE NOTIFICATION CENTRE's write path (N2, 20261104_0110) \u2014 the one writer meant to remain"
 }
