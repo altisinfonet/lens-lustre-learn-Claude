@@ -9,13 +9,14 @@
  *
  * Every switch writes an existing notification_preferences column — the same
  * columns the old three lists wrote — so switching the new screen on or off
- * never loses a member's choices. The weekly summary e-mail is not offered
- * until it exists (N4). "New photos from people you follow" has a Phone
- * switch (push_new_posts): the push trigger reads it for new_post_from_following
- * (git 20260815064043, measured live by N0), as today's page offers it. Its bell
- * setting is the followers one (inapp_social, as in the registry) and it has
- * no e-mail. (An earlier version of this comment said the trigger never reads
- * push_new_posts; that was wrong and dropped the switch.)
+ * never loses a member's choices. The weekly summary e-mail (email_weekly_digest)
+ * is sent by SQL 20261104_0200 (N4), so it has an e-mail-only row. "New photos
+ * from people you follow" has a Phone switch (push_new_posts): the push trigger
+ * reads it for new_post_from_following (git 20260815064043, measured live by
+ * N0), as today's page offers it. Its bell setting is the followers one
+ * (inapp_social, as in the registry) and it has no e-mail. (An earlier version
+ * of this comment said the trigger never reads push_new_posts; that was wrong
+ * and dropped the switch.)
  * With the master switch off nothing is pushed at all — so no Phone cell may
  * say "Always on" then; it says "Off".
  */
@@ -39,6 +40,7 @@ const ROWS: Row[] = [
   { key: "gifts", label: "Gift credits", bell: "always", phone: "always", email: "email_gift_credits" },
   { key: "certificates", label: "Certificates", bell: "always", phone: "always", email: "email_certificates" },
   { key: "reminders", label: "Reminders to share your photos", bell: "none", phone: "none", email: "email_reengagement" },
+  { key: "weekly", label: "Weekly summary", bell: "none", phone: "none", email: "email_weekly_digest" },
   { key: "safety", label: "Account and security, support replies, results", bell: "always", phone: "always", email: "always" },
 ];
 

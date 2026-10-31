@@ -87,8 +87,6 @@ const UNWIRED_TOGGLES: Record<string, string> = {
     "OWNER DECISION: same choice as inapp_reactions; covers follows and friend requests. Dead since 2026-04-07",
   inapp_competitions:
     "OWNER DECISION: same choice as inapp_reactions; covers competition activity. Dead since 2026-04-07",
-  email_weekly_digest:
-    "OWNER DECISION: there is no weekly digest feature anywhere in the codebase, so this switch controls something that does not exist. Build the digest, or remove the switch",
 };
 
 function walk(dir: string, out: string[] = []): string[] {
