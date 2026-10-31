@@ -2,7 +2,7 @@ N0 IN PROGRESS
 
 # Notification centre runner — status
 
-Heartbeat: 2026-10-31 13:55 UTC (measured) — N0 PROBE PASSED on production: run 41206791083 (13:49). All 53 notification functions identical on both lanes; 12 exist only in the commented-out snapshot. N0 map PR #765 (review nothing blocking). N1 capture PR #766 opened (guarded no-op, in review). #764 N6 admin reviewed nothing blocking. Both apply lanes currently hold other runners' queued runs; N2 production apply and N3 staging apply wait for them. Branch for status only; never merged.
+Heartbeat: 2026-10-31 14:22 UTC (measured) — staging N3 gate: PROBE 0140 FAIL (expected) run 41207874341 → apply dispatched run 41209816765. Production N2: before-PROBE run 41208395319 queued (runner queue). #766 N1 capture: review found that a re-create would silently reset planner cost — fixed (now rolls back), nothing blocking. Branch for status only; never merged.
 
 | Step | What | PR | Merged sha (staging / main) | SQL runs (lane · run id · result · UTC) | Live check | % |
 |---|---|---|---|---|---|---|
