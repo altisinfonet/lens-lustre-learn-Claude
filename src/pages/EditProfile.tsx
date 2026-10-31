@@ -693,6 +693,7 @@ const EditProfile = () => {
                 </div>
               )}
               <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingAvatar}
+                aria-label={t("ep.changeAvatar", "Change profile picture")}
                 className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
                 {uploadingAvatar ? <Loader2 className="h-5 w-5 text-primary-foreground animate-spin" /> : <Camera className="h-5 w-5 text-primary-foreground" />}
               </button>
@@ -1014,6 +1015,7 @@ const EditProfile = () => {
                     Day & Month
                   </span>
                   <select
+                    aria-label={t("ep.dobDayMonthVisibility", "Who can see your birthday (day and month)")}
                     value={dobDayMonthPrivacy}
                     onChange={(e) => setDobDayMonthPrivacy(e.target.value as PrivacyLevel)}
                     className="w-full text-[10px] bg-background border border-border rounded-sm px-2 py-1.5"
@@ -1029,6 +1031,7 @@ const EditProfile = () => {
                     Year
                   </span>
                   <select
+                    aria-label={t("ep.dobYearVisibility", "Who can see your birth year")}
                     value={dobYearPrivacy}
                     onChange={(e) => setDobYearPrivacy(e.target.value as PrivacyLevel)}
                     className="w-full text-[10px] bg-background border border-border rounded-sm px-2 py-1.5"
@@ -1167,7 +1170,7 @@ const EditProfile = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("ep.country")}</label>
-                  <select value={country} onChange={(e) => handleCountryChange(e.target.value)}
+                  <select aria-label={t("ep.country")} value={country} onChange={(e) => handleCountryChange(e.target.value)}
                     className={`${inputCls} bg-background`} style={{ fontFamily: "var(--font-body)" }}>
                     <option value="">{t("ep.selectCountry")}</option>
                     {availableCountries.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -1184,7 +1187,7 @@ const EditProfile = () => {
                 <div>
                   <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>{t("ep.city")}</label>
                   {availableCities.length > 0 ? (
-                    <select value={city} onChange={(e) => setCity(e.target.value)}
+                    <select aria-label={t("ep.city")} value={city} onChange={(e) => setCity(e.target.value)}
                       className={`${inputCls} bg-background`} style={{ fontFamily: "var(--font-body)" }}>
                       <option value="">{t("ep.selectCity")}</option>
                       {availableCities.map((c) => <option key={c} value={c}>{c}</option>)}

@@ -284,7 +284,7 @@ export default function StorageMigrationPanel() {
               Abort
             </button>
           </div>
-          <Progress value={progress} className="h-1.5" />
+          <Progress value={progress} className="h-1.5" aria-label="Migration progress" />
         </div>
       )}
 

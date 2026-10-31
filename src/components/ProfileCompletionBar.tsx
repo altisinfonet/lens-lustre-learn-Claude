@@ -69,7 +69,7 @@ const ProfileCompletionBar = ({ profile, className = "" }: Props) => {
           {total}%
         </span>
       </div>
-      <Progress value={total} className="h-2" />
+      <Progress value={total} className="h-2" aria-label="Profile completion" />
     </div>
   );
 };
