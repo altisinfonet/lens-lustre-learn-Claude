@@ -1,3 +1,5 @@
+-- LOCAL FIXTURE ONLY (scratch Postgres). Deletes rows and renames a column on purpose.
+-- NEVER run against staging or production. Not a migration; not dispatchable.
 \pset tuples_only on
 \pset format unaligned
 INSERT INTO public.site_settings VALUES ('notif_centre_admin_alerts', to_jsonb('live'::text));

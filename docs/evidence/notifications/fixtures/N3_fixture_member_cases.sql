@@ -1,3 +1,5 @@
+-- LOCAL FIXTURE ONLY (scratch Postgres). Deletes rows and renames a column on purpose.
+-- NEVER run against staging or production. Not a migration; not dispatchable.
 \pset tuples_only on
 \pset format unaligned
 INSERT INTO auth.users VALUES ('aaaaaaaa-0000-0000-0000-000000000001'),('bbbbbbbb-0000-0000-0000-000000000002'),('cccccccc-0000-0000-0000-000000000003');
