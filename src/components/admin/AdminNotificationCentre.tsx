@@ -370,16 +370,16 @@ function AnnounceBox() {
     <div className="space-y-3 rounded-md border border-border p-3 text-sm">
       <p className="text-xs text-muted-foreground">
         A bell notification and a phone push, sent through the notification centre. Members whose
-        Announcements row is Off get nothing. One announcement every 10 minutes.
+        Announcements row is Off get nothing. One announcement every 10 minutes, to at most 3000 members.
       </p>
       <label className="block">
         <span className="text-xs font-medium">Title</span>
-        <input value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)}
+        <input value={title} maxLength={80} onChange={(e) => { setTitle(e.target.value); setConfirming(false); }}
           className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-base" />
       </label>
       <label className="block">
         <span className="text-xs font-medium">Message</span>
-        <textarea value={message} maxLength={300} rows={3} onChange={(e) => setMessage(e.target.value)}
+        <textarea value={message} maxLength={300} rows={3} onChange={(e) => { setMessage(e.target.value); setConfirming(false); }}
           className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-base" />
       </label>
       <fieldset>
@@ -396,14 +396,15 @@ function AnnounceBox() {
       </fieldset>
       {who === "members" && (
         <label className="block">
-          <span className="text-xs font-medium">Member ids (one per line)</span>
-          <textarea value={ids} rows={3} onChange={(e) => setIds(e.target.value)}
+          <span className="text-xs font-medium">Member ids (one per line, or separated by commas)</span>
+          <textarea value={ids} rows={3} onChange={(e) => { setIds(e.target.value); setConfirming(false); }}
             className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 font-mono text-xs" />
           <span className="text-xs text-muted-foreground">{members.length} valid id(s)</span>
         </label>
       )}
       {(title || message) && (
-        <div className="rounded-md bg-muted/40 p-2" aria-label="Preview">
+        <div className="rounded-md bg-muted/40 p-2">
+          <p className="text-xs text-muted-foreground">Preview</p>
           <p className="font-semibold">{title || "…"}</p>
           <p className="text-muted-foreground">{message || "…"}</p>
         </div>

@@ -13,7 +13,11 @@
 --     who: 'me' | 'members' (the chosen ids, ≤ 500) | 'everyone'
 --     title 1–80 characters, message 1–300; at most one announcement every
 --     10 minutes (all admins together); recorded in the change history.
---     Returns {sent, reached_none_reason?}.
+--     At most 3000 recipients per call: the centre's emit holds one lock per
+--     member until the end of the call, and an unbounded "everyone" ran the
+--     database out of shared memory in testing (20 000 members). Above the
+--     limit the call is refused with a plain message. Chosen ids must be
+--     live (not suspended) members. Returns {sent, asked}.
 --
 -- min(notification_types.seeded_at) anchors the N2 shadow window, so a row
 -- added now cannot move it.
@@ -90,14 +94,21 @@ BEGIN
     RAISE EXCEPTION 'an announcement went out less than 10 minutes ago — please wait' USING ERRCODE = 'check_violation';
   END IF;
 
+  -- who it would reach (live members only), counted BEFORE anything is sent
+  SELECT count(*) INTO _total FROM public.profiles p
+   WHERE coalesce(p.is_suspended, false) = false
+     AND ((_who = 'me' AND p.id = _uid) OR (_who = 'members' AND p.id = ANY (_members)) OR _who = 'everyone');
+  IF _total > 3000 THEN
+    RAISE EXCEPTION 'that would reach % members — more than 3000 at once is not safe; send to chosen members instead', _total
+      USING ERRCODE = 'program_limit_exceeded';
+  END IF;
+  _total := 0;
+
   FOR _r IN
-    SELECT u FROM (
-      SELECT _uid AS u WHERE _who = 'me'
-      UNION
-      SELECT DISTINCT m FROM unnest(CASE WHEN _who = 'members' THEN _members ELSE '{}'::uuid[] END) m
-      UNION
-      SELECT p.id FROM public.profiles p WHERE _who = 'everyone' AND coalesce(p.is_suspended, false) = false
-    ) x WHERE u IS NOT NULL
+    SELECT p.id FROM public.profiles p
+     WHERE coalesce(p.is_suspended, false) = false
+       AND ((_who = 'me' AND p.id = _uid) OR (_who = 'members' AND p.id = ANY (_members)) OR _who = 'everyone')
+     ORDER BY p.id
   LOOP
     _total := _total + 1;
     -- no actor: an announcement is not a person acting on the member (with

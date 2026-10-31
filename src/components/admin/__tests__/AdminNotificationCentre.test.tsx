@@ -150,5 +150,36 @@ describe("Admin → Notification Centre", () => {
       fireEvent.click(within(box).getByRole("button", { name: "Send" }));
       expect(await screen.findByText(/less than 10 minutes ago/)).toBeInTheDocument();
     });
+
+    it("editing the text after Send closes the Everyone confirmation", async () => {
+      render(<AdminNotificationCentre />);
+      const box = await screen.findByRole("region", { name: "Send an announcement" });
+      fireEvent.change(within(box).getByRole("textbox", { name: "Title" }), { target: { value: "T" } });
+      fireEvent.change(within(box).getByRole("textbox", { name: "Message" }), { target: { value: "M" } });
+      fireEvent.click(within(box).getByRole("radio", { name: "Everyone" }));
+      fireEvent.click(within(box).getByRole("button", { name: "Send" }));
+      expect(await within(box).findByRole("button", { name: "Yes, send to everyone" })).toBeInTheDocument();
+      fireEvent.change(within(box).getByRole("textbox", { name: "Message" }), { target: { value: "Changed" } });
+      expect(within(box).queryByRole("button", { name: "Yes, send to everyone" })).toBeNull();
+    });
+
+    it("chosen members: only valid ids are sent, separated by lines or commas", async () => {
+      rpc.mockImplementation(async (fn: string) => {
+        if (fn === "admin_notif_switches") return { data: SWITCHES, error: null };
+        if (fn === "admin_notif_types") return { data: TYPES, error: null };
+        if (fn === "admin_notif_announce") return { data: { sent: 2, asked: 2 }, error: null };
+        return { data: null, error: null };
+      });
+      render(<AdminNotificationCentre />);
+      const box = await screen.findByRole("region", { name: "Send an announcement" });
+      fireEvent.change(within(box).getByRole("textbox", { name: "Title" }), { target: { value: "T" } });
+      fireEvent.change(within(box).getByRole("textbox", { name: "Message" }), { target: { value: "M" } });
+      fireEvent.click(within(box).getByRole("radio", { name: "Chosen members" }));
+      const a = "11111111-1111-4111-8111-111111111111", b = "22222222-2222-4222-8222-222222222222";
+      fireEvent.change(within(box).getByRole("textbox", { name: /Member ids/ }), { target: { value: `${a}\nnot-an-id, ${b}` } });
+      expect(within(box).getByText("2 valid id(s)")).toBeInTheDocument();
+      fireEvent.click(within(box).getByRole("button", { name: "Send" }));
+      await waitFor(() => expect(rpc).toHaveBeenCalledWith("admin_notif_announce", expect.objectContaining({ _who: "members", _members: [a, b] })));
+    });
   });
 });
