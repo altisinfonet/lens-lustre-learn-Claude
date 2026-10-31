@@ -1,7 +1,8 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- ROLLBACK · 20261104_0170 push follows the centre. Restores push_on_notification()
--- to the measured body (md5 8610c27a…, git 20260815064043) byte for byte and
--- drops the lookup index. Refuses unless 0170 is what is live.
+-- to the measured body (md5 8610c27a…, git 20260815064043) byte for byte,
+-- drops the lookup index and returns new_post_from_following's registry push
+-- setting to 0110's NULL. Refuses unless 0170 is what is live.
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN;
 
@@ -17,7 +18,7 @@ SET LOCAL lock_timeout = '5s';
 
 DO $pre$
 BEGIN
-  IF (SELECT prosrc FROM pg_proc WHERE oid = to_regprocedure('public.push_on_notification()')) NOT LIKE '%20261104_0170%' THEN
+  IF coalesce((SELECT prosrc FROM pg_proc WHERE oid = to_regprocedure('public.push_on_notification()')), '') NOT LIKE '%20261104_0170%' THEN
     RAISE EXCEPTION 'NC-0170-RB-PRE-001: 20261104_0170 is not what is live — nothing to roll back';
   END IF;
 END
@@ -74,6 +75,10 @@ END;
 $function$;
 
 DROP INDEX IF EXISTS public.notification_centre_log_notification_idx;
+
+-- back to 0110's registry value (only if it is still the one 0170 set)
+UPDATE public.notification_types SET pref_push = NULL
+ WHERE type = 'new_post_from_following' AND pref_push = 'push_new_posts';
 
 DO $post$
 BEGIN

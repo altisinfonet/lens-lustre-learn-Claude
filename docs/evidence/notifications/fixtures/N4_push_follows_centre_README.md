@@ -17,6 +17,24 @@ measured identical on both lanes), attached as the AFTER INSERT trigger.
 | 5 A turned reaction pushes off | no push | no push |
 | 6 A master push off (a type with no push setting of its own) | no push | no push |
 | 7 centre fault (registry column renamed) | push | push. The old rules decide, plus a WARNING |
+| 8 B (group off), new-post pushes off | no push | no push |
+| 9 A (group on), new-post pushes off | no push | no push. **Before the review fix: 1 push** |
+
+## Review round 1: an opt-out would have been dropped
+
+The old CASE reads `push_new_posts` for `new_post_from_following`, but 0110's registry had no push setting for
+that type. I reproduced it on the fixture with 0170 as first written: A (group on, `push_new_posts=false`)
+**received** the push, and B (group off) did not. Of the 15 types the old CASE maps, this was the only one that
+didn't match.
+
+Fix in 0170:
+- Set that registry row to `push_new_posts`.
+- A POST check (`NC-0170-POST-001`) refuses the apply unless all 15 match. This was shown refusing when
+  `post_reaction` was deliberately changed to the wrong setting.
+- The rollback returns the row to NULL.
+- The PROBE now pins the exact new body (md5 `2ee2553f…`), re-checks the 15-type match, and checks that the
+  function's owner can execute `notification_centre_live`.
+- A rollback with the function missing now refuses instead of going ahead.
 
 Sequence on both copies:
 1. PROBE FAIL before.

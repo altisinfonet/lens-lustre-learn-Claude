@@ -11,7 +11,8 @@
 -- decision (channels.push) and adds notification_id to the push data so the
 -- receipt (0160) can link to it. Group off, unregistered type, or no logged
 -- decision (a gate fault) → the old CASE, byte for byte. Every switch is off,
--- so today nothing changes.
+-- so today nothing changes. The registry is aligned with the old CASE first
+-- (new_post_from_following → push_new_posts) so no opt-out is dropped.
 --
 -- PRE pins the live body (md5 8610c27a…, measured identical on both lanes by
 -- N0 and equal to git 20260815064043). The rollback restores it exactly.
@@ -45,6 +46,33 @@ BEGIN
   END IF;
 END
 $pre$;
+
+-- The registry must name the same push setting the old CASE reads, for every
+-- type the CASE maps — otherwise a live group would drop a member's opt-out.
+-- 0110 left new_post_from_following without one (the old CASE reads
+-- push_new_posts for it): set here, and the POST below proves all 15 match.
+UPDATE public.notification_types SET pref_push = 'push_new_posts'
+ WHERE type = 'new_post_from_following' AND pref_push IS NULL;
+
+DO $parity$
+DECLARE bad text;
+BEGIN
+  SELECT string_agg(m.t, ', ' ORDER BY m.t) INTO bad
+    FROM (VALUES ('post_reaction','push_reactions'), ('image_reaction','push_reactions'),
+                 ('post_comment','push_comments'), ('image_comment','push_comments'), ('comment_reply','push_comments'),
+                 ('friend_request','push_friend_requests'), ('new_follower','push_new_followers'),
+                 ('new_post_from_following','push_new_posts'),
+                 ('competition_vote','push_competition_updates'), ('entry_approved','push_competition_updates'),
+                 ('entry_rejected','push_competition_updates'), ('competition_winner','push_competition_updates'),
+                 ('new_competition','push_competition_updates'),
+                 ('journal_published','push_announcements'), ('course_published','push_announcements')) m(t, want)
+    LEFT JOIN public.notification_types nt ON nt.type = m.t
+   WHERE nt.pref_push IS DISTINCT FROM m.want;
+  IF bad IS NOT NULL THEN
+    RAISE EXCEPTION 'NC-0170-POST-001: registry push setting differs from the old push rules for: %', bad;
+  END IF;
+END
+$parity$;
 
 -- P28: notification_centre_log · 0 rows at launch (written only while a group is live) · push_on_notification reads the gate's decision for one row by notification_id on every insert of a live group
 CREATE INDEX notification_centre_log_notification_idx ON public.notification_centre_log (notification_id) WHERE notification_id IS NOT NULL;
