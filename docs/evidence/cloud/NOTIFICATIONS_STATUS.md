@@ -2,18 +2,18 @@ N0 IN PROGRESS
 
 # Notification centre runner — status
 
-Heartbeat: 2026-10-31 14:52 UTC (measured) — N2 PRODUCTION-APPLIED AND VERIFIED: after-PROBE 41211534028 PASS (14:51; 49 types, switches off, centre log 0). N3 gate STAGING VERIFIED: PROBE PASS 41211568429 (14:47). 24 h production shadow window ends ~14:44 UTC 1 Nov (reminder set for 14:50). Carry #770 (N7 rows, N5 guard, N3 gate SQL, live-check → main) opened, in review. Branch for status only; never merged.
+Heartbeat: 2026-10-31 15:00 UTC (measured) — MERGED to staging: #765 N0 map (0fffef3), #762 N7 settings table (cd2b6ac), #764 N6 admin page + SQL 0120 (11e5d18). #766 N1: CI found two real issues (explicit grants; and live notify_round_published/_insert lack git's Phase 7 stageKey → excluded from capture, recorded as a gap) — fixed, review nothing blocking, CI re-running. #757 N4: P23 phone-feed keyboard walk failed once on a no-UI change while passing on PRs before and after it — re-running that job to confirm it does not reproduce before treating it as flaky. Carry #770 → main in CI. N6 staging apply waits for the staging lane (another runner). Branch for status only; never merged.
 
 | Step | What | PR | Merged sha (staging / main) | SQL runs (lane · run id · result · UTC) | Live check | % |
 |---|---|---|---|---|---|---|
-| N0 | Measure (read-only map) | #748; carry #759; map #765 | staging d4aa554 / main 832863d | staging 41202968098 PASS 13:19; production 41206791083 PASS 13:49 | live check 13:46 Chromium: same as baseline | 90 |
+| N0 | Measure (read-only map) | #748; carry #759; map #765 (merged 0fffef3) | staging d4aa554 / main 832863d | staging 41202968098 PASS 13:19; production 41206791083 PASS 13:49 | live check 13:46 Chromium: same as baseline | 90 |
 | N1 | Capture live-only pieces into git | #766 | — | — | — | 40 |
 | N2 | Centre, switch OFF, 24 h shadow | #754; carry #759 | staging 6c2f4c8 / main 832863d | staging: FAIL 41205948948 → apply 41206399056 → PASS 41206575315 (13:41); production: FAIL 41208395319 → apply 41210622019 (14:44) → PASS 41211534028 (14:51) | 24 h shadow running until ~14:44 UTC 1 Nov | 75 |
 | N3 | Move makers onto the centre, by group | #760 (centre gate) | staging ef4eed9 | staging: FAIL 41207874341 → apply 41209816765 (14:44) → PASS 41211568429 (14:47) | — | 50 |
 | N4 | Delivery (push + e-mail queue, receipts) | #757 (part 1: push builder) | — | — | — | 10 |
 | N5 | Guard (CI stray-insert test + nightly count) | #752 (CI guard); part 2 local | staging 0ad80af | — | — | 55 |
-| N6 | Admin Notification Centre page | #764 | — | — | — | 40 |
-| N7 | Member screens | #755 (rows) merged; #762 settings table | staging 2d295e1 | — | — | 45 |
+| N6 | Admin Notification Centre page | #764 | staging 11e5d18 | — | — | 55 |
+| N7 | Member screens | #755 rows, #762 settings table | staging 2d295e1, cd2b6ac | — | — | 55 |
 | N8 | Staged rollout steps for the Owner | (draft) | — | — | — | 15 |
 
 ## Notes
