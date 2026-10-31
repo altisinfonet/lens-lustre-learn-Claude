@@ -77,6 +77,14 @@ const renderPage = () => {
 };
 
 describe("/notifications", () => {
+  it("shows no app headline while the notification centre switch is off", () => {
+    withGroups([group({ type: "entry_shortlisted", actor_ids: [], actor_names: [], actor_usernames: [], actor_avatars: [],
+      actor_count: 0, message: 'Your entry in "Golden Hour" has been shortlisted.' })]);
+    renderPage();
+    expect(screen.queryByText("Entry shortlisted")).toBeNull();
+    expect(screen.getByText(/Your entry in "Golden Hour" has been shortlisted\./)).toBeInTheDocument();
+  });
+
   it("shows no filter tabs while the notification centre switch is off", () => {
     withGroups([group({ type: "post_comment" }), group({ group_key: "g2", type: "new_follower" })]);
     renderPage();
