@@ -122,7 +122,10 @@ async function tabOrder(page) {
     const head = snap.split("\n")[0] || "";
     const p = parseLine(head);
     const tag = await page.evaluate(() => document.activeElement?.tagName.toLowerCase() ?? "");
-    stops.push({ role: p?.role ?? `(${tag})`, name: p?.name ?? "" });
+    // The control Tab landed on was replaced (re-mounted) before it could be
+    // read, and focus fell back to the page: a real focus loss, said plainly.
+    if (tag === "body") stops.push({ role: "(focus lost)", name: "", focusLost: true });
+    else stops.push({ role: p?.role ?? `(${tag})`, name: p?.name ?? "" });
   }
   // Never a silent cut: a walk that hit MAX_TABS without coming back round says so.
   if (!ended) stops.truncated = true;
@@ -145,7 +148,8 @@ async function walkScene(browser, scene, vp) {
     const stops = await tabOrder(page);
     const f = findingsFromSnapshot(snapshot);
     const unnamedStops = stops.filter((s) => !s.name && CONTROL_ROLES.includes(s.role)).length;
-    return { ok: true, stops, truncated: !!stops.truncated, tree: treeOutline(snapshot), findings: { ...f, unnamedStops } };
+    const focusLost = stops.filter((s) => s.focusLost).length;
+    return { ok: true, stops, truncated: !!stops.truncated, tree: treeOutline(snapshot), findings: { ...f, unnamedStops, focusLost } };
   } catch (e) {
     return { ok: false, error: String(e?.message ?? e).slice(0, 200) };
   } finally {
@@ -196,13 +200,13 @@ function markdown(results, meta) {
   out.push("");
   out.push("## Findings");
   out.push("");
-  out.push("| Surface @ width | Engine | Tab stops | Unnamed controls (tree) | Unnamed Tab stops | No h1 | No main |");
-  out.push("|---|---|---|---|---|---|---|");
+  out.push("| Surface @ width | Engine | Tab stops | Unnamed controls (tree) | Unnamed Tab stops | Focus lost | No h1 | No main |");
+  out.push("|---|---|---|---|---|---|---|---|");
   for (const r of results) {
     const f = r.ok ? r.findings : null;
     out.push(r.ok
-      ? `| ${r.scene} @ ${r.width} | ${r.engine} | ${r.stops.length}${r.truncated ? ` (cut at ${MAX_TABS})` : ""} | ${f.unnamed.length} | ${f.unnamedStops} | ${f.noH1 ? "yes" : "—"} | ${f.noMain ? "yes" : "—"} |`
-      : `| ${r.scene} @ ${r.width} | ${r.engine} | DID NOT RUN: ${r.error.replace(/\|/g, "/")} | | | | |`);
+      ? `| ${r.scene} @ ${r.width} | ${r.engine} | ${r.stops.length}${r.truncated ? ` (cut at ${MAX_TABS})` : ""} | ${f.unnamed.length} | ${f.unnamedStops} | ${f.focusLost || "—"} | ${f.noH1 ? "yes" : "—"} | ${f.noMain ? "yes" : "—"} |`
+      : `| ${r.scene} @ ${r.width} | ${r.engine} | DID NOT RUN: ${r.error.replace(/\|/g, "/")} | | | | | |`);
   }
   out.push("");
   out.push("Harness note: scenes render one component tree inside the harness page, so \"No h1\" / \"No main\" describe the scene as mounted there; the app shell adds its own landmarks around real pages.");
@@ -214,7 +218,7 @@ function markdown(results, meta) {
     out.push("");
     out.push(`<details><summary>Tab order (${r.stops.length} stops)</summary>`);
     out.push("");
-    r.stops.forEach((s, i) => out.push(`${i + 1}. ${s.role}${s.name ? ` "${s.name.replace(/\n/g, " ").slice(0, 90)}"` : " — **no name**"}`));
+    r.stops.forEach((s, i) => out.push(`${i + 1}. ${s.focusLost ? "**focus lost** — the control Tab reached was replaced and focus fell back to the page" : `${s.role}${s.name ? ` "${s.name.replace(/\n/g, " ").slice(0, 90)}"` : " — **no name**"}`}`));
     out.push("");
     out.push("</details>");
     out.push("");
@@ -264,7 +268,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     for (const scene of SURFACE_SCENES.filter((x) => !only || x === only)) for (const vp of SURFACE_WIDTHS) {
       const r = await walkScene(browser, scene, vp);
       results.push({ scene, width: vp.name, engine: e, ...r });
-      log(r.ok ? `${e} ${scene} @ ${vp.name}: ${r.stops.length} tab stops, ${r.findings.unnamed.length} unnamed, h1 ${r.findings.noH1 ? "missing" : "ok"}, main ${r.findings.noMain ? "missing" : "ok"}`
+      log(r.ok ? `${e} ${scene} @ ${vp.name}: ${r.stops.length} tab stops, ${r.findings.unnamed.length} unnamed, ${r.findings.focusLost} focus lost, h1 ${r.findings.noH1 ? "missing" : "ok"}, main ${r.findings.noMain ? "missing" : "ok"}`
                : `${e} ${scene} @ ${vp.name}: DID NOT RUN — ${r.error}`);
     }
     await browser.close();
