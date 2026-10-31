@@ -48,15 +48,26 @@ const LANDMARK_ROLES = ["banner", "main", "navigation", "contentinfo", "compleme
 const KEEP = new RegExp(`^\\s*- (${[...CONTROL_ROLES, ...LANDMARK_ROLES, "heading"].join("|")})\\b`);
 const CONTROL_LINE = new RegExp(`^\\s*- (${CONTROL_ROLES.join("|")})\\b(.*)$`);
 
+/**
+ * ariaSnapshot is YAML: when a name holds ": ", "#" or quotes, Playwright wraps
+ * the WHOLE entry in single quotes — `- 'link "Terms: of use"':` — with '' for a
+ * literal '. Unwrap it so every rule below sees `- role "name"` (review #751).
+ */
+export function unquoteLine(line) {
+  const m = line.match(/^(\s*- )'(.*)'(:?)\s*$/);
+  return m ? `${m[1]}${m[2].replace(/''/g, "'")}${m[3]}` : line;
+}
+
 /** "- button \"Like\" [pressed]" → { role, name }. A control with no quoted name is unnamed. */
 export function parseLine(line) {
+  line = unquoteLine(line);
   const m = line.match(/^\s*- ([a-z]+)\b\s*(?:"((?:[^"\\]|\\.)*)")?/);
   return m ? { role: m[1], name: (m[2] ?? "").replace(/\\"/g, '"').trim() } : null;
 }
 
 /** Findings from one aria snapshot (pure; the self-test and the unit test use it). */
 export function findingsFromSnapshot(snapshot) {
-  const lines = snapshot.split("\n");
+  const lines = snapshot.split("\n").map(unquoteLine);
   const unnamed = [];
   for (const l of lines) {
     if (!CONTROL_LINE.test(l)) continue;
@@ -68,7 +79,7 @@ export function findingsFromSnapshot(snapshot) {
   return { unnamed, noH1: !hasH1, noMain: !hasMain };
 }
 
-export const treeOutline = (snapshot) => snapshot.split("\n").filter((l) => KEEP.test(l)).map((l) => l.replace(/\s+$/, ""));
+export const treeOutline = (snapshot) => snapshot.split("\n").map(unquoteLine).filter((l) => KEEP.test(l)).map((l) => l.replace(/\s+$/, ""));
 
 async function settle(page) {
   await page.waitForTimeout(700);
@@ -92,6 +103,7 @@ async function tabOrder(page) {
   });
   const stops = [];
   let first = null;
+  let ended = false;
   for (let i = 0; i < MAX_TABS; i++) {
     await page.keyboard.press("Tab");
     const id = await page.evaluate(() => {
@@ -100,8 +112,8 @@ async function tabOrder(page) {
       if (!el.dataset.walkId) el.dataset.walkId = String(Math.random()).slice(2);
       return el.dataset.walkId;
     });
-    if (id === null) { if (stops.length) break; else continue; }
-    if (id === first) break;
+    if (id === null) { if (stops.length) { ended = true; break; } else continue; }
+    if (id === first) { ended = true; break; }
     if (first === null) first = id;
     let snap = "";
     try { snap = await page.locator(":focus").first().ariaSnapshot({ timeout: 2000 }); } catch { snap = ""; }
@@ -110,6 +122,8 @@ async function tabOrder(page) {
     const tag = await page.evaluate(() => document.activeElement?.tagName.toLowerCase() ?? "");
     stops.push({ role: p?.role ?? `(${tag})`, name: p?.name ?? "" });
   }
+  // Never a silent cut: a walk that hit MAX_TABS without coming back round says so.
+  if (!ended) stops.truncated = true;
   return stops;
 }
 
@@ -129,7 +143,7 @@ async function walkScene(browser, scene, vp) {
     const stops = await tabOrder(page);
     const f = findingsFromSnapshot(snapshot);
     const unnamedStops = stops.filter((s) => !s.name && CONTROL_ROLES.includes(s.role)).length;
-    return { ok: true, stops, tree: treeOutline(snapshot), findings: { ...f, unnamedStops } };
+    return { ok: true, stops, truncated: !!stops.truncated, tree: treeOutline(snapshot), findings: { ...f, unnamedStops } };
   } catch (e) {
     return { ok: false, error: String(e?.message ?? e).slice(0, 200) };
   } finally {
@@ -139,7 +153,7 @@ async function walkScene(browser, scene, vp) {
 
 // ── self-test: every finding must fire on its seeded defect, and none on a clean page ──
 const SEEDED = `<!doctype html><html lang="en"><body><div><button></button><a href="/x"></a><input type="text"></div></body></html>`;
-const CLEAN = `<!doctype html><html lang="en"><body><header><nav aria-label="Site"><a href="/">Home</a></nav></header><main><h1>Title</h1><button>Go</button><label>Name <input type="text"></label></main></body></html>`;
+const CLEAN = `<!doctype html><html lang="en"><body><header><nav aria-label="Site"><a href="/">Home</a></nav></header><main><h1>Title</h1><button>Go</button><a href="/t">Terms: of use</a><label>Name <input type="text"></label></main></body></html>`;
 
 async function selfTest(engineNames) {
   let ok = true;
@@ -149,7 +163,8 @@ async function selfTest(engineNames) {
     await page.setContent(SEEDED);
     const bad = findingsFromSnapshot(await page.locator("body").ariaSnapshot());
     await page.setContent(CLEAN);
-    const good = findingsFromSnapshot(await page.locator("body").ariaSnapshot());
+    const cleanSnap = await page.locator("body").ariaSnapshot();
+    const good = { ...findingsFromSnapshot(cleanSnap), tree: treeOutline(cleanSnap) };
     // Like an autofocused sign-in field: something AFTER the first stops holds focus.
     await page.locator("input").focus();
     const stops = await tabOrder(page);
@@ -158,8 +173,9 @@ async function selfTest(engineNames) {
       [bad.unnamed.length >= 3, `seeded page: 3 unnamed controls found (${bad.unnamed.length})`],
       [bad.noH1, "seeded page: missing h1 found"],
       [bad.noMain, "seeded page: missing main found"],
-      [good.unnamed.length === 0 && !good.noH1 && !good.noMain, `clean page: no finding (${JSON.stringify(good)})`],
-      [stops.map((s) => `${s.role} ${s.name}`).join("|") === "link Home|button Go|textbox Name",
+      [good.unnamed.length === 0 && !good.noH1 && !good.noMain, `clean page: no finding (${JSON.stringify({ unnamed: good.unnamed, noH1: good.noH1, noMain: good.noMain })})`],
+      [good.tree.some((l) => /link "Terms: of use"/.test(l)), `clean page: a name YAML must quote ("Terms: of use") is in the tree`],
+      [stops.map((s) => `${s.role} ${s.name}`).join("|") === "link Home|button Go|link Terms: of use|textbox Name",
         `clean page: Tab order reads every stop from the top, also with an autofocused field (${stops.map((s) => `${s.role} "${s.name}"`).join(", ")})`],
     ];
     for (const [pass, what] of checks) { log(`${n} self-test ${pass ? "ok  " : "FAIL"} ${what}`); ok &&= pass; }
@@ -182,7 +198,7 @@ function markdown(results, meta) {
   for (const r of results) {
     const f = r.ok ? r.findings : null;
     out.push(r.ok
-      ? `| ${r.scene} @ ${r.width} | ${r.engine} | ${r.stops.length} | ${f.unnamed.length} | ${f.unnamedStops} | ${f.noH1 ? "yes" : "—"} | ${f.noMain ? "yes" : "—"} |`
+      ? `| ${r.scene} @ ${r.width} | ${r.engine} | ${r.stops.length}${r.truncated ? ` (cut at ${MAX_TABS})` : ""} | ${f.unnamed.length} | ${f.unnamedStops} | ${f.noH1 ? "yes" : "—"} | ${f.noMain ? "yes" : "—"} |`
       : `| ${r.scene} @ ${r.width} | ${r.engine} | DID NOT RUN: ${r.error.replace(/\|/g, "/")} | | | | |`);
   }
   out.push("");
