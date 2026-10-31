@@ -83,6 +83,22 @@ describe("QuietHoursSetting", () => {
   });
 });
 
+describe("QuietHoursSetting — a failed time change", () => {
+  it("restores the saved time and says so", async () => {
+    rpc.mockImplementation(async (fn: string) =>
+      fn === "notif_quiet_hours_get"
+        ? { data: [{ starts: "23:00:00", ends: "06:30:00", tz: "UTC" }], error: null }
+        : { data: null, error: { message: "network" } });
+    render(<QuietHoursSetting />);
+    const to = await screen.findByLabelText("To");
+    fireEvent.change(to, { target: { value: "07:15" } });
+    fireEvent.blur(to);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not save quiet hours. Try again.");
+    await waitFor(() => expect(screen.getByLabelText("To")).toHaveValue("06:30"));
+    expect(screen.getByRole("switch", { name: "Quiet hours" })).toHaveAttribute("aria-checked", "true");
+  });
+});
+
 describe("canonicalZone", () => {
   it("maps old zone names phones still report to today's names", () => {
     expect(canonicalZone("Asia/Calcutta")).toBe("Asia/Kolkata");

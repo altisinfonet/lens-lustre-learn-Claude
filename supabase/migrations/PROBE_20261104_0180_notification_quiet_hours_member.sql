@@ -33,6 +33,14 @@ BEGIN
   IF n <> 0 THEN
     RAISE EXCEPTION 'PROBE FAIL: get() returned % row(s) with no signed-in caller', n;
   END IF;
+  -- zones the settings screen sends for old names (QuietHoursSetting.tsx): any
+  -- this lane's tzdata lacks would make those members' saves fail — reported
+  SELECT count(*) INTO n FROM unnest(ARRAY['Asia/Kolkata','Asia/Kathmandu','Asia/Ho_Chi_Minh','Asia/Yangon',
+           'Asia/Dhaka','Asia/Thimphu','Asia/Ulaanbaatar','Europe/Kyiv','America/Argentina/Buenos_Aires',
+           'Atlantic/Faroe','Pacific/Chuuk','Pacific/Pohnpei']) z(name)
+   WHERE NOT EXISTS (SELECT 1 FROM pg_catalog.pg_timezone_names t WHERE t.name = z.name);
+  RAISE NOTICE 'NC0180 zones: % of 12 current zone names the screen maps to are unknown on this lane%', n,
+    CASE WHEN n > 0 THEN ' — map them back before switching the screen on' ELSE '' END;
   RAISE NOTICE 'NC0180 PASS (lane %): member quiet-hours functions in place; % member(s) have quiet hours',
     current_setting('p32.lane'), (SELECT count(*) FROM public.notification_quiet_hours);
 END
