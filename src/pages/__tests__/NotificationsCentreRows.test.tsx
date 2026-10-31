@@ -159,7 +159,7 @@ describe("/notifications — tabs (switch on)", () => {
   it("shows four tab buttons, All pressed, every row visible", () => {
     three();
     renderPage();
-    const tabs = screen.getByRole("group", { name: "Show" });
+    const tabs = screen.getByRole("group", { name: "Filter notifications" });
     const pressed = Array.from(tabs.querySelectorAll("button")).map((b) => [b.textContent, b.getAttribute("aria-pressed")]);
     expect(pressed).toEqual([["All", "true"], ["Comments & mentions", "false"], ["Follows", "false"], ["Competitions", "false"]]);
     expect(screen.getByText("Commenter")).toBeInTheDocument();
@@ -177,5 +177,17 @@ describe("/notifications — tabs (switch on)", () => {
     expect(screen.queryByText("Reactor")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Competitions" }));
     expect(screen.getByText("Nothing in this tab yet.")).toBeInTheDocument();
+  });
+
+  it("an empty tab with older pages still to load says older ones may have some", () => {
+    mockHistory.mockReturnValue({
+      data: { pages: [[group({ type: "post_reaction" })]] },
+      isLoading: false, isError: false, fetchNextPage: vi.fn(), hasNextPage: true, isFetchingNextPage: false,
+    });
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Follows" }));
+    expect(screen.getByText("Nothing in this tab yet. Older notifications may have some.")).toBeInTheDocument();
+    expect(screen.queryByText("Nothing here yet.")).toBeNull();
+    expect(screen.getByRole("button", { name: "Load older notifications" })).toBeInTheDocument();
   });
 });

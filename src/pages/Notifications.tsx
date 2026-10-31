@@ -429,10 +429,10 @@ const Notifications = () => {
         </h1>
       </div>
 
-      {centreRows && (
+      {centreRows && screen === "show" && (
         <div
           role="group"
-          aria-label={t("notifications.tabs", "Show")}
+          aria-label={t("notifications.tabs", "Filter notifications")}
           className="flex gap-1 overflow-x-auto border-b px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {NOTIFICATION_TABS.map((k) => (
@@ -484,7 +484,9 @@ const Notifications = () => {
 
       {screen === "show" && tabEmpty && (
         <p className="py-16 text-center text-xs text-muted-foreground" style={bodyFont}>
-          {t("notifications.tab_empty", "Nothing in this tab yet.")}
+          {hasNextPage
+            ? t("notifications.tab_empty_more", "Nothing in this tab yet. Older notifications may have some.")
+            : t("notifications.tab_empty", "Nothing in this tab yet.")}
         </p>
       )}
 

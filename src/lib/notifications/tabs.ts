@@ -2,8 +2,10 @@
  * N7 · the tabs on /notifications (centre rows only, behind notif_centre_ui).
  * All shows everything. The named tabs follow the notification centre's type
  * registry (20261104_0110): Comments & mentions = the comment/reply/tag types
- * of likes_comments; Follows = follows_friends; Competitions = competitions
- * plus new_competition. A type not listed here (including any future type)
+ * of likes_comments; Follows = follows_friends; Competitions = competitions.
+ * new_competition is an announcement in the registry, so it shows under All.
+ * src/lib/notifications/__tests__/tabs.test.ts checks every entry against the
+ * registry's group_key. A type not listed here (including any future type)
  * shows under All only, so nothing can disappear.
  */
 export const NOTIFICATION_TABS = ["all", "comments", "follows", "competitions"] as const;
@@ -33,7 +35,6 @@ const TAB_OF: Record<string, Exclude<NotificationTab, "all">> = {
   round_published: "competitions",
   round_results_published: "competitions",
   needs_review: "competitions",
-  new_competition: "competitions",
   badge_awarded: "competitions",
   certificate_issued: "competitions",
   potd_featured: "competitions",

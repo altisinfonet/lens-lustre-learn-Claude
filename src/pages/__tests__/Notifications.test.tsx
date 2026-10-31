@@ -77,6 +77,13 @@ const renderPage = () => {
 };
 
 describe("/notifications", () => {
+  it("shows no filter tabs while the notification centre switch is off", () => {
+    withGroups([group({ type: "post_comment" }), group({ group_key: "g2", type: "new_follower" })]);
+    renderPage();
+    expect(screen.queryByRole("group", { name: "Filter notifications" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Comments & mentions" })).toBeNull();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockFollowingSet.mockReturnValue({ following: new Set<string>(), ready: true });
