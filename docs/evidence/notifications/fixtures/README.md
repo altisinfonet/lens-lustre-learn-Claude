@@ -22,7 +22,7 @@ Seen on 2026-10-31:
 | first draft, either lane | FAIL | `CREATE TEMP TABLE AS` refused inside `BEGIN READ ONLY` → maker set moved to a CTE |
 | second draft, staging-shaped | FAIL | `push_config` missing → that line moved into a guarded block |
 | final, staging-shaped | PASS, rc 0 | 8 sections print `*_SKIP` with the reason |
-| final, production-shaped | PASS, rc 0 | base64 bodies decode to the printed md5 (4/4); the body holding `Bearer …` is withheld (SECRET_SUSPECT); the push secret, e-mail addresses and ids never appear |
+| (superseded by later rows) final, production-shaped | PASS, rc 0 | base64 bodies decode to the printed md5 (4/4); the body holding `Bearer …` is withheld (SECRET_SUSPECT); the push secret, e-mail addresses and ids never appear |
 | review round 1 (blocking: secret screen) — previous PROBE vs the 5 bypass cases added to the fixture | FAIL | `v := '…'`, `DECLARE _t text := '…'`, a 44-char base64 key, an e-mail address and a hard-coded uuid all decoded from B64 |
 | final after review, both shapes | PASS, rc 0 | all 5 bypass cases and the `Bearer` body WITHHELD (md5 + length only); 0 leak hits; BEGIN ATOMIC function and a procedure listed; `UN_DUP60S_ROWS` = 4 for 5 rows 10 s apart (rows, not pairs); push host printed as host name only |
 | review round 2 (blocking: screen still bypassable; trigger / index / default / alarm text unscreened) — previous PROBE vs 10 new cases | FAIL | JSON header key, `CONSTANT`/`DEFAULT` declarations, `E'…'`, header-name signature, a key in a `--` comment, a trigger argument, a uuid in a WHEN clause, a partial-index literal, a column-default literal, an e-mail in an alarm key — all 10 printed |
@@ -33,4 +33,4 @@ Seen on 2026-10-31:
 
 Planted values are low-entropy markers (`PLANTED_…`, plus the e-mail / uuid /
 label shapes) so the repository's own secret scan does not flag a fixture;
-the leak check greps for `PLANTED`, `R3`, `@x.z`, `@y`, `beef`, `0b5e2a8c`.
+the leak check greps (case-sensitive) for `PLANTED`, `R3`, `@x.z`, `@y`, `beef`, `0b5e2a8c`, `example.org`.
