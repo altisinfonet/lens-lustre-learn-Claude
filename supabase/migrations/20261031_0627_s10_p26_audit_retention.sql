@@ -124,17 +124,19 @@ $proc$;
 REVOKE ALL ON PROCEDURE public.p26_move_old_audit_rows(interval, integer, integer) FROM PUBLIC;
 REVOKE ALL ON PROCEDURE public.p26_move_old_audit_rows(interval, integer, integer) FROM anon;
 REVOKE ALL ON PROCEDURE public.p26_move_old_audit_rows(interval, integer, integer) FROM authenticated;
+REVOKE ALL ON PROCEDURE public.p26_move_old_audit_rows(interval, integer, integer) FROM service_role;
 
 SELECT cron.schedule('p26-audit-retention', '23 4 * * *', $cmd$CALL public.p26_move_old_audit_rows();$cmd$);
 
 DO $post$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'p26-audit-retention' AND schedule = '23 4 * * *'
+  IF NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'p26-audit-retention' AND active AND schedule = '23 4 * * *'
                    AND command ~* 'call\s+public\.p26_move_old_audit_rows\(\)') THEN
     RAISE EXCEPTION 'APPLY FAILED 0627 — cron job p26-audit-retention is not daily calling the procedure';
   END IF;
   IF has_function_privilege('anon', 'public.p26_move_old_audit_rows(interval, integer, integer)', 'EXECUTE')
-     OR has_function_privilege('authenticated', 'public.p26_move_old_audit_rows(interval, integer, integer)', 'EXECUTE') THEN
+     OR has_function_privilege('authenticated', 'public.p26_move_old_audit_rows(interval, integer, integer)', 'EXECUTE')
+     OR has_function_privilege('service_role', 'public.p26_move_old_audit_rows(interval, integer, integer)', 'EXECUTE') THEN
     RAISE EXCEPTION 'APPLY FAILED 0627 — an API role can run p26_move_old_audit_rows';
   END IF;
   IF has_schema_privilege('anon', 'p26_archive', 'USAGE') OR has_schema_privilege('authenticated', 'p26_archive', 'USAGE')

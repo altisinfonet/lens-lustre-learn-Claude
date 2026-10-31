@@ -32,7 +32,8 @@ BEGIN
   IF n <> 1 THEN RAISE EXCEPTION 'PROBE FAIL 0627 G2: daily cron job p26-audit-retention not found'; END IF;
   IF to_regprocedure('public.p26_move_old_audit_rows(interval,integer,integer)') IS NULL
      OR has_function_privilege('anon', 'public.p26_move_old_audit_rows(interval,integer,integer)', 'EXECUTE')
-     OR has_function_privilege('authenticated', 'public.p26_move_old_audit_rows(interval,integer,integer)', 'EXECUTE') THEN
+     OR has_function_privilege('authenticated', 'public.p26_move_old_audit_rows(interval,integer,integer)', 'EXECUTE')
+     OR has_function_privilege('service_role', 'public.p26_move_old_audit_rows(interval,integer,integer)', 'EXECUTE') THEN
     RAISE EXCEPTION 'PROBE FAIL 0627 G2: procedure missing or runnable by an API role';
   END IF;
   SELECT count(*), min(created_at) INTO n, oldest FROM public.db_audit_logs WHERE created_at < now() - interval '181 days';
