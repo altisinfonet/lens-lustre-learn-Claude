@@ -75,12 +75,15 @@ export function stripSqlComments(s) {
       }
       out += s.slice(i, j + 1); i = j + 1;
     } else if (c === "$" && /^\$[A-Za-z_]?[A-Za-z0-9_]*\$/.test(s.slice(i, i + 64)) && !/[A-Za-z0-9_]/.test(s[i - 1] || "")) {
-      // a dollar-quoted string is copied unchanged up to its closing tag (an
-      // apostrophe inside it must not open a fake '...' string)
+      // a dollar-quoted string is handled up to its closing tag (an apostrophe
+      // inside it must not open a fake '...' string outside it)
       const tag = /^\$[A-Za-z_]?[A-Za-z0-9_]*\$/.exec(s.slice(i, i + 64))[0];
       const end = s.indexOf(tag, i + tag.length);
-      const j = end < 0 ? s.length : end + tag.length;
-      out += s.slice(i, j); i = j;
+      const inner = s.slice(i + tag.length, end < 0 ? s.length : end);
+      // keep the quote boundaries; comments inside the quoted text are removed
+      // within it, so an apostrophe inside can only affect the inside
+      out += tag + stripSqlComments(inner) + (end < 0 ? "" : tag);
+      i = end < 0 ? s.length : end + tag.length;
     } else if (c === "-" && s[i + 1] === "-") {
       const j = s.indexOf("\n", i); out += " "; i = j < 0 ? s.length : j;
     } else if (c === "/" && s[i + 1] === "*") {

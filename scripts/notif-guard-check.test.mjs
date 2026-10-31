@@ -38,6 +38,8 @@ ok(w("COMMENT ON FUNCTION public.x() IS $$Don't use$$;\n" + fn("c5", "BEGIN INSE
 ok(!w("CREATE FUNCTION public.c6(p numeric(10,2)) RETURNS void LANGUAGE plpgsql AS $$ BEGIN INSERT INTO public.user_notifications(user_id) VALUES (1); END $$;\nCREATE OR REPLACE FUNCTION public.c6(p numeric) RETURNS void LANGUAGE plpgsql AS $$ BEGIN PERFORM 1; END $$;").includes("c6"), "numeric(10,2) and numeric are the same signature (replace, not overload)");
 ok(!w("CREATE FUNCTION public.c7(t timestamp) RETURNS void LANGUAGE plpgsql AS $$ BEGIN INSERT INTO public.user_notifications(user_id) VALUES (1); END $$;\nDROP FUNCTION public.c7(timestamp without time zone);").includes("c7"), "timestamp = timestamp without time zone");
 
+ok(w(fn("c8", "BEGIN INSERT INTO public.user_notifications(user_id) VALUES (1); END;"), "DO $$ BEGIN /* DROP FUNCTION public.c8(); */ NULL; END $$;").includes("c8"), "a DROP commented out inside a DO block does not forget the writer");
+
 console.log("SQL — must NOT be a writer");
 ok(!w(fn("b1", "BEGIN -- INSERT INTO public.user_notifications would be wrong\n RETURN NEW; END;")).includes("b1"), "insert only in a -- comment");
 ok(!w(fn("b2", "BEGIN /* INSERT INTO user_notifications */ RETURN NEW; END;")).includes("b2"), "insert only in a /* */ comment");
