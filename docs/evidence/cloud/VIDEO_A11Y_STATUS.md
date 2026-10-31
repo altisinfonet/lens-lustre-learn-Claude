@@ -1,14 +1,16 @@
 # Video + accessibility runner — status
 
 Started 2026-10-30 01:47 UTC. Replaces the earlier supervisor session (no GitHub trace after 2026-10-29 14:19 UTC).
-Last update: 2026-10-30 18:23 UTC.
+Last update: 2026-10-31 03:55 UTC.
+
+THIRD RESTART 2026-10-31 ~03:55 UTC: previous run stopped silently after its 18:23 UTC heartbeat (S10a-4 never pushed; will be rebuilt fresh later). PAUSE cancelled by Owner RESUME. Order now, one PR at a time: 1 VID-6 cost alerts → 2 privacy text → 3 S7 gate table → 4 Android 1.2.33 → 5 S10a-3, S10a-4.
 
 SECOND RESTART 2026-10-30 ~07:15 UTC: the run stopped silently again at ~05:15 UTC. New rule: ONE PR at a time (#619 → #538 → #539 → #540 → #541 → #542), heartbeat at least every 20 minutes. Checked GitHub 07:15 UTC: nobody pushed to or merged #538-#542 or #619 since 02:00 UTC; each is 21 commits behind staging.
 
 RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. A new run took over at 05:05 UTC. Checked GitHub: nobody else pushed to or merged #538-#542 or #619 since 02:00 UTC.
 
 ## Now
-18:23 UTC — Still building S10a-4 (scripted keyboard + screen-reader walkthrough).
+03:55 UTC — Restarted. Inspecting VID-6 (8 GB R2 storage alarm via public.ops_alarms).
 
 ## Units
 | Unit | PR | State | Merged sha (staging / main) | SQL runs | Live check |
@@ -16,7 +18,7 @@ RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. 
 | CI fix: app-origin check reads the routes staging serves (blocks #541) | #619 | MERGED 08:10 UTC (25/25 checks green; review nothing blocking) | staging 5f8c8d5e / main 7359701a (carry #675, 11:30 UTC, 24/24 green, review nothing blocking) | none | live run 41048271236: 6/6 pages 200, same text, no new console errors |
 | S10a-1 P23 decision note | #538 | MERGED 08:48 UTC (22/22 checks green; review nothing blocking) | staging a0e8d849 / main bb2ac7a5 (carry #676, 11:47 UTC, 22/22 green, review nothing blocking) | none | live run 41050004521: 6/6 pages 200, same text, no new console errors |
 | S10a-2 P23 CI checks A–E (red first) | #699 | MERGED 15:07 UTC (26/26 green incl. the new P23 check; RED-FIRST run 41073429903; review BLOCKING → fail-first 305a1c70 → fix → re-review nothing blocking) | staging fd2077f9 / main d682ae66 (carry #701, 15:24 UTC, 25/25 green incl. P23 check on main, review nothing blocking) | none | live run 41080648000 (main d682ae66): 6/6 pages 200, same text, no new console errors |
-| S10a-4 P23 scripted keyboard + screen-reader walkthrough (Chromium + WebKit) | — | building (own worktree) | — | none | — |
+| S10a-4 P23 scripted keyboard + screen-reader walkthrough (Chromium + WebKit) | — | NOT STARTED (earlier local build lost; restart after S7) | — | none | — |
 | S7-f converter runs the purge hourly (own refreshing sign-in) | #695 | MERGED 14:37 UTC (24/24 green incl. converter aarch64 + x86_64; review nothing blocking) | staging 3919424b / main b6437294 (carry #697, 14:37 UTC, 24/24 green after re-running the flaky ads job; review nothing blocking) | none | — |
 | S7-a PROBE fix: admin read lane-proof | #673 | MERGED 11:08 UTC (33/33 green; review nothing blocking ×2) | staging 9b4e0201 / main 50a1ff9f (in #681) | — | — |
 | S7-a purge-queue deleter | #539 | MERGED 09:10 UTC (36/36 checks green; re-review nothing blocking) | staging 75f78f67 / main 50a1ff9f (carry #681 with #673, 12:07 UTC, 35/35 green, review nothing blocking) | 0700 STAGING: PROBE-before 41040556611 FAIL G1 (expected) · apply 41040769034 SUCCESS 10:27 · PROBE-after 41042014241 ERROR (PROBE bug → #673) · PROBE-after 41045879133 **PASS** 11:10 UTC. Production: PROBE-before 41053131761 FAIL G1 (expected, 12:25) · apply 41055299050 COMMIT 12:31 · PROBE-after 41056104158 **PASS** 12:33 UTC | live run 41053135653 (main 50a1ff9f): 6/6 pages 200, same text, no new console errors | — |
