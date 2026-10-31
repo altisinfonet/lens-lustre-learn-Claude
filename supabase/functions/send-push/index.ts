@@ -1,5 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildFcmMessage } from "../_shared/pushMessage.ts";
+import { cdnHost, siteOrigin } from "../_shared/laneConfig.ts";
+
+/** This lane's own hosts, from its environment. Missing config → no images (never a guess). */
+function laneImageHosts(): string[] {
+  const hosts: string[] = [];
+  for (const read of [() => cdnHost(), () => new URL(siteOrigin()).hostname,
+                      () => new URL(Deno.env.get("SUPABASE_URL") ?? "").hostname]) {
+    try { const h = read(); if (h) hosts.push(h); } catch { /* not configured on this lane */ }
+  }
+  return hosts;
+}
 
 // Send a push notification to all of a user's registered devices via Firebase
 // Cloud Messaging HTTP v1. Auth: either an internal secret header (for calls from
@@ -125,6 +136,7 @@ Deno.serve(async (req) => {
       const message = buildFcmMessage({
         token, title, body, data,
         imageUrl: image_url, category, groupKey: group_key, deliveryId: delivery_id,
+        imageHosts: image_url ? laneImageHosts() : [],
       });
       const r = await fetch(endpoint, {
         method: "POST",

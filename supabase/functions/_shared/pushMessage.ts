@@ -7,8 +7,8 @@
  * until the centre starts passing them (N4 delivery queue).
  *
  *   imageUrl   a picture: Android "big picture" + iOS rich notification. Only
- *              https URLs on our own hosts — a push must never fetch from a
- *              host a sender chose.
+ *              https URLs on the hosts passed in imageHosts (this lane's own)
+ *              — a push must never fetch from a host a sender chose.
  *   category   action set for the lock screen (Reply / Like). Carried in
  *              data (Android: buttons need a data message + a local
  *              notification in the app) and as the iOS aps.category. NOT put
@@ -28,6 +28,8 @@ export interface PushInput {
   category?: string | null;
   groupKey?: string | null;
   deliveryId?: number | string | null;
+  /** Hosts an image may come from (this lane's own). Empty → no image. */
+  imageHosts?: readonly string[];
 }
 
 export interface FcmMessage {
@@ -44,25 +46,23 @@ export interface FcmMessage {
   };
 }
 
-/** Hosts a push picture may come from: our CDN, our site, and OUR two
- *  Supabase projects (staging, production) — not any Supabase project, which
- *  anyone can create. Project refs are public (they ship in every bundle). */
-const IMAGE_HOSTS = new Set([
-  "cdn.50mmretina.com",
-  "www.50mmretina.com",
-  "fpszggreishhuvdpkmdr.supabase.co",
-  "jtdtehuqtinjxropkkcn.supabase.co",
-]);
-
-export function isSafeImageUrl(url: string | null | undefined): url is string {
-  if (!url) return false;
+/**
+ * A push picture may only come from hosts the CALLER names — in send-push,
+ * this lane's own CDN, site and Supabase project, read from its environment.
+ * No host is written here: a lane's code must never name another lane (the
+ * isolation guard, scripts/verify-bundle-isolation.mjs, enforces that), and
+ * "any Supabase project" would let anyone host a tracking image.
+ */
+export function isSafeImageUrl(url: string | null | undefined, allowedHosts: readonly string[]): url is string {
+  if (!url || allowedHosts.length === 0) return false;
   let u: URL;
   try {
     u = new URL(url);
   } catch {
     return false;
   }
-  return u.protocol === "https:" && !u.port && !u.username && !u.password && IMAGE_HOSTS.has(u.hostname);
+  return u.protocol === "https:" && !u.port && !u.username && !u.password
+    && allowedHosts.includes(u.hostname);
 }
 
 const SAFE_TOKEN = /^[a-z0-9_:.-]{1,64}$/i;
@@ -75,7 +75,7 @@ export function buildFcmMessage(p: PushInput): FcmMessage {
     : undefined;
   const category = p.category && SAFE_TOKEN.test(p.category) ? p.category : null;
   const groupKey = p.groupKey && SAFE_TOKEN.test(p.groupKey) ? p.groupKey : null;
-  const image = isSafeImageUrl(p.imageUrl) ? p.imageUrl : null;
+  const image = isSafeImageUrl(p.imageUrl, p.imageHosts ?? []) ? p.imageUrl : null;
   if (category) data = { ...(data ?? {}), category };
   if (p.deliveryId !== undefined && p.deliveryId !== null) data = { ...(data ?? {}), delivery_id: String(p.deliveryId) };
 

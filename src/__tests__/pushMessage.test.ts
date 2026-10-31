@@ -6,6 +6,8 @@ import { describe, it, expect } from "vitest";
 import { buildFcmMessage, isSafeImageUrl } from "../../supabase/functions/_shared/pushMessage";
 
 const base = { token: "tok", title: "Anindita liked your photo", body: "", data: { type: "post_reaction", reference_id: "p1" } };
+/** Hosts are made up: lane hosts come from each lane's environment, never from code. */
+const HOSTS = ["cdn.example-lane.test", "abcdefghijklmnopqrst.supabase.co"];
 
 describe("buildFcmMessage", () => {
   it("today's message when nothing new is passed (no image, no category, no delivery id)", () => {
@@ -20,24 +22,30 @@ describe("buildFcmMessage", () => {
   });
 
   it("puts a picture on Android (big picture) and iOS (mutable content + image)", () => {
-    const m = buildFcmMessage({ ...base, imageUrl: "https://cdn.50mmretina.com/p/1.jpg" });
-    expect(m.notification.image).toBe("https://cdn.50mmretina.com/p/1.jpg");
-    expect(m.android.notification?.image).toBe("https://cdn.50mmretina.com/p/1.jpg");
+    const img = "https://cdn.example-lane.test/p/1.jpg";
+    const m = buildFcmMessage({ ...base, imageUrl: img, imageHosts: HOSTS });
+    expect(m.notification.image).toBe(img);
+    expect(m.android.notification?.image).toBe(img);
     expect(m.apns.payload.aps["mutable-content"]).toBe(1);
-    expect(m.apns.fcm_options?.image).toBe("https://cdn.50mmretina.com/p/1.jpg");
+    expect(m.apns.fcm_options?.image).toBe(img);
   });
 
-  it("drops an image that is not https, or not on an allowed host", () => {
-    expect(isSafeImageUrl("http://cdn.50mmretina.com/a.jpg")).toBe(false);
-    expect(isSafeImageUrl("https://evil.example/a.jpg")).toBe(false);
-    expect(isSafeImageUrl("javascript:alert(1)")).toBe(false);
-    expect(isSafeImageUrl("https://abcdefghijklmnopqrst.supabase.co/a.jpg")).toBe(false);   // someone else's project
-    expect(isSafeImageUrl("https://jtdtehuqtinjxropkkcn.supabase.co/storage/v1/object/public/a.jpg")).toBe(true);
-    expect(isSafeImageUrl("https://cdn.50mmretina.com:8443/a.jpg")).toBe(false);
-    expect(isSafeImageUrl("https://u:p@cdn.50mmretina.com/a.jpg")).toBe(false);
-    const m = buildFcmMessage({ ...base, imageUrl: "https://evil.example/a.jpg" });
+  it("drops an image that is not https, not on this lane's hosts, or has a port / user:pass", () => {
+    expect(isSafeImageUrl("http://cdn.example-lane.test/a.jpg", HOSTS)).toBe(false);
+    expect(isSafeImageUrl("https://evil.example/a.jpg", HOSTS)).toBe(false);
+    expect(isSafeImageUrl("javascript:alert(1)", HOSTS)).toBe(false);
+    expect(isSafeImageUrl("https://zzzzzzzzzzzzzzzzzzzz.supabase.co/a.jpg", HOSTS)).toBe(false);   // another project
+    expect(isSafeImageUrl("https://abcdefghijklmnopqrst.supabase.co/storage/v1/object/public/a.jpg", HOSTS)).toBe(true);
+    expect(isSafeImageUrl("https://cdn.example-lane.test:8443/a.jpg", HOSTS)).toBe(false);
+    expect(isSafeImageUrl("https://u:p@cdn.example-lane.test/a.jpg", HOSTS)).toBe(false);
+    expect(isSafeImageUrl("https://cdn.example-lane.test/a.jpg", [])).toBe(false);                // no lane config → no image
+    const m = buildFcmMessage({ ...base, imageUrl: "https://evil.example/a.jpg", imageHosts: HOSTS });
     expect(m.notification.image).toBeUndefined();
     expect(m.android.notification).toBeUndefined();
+  });
+
+  it("an image with no host list is dropped (never a default host)", () => {
+    expect(buildFcmMessage({ ...base, imageUrl: "https://cdn.example-lane.test/a.jpg" }).notification.image).toBeUndefined();
   });
 
   it("carries the action category in data and iOS aps — never as Android click_action", () => {
@@ -87,5 +95,6 @@ describe("send-push uses the builder (so what is tested is what is sent)", () =>
     expect(src).toMatch(/import \{ buildFcmMessage \} from "\.\.\/_shared\/pushMessage\.ts"/);
     expect(src).toMatch(/buildFcmMessage\(\{/);
     expect(src).not.toMatch(/notification:\s*\{\s*title/);
+    expect(src).toMatch(/imageHosts: image_url \? laneImageHosts\(\) : \[\]/);
   });
 });
