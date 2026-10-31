@@ -40,10 +40,22 @@ describe("NotificationSettingsTable", () => {
     expect(onChange).toHaveBeenCalledWith("email_competition_updates", false);
   });
 
+  it("offers the new-posts phone switch the push trigger reads (push_new_posts), as today's page does", () => {
+    const onChange = vi.fn();
+    render(<NotificationSettingsTable preferences={{ ...prefs, push_new_posts: true }} onChange={onChange} />);
+    const sw = screen.getByRole("switch", { name: "New photos from people you follow — Phone" });
+    expect(sw).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(sw);
+    expect(onChange).toHaveBeenCalledWith("push_new_posts", false);
+    // no e-mail exists for this type; its bell setting is the followers one
+    expect(screen.queryByRole("switch", { name: "New photos from people you follow — E-mail" })).toBeNull();
+    expect(screen.queryByRole("switch", { name: "New photos from people you follow — Bell" })).toBeNull();
+  });
+
   it("the phone master switch greys out EVERY phone switch, not just one", () => {
     render(<NotificationSettingsTable preferences={{ ...prefs, push_enabled: false }} onChange={vi.fn()} />);
     const phone = screen.getAllByRole("switch").filter((s) => / — Phone$/.test(s.getAttribute("aria-label") || ""));
-    expect(phone.length).toBe(6);
+    expect(phone.length).toBe(7);   // incl. new photos from people you follow (push_new_posts)
     for (const s of phone) expect(s).toBeDisabled();
     expect(screen.getByRole("switch", { name: /All phone notifications/ })).not.toBeDisabled();
   });

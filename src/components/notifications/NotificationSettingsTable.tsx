@@ -10,9 +10,12 @@
  * Every switch writes an existing notification_preferences column — the same
  * columns the old three lists wrote — so switching the new screen on or off
  * never loses a member's choices. The weekly summary e-mail is not offered
- * until it exists (N4). push_new_posts has no row on purpose, as on today's
- * page: the push trigger never reads it (new-post pushes follow the master
- * switch only), and a switch that does nothing is what this screen removes.
+ * until it exists (N4). "New photos from people you follow" has a Phone
+ * switch (push_new_posts): the push trigger reads it for new_post_from_following
+ * (git 20260815064043, measured live by N0), as today's page offers it. Its bell
+ * setting is the followers one (inapp_social, as in the registry) and it has
+ * no e-mail. (An earlier version of this comment said the trigger never reads
+ * push_new_posts; that was wrong and dropped the switch.)
  * With the master switch off nothing is pushed at all — so no Phone cell may
  * say "Always on" then; it says "Off".
  */
@@ -30,6 +33,7 @@ const ROWS: Row[] = [
   { key: "comments", label: "Comments and replies", bell: "inapp_comments", phone: "push_comments", email: "email_comments" },
   { key: "followers", label: "New followers", bell: "inapp_social", phone: "push_new_followers", email: "email_new_followers" },
   { key: "friends", label: "Friend requests", bell: { same: "followers" }, phone: "push_friend_requests", email: "email_friend_requests" },
+  { key: "new_posts", label: "New photos from people you follow", bell: { same: "followers" }, phone: "push_new_posts", email: "none" },
   { key: "competitions", label: "Competitions", bell: "inapp_competitions", phone: "push_competition_updates", email: "email_competition_updates" },
   { key: "announcements", label: "Announcements (Journal, courses)", bell: "always", phone: "push_announcements", email: "email_course_updates" },
   { key: "gifts", label: "Gift credits", bell: "always", phone: "always", email: "email_gift_credits" },

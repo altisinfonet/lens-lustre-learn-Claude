@@ -6,7 +6,7 @@
  *      Chosen members / Everyone. These are the Owner's buttons for the staged
  *      rollout (N8). Every change is recorded with who and when.
  *   2. TYPES — every notification type with its numbers (written 24 h / 7 d;
- *      centre sent / skipped), on/off for everyone, channels, wording with a
+ *      centre sent / skipped), on/off (where its group is switched on), channels, wording with a
  *      live preview, and its change history. "Send a test to me" per type.
  *   3. MEMBER LOOKUP — read-only: a member's notification settings, quiet
  *      hours and block counts, for support.
@@ -224,8 +224,10 @@ function TypeRowView({ r, open, onToggle, onChanged, onError, onNotice }: {
         <td className="py-1.5 pr-2">
           <label className="inline-flex items-center gap-1">
             <input type="checkbox" checked={r.enabled} disabled={saving}
-              onChange={(e) => void patch({ enabled: e.target.checked }, e.target.checked ? "on for everyone" : "off for everyone")} />
-            <span className="sr-only">{r.type} on for everyone</span>
+              onChange={(e) => void patch({ enabled: e.target.checked }, e.target.checked ? "on" : "off")} />
+            {/* Acts only where the type's group is switched on (the gate, 0140, passes
+                rows untouched while a group is off) — the label must not say "everyone". */}
+            <span className="sr-only">{r.type} on (for members whose group is switched on)</span>
           </label>
         </td>
         <td className="py-1.5 pr-2">{r.channels.join(", ")}</td>
