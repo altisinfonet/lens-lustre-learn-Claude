@@ -415,39 +415,22 @@ SELECT pg_temp.x1_ro_prepare('wallet_transactions', 'ASC');
 SELECT pg_temp.x1_ro_prepare('wallets', 'ASC');
 SELECT pg_temp.x1_ro_prepare('withdrawal_requests', 'ASC');
 
--- Phase 2: every exclusive lock at once,
--- then ALTER, ORDER, BIND, E2-after and POST per table under one 3 s cap.
--- The whole LOCK statement gets 3 s: readers queue behind the locks it already
--- holds while it waits for the next one, so the wait is bounded too.
-SET LOCAL statement_timeout = '3s';
-LOCK TABLE public.bank_details, public.competition_judges, public.competition_judging_tags, public.competition_orders, public.entry_score_cache, public.judge_activity_logs, public.judge_award_tags, public.judge_comments, public.judge_decisions, public.judge_entry_assignments, public.judge_entry_locks, public.judge_scores, public.judge_tag_assignments, public.judging_config, public.judging_rounds, public.raw_commitments, public.referral_codes, public.referrals, public.role_applications, public.round_snapshots, public.wallet_transactions, public.wallets, public.withdrawal_requests IN ACCESS EXCLUSIVE MODE;
-SET LOCAL statement_timeout = '60s';
-SELECT set_config('x1ro.t_lock', clock_timestamp()::text, true);
-SELECT pg_temp.x1_ro_finish('bank_details', 'ASC');
-SELECT pg_temp.x1_ro_finish('competition_judges', 'ASC');
-SELECT pg_temp.x1_ro_finish('competition_judging_tags', 'ASC');
-SELECT pg_temp.x1_ro_finish('competition_orders', 'ASC');
-SELECT pg_temp.x1_ro_finish('entry_score_cache', 'ASC');
-SELECT pg_temp.x1_ro_finish('judge_activity_logs', 'ASC');
-SELECT pg_temp.x1_ro_finish('judge_award_tags', 'ASC');
-SELECT pg_temp.x1_ro_finish('judge_comments', 'ASC');
-SELECT pg_temp.x1_ro_finish('judge_decisions', 'ASC');
-SELECT pg_temp.x1_ro_finish('judge_entry_assignments', 'ASC');
-SELECT pg_temp.x1_ro_finish('judge_entry_locks', 'ASC');
-SELECT pg_temp.x1_ro_finish('judge_scores', 'ASC');
-SELECT pg_temp.x1_ro_finish('judge_tag_assignments', 'ASC');
-SELECT pg_temp.x1_ro_finish('judging_config', 'ASC');
-SELECT pg_temp.x1_ro_finish('judging_rounds', 'ASC');
-SELECT pg_temp.x1_ro_finish('raw_commitments', 'ASC');
-SELECT pg_temp.x1_ro_finish('referral_codes', 'ASC');
-SELECT pg_temp.x1_ro_finish('referrals', 'ASC');
-SELECT pg_temp.x1_ro_finish('role_applications', 'ASC');
-SELECT pg_temp.x1_ro_finish('round_snapshots', 'ASC');
-SELECT pg_temp.x1_ro_finish('wallet_transactions', 'ASC');
-SELECT pg_temp.x1_ro_finish('wallets', 'ASC');
-SELECT pg_temp.x1_ro_finish('withdrawal_requests', 'ASC');
-DO $done$
+-- Phase 2 in ONE statement (one round trip to the server, so the lock window
+-- holds only the work, not a network round trip per table): every exclusive
+-- lock at once,
+-- then ALTER, ORDER, BIND, E2-after and POST per table. statement_timeout 5 s
+-- is a hard ceiling on the whole phase, lock waits included (it interrupts a
+-- step, unlike the 3 s WIN check, which runs between steps).
+SET LOCAL statement_timeout = '5s';
+DO $phase2$
+DECLARE
+  t text;
 BEGIN
+  LOCK TABLE public.bank_details, public.competition_judges, public.competition_judging_tags, public.competition_orders, public.entry_score_cache, public.judge_activity_logs, public.judge_award_tags, public.judge_comments, public.judge_decisions, public.judge_entry_assignments, public.judge_entry_locks, public.judge_scores, public.judge_tag_assignments, public.judging_config, public.judging_rounds, public.raw_commitments, public.referral_codes, public.referrals, public.role_applications, public.round_snapshots, public.wallet_transactions, public.wallets, public.withdrawal_requests IN ACCESS EXCLUSIVE MODE;
+  PERFORM set_config('x1ro.t_lock', clock_timestamp()::text, true);
+  FOREACH t IN ARRAY ARRAY['bank_details', 'competition_judges', 'competition_judging_tags', 'competition_orders', 'entry_score_cache', 'judge_activity_logs', 'judge_award_tags', 'judge_comments', 'judge_decisions', 'judge_entry_assignments', 'judge_entry_locks', 'judge_scores', 'judge_tag_assignments', 'judging_config', 'judging_rounds', 'raw_commitments', 'referral_codes', 'referrals', 'role_applications', 'round_snapshots', 'wallet_transactions', 'wallets', 'withdrawal_requests'] LOOP
+    PERFORM pg_temp.x1_ro_finish(t, 'ASC');
+  END LOOP;
   IF clock_timestamp() - current_setting('x1ro.t_lock')::timestamptz > interval '3 seconds' THEN
     RAISE EXCEPTION 'S10-X1RO-WIN: the exclusive locks have been held over 3 s — rolled back, nothing changed';
   END IF;
@@ -455,7 +438,8 @@ BEGIN
     current_setting('p32.lane'), (SELECT count(*) FROM pg_temp.x1_ro_state),
     round(extract(epoch FROM clock_timestamp() - current_setting('x1ro.t_lock')::timestamptz) * 1000);
 END
-$done$;
+$phase2$;
+SET LOCAL statement_timeout = '60s';
 
 -- The helpers are session objects: drop them so a pooled session reused by a
 -- later run cannot trip over them (the state table drops itself at COMMIT).
