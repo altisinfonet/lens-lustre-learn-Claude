@@ -37,9 +37,10 @@
 - Video Conversion stays "device" (phones and browsers prepare videos). The live converter is running (worker 1.3.0 on both lanes, local session 30 Oct) and only takes work when you choose "server".
 
 ## Owner steps — staged rollout (click-only; I never switch anything)
-1. Admin → **Video Feature** → **Video posts** → under *Members* check the 6 people listed. If you want to start with only yourself: tick everyone except your own account → **Remove**. Leave *Who can use it* on **Selected members** → **Save** (write a note, e.g. "Owner test").
+The buttons on screen read **Off / Selected / All**.
+1. Admin → **Video Feature** → **Video Posts** → under *Members* look at the 6 people listed. If you want to start with only yourself: tick everyone except your own account → **Remove**. Leave *Who can use it* on **Selected** → write a note (e.g. "Owner test") → **Save**.
 2. Test on your phone (Android app) and in Chrome, Firefox and Safari: make a post with a video, open it in the feed and on your profile, play it, delete it. Also try **Upload resume** (switch `photo_upload_resume`, already All members): start a photo upload, turn Wi-Fi off for 10 seconds, turn it back on — it should carry on.
-3. If all is well, add a few members: same page → *Members* → search a name → add → (stay on **Selected members**) → **Save**. Wait a day.
-4. Everyone: same page → *Who can use it* → **All members** → **Save**. (To undo at any time: choose **Off** → **Save**; the member list is kept.)
-5. Video ads work the same way under Admin → **Video Feature** → **Video ads** (only admins upload ads).
+3. If all is well, add a few members: same page → *Members* → search a name → tick → **Add** (stay on **Selected**). Wait a day.
+4. Everyone: same page → *Who can use it* → **All** → **Save**. (To undo at any time: choose **Off** → **Save**; the member list is kept.)
+5. Video ads work the same way under Admin → **Video Feature** → **Video Ads** (only admins upload ads).
 6. Leave **Copyright music check** on **Off** (it refuses to turn on until a music-recognition service is chosen and its key is set).
