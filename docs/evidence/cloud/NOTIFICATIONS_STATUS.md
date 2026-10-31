@@ -2,11 +2,11 @@ N0 IN PROGRESS
 
 # Notification centre runner — status
 
-Heartbeat: 2026-10-31 13:07 UTC (measured) — MERGED to staging: #748 N0 (d4aa554), #754 N2 (6c2f4c8), #755 N7 rows page+bell (2d295e1). Staging PROBE 0100 run 41202972066 still waiting for a GitHub runner (queued 12:51). Open: #759 carry N0+N2 → main (reviewed, CI queued), #752 N5 guard (CI re-run), #757 N4 push builder, #758 live-check, #760 N3 centre gate (reviewed nothing blocking after fixing a real admin-row bug), #762 N7 settings table (fix delta in review). Nothing applied as a migration yet; no switch on. Branch for status only; never merged.
+Heartbeat: 2026-10-31 13:31 UTC (measured) — N0 PROBE 0100 PASSED on staging: run 41202968098 (13:19 UTC, rc 0). Staging: 53 notification functions, 30 triggers; 39 bodies = git's latest, 13 differ, 1 (pj_handle_tag_notification) not in applied git — ALL 13 match the commented-out bootstrap snapshot (UNAPPLIED_20260911101721) byte-for-byte, so N1 can capture them from git text without printing any live body. (Correction: I first read run 41202972066 as mine — it was another runner's file dispatched 3 s later on the same lane; it failed on its own check.) Production run waits for carry #759 (reviewed; CI queued). Branch for status only; never merged.
 
 | Step | What | PR | Merged sha (staging / main) | SQL runs (lane · run id · result · UTC) | Live check | % |
 |---|---|---|---|---|---|---|
-| N0 | Measure (read-only map) | #748; carry #759 | staging d4aa554 | staging 41202972066 (running) | — | 55 |
+| N0 | Measure (read-only map) | #748; carry #759 | staging d4aa554 | staging 41202968098 PASS 13:19 | — | 65 |
 | N1 | Capture live-only pieces into git | — | — | — | — | 0 |
 | N2 | Centre, switch OFF, 24 h shadow | #754; carry #759 | staging 6c2f4c8 | — | — | 45 |
 | N3 | Move makers onto the centre, by group | #760 (centre gate) | — | — | — | 30 |
