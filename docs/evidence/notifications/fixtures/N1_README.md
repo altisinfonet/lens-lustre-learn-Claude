@@ -25,3 +25,17 @@ applied cleanly and silently reset them to 100 / 1000. Now the attribute hash
 also covers procost, prorows, prosupport, prosqlbody and protrftypes → that
 case ROLLS BACK (`NC-0150-POST-003`). Matching functions still PASS 12/12. A
 second apply is refused (`NC-0150-PRE-003`, already tagged).
+
+## CI round (two repo tests failed — both real findings)
+
+1. `m2FunctionCallersExplicit`: functions created by a migration must state
+   their grants. Added explicit REVOKE/GRANT that reproduce the **live ACL read
+   by PROBE 0100** (identical on both lanes). Fixture: ACLs identical before and
+   after; a live ACL that differs (anon on `emit_notification`) → ROLLED BACK.
+2. `notifications-stage-key-payload.spec` (Phase 7 lock): the live
+   `notify_round_published()` / `_insert()` carry 0 / 1 `'stageKey'` for 2
+   `emit_notification` calls each — git's latest (20260502090928) has one per
+   call. Live is **behind** the project's own rule, so these two are **not
+   captured** (capturing would erase the intended code; applying git's version
+   would change e-mails members receive). Gap recorded for the judging work.
+   N1 now captures 10 functions; PROBE 10/10.

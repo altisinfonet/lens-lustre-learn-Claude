@@ -27,8 +27,6 @@ BEGIN
     ('public.notify_post_comment()', '26c9714d41a7027000364adffde5056e'),
     ('public.notify_post_reaction()', '4b865596e3973a814d0195fb7df2bc6b'),
     ('public.notify_post_tag()', '98231c0af09df073da2f245624226d22'),
-    ('public.notify_round_published()', 'e41ae90dde7f38ff48315a9034aaa962'),
-    ('public.notify_round_published_insert()', '414dea23042b830f59c7d05c785dd369'),
     ('public.pj_handle_tag_notification(jsonb)', 'f9f9869c7690b79d414003d6d2d2658d'),
     ('public.prune_old_notifications(integer, integer)', '345ac2e51915b7bd6aeeaa55dee986a6'),
     ('public.send_notification_email()', '2e40fd53c30694881937bd0eb0e4e2fa')) AS v(sig, md5) LOOP

@@ -6,8 +6,20 @@
 -- 12 notification functions whose LIVE source matches no applied migration —
 -- only the commented-out bootstrap snapshot
 -- supabase/migrations/UNAPPLIED_20260911101721_new_project_full_schema_bootstrap.sql,
--- byte-for-byte, and identical on both lanes. Below is that exact text, so a
--- rebuild from git reproduces what runs today.
+-- byte-for-byte, and identical on both lanes. Below is that exact text for 10
+-- of them, so a rebuild from git reproduces what runs today.
+--
+-- NOT captured: notify_round_published() and notify_round_published_insert().
+-- Their live text lacks the canonical 'stageKey' in its e-mail payloads, which
+-- git's own Phase 7 lock (src/test/notifications-stage-key-payload.spec.ts)
+-- requires and git's latest version (20260502090928) has. Capturing live
+-- would erase the intended code from git; applying git's version would change
+-- what members receive. Recorded as a gap for the judging work (Owner:
+-- "judging — later"); neither is touched here.
+--
+-- GRANTS are written out explicitly (repo rule m2FunctionCallersExplicit) and
+-- reproduce exactly the live ACL read by PROBE 0100 on both lanes; the POST
+-- check rolls everything back if any grant would differ.
 --
 -- HOW IT PROVES "NO CHANGE":
 --   PRE   refuses unless every one of the 12 exists with exactly the pinned md5
@@ -51,8 +63,6 @@ INSERT INTO n1_pin VALUES
     ('public.notify_post_comment()', '26c9714d41a7027000364adffde5056e'),
     ('public.notify_post_reaction()', '4b865596e3973a814d0195fb7df2bc6b'),
     ('public.notify_post_tag()', '98231c0af09df073da2f245624226d22'),
-    ('public.notify_round_published()', 'e41ae90dde7f38ff48315a9034aaa962'),
-    ('public.notify_round_published_insert()', '414dea23042b830f59c7d05c785dd369'),
     ('public.pj_handle_tag_notification(jsonb)', 'f9f9869c7690b79d414003d6d2d2658d'),
     ('public.prune_old_notifications(integer, integer)', '345ac2e51915b7bd6aeeaa55dee986a6'),
     ('public.send_notification_email()', '2e40fd53c30694881937bd0eb0e4e2fa');
@@ -487,119 +497,6 @@ END;
 $function$
 ;
 
-CREATE OR REPLACE FUNCTION public.notify_round_published()
- RETURNS trigger
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-DECLARE
-  _comp_title text;
-  _user record;
-  _held record;
-  _action_url text;
-  _site_url text := 'https://50mmretina.com';
-  _emit_id uuid;
-BEGIN
-  IF OLD.published_at IS NOT NULL OR NEW.published_at IS NULL THEN
-    RETURN NEW;
-  END IF;
-
-  SELECT title INTO _comp_title FROM public.competitions WHERE id = NEW.competition_id;
-
-  _action_url := _site_url || '/dashboard';
-  FOR _user IN
-    SELECT user_id, count(*) AS entry_count
-    FROM public.competition_entries
-    WHERE competition_id = NEW.competition_id
-    GROUP BY user_id
-  LOOP
-    PERFORM public.emit_notification(
-      'round_published', NEW.competition_id, NEW.round_number, _user.user_id,
-      'round_results_published', 'Round ' || NEW.round_number || ' results are out',
-      'Round ' || NEW.round_number || ' results for "' || COALESCE(_comp_title, 'the competition') || '" are now available.',
-      NEW.competition_id, 'round-published-summary',
-      jsonb_build_object('competitionTitle', _comp_title, 'roundNumber', NEW.round_number,
-        'entryCount', _user.entry_count),
-      _action_url);
-  END LOOP;
-
-  -- 3b) Release the granular per-entry outcomes held for THIS round (BUG-019).
-  FOR _held IN
-    SELECT * FROM public.held_result_notifications
-    WHERE competition_id = NEW.competition_id AND round_number = NEW.round_number
-  LOOP
-    _emit_id := public.emit_notification(
-      _held.kind, _held.entity_id, _held.round_number, _held.recipient_user_id,
-      _held.in_app_type, _held.in_app_title, _held.in_app_message, _held.in_app_reference_id,
-      _held.email_template, _held.email_data, _held.action_url);
-    -- BUG-120: only clear the held row once emit actually succeeded.
-    IF _emit_id IS NOT NULL THEN
-      DELETE FROM public.held_result_notifications WHERE id = _held.id;
-    END IF;
-  END LOOP;
-
-  RETURN NEW;
-END;
-$function$
-;
-
-CREATE OR REPLACE FUNCTION public.notify_round_published_insert()
- RETURNS trigger
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-DECLARE
-  _comp_title text;
-  _entry record;
-  _held record;
-  _action_url text;
-  _site_url text := 'https://50mmretina.com';
-  _stage_key text;
-  _emit_id uuid;
-BEGIN
-  IF NEW.published_at IS NULL THEN RETURN NEW; END IF;
-
-  SELECT title INTO _comp_title FROM public.competitions WHERE id = NEW.competition_id;
-
-  FOR _entry IN
-    SELECT id, user_id, title, status, current_round, progression_decision
-    FROM public.competition_entries
-    WHERE competition_id = NEW.competition_id
-  LOOP
-    _action_url := _site_url || '/dashboard?entry=' || _entry.id::text;
-    _stage_key := public._resolve_stage_key_from_entry(_entry.status, _entry.current_round, _entry.progression_decision);
-    PERFORM public.emit_notification(
-      'round_published', _entry.id, NEW.round_number, _entry.user_id,
-      'round_results_published', 'Round ' || NEW.round_number || ' results are out',
-      'Round ' || NEW.round_number || ' results for "' || COALESCE(_comp_title, 'the competition') || '" are now available.',
-      NEW.competition_id, 'round-published-summary',
-      jsonb_build_object('competitionTitle', _comp_title, 'roundNumber', NEW.round_number,
-        'entryTitle', _entry.title, 'entryStatus', _entry.status, 'stageKey', _stage_key),
-      _action_url);
-  END LOOP;
-
-  -- 3b) Release held granular outcomes for this round (BUG-019).
-  FOR _held IN
-    SELECT * FROM public.held_result_notifications
-    WHERE competition_id = NEW.competition_id AND round_number = NEW.round_number
-  LOOP
-    _emit_id := public.emit_notification(
-      _held.kind, _held.entity_id, _held.round_number, _held.recipient_user_id,
-      _held.in_app_type, _held.in_app_title, _held.in_app_message, _held.in_app_reference_id,
-      _held.email_template, _held.email_data, _held.action_url);
-    -- BUG-120: only clear the held row once emit actually succeeded.
-    IF _emit_id IS NOT NULL THEN
-      DELETE FROM public.held_result_notifications WHERE id = _held.id;
-    END IF;
-  END LOOP;
-
-  RETURN NEW;
-END;
-$function$
-;
-
 CREATE OR REPLACE FUNCTION public.pj_handle_tag_notification(_msg jsonb)
  RETURNS void
  LANGUAGE plpgsql
@@ -744,6 +641,18 @@ BEGIN
 END;
 $function$
 ;
+
+-- ── explicit grants = the live ACL (identical on both lanes, PROBE 0100) ──
+REVOKE ALL ON FUNCTION public.emit_birthday_notifications() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.emit_birthday_notifications() TO service_role;
+REVOKE ALL ON FUNCTION public.emit_notification(text, uuid, integer, uuid, text, text, text, uuid, text, jsonb, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.emit_notification(text, uuid, integer, uuid, text, text, text, uuid, text, jsonb, text) TO service_role;
+REVOKE ALL ON FUNCTION public.pj_handle_tag_notification(jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.pj_handle_tag_notification(jsonb) TO service_role;
+REVOKE ALL ON FUNCTION public.prune_old_notifications(integer, integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.prune_old_notifications(integer, integer) TO service_role;
+-- the member's own grouped notification history: callable by members (as live)
+GRANT EXECUTE ON FUNCTION public.get_my_notifications_grouped(integer, timestamp with time zone) TO PUBLIC, anon, authenticated, service_role;
 
 DO $post$
 DECLARE r record; now_attrs text;
