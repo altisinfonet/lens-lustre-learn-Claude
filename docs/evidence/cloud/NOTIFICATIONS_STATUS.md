@@ -2,7 +2,7 @@ N0 IN PROGRESS
 
 # Notification centre runner — status
 
-Heartbeat: 2026-10-31 11:43 UTC (measured) — open PRs: #748 N0 PROBE (review nothing blocking; CI nearly done), #752 N5 guard (review nothing blocking; CI queued), #754 N2 centre (review nothing blocking; seeds to reconcile with N0 live list; CI queued), #755 N7 part 1 rows (in review). Nothing applied to any database yet. Branch for status only; never merged.
+Heartbeat: 2026-10-31 11:57 UTC (measured) — 4 PRs reviewed 'nothing blocking', all waiting in the shared CI queue (~210 runs queued repo-wide): #748 N0 PROBE, #752 N5 guard (fixed a stale entry after staging dropped a function — the guard caught it), #754 N2 centre, #755 N7 rows. N6 admin page + SQL 0120 built and fixture-tested locally (PR after N2 lands). N8 Owner steps drafted. Nothing applied to any database yet. Branch for status only; never merged.
 
 | Step | What | PR | Merged sha (staging / main) | SQL runs (lane · run id · result · UTC) | Live check | % |
 |---|---|---|---|---|---|---|
@@ -12,9 +12,9 @@ Heartbeat: 2026-10-31 11:43 UTC (measured) — open PRs: #748 N0 PROBE (review n
 | N3 | Move makers onto the centre, by group | — | — | — | — | 0 |
 | N4 | Delivery (push + e-mail queue, receipts) | — | — | — | — | 0 |
 | N5 | Guard (CI stray-insert test + nightly count) | #752 (CI guard, part 1) | — | — | — | 30 |
-| N6 | Admin Notification Centre page | — | — | — | — | 0 |
+| N6 | Admin Notification Centre page | (local, stacked on #754) | — | — | — | 25 |
 | N7 | Member screens | #755 (part 1: rows) | — | — | — | 10 |
-| N8 | Staged rollout steps for the Owner | — | — | — | — | 0 |
+| N8 | Staged rollout steps for the Owner | (draft) | — | — | — | 15 |
 
 ## Notes
 - CORRECTION: the two earlier heartbeats on this branch were stamped 11:40 and
