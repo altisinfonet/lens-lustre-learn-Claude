@@ -2,7 +2,7 @@ N0 IN PROGRESS
 
 # Notification centre runner — status
 
-Heartbeat: 2026-10-31 11:57 UTC (measured) — 4 PRs reviewed 'nothing blocking', all waiting in the shared CI queue (~210 runs queued repo-wide): #748 N0 PROBE, #752 N5 guard (fixed a stale entry after staging dropped a function — the guard caught it), #754 N2 centre, #755 N7 rows. N6 admin page + SQL 0120 built and fixture-tested locally (PR after N2 lands). N8 Owner steps drafted. Nothing applied to any database yet. Branch for status only; never merged.
+Heartbeat: 2026-10-31 12:23 UTC (measured) — CI moving: #748 N0 PROBE 6 checks left; #752 N5 10 left; #754 N2 re-queued after fixing 2 CI findings (index review lines; an existing test showed members' 4 in-app settings are read by nothing today — kept listed as dead until a centre group goes live); #755 N7 rows (page + bell) and new #757 N4 push builder queued. Staging apply lane was busy with another runner until 12:18; free now. Nothing applied to any database yet. Branch for status only; never merged.
 
 | Step | What | PR | Merged sha (staging / main) | SQL runs (lane · run id · result · UTC) | Live check | % |
 |---|---|---|---|---|---|---|
@@ -10,10 +10,10 @@ Heartbeat: 2026-10-31 11:57 UTC (measured) — 4 PRs reviewed 'nothing blocking'
 | N1 | Capture live-only pieces into git | — | — | — | — | 0 |
 | N2 | Centre, switch OFF, 24 h shadow | #754 | — | — | — | 35 |
 | N3 | Move makers onto the centre, by group | — | — | — | — | 0 |
-| N4 | Delivery (push + e-mail queue, receipts) | — | — | — | — | 0 |
+| N4 | Delivery (push + e-mail queue, receipts) | #757 (part 1: push builder) | — | — | — | 10 |
 | N5 | Guard (CI stray-insert test + nightly count) | #752 (CI guard, part 1) | — | — | — | 30 |
 | N6 | Admin Notification Centre page | (local, stacked on #754) | — | — | — | 25 |
-| N7 | Member screens | #755 (part 1: rows) | — | — | — | 10 |
+| N7 | Member screens | #755 (part 1: rows, page + bell) | — | — | — | 20 |
 | N8 | Staged rollout steps for the Owner | (draft) | — | — | — | 15 |
 
 ## Notes
@@ -28,4 +28,12 @@ Heartbeat: 2026-10-31 11:57 UTC (measured) — 4 PRs reviewed 'nothing blocking'
   with each.
 
 ## Owner list (plain words)
-1. (none yet)
+1. **Let the robot publish server code (edge functions).** In GitHub → Settings →
+   Environments → `staging` and `production` → add a secret named
+   `SUPABASE_ACCESS_TOKEN` (made in Supabase → Account → Access Tokens). Until
+   then the new push code (#757) is ready but cannot be published.
+2. **Decide about the 4 "In-app" switches in Notification Settings.** Today
+   they save but nothing reads them (members turn them off and still get those
+   notifications). The new notification centre will obey them once you switch
+   a group on (see the step list that will be in Admin → Notification Centre).
+   Nothing to click yet — just know that switching a group on makes them work.
