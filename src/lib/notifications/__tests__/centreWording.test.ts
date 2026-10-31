@@ -50,4 +50,10 @@ describe("centre wording (N7): no member type is left with server text only", ()
     expect(centreHeadline("competition_winner")?.fallback).not.toMatch(/You won!|first|winner/i);
     expect(centreHeadline("competition_winner")?.fallback).toMatch(/award/i);
   });
+
+  it("the admin announcement (registry row added by 20261104_0220) leads with 'Announcement'", () => {
+    // the server text under it is the admin's own title + message
+    expect(centreHeadline("admin_announcement")?.fallback).toBe("Announcement");
+    expect(isBigMoment("admin_announcement")).toBe(false);
+  });
 });

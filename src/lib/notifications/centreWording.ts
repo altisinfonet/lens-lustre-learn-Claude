@@ -45,6 +45,7 @@ const HEADLINES: Record<string, string> = {
   deposit_rejected: "Deposit not approved",
   admin_verification_pending: "Verification pending",
   admin_verification_submitted: "Verification submitted",
+  admin_announcement: "Announcement",   // 20261104_0220; the detail is the admin's title + message
 };
 
 const BIG = new Set([
