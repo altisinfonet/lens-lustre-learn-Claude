@@ -21,7 +21,13 @@
 --                         rate limit, in-app setting off, type off); one log
 --                         row with the reasons.
 --   type not registered, group off, or ANY error in the centre → the row is
---   written exactly as today (a centre fault can never lose a notification).
+--   written exactly as today (a centre fault can never lose a notification;
+--   it raises a WARNING so it is never silent).
+--
+-- BEFORE A GROUP IS SWITCHED ON (gate condition per group, N8): a skipped row
+-- returns no row to its writer, so makers using INSERT … RETURNING, edge code
+-- using .insert().select().single(), and inserts with ON CONFLICT must be
+-- listed and checked for that group first (N1 captures their live bodies).
 --
 -- Rollback: supabase/rollback/20261104_0140_notification_centre_gate_ROLLBACK.sql
 -- PROBE:    supabase/migrations/PROBE_20261104_0140_notification_centre_gate.sql
@@ -67,32 +73,31 @@ SET search_path = ''
 AS $fn$
 DECLARE
   grp       text;
-  audience  text;
   recipient uuid;
+  actor     uuid;
   d         jsonb;
 BEGIN
   BEGIN
-    SELECT nt.group_key, nt.audience INTO grp, audience FROM public.notification_types nt WHERE nt.type = NEW.type;
+    SELECT nt.group_key INTO grp FROM public.notification_types nt WHERE nt.type = NEW.type;
     IF grp IS NULL THEN
       RETURN NEW;                                            -- unregistered type: today's behaviour
     END IF;
-    recipient := CASE WHEN TG_TABLE_NAME = 'user_notifications' THEN NEW.user_id ELSE NULL END;
+    -- Separate statements per table: PL/pgSQL plans each statement only when
+    -- it runs, so the admin path never touches NEW.user_id / NEW.actor_id,
+    -- which admin_notifications does not have (a CASE would still read them).
+    IF TG_TABLE_NAME = 'user_notifications' THEN
+      recipient := NEW.user_id;
+      actor     := NEW.actor_id;
+    END IF;
     IF NOT public.notification_centre_live(grp, recipient) THEN
       RETURN NEW;                                            -- group off for this recipient: today's behaviour
     END IF;
 
-    IF TG_TABLE_NAME = 'user_notifications' THEN
-      d := public.notification_centre_decide(NEW.type, NEW.user_id, NEW.actor_id, NEW.reference_id,
-                                             coalesce(NEW.created_at, now()), NEW.id);
-    ELSE
-      d := public.notification_centre_decide(NEW.type, NULL, NULL, NEW.reference_id,
-                                             coalesce(NEW.created_at, now()), NEW.id);
-    END IF;
+    d := public.notification_centre_decide(NEW.type, recipient, actor, NEW.reference_id,
+                                           coalesce(NEW.created_at, now()), NEW.id);
 
     INSERT INTO public.notification_centre_log (type, recipient_id, actor_id, reference_id, sent, reasons, channels, notification_id)
-    VALUES (NEW.type, recipient,
-            CASE WHEN TG_TABLE_NAME = 'user_notifications' THEN NEW.actor_id END,
-            NEW.reference_id, (d ->> 'send')::boolean,
+    VALUES (NEW.type, recipient, actor, NEW.reference_id, (d ->> 'send')::boolean,
             ARRAY(SELECT jsonb_array_elements_text(d -> 'reasons')), d -> 'channels',
             CASE WHEN (d ->> 'send')::boolean THEN NEW.id END);
 
@@ -104,7 +109,9 @@ BEGIN
     END IF;
     RETURN NEW;
   EXCEPTION WHEN OTHERS THEN
-    RETURN NEW;                                              -- a centre fault never loses a notification
+    -- a centre fault never loses a notification — but it is never silent
+    RAISE WARNING 'notification_centre_gate fault on %: % (%)', TG_TABLE_NAME, SQLERRM, SQLSTATE;
+    RETURN NEW;
   END;
 END;
 $fn$;

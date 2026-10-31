@@ -22,3 +22,12 @@ Behaviour (`likes_comments` switched on for member A only):
 | A switched in-app reactions off | **skipped** — `{pref_in_app_off}` |
 | unregistered type | written (today's behaviour) |
 | centre fault (registry column renamed) | written — a fault never loses a notification |
+
+## Review round 1 (blocking: admin rows never gated)
+
+`CASE WHEN TG_TABLE_NAME = 'user_notifications' THEN NEW.user_id …` still reads
+`NEW.user_id` on `admin_notifications` (no such field) → error → silent
+fallback. Reproduced: `admin_alerts` live, two identical `new_ticket` alerts →
+**2 rows, 0 log rows**. Fixed with separate statements per table, plus a
+`WARNING` on every centre fault. After: **1 row (duplicate skipped), 2 log
+rows**; all 8 member cases unchanged.

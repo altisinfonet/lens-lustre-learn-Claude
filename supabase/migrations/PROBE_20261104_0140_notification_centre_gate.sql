@@ -32,7 +32,7 @@ BEGIN
   END IF;
   FOR r IN SELECT c.relname, min(t.tgname) AS first_before
              FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
-            WHERE NOT t.tgisinternal AND t.tgtype & 2 = 2 AND t.tgtype & 4 = 4
+            WHERE NOT t.tgisinternal AND t.tgtype & 1 = 1 AND t.tgtype & 2 = 2 AND t.tgtype & 4 = 4
               AND c.oid IN ('public.user_notifications'::regclass, 'public.admin_notifications'::regclass)
             GROUP BY c.relname LOOP
     IF r.first_before <> 'aaa_notification_centre_gate' THEN
