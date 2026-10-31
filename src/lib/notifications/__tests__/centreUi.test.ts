@@ -20,7 +20,7 @@ describe("notification centre UI switch (site_settings notif_centre_ui)", () => 
 });
 
 // ── the hook: reads the switch once per member, resets on a member change ──
-import { renderHook, waitFor } from "@testing-library/react";
+import { renderHook, waitFor, act } from "@testing-library/react";
 import { vi } from "vitest";
 
 vi.mock("@/lib/siteSettingsCache", () => ({ readSiteSettingState: vi.fn() }));
@@ -28,18 +28,23 @@ import { readSiteSettingState } from "@/lib/siteSettingsCache";
 import { useCentreUi } from "@/lib/notifications/centreUi";
 
 describe("useCentreUi", () => {
-  it("is false until read, true for a listed member, false for the next unlisted one", async () => {
-    const read = vi.mocked(readSiteSettingState);
-    read.mockResolvedValue({ known: true, value: { users: ["owner-id"] } });
-    const { result, rerender } = renderHook(({ id }) => useCentreUi(id), { initialProps: { id: "owner-id" } });
+  it("is false until read, then true for a listed member", async () => {
+    vi.mocked(readSiteSettingState).mockResolvedValue({ known: true, value: { users: ["owner-id"] } });
+    const { result } = renderHook(() => useCentreUi("owner-id"));
     expect(result.current).toBe(false);
     await waitFor(() => expect(result.current).toBe(true));
-    let resolveNext: (v: { known: boolean; value: unknown }) => void = () => {};
-    read.mockReturnValue(new Promise((r) => { resolveNext = r; }) as never);
+  });
+
+  it("on a member change: resets at once, and the previous member's late answer is ignored", async () => {
+    const read = vi.mocked(readSiteSettingState);
+    let resolveFirst: (v: { known: boolean; value: unknown }) => void = () => {};
+    read.mockReturnValueOnce(new Promise((r) => { resolveFirst = r; }) as never);
+    read.mockResolvedValueOnce({ known: true, value: "off" });
+    const { result, rerender } = renderHook(({ id }) => useCentreUi(id), { initialProps: { id: "owner-id" } });
     rerender({ id: "someone-else" });
-    expect(result.current).toBe(false);            // reset at once, not the previous member's answer
-    resolveNext({ known: true, value: { users: ["owner-id"] } });
-    await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+    expect(result.current).toBe(false);
+    await act(async () => { resolveFirst({ known: true, value: "on" }); });   // owner's answer arrives late
+    await act(async () => {});
     expect(result.current).toBe(false);
   });
 
