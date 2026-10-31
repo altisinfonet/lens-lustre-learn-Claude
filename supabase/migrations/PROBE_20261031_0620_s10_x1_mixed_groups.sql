@@ -31,7 +31,7 @@ DECLARE
   rec record;
   n_mixed int := 0; n_merge_tables int := 0; n_groups int := 0;
   pol_before int := 0; pol_after int := 0; n_resid_tables int := 0;
-  merge_txt text := ''; resid_txt text := ''; mixed_txt text;
+  merge_txt text := ''; resid_txt text := ''; mixed_txt text; one_txt text;
 BEGIN
   IF coalesce(current_setting('p32.lane', true), '') NOT IN ('staging', 'production') THEN
     RAISE EXCEPTION 'PROBE REFUSED — p32.lane is not staging or production';
@@ -59,10 +59,20 @@ BEGIN
       JOIN _roles ro ON p.polroles = '{0}'::oid[] OR 0 = ANY (p.polroles)
                      OR EXISTS (SELECT 1 FROM unnest(p.polroles) x WHERE x <> 0 AND pg_has_role(ro.oid, x, 'USAGE'));
 
+  CREATE TEMP TABLE _x1 ON COMMIT DROP AS
+    SELECT DISTINCT polrelid FROM _hits GROUP BY polrelid, role, code HAVING count(*) > 1;
+
   CREATE TEMP TABLE _mixed ON COMMIT DROP AS
-    SELECT x.polrelid
-      FROM (SELECT DISTINCT polrelid FROM _hits GROUP BY polrelid, role, code HAVING count(*) > 1) x
+    SELECT x.polrelid FROM _x1 x
      WHERE (SELECT count(DISTINCT rolekey) FROM _pol p WHERE p.polrelid = x.polrelid) > 1;
+
+  -- X1 tables with ONE role list as a set: not mixed here. PROBE 0607 compares
+  -- raw role arrays, so a table whose lists differ only in order is "mixed"
+  -- there and lands here; so does a uniform table whose duplicates the
+  -- uniform batches left (e.g. FOR ALL next to FOR SELECT). Expected: none.
+  SELECT string_agg(c.relname, ', ' ORDER BY c.relname) INTO one_txt
+    FROM _x1 x JOIN pg_class c ON c.oid = x.polrelid
+   WHERE x.polrelid NOT IN (SELECT polrelid FROM _mixed);
 
   SELECT count(*), string_agg(c.relname, ', ' ORDER BY c.relname)
     INTO n_mixed, mixed_txt
@@ -124,9 +134,9 @@ BEGIN
     resid_txt := resid_txt || E'\n    ' || rec.relname || ': ' || rec.pairs;
   END LOOP;
 
-  RAISE NOTICE E'X1 MIXED GROUPS (lane %): % mixed tables; MERGE: % tables, % groups, permissive % -> %; RESID: % tables\n  MIXED: %\n  MERGE (cmd{roles}=[parts in DESC order]):%\n  RESID (action:roles with 2+ groups after merge):%',
+  RAISE NOTICE E'X1 MIXED GROUPS (lane %): % mixed tables; MERGE: % tables, % groups, permissive % -> % (mixed tables only); RESID: % tables\n  X1 tables with one role list (not mixed; expected none): %\n  MIXED: %\n  MERGE (cmd{roles}=[parts in DESC order]):%\n  RESID (action:roles with 2+ groups after merge):%',
     current_setting('p32.lane'), n_mixed, n_merge_tables, n_groups, pol_before, pol_after, n_resid_tables,
-    coalesce(mixed_txt, 'none'), CASE WHEN merge_txt = '' THEN ' none' ELSE merge_txt END,
+    coalesce(one_txt, 'none'), coalesce(mixed_txt, 'none'), CASE WHEN merge_txt = '' THEN ' none' ELSE merge_txt END,
     CASE WHEN resid_txt = '' THEN ' none' ELSE resid_txt END;
 END
 $probe$;
