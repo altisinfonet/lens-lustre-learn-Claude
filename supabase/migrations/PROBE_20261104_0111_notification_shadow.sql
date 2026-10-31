@@ -37,7 +37,8 @@ BEGIN
     RAISE EXCEPTION 'PROBE FAIL: 0110 not applied on this lane';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = i.indkey[0]
-                  WHERE i.indrelid = 'public.user_notifications'::regclass AND a.attname = 'user_id') THEN
+                  WHERE i.indrelid = 'public.user_notifications'::regclass AND a.attname = 'user_id'
+                    AND i.indisvalid AND i.indpred IS NULL) THEN
     RAISE EXCEPTION 'PROBE FAIL: no index leads with user_notifications.user_id — replay would scan per row; not run';
   END IF;
   SELECT min(seeded_at) INTO since FROM public.notification_types;

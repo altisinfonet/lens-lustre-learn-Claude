@@ -149,6 +149,8 @@ GRANT SELECT, INSERT ON public.notification_centre_log TO service_role;
 --      {"users": ["<uuid>", …]}    → on only for those recipients (staged
 --                                     rollout, N8: the Owner first, then a few)
 --      no row / anything else      → OFF
+--      Admin alerts have no single recipient, so only "live" turns that group
+--      on; a members list never does. Ids compare case-insensitively.
 CREATE FUNCTION public.notification_centre_live(_group text, _recipient uuid DEFAULT NULL)
 RETURNS boolean
 LANGUAGE sql
@@ -162,7 +164,8 @@ AS $fn$
        AND (s.value = to_jsonb('live'::text)
             OR (_recipient IS NOT NULL AND jsonb_typeof(s.value) = 'object'
                 AND jsonb_typeof(s.value -> 'users') = 'array'
-                AND (s.value -> 'users') ? _recipient::text)));
+                AND EXISTS (SELECT 1 FROM jsonb_array_elements_text(s.value -> 'users') u
+                             WHERE lower(trim(u)) = _recipient::text))));
 $fn$;
 
 -- ── 5. the decision: type on? → self / blocked → duplicate → rate → member
