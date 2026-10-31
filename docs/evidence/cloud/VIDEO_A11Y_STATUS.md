@@ -1,7 +1,7 @@
 # Video + accessibility runner — status
 
 Started 2026-10-30 01:47 UTC. Replaces the earlier supervisor session (no GitHub trace after 2026-10-29 14:19 UTC).
-Last update: 2026-10-31 11:40 UTC.
+Last update: 2026-10-31 12:05 UTC.
 
 THIRD RESTART 2026-10-31 ~03:55 UTC: previous run stopped silently after its 18:23 UTC heartbeat (S10a-4 never pushed; will be rebuilt fresh later). PAUSE cancelled by Owner RESUME. Order now, one PR at a time: 1 VID-6 cost alerts → 2 privacy text → 3 S7 gate table → 4 Android 1.2.33 → 5 S10a-3, S10a-4.
 
@@ -11,7 +11,7 @@ RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. 
 
 ## Now
 07:30 UTC — **S7 100% (Owner steps left: Play Data safety, Apple App Privacy, video rollout + phone/3-browser test, install 1.2.33 and test video + Upload resume).** Android 1.2.33 built: run **41178510127** SUCCESS.
-11:40 UTC — S10a-3 complete and live (main 87f6a47c; live check 41196082671). S10a-4 walkthrough PR #751: first CI walk green (run 41196084020: 44 walks, Chromium + WebKit, 0 unnamed controls); review found a parser bug for names with ': ' (fixed with a fail-first self-test case); CI re-running, then WALKTHROUGH.md refreshed from that run.
+12:05 UTC — S10a-4 #751: CI walk after the review fix green (run 41197236130: 44 walks, Chromium + WebKit, 0 unnamed controls, none cut); WALKTHROUGH.md refreshed from it (f2239f4c). Re-review + full CI running, then merge and carry.
 
 ## Units
 | Unit | PR | State | Merged sha (staging / main) | SQL runs | Live check |
