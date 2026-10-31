@@ -13,7 +13,9 @@
 --        wallet_ledger_v2_rows: exists, columns, rows, size, time range,
 --        write counters, policies, triggers ON it, FKs to/from it, views that
 --        read it, publications, every function whose body names it (and every
---        trigger / cron job that runs those functions), function call counts.
+--        trigger / cron job that runs those functions), function call counts,
+--        and an md5 of each function body / view definition (so the change can
+--        refuse to run on a body it was not written against).
 --   P26  db_audit_logs: rows, heap / toast / index size, time range, age
 --        buckets; rows and stored bytes per (table_name, operation); every
 --        trigger whose function writes db_audit_logs; every other function
@@ -89,7 +91,7 @@ BEGIN
      WHERE c.contype = 'f' AND (c.conrelid = ('public.' || t)::regclass OR c.confrelid = ('public.' || t)::regclass);
     RAISE NOTICE 'P27|%|fks|%', t, coalesce(ln, 'none');
 
-    SELECT string_agg(DISTINCT v.oid::regclass::text, '; ')
+    SELECT string_agg(DISTINCT v.oid::regclass::text || ' md5=' || md5(pg_get_viewdef(v.oid)), '; ')
       INTO ln FROM pg_depend d
       JOIN pg_rewrite rw ON rw.oid = d.objid
       JOIN pg_class v ON v.oid = rw.ev_class
@@ -108,15 +110,16 @@ BEGIN
     -- functions whose body names the table
     fnames := ARRAY[]::text[];
     FOR r IN SELECT p.oid, n2.nspname || '.' || p.proname AS fn, l.lanname, p.prosecdef, p.prorettype = 'trigger'::regtype AS is_trg,
-                    pg_get_function_identity_arguments(p.oid) AS args
+                    pg_get_function_identity_arguments(p.oid) AS args,
+                    md5(p.prosrc) AS body_md5, length(p.prosrc) AS body_len
                FROM pg_proc p JOIN pg_namespace n2 ON n2.oid = p.pronamespace JOIN pg_language l ON l.oid = p.prolang
               WHERE n2.nspname NOT IN ('pg_catalog', 'information_schema') AND p.prosrc ILIKE '%' || t || '%'
               ORDER BY 2 LOOP
       fnames := fnames || r.fn;
       SELECT string_agg(format('%s ON %s (%s)', tg.tgname, tg.tgrelid::regclass, tg.tgenabled), '; ')
         INTO ln FROM pg_trigger tg WHERE tg.tgfoid = r.oid AND NOT tg.tgisinternal;
-      RAISE NOTICE 'P27|%|fn|%(%)|lang=%|secdef=%|trigger_fn=%|attached=%|calls=%',
-        t, r.fn, r.args, r.lanname, r.prosecdef, r.is_trg, coalesce(ln, 'none'),
+      RAISE NOTICE 'P27|%|fn|%(%)|lang=%|secdef=%|trigger_fn=%|attached=%|body_md5=%|len=%|calls=%',
+        t, r.fn, r.args, r.lanname, r.prosecdef, r.is_trg, coalesce(ln, 'none'), r.body_md5, r.body_len,
         coalesce((SELECT f.calls::text FROM pg_stat_user_functions f WHERE f.funcid = r.oid), 'untracked');
     END LOOP;
 
