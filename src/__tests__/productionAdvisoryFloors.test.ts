@@ -4,9 +4,11 @@
  *
  * Measured before the fix (`npm audit --omit=dev`, staging ba508d1):
  * 19 findings, 14 high. After: 5 findings, 1 high (zod, below), 4 moderate.
- * 2026-10-31: new advisories put glob 10.5.0, minimatch 9.0.9 and picomatch
- * 4.0.3 (now in the production tree via sucrase → tinyglobby) back in range:
- * 8 findings → 5 after a lockfile-only fix (sucrase 3.35.1, picomatch 4.0.7). `npm audit fix` (lockfile only, package.json ranges
+ * 2026-10-31: new advisories put the production glob 10.5.0 and its minimatch
+ * 9.0.9 (both via sucrase 3.35.0) back in range: 8 findings → 5 after a
+ * lockfile-only fix. sucrase 3.35.1 uses tinyglobby instead of glob, which
+ * brings picomatch into the production tree; it is taken at 4.0.7, outside
+ * the 4.0.0–4.0.3 range listed below. `npm audit fix` (lockfile only, package.json ranges
  * unchanged) moved every production copy below out of its vulnerable range.
  * The CI security gate still blocks only on `critical`, so without this test a
  * later lockfile regeneration could bring any of these back silently.
