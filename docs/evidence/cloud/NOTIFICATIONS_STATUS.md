@@ -2,7 +2,7 @@ N0 IN PROGRESS
 
 # Notification centre runner — status
 
-Heartbeat: 2026-10-31 12:52 UTC (measured) — MERGED to staging: #748 N0 PROBE (d4aa554), #754 N2 centre (6c2f4c8). Staging PROBE 0100 dispatched (run 41202972066). Carry #759 (N0+N2 → main) reviewed nothing blocking, CI queued. #760 N3 centre gate opened (in review). #752 N5 re-running CI after allow-listing the centre (guard flagged it first). Nothing applied as a migration yet; no switch on. Branch for status only; never merged.
+Heartbeat: 2026-10-31 13:07 UTC (measured) — MERGED to staging: #748 N0 (d4aa554), #754 N2 (6c2f4c8), #755 N7 rows page+bell (2d295e1). Staging PROBE 0100 run 41202972066 still waiting for a GitHub runner (queued 12:51). Open: #759 carry N0+N2 → main (reviewed, CI queued), #752 N5 guard (CI re-run), #757 N4 push builder, #758 live-check, #760 N3 centre gate (reviewed nothing blocking after fixing a real admin-row bug), #762 N7 settings table (fix delta in review). Nothing applied as a migration yet; no switch on. Branch for status only; never merged.
 
 | Step | What | PR | Merged sha (staging / main) | SQL runs (lane · run id · result · UTC) | Live check | % |
 |---|---|---|---|---|---|---|
@@ -13,7 +13,7 @@ Heartbeat: 2026-10-31 12:52 UTC (measured) — MERGED to staging: #748 N0 PROBE 
 | N4 | Delivery (push + e-mail queue, receipts) | #757 (part 1: push builder) | — | — | — | 10 |
 | N5 | Guard (CI stray-insert test + nightly count) | #752 (CI guard); part 2 local | — | — | — | 45 |
 | N6 | Admin Notification Centre page | (local, stacked on #754) | — | — | — | 25 |
-| N7 | Member screens | #755 (rows, page + bell); part 2 settings table local | — | — | — | 35 |
+| N7 | Member screens | #755 (rows) merged; #762 settings table | staging 2d295e1 | — | — | 45 |
 | N8 | Staged rollout steps for the Owner | (draft) | — | — | — | 15 |
 
 ## Notes
