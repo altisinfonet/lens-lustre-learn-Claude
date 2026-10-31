@@ -83,9 +83,12 @@ describe("Admin → Notification Centre", () => {
     expect(await screen.findByText(/Neil changed/)).toBeInTheDocument();
   });
 
-  it("unticking On turns the type off for everyone", async () => {
+  it("unticking On turns the type off — the label says it acts only where its group is switched on", async () => {
+    // The gate (0140) passes a row untouched while its group is off for the
+    // recipient, so this box never acts for "everyone" unless the group is.
     render(<AdminNotificationCentre />);
-    const box = await screen.findByRole("checkbox", { name: "post_reaction on for everyone" });
+    const box = await screen.findByRole("checkbox", { name: "post_reaction on (for members whose group is switched on)" });
+    expect(screen.queryByRole("checkbox", { name: /on for everyone/ })).toBeNull();
     fireEvent.click(box);
     await waitFor(() => expect(rpc).toHaveBeenCalledWith("admin_notif_type_update", { _type: "post_reaction", _patch: { enabled: false } }));
   });
