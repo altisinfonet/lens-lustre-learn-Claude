@@ -2,7 +2,7 @@ N0 COMPLETE
 
 # Notification centre runner — status
 
-Heartbeat: 2026-10-31 17:13 UTC (measured) — N3 PRODUCTION VERIFIED: PROBE PASS 41221752484 (17:09; gate first on both tables, 0 group switches on → today's output unchanged). Production N6 0120 PROBE (expect FAIL) dispatched 41223352518; staging N4 0160 apply 41221982432 queued. Runner pool ~250 queued repo-wide; I cancelled 64 of my own superseded CI runs to help. MERGED to staging: #781 quiet hours (aa27195), #785 admin label (38e992e). Carry #793 to main (7 units) — review nothing blocking, CI queued. New PRs: #790 push retry, #791 push picture (review caught a privacy leak — a private post's picture could reach a tagged member; reproduced on the fixture and fixed with the bell's rule), #792 admin announcement to a chosen group (SQL 0220; fixture caught the centre's self rule skipping the admin's own copy, fixed). Branch for status only; never merged.
+Heartbeat: 2026-10-31 17:46 UTC (measured) — Production N6: PROBE FAIL 41223352518 (17:30, expected) → apply 0120 queued 41225000305. Staging N4 0160: apply OK 41221982432 (17:22) → PASS probe 41224537603 queued. MERGED to staging since last beat: #779 headlines (40961d4), #783 Owner guide (6ba4aa4), #790 push retry (149adad), #789 weekly summary (c4fdbaf), #791 push picture (8c768bc). Waiting on CI (all reviewed nothing blocking): #786, #787, #792, #795, #796, carry #793 to main. Runner pool ~350 queued repo-wide. Branch for status only; never merged.
 
 | Step | What | PR | Merged sha (staging / main) | SQL runs (lane · run id · result · UTC) | Live check | % |
 |---|---|---|---|---|---|---|
