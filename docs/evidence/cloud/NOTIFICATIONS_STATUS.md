@@ -2,7 +2,7 @@ N0 IN PROGRESS
 
 # Notification centre runner — status
 
-Heartbeat: 2026-10-31 12:23 UTC (measured) — CI moving: #748 N0 PROBE 6 checks left; #752 N5 10 left; #754 N2 re-queued after fixing 2 CI findings (index review lines; an existing test showed members' 4 in-app settings are read by nothing today — kept listed as dead until a centre group goes live); #755 N7 rows (page + bell) and new #757 N4 push builder queued. Staging apply lane was busy with another runner until 12:18; free now. Nothing applied to any database yet. Branch for status only; never merged.
+Heartbeat: 2026-10-31 12:36 UTC (measured) — #748 N0 PROBE: 32 of 33 checks green, UI gate running; then merge → staging PROBE → carry to main → production PROBE. #757 N4 push builder reviewed (nothing blocking). Built and fixture-tested locally, PRs follow their dependencies: N7 part 2 settings table (on #755), N6 admin page + SQL 0120 (on #754), N5 part 2 nightly live stray count + alarm (SQL 0130; seed waits for N0's live list). Nothing applied to any database yet. Branch for status only; never merged.
 
 | Step | What | PR | Merged sha (staging / main) | SQL runs (lane · run id · result · UTC) | Live check | % |
 |---|---|---|---|---|---|---|
@@ -11,9 +11,9 @@ Heartbeat: 2026-10-31 12:23 UTC (measured) — CI moving: #748 N0 PROBE 6 checks
 | N2 | Centre, switch OFF, 24 h shadow | #754 | — | — | — | 35 |
 | N3 | Move makers onto the centre, by group | — | — | — | — | 0 |
 | N4 | Delivery (push + e-mail queue, receipts) | #757 (part 1: push builder) | — | — | — | 10 |
-| N5 | Guard (CI stray-insert test + nightly count) | #752 (CI guard, part 1) | — | — | — | 30 |
+| N5 | Guard (CI stray-insert test + nightly count) | #752 (CI guard); part 2 local | — | — | — | 45 |
 | N6 | Admin Notification Centre page | (local, stacked on #754) | — | — | — | 25 |
-| N7 | Member screens | #755 (part 1: rows, page + bell) | — | — | — | 20 |
+| N7 | Member screens | #755 (rows, page + bell); part 2 settings table local | — | — | — | 35 |
 | N8 | Staged rollout steps for the Owner | (draft) | — | — | — | 15 |
 
 ## Notes
