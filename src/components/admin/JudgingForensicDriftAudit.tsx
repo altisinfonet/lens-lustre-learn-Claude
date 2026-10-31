@@ -32,7 +32,6 @@ const FINDING_DESCRIPTIONS: Record<string, string> = {
   F1_TAG_WITHOUT_DECISION: "Judge tag assignments with no matching judge_decisions row",
   F2_DECISION_WITHOUT_ALIAS: "judge_decisions rows whose label is missing from v3_tag_label_alias",
   F3_TAG_LABEL_NO_ALIAS: "Tag labels used in assignments with no canonical alias entry for that round",
-  F4_MIRROR_LOG_ERROR: "v3_mirror_log error rows in the last 30 days",
   F5_CURRENT_ROUND_INVALID: "competition_entries.current_round text not normalizing to 1..4",
 };
 
@@ -40,7 +39,6 @@ const ALL_FINDINGS = [
   "F1_TAG_WITHOUT_DECISION",
   "F2_DECISION_WITHOUT_ALIAS",
   "F3_TAG_LABEL_NO_ALIAS",
-  "F4_MIRROR_LOG_ERROR",
   "F5_CURRENT_ROUND_INVALID",
 ];
 

@@ -7,7 +7,6 @@ import { Activity, HardDrive, AlertTriangle, Clock, CheckCircle2, XCircle, Refre
 // AwardsIntegrityAudit moved to /admin/competition_health
 import WalletReconciliationAudit from "@/components/admin/WalletReconciliationAudit";
 import WalletReconciliationLogAudit from "@/components/admin/WalletReconciliationLogAudit";
-import WalletLedgerV2DiffAudit from "@/components/admin/WalletLedgerV2DiffAudit";
 // CollusionAudit moved to /admin/competition_health
 // CertificateDriftAudit moved to /admin/competition_health
 // UnjudgedParityAudit moved to /admin/competition_health
@@ -547,9 +546,6 @@ const AdminHealth = ({ user }: { user: User | null }) => {
 
       {/* Wallet Phase 2.3 — Gift + Referral Reconciliation Audit (global) */}
       <WalletReconciliationAudit />
-
-      {/* Phase-1A Step B — Wallet Ledger v2 Hourly Diff Monitor (DRY-RUN) */}
-      <WalletLedgerV2DiffAudit />
 
       {/* Phase 1 — Minimal recon visibility: latest 25 wallet_reconciliation_log rows */}
       <WalletReconciliationLogAudit />
