@@ -14,7 +14,7 @@
  * mistake here would show Follow back for someone the user already follows.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { NotificationGroup } from "@/lib/notificationText";
@@ -141,5 +141,53 @@ describe("/notifications — centre rows (switch on)", () => {
     expect(follow.closest('[data-notif-row-open="true"]')).toBeNull();
     const del = screen.getByRole("button", { name: /^delete$/i });
     expect(del.closest('[data-notif-row-open="true"]')).toBeNull();
+  });
+});
+
+describe("/notifications — tabs (switch on)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFollowingSet.mockReturnValue({ following: new Set<string>(), ready: true });
+  });
+
+  const three = () => withGroups([
+    group({ group_key: "c", type: "post_comment", actor_names: ["Commenter"] }),
+    group({ group_key: "f", type: "new_follower", actor_names: ["Follower"] }),
+    group({ group_key: "r", type: "post_reaction", actor_names: ["Reactor"] }),
+  ]);
+
+  it("shows four tab buttons, All pressed, every row visible", () => {
+    three();
+    renderPage();
+    const tabs = screen.getByRole("group", { name: "Filter notifications" });
+    const pressed = Array.from(tabs.querySelectorAll("button")).map((b) => [b.textContent, b.getAttribute("aria-pressed")]);
+    expect(pressed).toEqual([["All", "true"], ["Comments & mentions", "false"], ["Follows", "false"], ["Competitions", "false"]]);
+    expect(screen.getByText("Commenter")).toBeInTheDocument();
+    expect(screen.getByText("Follower")).toBeInTheDocument();
+    expect(screen.getByText("Reactor")).toBeInTheDocument();
+  });
+
+  it("a tab shows only its rows, and an empty tab says so", async () => {
+    three();
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Comments & mentions" }));
+    expect(screen.getByRole("button", { name: "Comments & mentions" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Commenter")).toBeInTheDocument();
+    expect(screen.queryByText("Follower")).toBeNull();
+    expect(screen.queryByText("Reactor")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Competitions" }));
+    expect(screen.getByText("Nothing in this tab yet.")).toBeInTheDocument();
+  });
+
+  it("an empty tab with older pages still to load says older ones may have some", () => {
+    mockHistory.mockReturnValue({
+      data: { pages: [[group({ type: "post_reaction" })]] },
+      isLoading: false, isError: false, fetchNextPage: vi.fn(), hasNextPage: true, isFetchingNextPage: false,
+    });
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Follows" }));
+    expect(screen.getByText("Nothing in this tab yet. Older notifications may have some.")).toBeInTheDocument();
+    expect(screen.queryByText("Nothing here yet.")).toBeNull();
+    expect(screen.getByRole("button", { name: "Load older notifications" })).toBeInTheDocument();
   });
 });
