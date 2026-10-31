@@ -26,9 +26,6 @@
   "sql:notify_journal_published": "existed 2026-10-31; moves in N3 group 3 (competition, judging, awards, announcements)",
   "sql:notify_new_competition": "existed 2026-10-31; moves in N3 group 3 (competition, judging, awards, announcements)",
   "sql:notify_new_follower": "existed 2026-10-31; moves in N3 group 2 (follows & friends)",
-  "sql:notify_post_comment": "existed 2026-10-31; moves in N3 group 1 (likes & comments)",
-  "sql:notify_post_reaction": "existed 2026-10-31; moves in N3 group 1 (likes & comments)",
-  "sql:notify_post_tag": "existed 2026-10-31; moves in N3 group 1 (likes & comments)",
   "sql:notify_potd_featured": "existed 2026-10-31; moves in N3 group 3 (competition, judging, awards, announcements)",
   "sql:notify_role_application_decision": "existed 2026-10-31; moves in N3 group 4 (wallet / support / roles)",
   "sql:notify_user_ticket_reply": "existed 2026-10-31; moves in N3 group 4 (wallet / support / roles)",
@@ -36,5 +33,6 @@
   "sql:pj_handle_reaction_notification": "existed 2026-10-31; moves in N3 group 1 (likes & comments)",
   "sql:video_takedown": "existed 2026-10-31; moves in N3 group 3 (competition, judging, awards, announcements)",
   "sql:notification_centre_emit": "THE NOTIFICATION CENTRE's write path (N2, 20261104_0110) \u2014 the one writer meant to remain",
-  "sql:notification_centre_send_test": "THE NOTIFICATION CENTRE's admin 'send a test to me' (N6, 20261104_0120) \u2014 one bell row to the calling admin, one per minute"
+  "sql:notification_centre_send_test": "THE NOTIFICATION CENTRE's admin 'send a test to me' (N6, 20261104_0120) \u2014 one bell row to the calling admin, one per minute",
+  "sql:pj_handle_tag_notification": "existed live 2026-10-31 (captured into git by N1, 20261104_0150); moves in N3 group 1 (likes & comments)"
 }
