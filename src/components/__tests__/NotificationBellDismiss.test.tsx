@@ -52,6 +52,8 @@ import { stripComments } from "@/test-utils/sourceText";
    NOTE the omission: framer-motion is NOT mocked. That is the point of this
    file. Mocking it is what made the original bug invisible to the test suite. */
 
+// Today's bell: the notification centre switch (notif_centre_ui) is OFF.
+vi.mock("@/lib/notifications/centreUi", () => ({ useCentreUi: () => false }));
 vi.mock("@/hooks/core/useAuth", () => ({
   useAuth: () => ({ user: { id: "user-1" } }),
 }));
