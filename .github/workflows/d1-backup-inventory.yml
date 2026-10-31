@@ -1,0 +1,113 @@
+name: Backup inventory (read-only, lane-guarded)
+# ═══════════════════════════════════════════════════════════════════════════
+# S11 drills D1 / D9 — the RECOVERY-POINT half, measured without restoring.
+# MANUAL DISPATCH ONLY. READ ONLY: every call is a GET to the Supabase
+# Management API (src/__tests__/backupInventoryReadOnly.test.ts keeps it so).
+#
+# Prints, per lane: whether point-in-time recovery (PITR) and WAL-G are on,
+# how many backups exist, the newest and oldest backup times, and the
+# physical-backup window. From that the worst-case data loss today (RPO) is
+# stated. It never prints the token, a connection string, or any row data.
+#
+# What it does NOT do: restore anything. A restore to a branch (D1) or into a
+# new project (D9) creates a billed project — that is the Owner's decision.
+#
+# FENCES (as d1-deploy-functions.yml):
+#   1. target=production must run from refs/heads/main, target=staging from
+#      refs/heads/staging (a tag named main does not pass); the project ref is
+#      fixed by the target, never typed. The token is given only to the steps
+#      that call the API.
+#   2. The token must reach the target project.
+# RULE kept from apply-migration.yml: no `${{` inside any `run:` block.
+# ═══════════════════════════════════════════════════════════════════════════
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "staging = fpszggreishhuvdpkmdr, production = jtdtehuqtinjxropkkcn"
+        required: true
+        type: choice
+        options: [staging, production]
+
+concurrency:
+  group: backup-inventory-${{ inputs.target }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    name: backups on ${{ inputs.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: ${{ inputs.target }}
+    env:
+      TARGET_LANE: ${{ inputs.target }}
+      BRANCH_REF: ${{ github.ref }}
+    steps:
+      - name: The branch must match the target, and the ref is fixed by it
+        run: |
+          set -euo pipefail
+          case "$TARGET_LANE" in
+            production) WANT=refs/heads/main;    REF=jtdtehuqtinjxropkkcn ;;
+            staging)    WANT=refs/heads/staging; REF=fpszggreishhuvdpkmdr ;;
+            *) echo "::error::Unknown target '$TARGET_LANE'."; exit 1 ;;
+          esac
+          if [ "$BRANCH_REF" != "$WANT" ]; then
+            echo "::error::target='$TARGET_LANE' must be dispatched from '$WANT', not '$BRANCH_REF'. Refusing."
+            exit 1
+          fi
+          echo "PROJECT_REF=$REF" >> "$GITHUB_ENV"
+          echo "Lane OK: $TARGET_LANE ($REF) from $BRANCH_REF."
+
+      - name: Refuse to start without the access token
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_ACCESS_TOKEN is not set on the '$TARGET_LANE' environment."
+            exit 1
+          fi
+          echo "Token present. Its value is never printed."
+
+      - name: The token must reach the target project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /tmp/proj.json -w '%{http_code}' -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" "https://api.supabase.com/v1/projects/$PROJECT_REF")
+          if [ "$code" != "200" ]; then
+            echo "::error::Management API answered $code for project $PROJECT_REF. Refusing."
+            exit 1
+          fi
+          jq -r '"Project: region=\(.region // "?") status=\(.status // "?") postgres=\(.database.version // "?")"' /tmp/proj.json
+
+      - name: Backups and point-in-time recovery (read only)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /tmp/backups.json -w '%{http_code}' -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" "https://api.supabase.com/v1/projects/$PROJECT_REF/database/backups")
+          if [ "$code" != "200" ]; then
+            echo "::error::backups endpoint answered $code."
+            exit 1
+          fi
+          {
+            echo "## Backups on $TARGET_LANE ($PROJECT_REF)"
+            echo
+            jq -r '
+              def ts: if . == null then "none" else (if type == "number" then (todate) else . end) end;
+              "- PITR enabled: \(.pitr_enabled // false)",
+              "- WAL-G enabled: \(.walg_enabled // false)",
+              "- backups listed: \((.backups // []) | length)",
+              "- newest backup: \(((.backups // []) | map(.inserted_at) | max) | ts)",
+              "- oldest backup: \(((.backups // []) | map(.inserted_at) | min) | ts)",
+              "- physical backups: \(((.backups // []) | map(select(.is_physical_backup)) | length))",
+              "- statuses: \(((.backups // []) | map(.status) | group_by(.) | map("\(.[0])=\(length)") | join(", ")))",
+              "- PITR window: earliest \((.physical_backup_data.earliest_physical_backup_date_unix) | ts), latest \((.physical_backup_data.latest_physical_backup_date_unix) | ts)",
+              "",
+              (if (.pitr_enabled // false) then "Worst-case data loss (RPO) today: minutes (point-in-time recovery is on)."
+               else "Worst-case data loss (RPO) today: everything since the newest backup above, up to about 24 h with daily backups (PITR is off)." end)
+            ' /tmp/backups.json
+          } | tee -a "$GITHUB_STEP_SUMMARY"
