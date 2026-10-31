@@ -136,6 +136,42 @@ describe("/notifications", () => {
     expect(screen.getByRole("button", { name: /Anindita Hidayat and Vicky Roy.*shared 3 photos/ })).toBeInTheDocument();
   });
 
+  it("names the open button with a subject even when the actor's account is gone (review #738)", () => {
+    // delete-user nulls actor_id; describeNotification falls back to NAME_UNKNOWN.
+    // The open button's name must use that same sentence, never a headless one.
+    withGroups([
+      group({
+        type: "new_follower",
+        actor_ids: [],
+        actor_names: [],
+        actor_usernames: [],
+        actor_count: 0,
+        event_count: 1,
+      }),
+    ]);
+    renderPage();
+    const open = screen.getAllByRole("button").find((b) => /follow/i.test(b.getAttribute("aria-label") || ""));
+    expect(open?.getAttribute("aria-label")).toMatch(/^A member /);
+  });
+
+  it("opens the notification when its TEXT is clicked, and a name link is not hijacked (nav-harness journey)", () => {
+    withGroups([
+      group({
+        type: "new_post_from_following",
+        actor_ids: ["a1"],
+        actor_names: ["Anindita Hidayat"],
+        actor_usernames: ["aninditahidayat"],
+        actor_count: 1,
+        event_count: 3,
+      }),
+    ]);
+    renderPage();
+    const text = screen.getByText(/shared 3 photos/);
+    expect(getComputedStyle(text).pointerEvents).not.toBe("none");
+    let el: HTMLElement | null = text;
+    while (el) { expect(el.className || "").not.toMatch(/pointer-events-none/); el = el.parentElement; }
+  });
+
   it("links every named actor to their handle and never to their id", () => {
     // The F-98 rule, on this page: a member's name is either a link built from
     // their handle or it is plain text that says nobody knew the handle. It is
