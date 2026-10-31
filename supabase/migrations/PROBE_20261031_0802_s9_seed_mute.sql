@@ -148,7 +148,7 @@ BEGIN
      AND x.relid::regclass::text NOT LIKE 'pg_temp%.s9m_watch' AND x.relid::regclass::text <> 's9m_watch';
   IF p IS NOT NULL THEN RAISE EXCEPTION 'PROBE FAIL 0802: the muted batch wrote to other tables: %', p; END IF;
   -- the guard can see writes at all: posts' own counter rose by exactly the 50 muted rows
-  SELECT sum(x.n_tup_ins) - coalesce(sum((w_before ->> x.relid::text)::bigint), 0) INTO n
+  SELECT sum(x.n_tup_ins + x.n_tup_upd + x.n_tup_del) - coalesce(sum((w_before ->> x.relid::text)::bigint), 0) INTO n  -- same measure as w_before
     FROM pg_stat_xact_all_tables x WHERE x.relid = ANY (post_rels);
   IF n IS DISTINCT FROM 50 THEN RAISE EXCEPTION 'PROBE FAIL 0802: the write counters do not show the 50 muted posts (saw %) — the guard cannot see writes', n; END IF;
   FOREACH p IN ARRAY places LOOP
