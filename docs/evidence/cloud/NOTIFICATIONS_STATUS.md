@@ -2,14 +2,14 @@ N0 IN PROGRESS
 
 # Notification centre runner — status
 
-Heartbeat: 2026-10-31 12:36 UTC (measured) — #748 N0 PROBE: 32 of 33 checks green, UI gate running; then merge → staging PROBE → carry to main → production PROBE. #757 N4 push builder reviewed (nothing blocking). Built and fixture-tested locally, PRs follow their dependencies: N7 part 2 settings table (on #755), N6 admin page + SQL 0120 (on #754), N5 part 2 nightly live stray count + alarm (SQL 0130; seed waits for N0's live list). Nothing applied to any database yet. Branch for status only; never merged.
+Heartbeat: 2026-10-31 12:52 UTC (measured) — MERGED to staging: #748 N0 PROBE (d4aa554), #754 N2 centre (6c2f4c8). Staging PROBE 0100 dispatched (run 41202972066). Carry #759 (N0+N2 → main) reviewed nothing blocking, CI queued. #760 N3 centre gate opened (in review). #752 N5 re-running CI after allow-listing the centre (guard flagged it first). Nothing applied as a migration yet; no switch on. Branch for status only; never merged.
 
 | Step | What | PR | Merged sha (staging / main) | SQL runs (lane · run id · result · UTC) | Live check | % |
 |---|---|---|---|---|---|---|
-| N0 | Measure (read-only map) | #748 (PROBE 0100) | — | — | — | 40 |
+| N0 | Measure (read-only map) | #748; carry #759 | staging d4aa554 | staging 41202972066 (running) | — | 55 |
 | N1 | Capture live-only pieces into git | — | — | — | — | 0 |
-| N2 | Centre, switch OFF, 24 h shadow | #754 | — | — | — | 35 |
-| N3 | Move makers onto the centre, by group | — | — | — | — | 0 |
+| N2 | Centre, switch OFF, 24 h shadow | #754; carry #759 | staging 6c2f4c8 | — | — | 45 |
+| N3 | Move makers onto the centre, by group | #760 (centre gate) | — | — | — | 30 |
 | N4 | Delivery (push + e-mail queue, receipts) | #757 (part 1: push builder) | — | — | — | 10 |
 | N5 | Guard (CI stray-insert test + nightly count) | #752 (CI guard); part 2 local | — | — | — | 45 |
 | N6 | Admin Notification Centre page | (local, stacked on #754) | — | — | — | 25 |
