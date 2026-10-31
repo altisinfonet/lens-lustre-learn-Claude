@@ -15,6 +15,8 @@ import { subjectFromGroup } from "@/lib/notifications/adapters";
 /* ── hermetic mocks ──────────────────────────────────────────────────────── */
 
 vi.mock("@/lib/notifications/centreUi", () => ({ useCentreUi: () => true }));
+vi.mock("@/i18n/I18nContext", () => ({ useT: () => (_k: string, fb?: string) => fb ?? _k }));
+let groups: Record<string, unknown>[] = [];
 vi.mock("@/hooks/core/useAuth", () => ({ useAuth: () => ({ user: { id: "user-1" } }) }));
 vi.mock("@/hooks/core/useIsAdmin", () => ({ useIsAdmin: () => ({ isAdmin: false }) }));
 vi.mock("@/hooks/core/useNotificationSound", () => ({
@@ -64,7 +66,7 @@ vi.mock("@/hooks/notifications/useNotificationsQuery", () => ({
     friendRequests: [],
     giftNotifications: [],
     adminNotifications: [],
-    userNotifications: [BIG_GROUP],
+    userNotifications: groups,
     unreadTotal: 47,
     totalCount: 47,
     isLoading: false,
@@ -88,6 +90,9 @@ const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 beforeEach(() => {
   vi.clearAllMocks();
+  groups = [BIG_GROUP, { ...BIG_GROUP, group_key: "read-one", type: "new_follower", unread_count: 0, event_count: 1,
+    actor_ids: ["r1"], actor_names: ["Read Person"], actor_usernames: ["readp"], actor_avatars: [""], actor_count: 1,
+    message: "Read Person started following you" }];
   render(
     <MemoryRouter>
       <NotificationBell />
@@ -96,6 +101,14 @@ beforeEach(() => {
 });
 
 describe("bell — centre rows (switch on)", () => {
+  it("a read row has no dot and does not say Unread", async () => {
+    openBell();
+    const link = await screen.findByRole("link", { name: /Read Person started following you/ });
+    expect(link.getAttribute("data-notif-row-open")).toBe("true");
+    expect(link.querySelector('[data-notif-unread-dot="true"]')).toBeNull();
+    expect(link.textContent?.startsWith("Unread")).toBe(false);
+  });
+
   it("one link per row, holding the avatar and the sentence", async () => {
     openBell();
     const sentence = describeNotification(subjectFromGroup(BIG_GROUP as never, new Set())).text;

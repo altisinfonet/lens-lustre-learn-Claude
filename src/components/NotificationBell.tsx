@@ -13,6 +13,7 @@ import { useNotificationsQuery, type UserNotificationGroup } from "@/hooks/notif
 import { useNotificationSound } from "@/hooks/core/useNotificationSound";
 import { getNotifLink } from "@/lib/notificationLinks";
 import { useCentreUi } from "@/lib/notifications/centreUi";
+import { useT } from "@/i18n/I18nContext";
 import { notificationEntryState } from "@/lib/navigationContract";
 import { useDismissOnRouteChange } from "@/hooks/core/useDismissOnRouteChange";
 import { useIsPrimaryInstance } from "@/hooks/core/useIsPrimaryInstance";
@@ -122,6 +123,7 @@ const NotificationBell = () => {
   const { user } = useAuth();
   // N7 · notification centre rows, behind site_settings notif_centre_ui (OFF on live).
   const centreRows = useCentreUi(user?.id);
+  const t = useT();
   const { isAdmin } = useIsAdmin();
   const [open, setOpen] = useState(false);
   const { playNotificationSound } = useNotificationSound();
@@ -569,28 +571,31 @@ const NotificationBell = () => {
                                 className="flex items-center gap-3 flex-1 min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                               >
                                 <span className="relative shrink-0">
-                                <BellAvatar avatar={avatar} IconComp={IconComp} />
-                                  <span data-notif-unread-dot="true" aria-hidden="true" className="absolute -top-0.5 -left-0.5 h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-background" />
+                                  <BellAvatar avatar={avatar} IconComp={IconComp} />
+                                  {(group.unread_count ?? 0) > 0 && (
+                                    <span data-notif-unread-dot="true" aria-hidden="true" className="absolute -top-0.5 -left-0.5 h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-background" />
+                                  )}
                                 </span>
                                 <span className="flex-1 min-w-0">
                                   <span className="text-xs block line-clamp-2" style={bodyFont}>
-                                    <span className="sr-only">Unread, </span>{described.text}
+                                    {(group.unread_count ?? 0) > 0 && <span className="sr-only">{t("notifications.unread", "Unread")}, </span>}
+                                    {described.text}
                                   </span>
                                   <span className="text-[9px] text-muted-foreground" style={headingFont}>{timeAgoFn(group.latest_at)}</span>
                                 </span>
                               </Link>
                               {group.type === "post_tag" ? (
                                 <div className="flex items-center gap-1 shrink-0">
-                                  <button onClick={() => respondToTag(group, "approved")} className="h-7 w-7 rounded-full bg-primary/10 hover:bg-primary/20 flex items-center justify-center text-primary transition-colors" title="Approve">
-                                    <Check className="h-3.5 w-3.5" />
+                                  <button onClick={() => respondToTag(group, "approved")} aria-label={t("notifications.approve_tag", "Approve tag")} className="h-7 w-7 tap-44 rounded-full bg-primary/10 hover:bg-primary/20 flex items-center justify-center text-primary transition-colors" title="Approve">
+                                    <Check className="h-3.5 w-3.5" aria-hidden="true" />
                                   </button>
-                                  <button onClick={() => respondToTag(group, "declined")} className="h-7 w-7 rounded-full bg-muted hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors" title="Decline">
-                                    <X className="h-3.5 w-3.5" />
+                                  <button onClick={() => respondToTag(group, "declined")} aria-label={t("notifications.decline_tag", "Decline tag")} className="h-7 w-7 tap-44 rounded-full bg-muted hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors" title="Decline">
+                                    <X className="h-3.5 w-3.5" aria-hidden="true" />
                                   </button>
                                 </div>
                               ) : (
-                                <button onClick={() => dismissUserGroup(group, false)} className="h-7 w-7 rounded-full bg-muted hover:bg-muted/80 flex items-center justify-center text-muted-foreground shrink-0 transition-colors" title={group.event_count > 1 ? `Dismiss all ${group.event_count}` : "Dismiss"}>
-                                  <X className="h-3 w-3" />
+                                <button onClick={() => dismissUserGroup(group, false)} aria-label={group.event_count > 1 ? `Dismiss all ${group.event_count}` : "Dismiss"} className="h-7 w-7 tap-44 rounded-full bg-muted hover:bg-muted/80 flex items-center justify-center text-muted-foreground shrink-0 transition-colors" title={group.event_count > 1 ? `Dismiss all ${group.event_count}` : "Dismiss"}>
+                                  <X className="h-3 w-3" aria-hidden="true" />
                                 </button>
                               )}
                             </div>
