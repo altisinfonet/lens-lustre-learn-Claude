@@ -74,6 +74,7 @@ const AdminMenuBuilder = lazy(() => import("@/components/admin/AdminMenuBuilder"
 const AdminJudgingTags = lazy(() => import("@/components/admin/AdminJudgingTags"));
 const AdminTagSemanticsAudit = lazy(() => import("@/pages/admin/AdminTagSemanticsAudit"));
 const AdminNotificationsHealth = lazy(() => import("@/pages/admin/AdminNotificationsHealth"));
+const AdminNotificationCentre = lazy(() => import("@/components/admin/AdminNotificationCentre"));
 const AdminCompetitionHealth = lazy(() => import("@/pages/admin/AdminCompetitionHealth"));
 const AdminTestAgent = lazy(() => import("@/pages/admin/AdminTestAgent"));
 
@@ -99,7 +100,7 @@ const VALID_ROUTES = new Set([
   "video_posts", "video_ads", "video_music_check", "video_conversion", "personal_feed", "upload_resume",
   "page_management", "menu_builder", "redirects",
   "settings", "auth_pages", "email_templates", "database",
-  "health", "app_events", "activity_logs", "admin_notifications", "notifications_health", "test_agent",
+  "health", "app_events", "activity_logs", "admin_notifications", "notifications_health", "notification_centre", "test_agent",
   "support_tickets", "user_guide",
 ]);
 
@@ -116,6 +117,7 @@ const tabGroups = [
     ["health", "Site Health", HeartPulse],
     ["app_events", "Error Log", Bug],
     ["notifications_health", "Notification Drift", Bell],
+    ["notification_centre", "Notification Centre", Bell],
     ["test_agent", "Test Agent", HeartPulse],
     ["analytics", "Analytics", BarChart3],
     ["admin_notifications", "Notifications", Bell],
@@ -351,6 +353,7 @@ const AdminPanel = () => {
         </LazyTab>
       )}
       {currentRoute === "notifications_health" && <LazyTab><AdminNotificationsHealth /></LazyTab>}
+      {currentRoute === "notification_centre" && <LazyTab><AdminNotificationCentre /></LazyTab>}
       {currentRoute === "test_agent" && <LazyTab><AdminTestAgent /></LazyTab>}
       {currentRoute === "activity_logs" && <LazyTab><AdminActivityLogs /></LazyTab>}
       {currentRoute === "admin_notifications" && <LazyTab><AdminNotifications /></LazyTab>}
