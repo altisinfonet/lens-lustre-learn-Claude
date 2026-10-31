@@ -1,7 +1,7 @@
 # Video + accessibility runner — status
 
 Started 2026-10-30 01:47 UTC. Replaces the earlier supervisor session (no GitHub trace after 2026-10-29 14:19 UTC).
-Last update: 2026-10-31 13:12 UTC (still on S10a-4: CI walk for e3e8a019 running, runners were queued ~20 min).
+Last update: 2026-10-31 13:33 UTC.
 
 THIRD RESTART 2026-10-31 ~03:55 UTC: previous run stopped silently after its 18:23 UTC heartbeat (S10a-4 never pushed; will be rebuilt fresh later). PAUSE cancelled by Owner RESUME. Order now, one PR at a time: 1 VID-6 cost alerts → 2 privacy text → 3 S7 gate table → 4 Android 1.2.33 → 5 S10a-3, S10a-4.
 
@@ -11,7 +11,7 @@ RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. 
 
 ## Now
 07:30 UTC — **S7 100% (Owner steps left: Play Data safety, Apple App Privacy, video rollout + phone/3-browser test, install 1.2.33 and test video + Upload resume).** Android 1.2.33 built: run **41178510127** SUCCESS.
-12:50 UTC — S10a-4 #751: CI walk 41200055747 green (44 walks, 0 unnamed); it also exposed a real keyboard defect — on the phone-width feed in Chromium, Tab onto a category chip re-mounts the chip and focus falls back to the page. The walkthrough now reports it as 'focus lost' (e3e8a019). Waiting for CI, then WALKTHROUGH.md refresh, final review, merge, carry.
+13:33 UTC — S10a-4 #751: final CI walk 41202252213 green (44 walks, Chromium + WebKit, 0 unnamed, 0 focus lost this run); WALKTHROUGH.md from it; final review nothing blocking. Waiting for the full CI (runners queued), then merge + carry.
 
 ## Units
 | Unit | PR | State | Merged sha (staging / main) | SQL runs | Live check |
@@ -62,7 +62,7 @@ d2-live-check run 41046580661 on main 36c895d1 (11:16 UTC): home + /feed 200 in 
 - 13:44 UTC: S7-c video ad carried to main (fd903b69). Switch 'Video ads' stays OFF on live. ALL S7 code from this runner is on main; S7b-6 offline videos may build on it.
 
 ## Follow-ups (non-blocking review notes)
-- S10a-4 finding: screen-feed @ iphone-390 (Chromium): Tab onto a category chip re-mounts it and focus falls back to <body> (focus loss, WCAG 2.4.3). Needs its own fix unit (feed category chips).
+- S10a-4 finding: screen-feed @ iphone-390 (Chromium): Tab onto a category chip re-mounts it and focus falls back to <body> (focus loss, WCAG 2.4.3). Intermittent: 5 in CI run 41200055747 and 4 locally, 0 in 41202252213. Needs its own fix unit (feed category chips).
 - Admin → Health contrast (3 nodes): dark-mode --destructive is both text-on-dark (4.36:1) and a button background under light text (3.43:1); needs a second token.
 - #738: notification-row nested-interactive (4 axe nodes) needs a design decision (Owner item 7). Four new labels are English-only (not t()). For a deleted actor the visible notification text is headless (only the screen-reader name of the bell/row says 'A member'), same as before.
 - Local harness: screen-feed @ iphone-390 sometimes reports 51 B:tab-unreached locally only (different local Chromium); CI never shows it.
