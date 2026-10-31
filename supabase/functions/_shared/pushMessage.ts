@@ -9,10 +9,13 @@
  *   imageUrl   a picture: Android "big picture" + iOS rich notification. Only
  *              https URLs on our own hosts — a push must never fetch from a
  *              host a sender chose.
- *   category   action set for the lock screen (Reply / Like). Carried now;
- *              the app shows the buttons once it registers the category.
- *   groupKey   collapses a member's notifications of one kind (Android tag,
- *              iOS thread).
+ *   category   action set for the lock screen (Reply / Like). Carried in
+ *              data (Android: buttons need a data message + a local
+ *              notification in the app) and as the iOS aps.category. NOT put
+ *              in android click_action — that would point the tap at an
+ *              activity the app does not have.
+ *   groupKey   Android: tag — a newer notification with the same tag REPLACES
+ *              the older one; iOS: thread-id — notifications STACK together.
  *   deliveryId the centre's delivery row, so the app can report "opened".
  */
 
@@ -33,7 +36,7 @@ export interface FcmMessage {
   data?: Record<string, string>;
   android: {
     priority: "high";
-    notification?: { image?: string; click_action?: string; tag?: string };
+    notification?: { image?: string; tag?: string };
   };
   apns: {
     payload: { aps: { sound: string; "mutable-content"?: 1; category?: string; "thread-id"?: string } };
@@ -41,8 +44,15 @@ export interface FcmMessage {
   };
 }
 
-/** Hosts a push picture may come from: our CDN and our storage. */
-const IMAGE_HOSTS = [/^cdn\.50mmretina\.com$/, /^www\.50mmretina\.com$/, /^[a-z0-9]{20}\.supabase\.co$/];
+/** Hosts a push picture may come from: our CDN, our site, and OUR two
+ *  Supabase projects (staging, production) — not any Supabase project, which
+ *  anyone can create. Project refs are public (they ship in every bundle). */
+const IMAGE_HOSTS = new Set([
+  "cdn.50mmretina.com",
+  "www.50mmretina.com",
+  "fpszggreishhuvdpkmdr.supabase.co",
+  "jtdtehuqtinjxropkkcn.supabase.co",
+]);
 
 export function isSafeImageUrl(url: string | null | undefined): url is string {
   if (!url) return false;
@@ -52,7 +62,7 @@ export function isSafeImageUrl(url: string | null | undefined): url is string {
   } catch {
     return false;
   }
-  return u.protocol === "https:" && IMAGE_HOSTS.some((re) => re.test(u.hostname));
+  return u.protocol === "https:" && !u.port && !u.username && !u.password && IMAGE_HOSTS.has(u.hostname);
 }
 
 const SAFE_TOKEN = /^[a-z0-9_:.-]{1,64}$/i;
@@ -84,10 +94,7 @@ export function buildFcmMessage(p: PushInput): FcmMessage {
     msg.apns.payload.aps["mutable-content"] = 1;
     msg.apns.fcm_options = { image };
   }
-  if (category) {
-    androidNote.click_action = category;
-    msg.apns.payload.aps.category = category;
-  }
+  if (category) msg.apns.payload.aps.category = category;
   if (groupKey) {
     androidNote.tag = groupKey;
     msg.apns.payload.aps["thread-id"] = groupKey;

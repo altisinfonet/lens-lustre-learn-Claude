@@ -31,16 +31,32 @@ describe("buildFcmMessage", () => {
     expect(isSafeImageUrl("http://cdn.50mmretina.com/a.jpg")).toBe(false);
     expect(isSafeImageUrl("https://evil.example/a.jpg")).toBe(false);
     expect(isSafeImageUrl("javascript:alert(1)")).toBe(false);
+    expect(isSafeImageUrl("https://abcdefghijklmnopqrst.supabase.co/a.jpg")).toBe(false);   // someone else's project
+    expect(isSafeImageUrl("https://jtdtehuqtinjxropkkcn.supabase.co/storage/v1/object/public/a.jpg")).toBe(true);
+    expect(isSafeImageUrl("https://cdn.50mmretina.com:8443/a.jpg")).toBe(false);
+    expect(isSafeImageUrl("https://u:p@cdn.50mmretina.com/a.jpg")).toBe(false);
     const m = buildFcmMessage({ ...base, imageUrl: "https://evil.example/a.jpg" });
     expect(m.notification.image).toBeUndefined();
     expect(m.android.notification).toBeUndefined();
   });
 
-  it("carries the action category (Reply / Like, used once the app registers it) on both platforms", () => {
+  it("carries the action category in data and iOS aps — never as Android click_action", () => {
     const m = buildFcmMessage({ ...base, category: "reply_like" });
-    expect(m.android.notification?.click_action).toBe("reply_like");
     expect(m.apns.payload.aps.category).toBe("reply_like");
     expect(m.data?.category).toBe("reply_like");
+    expect(m.android.notification).toBeUndefined();
+  });
+
+  it("ignores an unsafe category or group key", () => {
+    const m = buildFcmMessage({ ...base, category: "a b\nc", groupKey: "x".repeat(65) });
+    expect(m.apns.payload.aps.category).toBeUndefined();
+    expect(m.android.notification).toBeUndefined();
+    expect(m.data).toEqual(base.data);
+  });
+
+  it("the centre's category and delivery id win over caller data with the same keys", () => {
+    const m = buildFcmMessage({ ...base, data: { category: "x", delivery_id: "y" }, category: "reply_like", deliveryId: 7 });
+    expect(m.data).toEqual({ category: "reply_like", delivery_id: "7" });
   });
 
   it("carries the delivery id so the app can report 'opened'", () => {
@@ -65,7 +81,8 @@ describe("buildFcmMessage", () => {
 describe("send-push uses the builder (so what is tested is what is sent)", () => {
   it("imports buildFcmMessage and no longer shapes the message inline", async () => {
     const { readFileSync } = await import("node:fs");
-    const src = readFileSync("supabase/functions/send-push/index.ts", "utf8");
+    const { fileURLToPath } = await import("node:url");
+    const src = readFileSync(fileURLToPath(new URL("../../supabase/functions/send-push/index.ts", import.meta.url)), "utf8");
     expect(src).toMatch(/import \{ buildFcmMessage \} from "\.\.\/_shared\/pushMessage\.ts"/);
     expect(src).toMatch(/buildFcmMessage\(\{/);
     expect(src).not.toMatch(/notification:\s*\{\s*title/);
