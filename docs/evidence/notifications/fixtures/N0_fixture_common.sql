@@ -37,7 +37,7 @@ CREATE PROCEDURE public.notify_proc_admin() LANGUAGE plpgsql AS $$ BEGIN INSERT 
 INSERT INTO public.user_notifications(user_id, actor_id, type, title, message, reference_id, created_at)
 SELECT '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'dup_type', 't', 'm', NULL, now() - (g * interval '10 seconds') FROM generate_series(1,5) g;
 -- review round 2 bypass cases (no body text may ever be printed)
-CREATE FUNCTION public.notify_r2_json() RETURNS void LANGUAGE plpgsql AS $$ BEGIN PERFORM '{"Content-Type":"application/json","x-api-key":"R2jsonKEY4aB2"}'::jsonb; END $$;
+CREATE FUNCTION public.notify_r2_json() RETURNS void LANGUAGE plpgsql AS $$ BEGIN PERFORM '{"Content-Type":"application/json","x-api-key":"PLANTED_EEEE"}'::jsonb; END $$;
 CREATE FUNCTION public.notify_r2_const() RETURNS void LANGUAGE plpgsql AS $$ DECLARE c_secret CONSTANT text := 'PLANTED_FFFF'; _key text DEFAULT 'PLANTED_GGGG'; BEGIN NULL; END $$;
 CREATE FUNCTION public.notify_r2_estr() RETURNS void LANGUAGE plpgsql AS $$ DECLARE v_secret text := E'PLANTED_HHHH'; BEGIN NULL; END $$;
 CREATE FUNCTION public.notify_r2_hdr() RETURNS void LANGUAGE plpgsql AS $$ BEGIN PERFORM jsonb_build_object('x-hook-signature', 'PLANTED_IIII'); END $$;

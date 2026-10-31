@@ -7,6 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useNotificationPreferences, type NotificationPreferences } from "@/hooks/notifications/useNotificationPreferences";
 import { useNotificationSound } from "@/hooks/core/useNotificationSound";
 import PageSEO from "@/components/PageSEO";
+import NotificationSettingsTable from "@/components/notifications/NotificationSettingsTable";
+import { useCentreUi } from "@/lib/notifications/centreUi";
 import { useT } from "@/i18n/I18nContext";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 
@@ -107,6 +109,8 @@ const NotificationSettings = () => {
   const navigate = useNavigate();
   const { preferences, isLoading, updatePreference } = useNotificationPreferences();
   const { soundEnabled, setSoundEnabled } = useNotificationSound();
+  // N7 · one settings table, behind site_settings notif_centre_ui (OFF on live).
+  const centreRows = useCentreUi(user?.id);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/login", { replace: true });
@@ -140,6 +144,8 @@ const NotificationSettings = () => {
                 <Skeleton key={i} className="h-14 w-full rounded-lg" />
               ))}
             </div>
+          ) : centreRows ? (
+            <NotificationSettingsTable preferences={preferences} onChange={(f, v) => updatePreference(f, v)} />
           ) : (
             <div className="space-y-0 divide-y divide-border/50">
 
