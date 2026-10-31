@@ -354,7 +354,6 @@ Deno.serve(async (req) => {
         "judge_decisions",
         "admin_vote_adjustments",
         "raw_commitments",
-        "v3_mirror_log",
         "_v3_quarantine_decisions",
         "_v3_quarantine_tag_assignments",
         "_v3_preflight_snapshot_judge_decisions",
