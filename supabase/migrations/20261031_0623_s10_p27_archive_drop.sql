@@ -94,6 +94,28 @@ BEGIN
       RAISE EXCEPTION 'APPLY REFUSED 0623 — % (body md5 %) names a P27 table and is not one this file was written against', r.sig, r.m;
     END IF;
   END LOOP;
+  -- and the other way round: every function this file replaces or drops must
+  -- still be there with exactly the body it was written against. A newer body
+  -- that no longer names the tables would otherwise be overwritten silently.
+  FOR i IN 1 .. array_length(expected, 1) LOOP
+    SELECT md5(p.prosrc) INTO bad
+      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname || '.' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' = expected[i][1];
+    IF bad IS DISTINCT FROM expected[i][2] THEN
+      RAISE EXCEPTION 'APPLY REFUSED 0623 — % has body md5 %; this file was written against %', expected[i][1], coalesce(bad, '(missing)'), expected[i][2];
+    END IF;
+  END LOOP;
+  bad := NULL;
+
+  -- no cron job other than the one this file unschedules names the tables or the dropped functions
+  IF to_regclass('cron.job') IS NOT NULL THEN
+    EXECUTE $q$SELECT string_agg(jobname, ', ') FROM cron.job
+                WHERE command ~ '(wallet_ledger_v2_diff_log|v3_mirror_log|wallet_ledger_v2_rows|wallet_ledger_v2_diff_snapshot|wallet_ledger_v2_diff_report)'
+                  AND jobname IS DISTINCT FROM 'wallet_ledger_v2_diff_hourly'$q$ INTO bad;
+    IF bad IS NOT NULL THEN
+      RAISE EXCEPTION 'APPLY REFUSED 0623 — cron job(s) name a P27 table or a dropped function: %', bad;
+    END IF;
+  END IF;
 
   SELECT string_agg(v.oid::regclass::text || ' md5=' || md5(pg_get_viewdef(v.oid)), ', ') INTO bad
     FROM pg_class v
@@ -587,11 +609,6 @@ BEGIN
 END;
 $function$;
 
--- ---------------------------------------------------------------------
--- PATCH 2 / 3 — wallet_ledger_v2_diff_report  (R2 balance_after parity)
--- Additive: new lateral join + 2 projection cols + 1 counter +
--- safe_for_shadow_wiring AND-includes balance_after_mismatch = 0.
--- ---------------------------------------------------------------------
 -- Who may execute it is unchanged (20260910_0032): not PUBLIC, not anon. A no-op here (checked in G and P).
 REVOKE EXECUTE ON FUNCTION public.wallet_ledger_apply_v2(text, uuid, numeric, text, text, text, text, boolean) FROM PUBLIC, anon;
 

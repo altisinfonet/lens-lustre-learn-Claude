@@ -56,10 +56,14 @@ BEGIN
       RAISE EXCEPTION 'ROLLBACK FAILED 0623 — restored % does not match the manifest (rows % vs %, md5 % vs %)',
         m.table_name, n, m.row_count, md, m.rows_md5;
     END IF;
-    FOR d IN SELECT stmt FROM p27_archive.ddl WHERE phase = 2 AND obj = m.table_name ORDER BY seq LOOP
+    -- foreign keys wait until all three tables are back (one may point at another)
+    FOR d IN SELECT stmt FROM p27_archive.ddl WHERE phase = 2 AND obj = m.table_name AND stmt !~* 'FOREIGN KEY' ORDER BY seq LOOP
       EXECUTE d.stmt;
     END LOOP;
     RAISE NOTICE 'ROLLBACK 0623|public.% restored|rows=%|md5 matches manifest', m.table_name, n;
+  END LOOP;
+  FOR d IN SELECT stmt FROM p27_archive.ddl WHERE phase = 2 AND stmt ~* 'FOREIGN KEY' ORDER BY seq LOOP
+    EXECUTE d.stmt;
   END LOOP;
 
   FOR d IN SELECT obj, stmt FROM p27_archive.ddl WHERE phase = 3 ORDER BY seq LOOP
