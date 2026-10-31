@@ -2,7 +2,7 @@ N0 COMPLETE
 
 # Notification centre runner — status
 
-Heartbeat: 2026-10-31 18:10 UTC (measured) — N4 0160 STAGING VERIFIED (FAIL 41220309779 → apply 41221982432 → PASS 41224537603, 18:06). Carry #793 MERGED to main c4d95f5 (tabs, receipts, nightly check, push follows centre, new-posts switch, quiet hours, admin label). MERGED to staging: #792 announcements (27b2a83), #786 mutual follows (043162b). Queued: staging 0130 PROBE 41227868353; production N6 0120 apply 41225000305. #787 rebuilt on staging after #786 (same reviewed content; verification running). CI: #787, #795, #796. Branch for status only; never merged.
+Heartbeat: 2026-10-31 18:42 UTC (measured) — Production N6: FAIL 41223352518 → apply 0120 OK 41225000305 (18:16) → PASS probe dispatched. Staging N5 0130: PROBE FAIL 41227868353 (18:28, expected) → apply waits for the staging lane (another runner busy). Live build c4d95f5 (includes carry #793): home/feed/notifications 200, console 4/2/2 = baseline, both loads same (Chromium); three-engine workflow dispatched. MERGED to staging: #796 announcement headline (80db2c1). #795 fixed after CI caught missing explicit grants (S11 M2) — re-running. CI: #787, #795. Branch for status only; never merged.
 
 | Step | What | PR | Merged sha (staging / main) | SQL runs (lane · run id · result · UTC) | Live check | % |
 |---|---|---|---|---|---|---|
