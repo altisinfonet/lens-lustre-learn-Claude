@@ -29,9 +29,12 @@
 -- n = 999,951 … 1,000,000 (the census and teardown cover them; nothing
 -- survives the ROLLBACK anyway).
 -- ═══════════════════════════════════════════════════════════════════════════
-BEGIN;
+-- REPEATABLE READ: every count sees one snapshot plus this transaction's own rows,
+-- so queue workers deleting or adding rows meanwhile cannot hide or fake a delta.
+BEGIN ISOLATION LEVEL REPEATABLE READ;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '120s';
+SET CONSTRAINTS ALL IMMEDIATE;  -- deferred triggers fire now, inside the measured window
 
 DO $guard$
 BEGIN
@@ -52,6 +55,17 @@ BEGIN
   SELECT f.following_id, count(*) INTO author, followers FROM public.follows f
    GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT 1;
   IF author IS NULL THEN RAISE EXCEPTION 'PROBE FAIL 0802: no follows on staging — the control cannot show a fan-out'; END IF;
+  -- the control runs real triggers: refuse if anything could act OUTSIDE this
+  -- transaction before the rollback (synchronous HTTP, own connections)
+  SELECT string_agg(extname, ', ') INTO p FROM pg_extension WHERE extname IN ('http', 'dblink', 'pg_background');
+  IF p IS NOT NULL THEN
+    RAISE EXCEPTION 'PROBE REFUSED 0802 — extension(s) % can act outside the transaction; the control batch is not safe to run', p;
+  END IF;
+  -- a trigger on posts that would still fire in replica mode makes muting impossible
+  SELECT string_agg(t.tgname, ', ') INTO p FROM pg_trigger t
+   WHERE t.tgrelid = 'public.posts'::regclass AND NOT t.tgisinternal AND t.tgenabled IN ('A', 'R');
+  IF p IS NOT NULL THEN RAISE EXCEPTION 'PROBE FAIL 0802: trigger(s) on posts fire even in replica mode: %', p; END IF;
+  p := NULL;
   RAISE NOTICE 'S9M|author followers=%', followers;
 
   FOREACH p IN ARRAY ARRAY['public.user_notifications', 'public.admin_notifications', 'public.notification_emit_log',
@@ -113,8 +127,15 @@ BEGIN
     RAISE NOTICE 'S9M|T|fires in replica mode|%|%|%', r.tbl, r.tgname, r.tgenabled;
   END LOOP;
 
-  IF ctl_total = 0 THEN RAISE EXCEPTION 'PROBE FAIL 0802: the control batch produced nothing — the counts cannot show a fan-out'; END IF;
-  IF mut_total <> 0 THEN RAISE EXCEPTION 'PROBE FAIL 0802: the muted batch still produced % row(s) (lines S9M| above)', mut_total; END IF;
+  -- the control must show the notification path AND an outbound path
+  IF coalesce((SELECT ctl FROM s9m_watch WHERE place = 'public.user_notifications'), 0) <= 0 THEN
+    RAISE EXCEPTION 'PROBE FAIL 0802: the control batch made no notification — the counts cannot show a fan-out';
+  END IF;
+  IF coalesce((SELECT sum(ctl) FROM s9m_watch WHERE place = 'net.http_request_queue' OR place LIKE 'pgmq.q\_%'), 0) <= 0 THEN
+    RAISE EXCEPTION 'PROBE FAIL 0802: the control batch made no queue or HTTP row — the outbound path is not shown';
+  END IF;
+  SELECT string_agg(place || ' +' || muted, ', ') INTO p FROM s9m_watch WHERE muted IS DISTINCT FROM 0;
+  IF p IS NOT NULL THEN RAISE EXCEPTION 'PROBE FAIL 0802: the muted batch still changed: %', p; END IF;
   RAISE NOTICE 'PROBE PASS 0802 — control +% rows; muted 50 posts +0 rows in % watched places (all rolled back)', ctl_total, cardinality(places);
 END
 $probe$;
