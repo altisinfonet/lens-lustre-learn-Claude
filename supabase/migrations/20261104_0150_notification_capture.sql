@@ -764,7 +764,7 @@ BEGIN
                      coalesce(array_to_string(p.protrftypes, ','), '')))
       INTO now_attrs FROM pg_proc p WHERE p.oid = r.oid;
     IF now_attrs <> r.attrs THEN
-      RAISE EXCEPTION 'NC-0150-POST-003: an attribute of % changed (definer / search_path / volatility / grants / defaults …) — rolled back', r.sig;
+      RAISE EXCEPTION 'NC-0150-POST-003: an attribute of % changed (definer / search_path / volatility / grants / defaults / cost / rows …) — rolled back', r.sig;
     END IF;
     -- keep any existing comment; append the capture tag
     EXECUTE format('COMMENT ON FUNCTION %s IS %L', r.oid::regprocedure,
