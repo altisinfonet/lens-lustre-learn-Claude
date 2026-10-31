@@ -8,7 +8,7 @@
  * mistake here would show Follow back for someone the user already follows.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { NotificationGroup } from "@/lib/notificationText";
@@ -154,7 +154,13 @@ describe("/notifications", () => {
     expect(open?.getAttribute("aria-label")).toMatch(/^A member /);
   });
 
-  it("opens the notification when its TEXT is clicked, and a name link is not hijacked (nav-harness journey)", () => {
+  it("opens the notification when its TEXT is clicked, and a name link is not hijacked (nav-harness journey)", async () => {
+    // nav-harness.mjs:746 taps the row's text. Clicking the text must run the
+    // open path (markGroupRead for an unread row); clicking a name LINK must not.
+    const { markGroupRead } = await import("@/hooks/notifications/useNotificationHistory");
+    const mark = vi.mocked(markGroupRead);
+    mark.mockClear();
+    mark.mockResolvedValue(undefined as never);
     withGroups([
       group({
         type: "new_post_from_following",
@@ -163,13 +169,16 @@ describe("/notifications", () => {
         actor_usernames: ["aninditahidayat"],
         actor_count: 1,
         event_count: 3,
+        unread_count: 1,
+        notification_ids: ["n1"],
       }),
     ]);
     renderPage();
-    const text = screen.getByText(/shared 3 photos/);
-    expect(getComputedStyle(text).pointerEvents).not.toBe("none");
-    let el: HTMLElement | null = text;
-    while (el) { expect(el.className || "").not.toMatch(/pointer-events-none/); el = el.parentElement; }
+    fireEvent.click(screen.getByRole("link", { name: "Anindita Hidayat" }));
+    expect(mark).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText(/shared 3 photos/));
+    expect(mark).toHaveBeenCalledTimes(1);
+    expect(mark).toHaveBeenCalledWith(["n1"]);
   });
 
   it("links every named actor to their handle and never to their id", () => {
