@@ -1,0 +1,38 @@
+=== staging
+PROBE before:
+psql:supabase/migrations/PROBE_20261030_0702_s7_vid6_video_alarms.sql:67: ERROR:  PROBE FAIL G1 (20261030_0702):
+  exit 3
+apply:
+  exit 0
+PROBE after:
+psql:supabase/migrations/PROBE_20261030_0702_s7_vid6_video_alarms.sql:156: NOTICE:  PROBE PASS 20261030_0702 (lane staging): functions closed to every API role; cron every 15 min; line 8e9 bytes; storage measured 0 bytes (= versions + sourc
+  exit 0
+rollback:
+  exit 0
+PROBE after rollback:
+psql:supabase/migrations/PROBE_20261030_0702_s7_vid6_video_alarms.sql:67: ERROR:  PROBE FAIL G1 (20261030_0702):
+  exit 3
+re-apply:
+  exit 0
+PROBE:
+psql:supabase/migrations/PROBE_20261030_0702_s7_vid6_video_alarms.sql:156: NOTICE:  PROBE PASS 20261030_0702 (lane staging): functions closed to every API role; cron every 15 min; line 8e9 bytes; storage measured 0 bytes (= versions + sourc
+  exit 0
+=== production
+PROBE before:
+psql:supabase/migrations/PROBE_20261030_0702_s7_vid6_video_alarms.sql:67: ERROR:  PROBE FAIL G1 (20261030_0702):
+  exit 3
+apply:
+  exit 0
+PROBE after:
+psql:supabase/migrations/PROBE_20261030_0702_s7_vid6_video_alarms.sql:156: NOTICE:  PROBE PASS 20261030_0702 (lane production): functions closed to every API role; cron every 15 min; line 8e9 bytes; storage measured 700005000 bytes (= versi
+  exit 0
+rollback:
+  exit 0
+PROBE after rollback:
+psql:supabase/migrations/PROBE_20261030_0702_s7_vid6_video_alarms.sql:67: ERROR:  PROBE FAIL G1 (20261030_0702):
+  exit 3
+re-apply:
+  exit 0
+PROBE:
+psql:supabase/migrations/PROBE_20261030_0702_s7_vid6_video_alarms.sql:156: NOTICE:  PROBE PASS 20261030_0702 (lane production): functions closed to every API role; cron every 15 min; line 8e9 bytes; storage measured 700005000 bytes (= versi
+  exit 0
