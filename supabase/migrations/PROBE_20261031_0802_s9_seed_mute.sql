@@ -25,6 +25,12 @@
 --      public.feed_events, public.activity_logs (if present).
 --   T  any trigger on posts / user_notifications that fires in replica mode
 --      (tgenabled A or R) is listed.
+--   P  public.posts must be in no publication (replica mode does not stop
+--      logical decoding, so a published table would still stream every
+--      committed seed row to Realtime subscribers); no extension that can act
+--      outside the transaction (http, dblink, pg_background, wrappers,
+--      untrusted languages) may be installed; no rule on posts fires in
+--      replica mode.
 -- Prints names and counts only. Seed ids: md5('50mm-seed-v1:post:' || n),
 -- n = 999,951 … 1,000,000 (the census and teardown cover them; nothing
 -- survives the ROLLBACK anyway).
@@ -57,7 +63,7 @@ BEGIN
   IF author IS NULL THEN RAISE EXCEPTION 'PROBE FAIL 0802: no follows on staging — the control cannot show a fan-out'; END IF;
   -- the control runs real triggers: refuse if anything could act OUTSIDE this
   -- transaction before the rollback (synchronous HTTP, own connections)
-  SELECT string_agg(extname, ', ') INTO p FROM pg_extension WHERE extname IN ('http', 'dblink', 'pg_background');
+  SELECT string_agg(extname, ', ') INTO p FROM pg_extension WHERE extname IN ('http', 'dblink', 'pg_background', 'wrappers', 'plpython3u', 'plperlu', 'plv8');
   IF p IS NOT NULL THEN
     RAISE EXCEPTION 'PROBE REFUSED 0802 — extension(s) % can act outside the transaction; the control batch is not safe to run', p;
   END IF;
@@ -65,6 +71,17 @@ BEGIN
   SELECT string_agg(t.tgname, ', ') INTO p FROM pg_trigger t
    WHERE t.tgrelid = 'public.posts'::regclass AND NOT t.tgisinternal AND t.tgenabled IN ('A', 'R');
   IF p IS NOT NULL THEN RAISE EXCEPTION 'PROBE FAIL 0802: trigger(s) on posts fire even in replica mode: %', p; END IF;
+  SELECT string_agg(rw.rulename, ', ') INTO p FROM pg_rewrite rw
+   WHERE rw.ev_class = 'public.posts'::regclass AND rw.rulename <> '_RETURN' AND rw.ev_enabled IN ('A', 'R');
+  IF p IS NOT NULL THEN RAISE EXCEPTION 'PROBE FAIL 0802: rule(s) on posts fire even in replica mode: %', p; END IF;
+  -- replica mode stops triggers and rules, NOT logical decoding: a published
+  -- posts table would still send every committed seed row to Realtime clients
+  SELECT string_agg(DISTINCT pub, ', ') INTO p FROM (
+    SELECT pubname AS pub FROM pg_publication WHERE puballtables
+    UNION SELECT pubname FROM pg_publication_tables WHERE schemaname = 'public' AND tablename = 'posts') x;
+  IF p IS NOT NULL THEN
+    RAISE EXCEPTION 'PROBE FAIL 0802: public.posts is in publication(s) % — committed seed rows would reach Realtime subscribers', p;
+  END IF;
   p := NULL;
   RAISE NOTICE 'S9M|author followers=%', followers;
 
