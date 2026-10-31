@@ -99,6 +99,11 @@ export default function AdminNotificationCentre() {
         )}
       </section>
 
+      <section aria-labelledby="nc-announce">
+        <h3 id="nc-announce" className="text-sm font-semibold mb-2">Send an announcement</h3>
+        <AnnounceBox />
+      </section>
+
       <section aria-labelledby="nc-lookup">
         <h3 id="nc-lookup" className="text-sm font-semibold mb-2">Look up a member's notification settings</h3>
         <MemberLookup />
@@ -327,6 +332,103 @@ function MemberLookup() {
       </div>
       {err && <p role="alert" className="text-xs text-destructive">{err}</p>}
       {result && <pre className="text-xs whitespace-pre-wrap rounded-md border border-border p-2">{JSON.stringify(result, null, 2)}</pre>}
+    </div>
+  );
+}
+
+/**
+ * N6 · push an announcement to a chosen group (SQL 0220). It goes through the
+ * centre, so members whose Announcements row is Off get nothing — the box says
+ * so. Everyone needs a second, explicit confirmation. One every 10 minutes.
+ */
+function AnnounceBox() {
+  type Who = "me" | "members" | "everyone";
+  const [title, setTitle] = useState("");
+  const [message, setMessage] = useState("");
+  const [who, setWho] = useState<Who>("me");
+  const [ids, setIds] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  const members = ids.split(/[\s,]+/).map((x) => x.trim()).filter((x) => UUID_RE.test(x));
+  const ready = title.trim().length > 0 && title.trim().length <= 80 && message.trim().length > 0
+    && message.trim().length <= 300 && (who !== "members" || members.length > 0);
+
+  const send = async () => {
+    setSending(true); setResult(null); setFailure(null); setConfirming(false);
+    const { data, error } = await rpc<{ sent: number; asked: number }>("admin_notif_announce", {
+      _title: title.trim(), _message: message.trim(), _who: who, _members: who === "members" ? members : null,
+    });
+    setSending(false);
+    if (error) { setFailure(error.message); return; }
+    setResult(`Sent to ${data?.sent ?? 0} of ${data?.asked ?? 0}.`);
+  };
+
+  return (
+    <div className="space-y-3 rounded-md border border-border p-3 text-sm">
+      <p className="text-xs text-muted-foreground">
+        A bell notification and a phone push, sent through the notification centre. Members whose
+        Announcements row is Off get nothing. One announcement every 10 minutes.
+      </p>
+      <label className="block">
+        <span className="text-xs font-medium">Title</span>
+        <input value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)}
+          className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-base" />
+      </label>
+      <label className="block">
+        <span className="text-xs font-medium">Message</span>
+        <textarea value={message} maxLength={300} rows={3} onChange={(e) => setMessage(e.target.value)}
+          className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-base" />
+      </label>
+      <fieldset>
+        <legend className="text-xs font-medium">Who gets it</legend>
+        <div className="mt-1 flex flex-wrap gap-4">
+          {([["me", "Only me"], ["members", "Chosen members"], ["everyone", "Everyone"]] as const).map(([v, label]) => (
+            <label key={v} className="inline-flex items-center gap-1.5">
+              <input type="radio" name="announce-who" value={v} checked={who === v}
+                onChange={() => { setWho(v); setConfirming(false); }} />
+              {label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      {who === "members" && (
+        <label className="block">
+          <span className="text-xs font-medium">Member ids (one per line)</span>
+          <textarea value={ids} rows={3} onChange={(e) => setIds(e.target.value)}
+            className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 font-mono text-xs" />
+          <span className="text-xs text-muted-foreground">{members.length} valid id(s)</span>
+        </label>
+      )}
+      {(title || message) && (
+        <div className="rounded-md bg-muted/40 p-2" aria-label="Preview">
+          <p className="font-semibold">{title || "…"}</p>
+          <p className="text-muted-foreground">{message || "…"}</p>
+        </div>
+      )}
+      <div className="flex items-center gap-2">
+        <button type="button" disabled={!ready || sending}
+          onClick={() => (who === "everyone" ? setConfirming(true) : void send())}
+          className="rounded-md bg-primary px-3 py-1.5 text-primary-foreground disabled:opacity-50">
+          Send
+        </button>
+        {confirming && (
+          <>
+            <button type="button" onClick={() => void send()}
+              className="rounded-md border border-destructive px-3 py-1.5 text-destructive">
+              Yes, send to everyone
+            </button>
+            <button type="button" onClick={() => setConfirming(false)} className="rounded-md border border-border px-3 py-1.5">
+              Cancel
+            </button>
+          </>
+        )}
+        {sending && <Loader2 className="h-4 w-4 animate-spin" aria-label="Sending" />}
+      </div>
+      {result && <p role="status">{result}</p>}
+      {failure && <p role="alert" className="text-destructive">{failure}</p>}
     </div>
   );
 }
