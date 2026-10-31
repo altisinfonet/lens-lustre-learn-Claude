@@ -1,7 +1,7 @@
 # Video + accessibility runner — status
 
 Started 2026-10-30 01:47 UTC. Replaces the earlier supervisor session (no GitHub trace after 2026-10-29 14:19 UTC).
-Last update: 2026-10-31 05:43 UTC.
+Last update: 2026-10-31 06:05 UTC.
 
 THIRD RESTART 2026-10-31 ~03:55 UTC: previous run stopped silently after its 18:23 UTC heartbeat (S10a-4 never pushed; will be rebuilt fresh later). PAUSE cancelled by Owner RESUME. Order now, one PR at a time: 1 VID-6 cost alerts → 2 privacy text → 3 S7 gate table → 4 Android 1.2.33 → 5 S10a-3, S10a-4.
 
@@ -10,7 +10,7 @@ SECOND RESTART 2026-10-30 ~07:15 UTC: the run stopped silently again at ~05:15 U
 RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. A new run took over at 05:05 UTC. Checked GitHub: nobody else pushed to or merged #538-#542 or #619 since 02:00 UTC.
 
 ## Now
-05:43 UTC — Item 3: re-ran all 15 video PROBEs on staging AND production (05:26–05:42 UTC): 30/30 PASS. Found: on LIVE, 'Video posts' is already 'Selected members' (6 accounts) and 'Video ads' 'Selected' (1); upload-signing key IS configured on production (A1.5 met). Writing the S7 gate table next.
+06:05 UTC — Item 3: S7 gate table PR #732 (docs only; 30/30 video PROBEs PASS both lanes; review nothing blocking, all 44 run IDs verified). Waiting for its last CI check, then merge + carry. Next: item 4 Android 1.2.33 (1.2.32 spent in run 135; nobody else bumping).
 
 ## Units
 | Unit | PR | State | Merged sha (staging / main) | SQL runs | Live check |
@@ -22,6 +22,7 @@ RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. 
 | S7-f converter runs the purge hourly (own refreshing sign-in) | #695 | MERGED 14:37 UTC (24/24 green incl. converter aarch64 + x86_64; review nothing blocking) | staging 3919424b / main b6437294 (carry #697, 14:37 UTC, 24/24 green after re-running the flaky ads job; review nothing blocking) | none | — |
 | S7 VID-6 video alarms (8 GB storage, 6-h music wait) | #724 | MERGED 04:19 UTC (31/31 green; review nothing blocking) | staging 4baaad6c / main 3847d8e4 (carry #726, 04:37 UTC, 31/31 green, review nothing blocking) | 0702 STAGING: PROBE-before 41168073468 FAIL G1 (expected) · apply 41168141107 COMMIT 04:20 · PROBE-after 41168213981 **PASS** 04:22 UTC. PRODUCTION: PROBE-before 41169320539 FAIL G1 (expected) · apply 41169419504 COMMIT 04:39 (78 MB stored, no alarm) · PROBE-after 41169465209 **PASS** 04:39 UTC | live run 41169503323 (main 3847d8e4): 6/6 pages 200, same text, no new console errors |
 | S7 privacy policy + Play/Apple text | #727 | MERGED 05:02 UTC (31/31 green; review BLOCKING → fail-first PROBE check → fix af75e5da → re-review nothing blocking) | staging e30488c9 / main 2df93201 (carry #730, 05:19 UTC, 31/31 green, review nothing blocking) | 0703 STAGING: PROBE-before 41170946339 FAIL G1 (expected) · apply 41171040971 COMMIT 05:03 · PROBE-after 41171073798 **PASS** 05:05. PRODUCTION: PROBE-before 41172170215 FAIL (expected; no block, md5 9e2488be) · apply 41172262187 COMMIT 05:21 (md5 51a87720) · PROBE-after 41172309529 **PASS** 05:22 UTC | live run 41172366566: 6/6 pages 200, same text, no new console errors; /page/privacy-policy in Chromium shows the new paragraphs |
+| S7 gate table + rollout steps (docs) | #732 | OPEN — review nothing blocking; CI finishing | — | 30/30 video PROBEs PASS (staging + production, 05:26–05:42 UTC) — table in docs/evidence/d2/S7/S7-GATE.md | — |
 | S7-a PROBE fix: admin read lane-proof | #673 | MERGED 11:08 UTC (33/33 green; review nothing blocking ×2) | staging 9b4e0201 / main 50a1ff9f (in #681) | — | — |
 | S7-a purge-queue deleter | #539 | MERGED 09:10 UTC (36/36 checks green; re-review nothing blocking) | staging 75f78f67 / main 50a1ff9f (carry #681 with #673, 12:07 UTC, 35/35 green, review nothing blocking) | 0700 STAGING: PROBE-before 41040556611 FAIL G1 (expected) · apply 41040769034 SUCCESS 10:27 · PROBE-after 41042014241 ERROR (PROBE bug → #673) · PROBE-after 41045879133 **PASS** 11:10 UTC. Production: PROBE-before 41053131761 FAIL G1 (expected, 12:25) · apply 41055299050 COMMIT 12:31 · PROBE-after 41056104158 **PASS** 12:33 UTC | live run 41053135653 (main 50a1ff9f): 6/6 pages 200, same text, no new console errors | — |
 | S7-e encoder harness fixtures | #540 | MERGED 09:45 UTC (25/25 checks green incl. encoder harness; review BLOCKING ×3 → fixed with fail-first test f6723b2b → re-review nothing blocking) | staging 9e943369 / main 628ddea9 (carry #685, 12:50 UTC, 24/24 green, review nothing blocking) | none | live run 41058422608: 6/6 pages 200, same text, no new console errors |
