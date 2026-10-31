@@ -29,7 +29,8 @@
 //     the live catalogue for that.
 //
 //   · Functions in any schema are read; a public one is keyed "sql:<name>",
-//     any other "sql:<schema>.<name>". Overloads share one key (by name).
+//     any other "sql:<schema>.<name>". Each overload is tracked by its argument
+//     types; a name is a writer while ANY live overload writes.
 //   · supabase-js shapes seen: .from("t"), .from("t" as any), .from(CONST) where
 //     CONST = "t" in the same file, and const q = x.from("t"); q.insert(...).
 //
@@ -42,7 +43,7 @@
 // Exit:   0 = every writer allowed; 1 = a stray writer or a stale entry; 2 = error.
 // Self-test: scripts/notif-guard-check.test.mjs plants strays and must see red.
 // ═══════════════════════════════════════════════════════════════════════════
-import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, existsSync, statSync, realpathSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -65,8 +66,13 @@ export function stripSqlComments(s) {
   for (let i = 0; i < s.length; ) {
     const c = s[i];
     if (c === "'") {
+      const eString = /[eE]/.test(s[i - 1] || "") && !/[A-Za-z0-9_]/.test(s[i - 2] || "");
       let j = i + 1;
-      while (j < s.length) { if (s[j] === "'") { if (s[j + 1] === "'") { j += 2; continue; } break; } j++; }
+      while (j < s.length) {
+        if (eString && s[j] === "\\") { j += 2; continue; }
+        if (s[j] === "'") { if (s[j + 1] === "'") { j += 2; continue; } break; }
+        j++;
+      }
       out += s.slice(i, j + 1); i = j + 1;
     } else if (c === "-" && s[i + 1] === "-") {
       const j = s.indexOf("\n", i); out += " "; i = j < 0 ? s.length : j;
@@ -75,6 +81,44 @@ export function stripSqlComments(s) {
     } else { out += c; i++; }
   }
   return out;
+}
+
+const TYPE_ALIAS = { int: "integer", int4: "integer", int8: "bigint", int2: "smallint", bool: "boolean",
+  varchar: "character varying", timestamptz: "timestamp with time zone", float8: "double precision" };
+const MULTIWORD_TYPE_START = /^(double|character|timestamp|time|bit|interval)\b/;
+
+/** "(a integer DEFAULT 1, OUT b text, VARIADIC xs int[])" → "integer,integer[]" (identity types only). */
+export function normaliseArgs(list) {
+  const parts = [];
+  let depth = 0, cur = "";
+  for (const ch of list) {
+    if (ch === "(" || ch === "[") depth++;
+    if (ch === ")" || ch === "]") depth--;
+    if (ch === "," && depth === 0) { parts.push(cur); cur = ""; } else cur += ch;
+  }
+  if (cur.trim()) parts.push(cur);
+  const out = [];
+  for (let p of parts) {
+    p = p.replace(/\s+(default\b|=).*$/is, "").trim().toLowerCase().replace(/"/g, "");
+    let words = p.split(/\s+/);
+    if (words[0] === "out") continue;                          // OUT params are not part of the identity
+    if (["in", "inout", "variadic"].includes(words[0])) words = words.slice(1);
+    if (words.length > 1 && !MULTIWORD_TYPE_START.test(words.join(" "))) words = words.slice(1);  // drop the name
+    let t = words.join(" ").replace(/^public\./, "");
+    t = t.replace(/^([a-z0-9_]+)/, (m) => TYPE_ALIAS[m] || m);
+    out.push(t);
+  }
+  return out.join(",");
+}
+
+/** The parenthesised list starting at text[i] === "(" → [inner, endIndex]. */
+function readParens(text, i) {
+  let depth = 0;
+  for (let j = i; j < text.length; j++) {
+    if (text[j] === "(") depth++;
+    else if (text[j] === ")" && --depth === 0) return [text.slice(i + 1, j), j + 1];
+  }
+  return [text.slice(i + 1), text.length];
 }
 
 /** Read a single-quoted SQL string starting at s[i] === "'"; returns [content, endIndex]. */
@@ -88,7 +132,10 @@ function readQuoted(s, i) {
 }
 
 /** Every function/procedure body in one SQL text, in order: creates {name, body, at} and drops {name, at}. */
-export function sqlEvents(text) {
+export function sqlEvents(raw) {
+  // Comments are removed from the whole file first, so a CREATE or DROP inside
+  // a /* */ block (e.g. a rollback note) is not an event.
+  const text = stripSqlComments(raw);
   const events = [];
   let m;
   CREATE_FN.lastIndex = 0;
@@ -112,33 +159,48 @@ export function sqlEvents(text) {
       const end = text.slice(start).search(/\bEND\s*;/i);
       body = end > 0 ? text.slice(start, start + end) : text.slice(start);
     }
-    if (body !== null) events.push({ kind: "create", name: fnKey(m[2], m[3]), body, at: m.index });
+    const args = normaliseArgs(readParens(text, from - 1)[0]);
+    if (body !== null) events.push({ kind: "create", name: fnKey(m[2], m[3]), args, body, at: m.index });
   }
   DROP_FN.lastIndex = 0;
   while ((m = DROP_FN.exec(text))) {
     const lineStart = text.lastIndexOf("\n", m.index) + 1;
     if (text.slice(lineStart, m.index).trim().startsWith("--")) continue;
-    events.push({ kind: "drop", name: fnKey(m[1], m[2]), at: m.index });
+    const after = text.slice(m.index + m[0].length);
+    const paren = /^\s*\(/.exec(after);
+    const args = paren ? normaliseArgs(readParens(text, m.index + m[0].length + paren[0].length - 1)[0]) : null;
+    events.push({ kind: "drop", name: fnKey(m[1], m[2]), args, at: m.index });   // args null = every overload
   }
   return events.sort((a, b) => a.at - b.at);
 }
 
 /** files: [{name, text}] in apply order → Map(functionName → {file}) of writers (last definition wins). */
 export function sqlWriters(files) {
-  const last = new Map();
+  // name → Map(args → {file, writes}); a name is a writer if ANY live overload writes.
+  const live = new Map();
   for (const f of files) {
     for (const e of sqlEvents(f.text)) {
-      if (e.kind === "drop") last.delete(e.name);
-      else last.set(e.name, { file: f.name, writes: SQL_INSERT.test(stripSqlComments(e.body)) });
+      if (e.kind === "drop") {
+        if (e.args === null) live.delete(e.name);
+        else live.get(e.name)?.delete(e.args);
+      } else {
+        if (!live.has(e.name)) live.set(e.name, new Map());
+        live.get(e.name).set(e.args, { file: f.name, writes: SQL_INSERT.test(stripSqlComments(e.body)) });
+      }
     }
   }
   const out = new Map();
-  for (const [name, v] of last) if (v.writes) out.set(name, { file: v.file });
+  for (const [name, overloads] of live) {
+    const w = [...overloads.values()].filter((v) => v.writes);
+    if (w.length) out.set(name, { file: w[w.length - 1].file });
+  }
   return out;
 }
 
 /** Remove // and /* *\/ comments that are outside JS string / template literals. */
-export function stripJsComments(s) {
+export function stripJsComments(input) {
+  // a line holding only a // comment disappears entirely (so it cannot end a chain)
+  const s = input.replace(/^[ \t]*\/\/[^\n]*\n/gm, "");
   let out = "";
   for (let i = 0; i < s.length; ) {
     const c = s[i];
@@ -163,7 +225,7 @@ export function tsWrites(text) {
   // identifiers bound to the table name:  const TABLE = "user_notifications"
   const names = [...src.matchAll(new RegExp(String.raw`\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::\s*[\w<>\[\]|" ]+)?=\s*${TABLE_LIT}`, "g"))].map((m) => m[1]);
   const ref = names.length ? `(?:${TABLE_LIT}|${names.map((n) => n.replace(/\$/g, "\\$")).join("|")})` : TABLE_LIT;
-  const fromRe = new RegExp(String.raw`\.from\(\s*${ref}\s*(?:as\s+[\w<>\[\]]+\s*)?\)`, "g");
+  const fromRe = new RegExp(String.raw`\.from\s*(?:<[^<>()]*>)?\(\s*${ref}\s*(?:as\s+[\w<>\[\]]+\s*)?\)`, "g");
   let m;
   while ((m = fromRe.exec(src))) {
     // The chain continues while the next line starts with "." (method chaining);
@@ -174,8 +236,9 @@ export function tsWrites(text) {
     if (/\.\s*(insert|upsert)\s*\(/.test(chain)) return true;
     // query builder held in a variable:  const q = sb.from("t"); … q.insert(
     const before = src.slice(Math.max(0, m.index - 200), m.index);
-    const v = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:await\s+)?[\w$.]*$/.exec(before);
-    if (v && new RegExp(String.raw`\b${v[1].replace(/\$/g, "\\$")}\s*\.\s*(insert|upsert)\s*\(`).test(src.slice(m.index))) return true;
+    const v = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:await\s+)?[\w$.\s]*$/.exec(before);
+    // look for q.insert( only in the next ~2 KB (same function, in practice)
+    if (v && new RegExp(String.raw`\b${v[1].replace(/\$/g, "\\$")}\s*\.\s*(insert|upsert)\s*\(`).test(src.slice(m.index, m.index + 2000))) return true;
   }
   return false;
 }
@@ -246,6 +309,7 @@ function main() {
   console.log("notif-guard: OK — no writer outside the allow-list.");
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+const isMain = (() => { try { return !!process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]); } catch { return false; } })();
+if (isMain) {
   try { main(); } catch (e) { console.error(`notif-guard: error — ${e.stack || e}`); process.exit(2); }
 }

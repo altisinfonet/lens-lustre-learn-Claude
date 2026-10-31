@@ -29,6 +29,11 @@ console.log("SQL — schema and string edge cases");
 ok(w(fn("b7", "BEGIN INSERT INTO public.user_notifications(user_id) VALUES (1); END;"), "DROP FUNCTION private.b7();").includes("b7"), "dropping private.b7 does not forget public.b7");
 ok(w(fn("b8", "BEGIN PERFORM 'a /* b'; INSERT INTO public.user_notifications(user_id) VALUES (1); PERFORM '*/'; END;")).includes("b8"), "comment markers inside SQL strings do not hide an insert");
 
+ok(w(fn("c1", "BEGIN INSERT INTO public.user_notifications(user_id) VALUES (1); END;"), "/* rollback:\nDROP FUNCTION public.c1();\n*/").includes("c1"), "a DROP inside a /* */ comment does not forget the writer");
+ok(w(fn("c2", "BEGIN INSERT INTO public.user_notifications(user_id) VALUES (1); END;"), "DROP FUNCTION public.c2(integer);").includes("c2"), "dropping another overload does not forget a writing overload");
+ok(w(fn("c3", "BEGIN INSERT INTO public.user_notifications(user_id) VALUES (1); END;"), "CREATE FUNCTION public.c3(a integer) RETURNS void LANGUAGE sql AS $$ SELECT 1 $$;").includes("c3"), "adding a non-writing overload keeps the name a writer");
+ok(!w(fn("c4", "BEGIN INSERT INTO public.user_notifications(user_id) VALUES (1); END;"), "DROP FUNCTION public.c4();").includes("c4"), "dropping the writing overload itself forgets it");
+
 console.log("SQL — must NOT be a writer");
 ok(!w(fn("b1", "BEGIN -- INSERT INTO public.user_notifications would be wrong\n RETURN NEW; END;")).includes("b1"), "insert only in a -- comment");
 ok(!w(fn("b2", "BEGIN /* INSERT INTO user_notifications */ RETURN NEW; END;")).includes("b2"), "insert only in a /* */ comment");
@@ -47,7 +52,12 @@ ok(tsWrites(`const TABLE = "admin_notifications";\nawait sb.from(TABLE).insert(r
 ok(tsWrites(`const q = sb.from("user_notifications");\nawait q.insert({ user_id: u });`), "query builder held in a variable");
 ok(tsWrites(`const glob = "src/**";\nawait sb.from("user_notifications").insert({});\nconst end = "*/";`), "comment markers inside strings do not hide an insert");
 
+ok(tsWrites(`await sb\n  .from("user_notifications")\n  // send it\n  .insert(r);`), "a // comment line inside the chain");
+ok(tsWrites(`await sb.from<Row>("user_notifications").insert(r);`), "generic .from<Row>(...)");
+ok(tsWrites(`const q = supabase\n  .from("admin_notifications");\nawait q.insert(r);`), "builder held in a variable across a line break");
+
 console.log("TS — must NOT be a writer");
+ok(!tsWrites(`function a() { const q = sb.from("user_notifications"); return q.select("id"); }\n${"\n".repeat(80)}${"x();\n".repeat(600)}function b() { const q = sb.from("posts"); return q.insert({}); }`), "a same-named builder far away in another function");
 ok(!tsWrites(`const a = await sb.from("user_notifications").select("id")\nconst b = await sb.from("posts").insert({})`), "no-semicolon style: insert on another table on the next line");
 ok(!tsWrites(`await supabase.from("user_notifications").select("id").eq("user_id", u);`), "select");
 ok(!tsWrites(`await supabase.from("user_notifications").delete().in("id", ids);`), "delete");
