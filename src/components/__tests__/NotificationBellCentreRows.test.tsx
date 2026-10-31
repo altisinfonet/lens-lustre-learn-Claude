@@ -92,7 +92,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   groups = [BIG_GROUP, { ...BIG_GROUP, group_key: "read-one", type: "new_follower", unread_count: 0, event_count: 1,
     actor_ids: ["r1"], actor_names: ["Read Person"], actor_usernames: ["readp"], actor_avatars: [""], actor_count: 1,
-    message: "Read Person started following you" }];
+    message: "Read Person started following you" },
+    { ...BIG_GROUP, group_key: "fin", type: "entry_finalist", unread_count: 0, event_count: 1, actor_ids: [], actor_names: [],
+      actor_usernames: [], actor_avatars: [], actor_count: 0, title: "You are a finalist!",
+      message: 'Your entry in "Golden Hour" is a finalist.' }];
   render(
     <MemoryRouter>
       <NotificationBell />
@@ -130,5 +133,18 @@ describe("bell — centre rows (switch on)", () => {
     openBell();
     const dismiss = await screen.findByTitle(/Dismiss all 40/);
     expect(dismiss.closest('[data-notif-row-open="true"]')).toBeNull();
+  });
+
+  it("an impersonal type leads with the app headline and keeps the server detail; a big moment is a card", async () => {
+    openBell();
+    const link = await screen.findByRole("link", { name: /^You're a finalist Your entry in "Golden Hour" is a finalist\./ });
+    expect(link.querySelector("strong")?.textContent).toBe("You're a finalist");
+    expect(link.closest('[data-notif-big="true"]')).not.toBeNull();
+  });
+
+  it("a people type keeps its sentence and is not a card", async () => {
+    openBell();
+    const link = await screen.findByRole("link", { name: /Read Person started following you/ });
+    expect(link.closest('[data-notif-big="true"]')).toBeNull();
   });
 });

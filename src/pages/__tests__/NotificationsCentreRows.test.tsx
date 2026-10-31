@@ -191,3 +191,36 @@ describe("/notifications — tabs (switch on)", () => {
     expect(screen.getByRole("button", { name: "Load older notifications" })).toBeInTheDocument();
   });
 });
+
+describe("/notifications — app headlines (switch on)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFollowingSet.mockReturnValue({ following: new Set<string>(), ready: true });
+  });
+
+  it("an impersonal type leads with the app headline and keeps the server detail", () => {
+    withGroups([group({ type: "entry_shortlisted", actor_ids: [], actor_names: [], actor_usernames: [], actor_avatars: [],
+      actor_count: 0, unread_count: 0, message: 'Your entry in "Golden Hour" has been shortlisted.' })]);
+    renderPage();
+    const btn = screen.getByRole("button", { name: /^Entry shortlisted Your entry in "Golden Hour" has been shortlisted\./ });
+    expect(btn.querySelector("strong")?.textContent).toBe("Entry shortlisted");
+    expect(btn.closest('[data-notif-big="true"]')).toBeNull();
+  });
+
+  it("a big moment is a highlighted card", () => {
+    withGroups([group({ type: "competition_winner", actor_ids: [], actor_names: [], actor_usernames: [], actor_avatars: [],
+      actor_count: 0, message: 'Your entry in "Golden Hour" received: top_100.' })]);
+    const { container } = renderPage();
+    expect(container.querySelector('[data-notif-big="true"]')).not.toBeNull();
+    expect(screen.getByText("Your entry won an award").tagName).toBe("STRONG");
+  });
+
+  it("an unread big-moment card still says Unread and shows the dot", () => {
+    withGroups([group({ type: "entry_finalist", unread_count: 1, actor_ids: [], actor_names: [], actor_usernames: [],
+      actor_avatars: [], actor_count: 0, message: 'Your entry in "Golden Hour" is a finalist.' })]);
+    renderPage();
+    const btn = screen.getByRole("button", { name: /^Unread, You're a finalist Your entry/ });
+    expect(btn.querySelector('[data-notif-unread-dot="true"]')).not.toBeNull();
+    expect(btn.closest('[data-notif-big="true"]')).not.toBeNull();
+  });
+});
