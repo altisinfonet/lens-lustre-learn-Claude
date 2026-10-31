@@ -16,10 +16,10 @@ The migration refuses any other content (an Owner edit since is never overwritte
 ## The text added (three paragraphs) — and the code each sentence rests on
 | Sentence | Checked against |
 |---|---|
-| We store the video, its length, file size and picture size, and a fingerprint (a hash) of its sound | `video_versions` columns `declared_duration_s`, `total_bytes`, `width`, `height`, `audio_sha256` (20261005_0005); DECISION.md A4.4 |
-| Your phone prepares the video before it is uploaded; if you choose server preparation, the original goes to our own conversion server and is deleted within 8 days | device encoder (VID-1); server mode `video_sources` (20261012_0002); bucket lifecycle `upload/source/` 8 days (converter-finished-retention/README.md:47); converter = Oracle Always Free VM (`converter/deploy/README.md:4`) |
+| We store the video, the cover picture you choose, its length, file size and picture size, and a fingerprint (a hash) of its sound | `video_versions` columns `declared_duration_s`, `total_bytes`, `width`, `height`, `audio_sha256` (20261005_0005); DECISION.md A4.4 |
+| Usually your phone or browser prepares the video; when WE switch on server preparation for the site, the original is uploaded to our storage, prepared on our own conversion server, deleted within 8 days | `src/lib/video/conversionMode.ts:4-7` (site-wide `video_conversion`, admin only — never a member's choice); device / browser encoder `webEncoder.ts`; server mode `video_sources` (20261012_0002); bucket lifecycle `upload/source/` 8 days (converter-finished-retention/README.md:47); converter = Oracle Always Free VM (`converter/deploy/README.md:4`) |
 | A video can be seen by the same people who can see its post | videos RLS = posts RLS (README-vid2.md) |
-| Music check: switched off today; would receive only the sound; we keep only title, artist and match position, never the full reply | 3-mode switch shipped Off, refused ON without the key (VID-4); `video_music_checks.matches` "[{title, artist, score, begin_ms, end_ms}] only; never the raw provider response" (DECISION.md:299) |
+| Music check: switched off today; would receive only the sound; we keep only title, artist, match closeness (score) and position, never the full reply | 3-mode switch shipped Off, refused ON without the key (VID-4); `video_music_checks.matches` "[{title, artist, score, begin_ms, end_ms}] only; never the raw provider response" (DECISION.md:299) |
 | Removed after a report / copyright notice: hidden at once, owner told, can upload a corrected version | `video_takedown` (20261030_0701): `taken_down`, owner notice `video_taken_down`, `taken_down → uploading` new version |
 | Deleted video or post: hidden at once; files kept 30 days then permanently deleted | R-100; `video_housekeeping` 30 days; `video_orphan_sweep` + purge worker (S7-a, S7-f) |
 | Processors: Cloudflare stores photos and videos; video conversion on our own server (Oracle Cloud) | R2 buckets PHOTOS / MEDIA (`functions/api/video/_lib.ts`); converter VM |
@@ -50,10 +50,14 @@ Nothing else changes: no new data type is needed for music recognition, because 
 Fixture: a scratch Postgres 16 with `site_settings` (+ RLS read for anon), `db_audit_logs` and the real `audit_site_settings` trigger (20260403081955), loaded with each lane's real `managed_pages` read 2026-10-31 ~04:10 UTC with the public key (not committed: the production page carries a contact address).
 | Lane | PROBE before | apply | PROBE after | apply again | rollback | PROBE after rollback |
 |---|---|---|---|---|---|---|
-| staging-shaped | **FAIL G1** (block not on the page) | md5 a45df80c… → 4b363c2b… | **PASS** (appended; other pages byte-identical) | "already carries the block — no change" | md5 back to a45df80c…, updated_at 2026-04-05T04:13:54.221Z | FAIL G1 |
-| production-shaped | **FAIL G1** | md5 9e2488be… → 46ede8f2… | **PASS** (before Contact, date 31 Oct, processors named, other pages byte-identical) | no change | md5 back to 9e2488be…, updated_at 2026-10-17T05:51:34.199Z | FAIL G1 |
+| staging-shaped | **FAIL G1** (block not on the page) | md5 a45df80c… → f64f1534… | **PASS** (appended; other pages byte-identical) | "already carries the block — no change" | md5 back to a45df80c…, updated_at 2026-04-05T04:13:54.221Z | FAIL G1 |
+| production-shaped | **FAIL G1** | md5 9e2488be… → 51a87720… | **PASS** (before Contact, date 31 Oct, processors named, other pages byte-identical) | no change | md5 back to 9e2488be…, updated_at 2026-10-17T05:51:34.199Z | FAIL G1 |
 
 A page edited since (one trailing space added) → apply **REFUSED**, nothing changed. Re-read live 2026-10-31 04:40 UTC: both md5s unchanged.
+
+## Review #727 (independent reviewer, diff only)
+- **#1 BLOCKING, fixed:** the first text said members could "choose" server preparation. They cannot: `video_conversion` is one site-wide setting only an admin switches (`src/lib/video/conversionMode.ts:4-7`; `VideoPostComposer.tsx:97` follows it); on the website the browser encodes, not a phone; in server mode the original goes to our storage first. Fail-first: PROBE G1 gained a check ("does not say that WE switch server preparation on"), run on the old text → **FAIL G1** with exactly that line; new text → PASS on both lanes, rollback still exact. Same pass: the cover picture and the match score are now named.
+- Non-blocking, recorded: an admin with the Pages editor open could save the whole array afterwards and drop the block (re-run the PROBE later; Owner asked not to edit pages during the apply); G3 only prints a NOTICE where no audit row exists; "before the video is shown" holds only in the enforcing mode (the check is off).
 
 ## Runs (apply-migration.yml)
 (filled in as they happen: staging PROBE-before → apply → PROBE-after; production after the carry to main)

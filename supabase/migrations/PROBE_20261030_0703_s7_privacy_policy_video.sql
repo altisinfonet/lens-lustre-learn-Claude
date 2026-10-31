@@ -47,6 +47,10 @@ BEGIN
   IF strpos(_blk, '<strong>Video reports and removal</strong>') = 0 THEN _bad := _bad || E'\n  heading Video reports missing'; END IF;
   IF strpos(_blk, 'This check is switched off today.') = 0 THEN _bad := _bad || E'\n  "switched off today" missing'; END IF;
   IF strpos(_blk, 'kept for 30 days and then permanently deleted') = 0 THEN _bad := _bad || E'\n  30-day rule missing'; END IF;
+  -- conversion is a site-wide admin setting (src/lib/video/conversionMode.ts:4-7), never a member's choice (review #727)
+  IF strpos(_blk, 'if you choose') > 0 OR strpos(_blk, 'When we switch on server preparation') = 0 THEN
+    _bad := _bad || E'\n  the conversion sentence does not say that we (not the member) switch server preparation on';
+  END IF;
   IF strpos(_blk, '@') > 0 THEN _bad := _bad || E'\n  an @ (address) inside the block'; END IF;
   IF strpos(_c, _anchor) > 0 THEN
     IF strpos(_c, '<!-- /s7-video-privacy -->' || _anchor) = 0 THEN _bad := _bad || E'\n  block not right before Contact / Grievance Officer'; END IF;
