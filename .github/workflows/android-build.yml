@@ -820,6 +820,11 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
+          # 2026-10-31: bumped 1.2.32 -> 1.2.33. 1.2.32 (run 135 on edcc3522) is spent. 1.2.33 carries
+          # S7 "Video complete" into the app: "Add a video ad" in the ad library (#542, on main after
+          # 1.2.32 was cut), with the video takedown (#541), purge worker (#539), video alarms (#724)
+          # and the updated Privacy Policy (#727) already live server-side. Not switched on by this
+          # bump: Video posts / Video ads stay as the Owner set them; the copyright check stays Off.
           # 2026-10-30: bumped 1.2.31 -> 1.2.32. 1.2.31 (run 134 on 4a84a7ed) is spent. 1.2.32 adds
           # the rest of S7b offline: post pages / profiles / comments / notifications seen before
           # (#572, #579), the "No internet — showing saved" bar and follows / reports made offline
@@ -909,8 +914,8 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
-          sed -i 's/versionName "1.0"/versionName "1.2.32"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.32 (1.2.31 is spent - run 134)"
+          sed -i 's/versionName "1.0"/versionName "1.2.33"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.33 (1.2.32 is spent - run 135)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
           # S11: prove both edits landed — exactly one versionCode, the derived
