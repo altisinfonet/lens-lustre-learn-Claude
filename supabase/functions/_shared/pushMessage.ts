@@ -58,20 +58,21 @@ export function isSafeImageUrl(url: string | null | undefined): url is string {
 const SAFE_TOKEN = /^[a-z0-9_:.-]{1,64}$/i;
 
 export function buildFcmMessage(p: PushInput): FcmMessage {
-  const data: Record<string, string> = {};
-  for (const [k, v] of Object.entries(p.data ?? {})) {
-    if (v !== undefined && v !== null) data[k] = String(v);
-  }
+  // Exactly as send-push always did: every entry stringified (null → "null"),
+  // and no data object at all when the caller sent none.
+  let data: Record<string, string> | undefined = p.data
+    ? Object.fromEntries(Object.entries(p.data).map(([k, v]) => [k, String(v)]))
+    : undefined;
   const category = p.category && SAFE_TOKEN.test(p.category) ? p.category : null;
   const groupKey = p.groupKey && SAFE_TOKEN.test(p.groupKey) ? p.groupKey : null;
   const image = isSafeImageUrl(p.imageUrl) ? p.imageUrl : null;
-  if (category) data.category = category;
-  if (p.deliveryId !== undefined && p.deliveryId !== null) data.delivery_id = String(p.deliveryId);
+  if (category) data = { ...(data ?? {}), category };
+  if (p.deliveryId !== undefined && p.deliveryId !== null) data = { ...(data ?? {}), delivery_id: String(p.deliveryId) };
 
   const msg: FcmMessage = {
     token: p.token,
     notification: { title: p.title, body: p.body || "" },
-    data: Object.keys(data).length ? data : undefined,
+    data,
     android: { priority: "high" },
     apns: { payload: { aps: { sound: "default" } } },
   };

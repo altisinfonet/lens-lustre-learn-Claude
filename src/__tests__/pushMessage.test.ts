@@ -48,9 +48,11 @@ describe("buildFcmMessage", () => {
     expect(m.data?.delivery_id).toBe("42");
   });
 
-  it("every data value is a string (FCM rejects anything else)", () => {
-    const m = buildFcmMessage({ ...base, data: { n: 3 as unknown as string, ok: true as unknown as string } });
-    expect(m.data).toEqual({ n: "3", ok: "true" });
+  it("every data value is a string, exactly as before (null → \"null\"); no data → no data object; {} stays {}", () => {
+    const m = buildFcmMessage({ ...base, data: { n: 3, ok: true, gone: null } });
+    expect(m.data).toEqual({ n: "3", ok: "true", gone: "null" });
+    expect(buildFcmMessage({ token: "t", title: "x" }).data).toBeUndefined();
+    expect(buildFcmMessage({ token: "t", title: "x", data: {} }).data).toEqual({});
   });
 
   it("groups a member's notifications of one kind with a tag on Android", () => {
