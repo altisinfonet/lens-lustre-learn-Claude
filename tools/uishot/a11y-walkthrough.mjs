@@ -54,8 +54,10 @@ const CONTROL_LINE = new RegExp(`^\\s*- (${CONTROL_ROLES.join("|")})\\b(.*)$`);
  * literal '. Unwrap it so every rule below sees `- role "name"` (review #751).
  */
 export function unquoteLine(line) {
-  const m = line.match(/^(\s*- )'(.*)'(:?)\s*$/);
-  return m ? `${m[1]}${m[2].replace(/''/g, "'")}${m[3]}` : line;
+  // The quoted part may be followed by ":" and an inline value (a filled field:
+  // `- 'textbox "City: home"': Pune`, review #751); inside it, '' is a literal '.
+  const m = line.match(/^(\s*- )'((?:[^']|'')*)'(:.*)?$/);
+  return m ? `${m[1]}${m[2].replace(/''/g, "'")}${m[3] ?? ""}` : line;
 }
 
 /** "- button \"Like\" [pressed]" → { role, name }. A control with no quoted name is unnamed. */
@@ -153,7 +155,7 @@ async function walkScene(browser, scene, vp) {
 
 // ── self-test: every finding must fire on its seeded defect, and none on a clean page ──
 const SEEDED = `<!doctype html><html lang="en"><body><div><button></button><a href="/x"></a><input type="text"></div></body></html>`;
-const CLEAN = `<!doctype html><html lang="en"><body><header><nav aria-label="Site"><a href="/">Home</a></nav></header><main><h1>Title</h1><button>Go</button><a href="/t">Terms: of use</a><label>Name <input type="text"></label></main></body></html>`;
+const CLEAN = `<!doctype html><html lang="en"><body><header><nav aria-label="Site"><a href="/">Home</a></nav></header><main><h1>Title</h1><button>Go</button><a href="/t">Terms: of use</a><label>Name <input type="text"></label><label>City: home <input type="text" value="Pune"></label></main></body></html>`;
 
 async function selfTest(engineNames) {
   let ok = true;
@@ -166,7 +168,7 @@ async function selfTest(engineNames) {
     const cleanSnap = await page.locator("body").ariaSnapshot();
     const good = { ...findingsFromSnapshot(cleanSnap), tree: treeOutline(cleanSnap) };
     // Like an autofocused sign-in field: something AFTER the first stops holds focus.
-    await page.locator("input").focus();
+    await page.locator("input").first().focus();
     const stops = await tabOrder(page);
     await browser.close();
     const checks = [
@@ -175,7 +177,8 @@ async function selfTest(engineNames) {
       [bad.noMain, "seeded page: missing main found"],
       [good.unnamed.length === 0 && !good.noH1 && !good.noMain, `clean page: no finding (${JSON.stringify({ unnamed: good.unnamed, noH1: good.noH1, noMain: good.noMain })})`],
       [good.tree.some((l) => /link "Terms: of use"/.test(l)), `clean page: a name YAML must quote ("Terms: of use") is in the tree`],
-      [stops.map((s) => `${s.role} ${s.name}`).join("|") === "link Home|button Go|link Terms: of use|textbox Name",
+      [good.tree.some((l) => /textbox "City: home"/.test(l)), `clean page: a quoted name WITH a value after it ("City: home" = Pune) is in the tree`],
+      [stops.map((s) => `${s.role} ${s.name}`).join("|") === "link Home|button Go|link Terms: of use|textbox Name|textbox City: home",
         `clean page: Tab order reads every stop from the top, also with an autofocused field (${stops.map((s) => `${s.role} "${s.name}"`).join(", ")})`],
     ];
     for (const [pass, what] of checks) { log(`${n} self-test ${pass ? "ok  " : "FAIL"} ${what}`); ok &&= pass; }
