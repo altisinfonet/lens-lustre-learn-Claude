@@ -31,7 +31,7 @@ part is ready, leave that row at **Off**.
 
 1. On the row **New notification screens**, click **Only me**.
 2. Open the bell and the Notifications page on your phone and on your computer. Check:
-   - each notification is one button that opens the right post (a new follower also has a **Follow back** button);
+   - each notification is one button that opens the right post (on the Notifications page, a new follower also has a **Follow back** button if you don't follow them yet);
    - your screen reader says **Unread** before a notification you haven't opened;
    - the Notifications page has buttons **All**, **Comments & mentions**, **Follows** and **Competitions** to filter the list;
    - competition and award notifications start with a short headline, with the details after it.
@@ -92,7 +92,8 @@ take effect for members whose row above is switched on. While a row is
 **Off**, its notifications work exactly as today and these boxes change
 nothing for anyone.
 - untick **On** to stop that kind of notification for the members whose row is switched on.
-  (Your screen reader may read this box as "on for everyone". It means everyone whose row is on.)
+  (Your screen reader reads this box as "on (for members whose group is switched on)". On an older
+  version of the page it said "on for everyone", which meant the same thing.)
 - click **Edit** to:
   - choose **Bell**, **Phone push** or **E-mail**;
   - change the wording (you see a preview first);
