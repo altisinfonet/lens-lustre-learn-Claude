@@ -1,0 +1,37 @@
+name: D2 · Notification stray-writer guard
+
+# Notification centre N5. Fails when any code inserts into user_notifications /
+# admin_notifications outside the allow-list (scripts/notif-guard-allow.json),
+# which holds every writer that existed before the centre and shrinks as N3
+# moves each group of makers onto it. See the header of
+# scripts/notif-guard-check.mjs for what it reads and what it cannot see.
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/functions/**'
+      - 'src/**'
+      - 'scripts/notif-guard-check.mjs'
+      - 'scripts/notif-guard-check.test.mjs'
+      - 'scripts/notif-guard-allow.json'
+      - '.github/workflows/d2-notif-guard.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: No notification written outside the centre (ratchet)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Self-test — planted strays go red, clean shapes stay green
+        run: node scripts/notif-guard-check.test.mjs
+      - name: The check — every writer is on the allow-list, every entry still writes
+        run: node scripts/notif-guard-check.mjs
