@@ -2,13 +2,13 @@ N0 IN PROGRESS
 
 # Notification centre runner — status
 
-Heartbeat: 2026-10-31 13:31 UTC (measured) — N0 PROBE 0100 PASSED on staging: run 41202968098 (13:19 UTC, rc 0). Staging: 53 notification functions, 30 triggers; 39 bodies = git's latest, 13 differ, 1 (pj_handle_tag_notification) not in applied git — ALL 13 match the commented-out bootstrap snapshot (UNAPPLIED_20260911101721) byte-for-byte, so N1 can capture them from git text without printing any live body. (Correction: I first read run 41202972066 as mine — it was another runner's file dispatched 3 s later on the same lane; it failed on its own check.) Production run waits for carry #759 (reviewed; CI queued). Branch for status only; never merged.
+Heartbeat: 2026-10-31 13:41 UTC (measured) — N2 STAGING-APPLIED and verified: PROBE 0110 FAIL 41205948948 → apply 41206399056 (13:38, 49 types, COMMIT) → PROBE PASS 41206575315 (13:41). Staging 24 h shadow window runs 13:38 → tomorrow 13:38. Production waits for carry #759 (N0+N2). Merged #758 live-check. #757 N4 fixed a lane-isolation CI failure (production ref was hardcoded) — reviewed nothing blocking. Branch for status only; never merged.
 
 | Step | What | PR | Merged sha (staging / main) | SQL runs (lane · run id · result · UTC) | Live check | % |
 |---|---|---|---|---|---|---|
 | N0 | Measure (read-only map) | #748; carry #759 | staging d4aa554 | staging 41202968098 PASS 13:19 | — | 65 |
 | N1 | Capture live-only pieces into git | — | — | — | — | 0 |
-| N2 | Centre, switch OFF, 24 h shadow | #754; carry #759 | staging 6c2f4c8 | — | — | 45 |
+| N2 | Centre, switch OFF, 24 h shadow | #754; carry #759 | staging 6c2f4c8 | staging: FAIL 41205948948 → apply 41206399056 → PASS 41206575315 (13:41) | — | 60 |
 | N3 | Move makers onto the centre, by group | #760 (centre gate) | — | — | — | 30 |
 | N4 | Delivery (push + e-mail queue, receipts) | #757 (part 1: push builder) | — | — | — | 10 |
 | N5 | Guard (CI stray-insert test + nightly count) | #752 (CI guard); part 2 local | — | — | — | 45 |
