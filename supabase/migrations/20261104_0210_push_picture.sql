@@ -2,8 +2,9 @@
 -- 20261104_0210 · NOTIFICATION CENTRE N4 — the big picture on a push.
 --
 -- For a group switched on for the recipient (0170's centre branch), a push
--- about a post now carries the post's picture (posts.thumbnail_url, else
--- image_url), which send-push puts on the phone notification — only from this
+-- about a post now carries the post's picture (thumbnail, else photo) — only
+-- for a public post or the recipient's own (the bell's rule), which send-push
+-- puts on the phone notification — only from this
 -- lane's own image hosts (supabase/functions/_shared/pushMessage.ts). Group
 -- off → image_url is null and send-push sends exactly today's message. Any
 -- fault reading the post → no picture, push unchanged. Every switch is off.
@@ -86,8 +87,13 @@ BEGIN
      AND NEW.type IN ('post_reaction', 'post_comment', 'comment_reply', 'tagged_post_reaction',
                       'tagged_post_comment', 'new_post_from_following', 'post_tag') THEN
     BEGIN
-      SELECT coalesce(nullif(p.thumbnail_url, ''), nullif(p.image_url, '')) INTO _img
-        FROM public.posts p WHERE p.id = NEW.reference_id;
+      -- the bell's own rule (get_my_notifications_grouped): a picture only of a
+      -- public post or the recipient's own — never a private / friends-only
+      -- post someone was tagged on or replied under
+      SELECT coalesce(nullif(p.thumbnail_url, ''), nullif(p.image_url, ''), nullif(p.image_urls[1], '')) INTO _img
+        FROM public.posts p
+       WHERE p.id = NEW.reference_id
+         AND (p.privacy = 'public' OR p.user_id = NEW.user_id);
     EXCEPTION WHEN OTHERS THEN
       _img := NULL;
     END;

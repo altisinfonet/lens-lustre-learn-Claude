@@ -1,6 +1,6 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- PROBE · 20261104_0210 push picture. READ ONLY, ROLLBACK.
--- PASS = push_on_notification() is exactly the 0210 body (md5 cc27b8bc…),
+-- PASS = push_on_notification() is exactly the 0210 body (md5 d15537e1…),
 -- still SECURITY DEFINER with search_path=public and still the enabled AFTER
 -- INSERT trigger on user_notifications. FAILS before apply. Prints md5 and
 -- length only, never source.
@@ -20,7 +20,7 @@ BEGIN
     RAISE EXCEPTION 'PROBE FAIL: push_on_notification() missing';
   END IF;
   h := md5(src);
-  IF h <> 'cc27b8bc1dfbef3cede5ad47d5334e5a' THEN
+  IF h <> 'd15537e179b81d37c729846a995a8c29' THEN
     RAISE EXCEPTION 'PROBE FAIL: push_on_notification() is not the 0210 body (md5 %, length %)', h, length(src);
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE oid = to_regprocedure('public.push_on_notification()') AND prosecdef
