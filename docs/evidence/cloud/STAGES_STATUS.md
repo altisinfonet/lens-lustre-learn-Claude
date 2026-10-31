@@ -1,0 +1,450 @@
+# STAGES runner — status
+
+Updated: 2026-10-31 18:55 UTC — **RUNNING.** **Owner item 21 step 1 PROVEN on staging** (PROBE 0802 run 41229903894): without muting, 50 test posts would have made 25,700 notifications + 25,700 push calls + 2,550 e-mails; muted, they make **nothing**. Step 2 (1 M test) waits for NOTIFICATIONS COMPLETE. **#591 presign fix on staging** (deploy 41229468931, smoke PASS) → Owner item 22 (one photo on staging). **S11 D1/D9:** read-only backup inventory workflow PR opened (measures recovery point without a billed restore). Carry #797 (deps) in CI.
+
+Updated: 2026-10-31 09:10 UTC — **RUNNING.** **P6 closed on both lanes** (Owner 14): staging PROBE PASS 41185428720 (#5, 1.9 MB), **production PROBE PASS 41187295653** (#8, 2.7 MB, oldest run 36 h) — carry #741 (main fa7502a). P26/P27 inventory 0622: staging 41186134121, **production 41187337459**. Production: diff log 2,735 rows (hourly cron), v3_mirror_log 119 rows (last July), v2 rows 10 (May–June) — all to be archived first; the judging trigger body is the same on both lanes (md5 7538b274…, not in git). P26: production audit log 1,751 rows / 13 MB, of which 10 MB are full double copies of site_settings updates. Next: #742 (prints the live definitions; reviews nothing blocking) → P27 migration 0623 against the live text → P26 migration.
+
+Updated: 2026-10-31 05:40 UTC — **S10 independent work done for today; WAITING (not stopped).** Since the restart: X1 order fix + user_roles LIVE on production (live check PASS); X1 mixed-role measurement on both lanes (identical: only 6 same-role groups on 4 small tables could still be merged → item 19); P34 measured on both lanes (all role checks use the index by plan; 24 h seq-scan delta due ~05:30 UTC 1 Nov); P8 reading 1/7 PASS both lanes. Everything else left needs the Owner/Auditor (items 2–12, 14–19) or S7 100 % (S9). Next scheduled: P8 reading 2 + P34 delta ~05:30 UTC 1 Nov; Owner replies checked every few hours.
+
+Previous update: 2026-10-31 01:16 UTC — **S10 in progress.** X1: 55/56 uniform tables live on both lanes. **Order fix: all 5 files staging-applied** (0615–0619; 0618 hot_a after #722 lane caps: apply 41154275876, locks 4.4 s on staging's seeded posts, PROBE PASS 41154434470). **Carry #723** (15 files, byte-identical to staging) in review + CI. Production next: 0613 (held), then 0615–0619, then live check. S9 waits on the seeder ruling (item 18).
+
+Previous update: 2026-10-30 02:19 UTC · runner branch `status/stages-runner` · never merged.
+
+## Done per stage
+
+| Stage | % | State |
+|---|---|---|
+| S0 | 100 | Server half PASS (2026-10-29). **Owner phone test "Video OK" 2026-10-30 ~07:35 UTC** (plays, autoplays muted, sound on tap, pauses when scrolled away). Done. |
+| S2 Observability | 95 | Live: telemetry SQL, client telemetry, outside monitor + alert, Admin → Health page, and now native crash / OOM / ANR per build (code + SQL live). Left: the reader is inside the app only from the S9 build (its build-file change #562 waits on staging for the S9 bump); Owner reads the page. |
+| S3 Media | 85 | Code live on main (03004ff, 20:32 UTC) and SQL 0100/0101/0102 applied on staging and production, both switches OFF. All PROBEs PASS on both lanes. Left (Owner): backfill secrets (then 1-click backfill to 100 %), PHOTOS binding + Worker route, decisions O-1/O-2, then switch-on and the phone test. |
+| S8 Live debt | 88 | **2026-10-30 (restart):** old-PR triage — 16 closed with reasons; carried #391 (post_shares, LIVE + prod SQL 0300 PASS), #156 (certificate check, LIVE), #214 (fixture lane guard, LIVE), #276 (judging locks, see S11). Still open for Owner/other sessions: #254, #174, #289, #285, #352; #175 header-only. DONE before: F-REV4-2 (prod), one SEO renderer (#508), F-D3-8 SQL 0201 (main #515, prod 40819037088). Today: **sitemap LIVE** (#504 + #577 + #585 carried as #580, main c801512): /sitemap.xml serves the dynamic 729-URL sitemap; F-AUD-8 rotation SQL on main (#581, nothing run); inventory tools on main (#582); PROBE for places the rotation misses (#586; main 6f24ab3 via #599; staging PASS, production run queued). Old PRs: #323, #130 closed as superseded. Blocked on Owner: SUPABASE_ACCESS_TOKEN (function inventory/deploy, send-push), Vault entries for the rotation, converter password. F-REV4-6: finding text not in the repo (Owner/supervisor to paste it). |
+| S11 Reliability | 95 | **2026-10-30 (restart):** LIVE + verified: #578 flake fix (via #636), #634 npm high 14→1, #637 M2 (prod SQL 0400 PASS), #639 judging locks (prod SQL 0401 PASS). Left: D1/D9 drills, drafts purge, awards-by-tag/PlacementBoard (all need Owner items 7/12); zod 3 and react-router v6 moderate advisories need major upgrades (decided units, not started). On staging: #589 stale-chunk recovery, #590 competition single encode, #591 upload size+type signed, #592 profile/Tagged, #593 tap targets, #594 error messages, #595 qrcode lazy, #596 app-build guards. **LIVE (main 26cdaef, 00:17 UTC):** #589 #590 #592 #593 #594 #595 via #605 (main f32c0e9), and #591 via #606 (code only; it takes effect when the functions deploy, item 7). Also on staging: #597 upload type lists + GPS guard on support replies, #601 build-only deps, #602 doc drift, #603 judge-identity PROBE, #604 one Mention award. Reviewed, in CI: #607 drafts PROBE, #608 retire RLS baseline, #609 M2 PROBE, #610 trackPosition (switch judge_resume_ambient, OFF). Already fixed before today (re-verified): `npm ci` has no `npm install` fallback; the AAB web-bundle check is blocking. react-mentions: measured, advisory unreachable, kept (see Findings). Left: PlacementBoard / awards by tag id, judge_id fix (after the #603 measurement), drafts purge, M2; drills D1–D9 and M2 need the Supabase token (item 7). |
+| S10 remainder | 94 | Inventory done 11:30 UTC. **Both lanes:** P35 keys PASS (staging 41048925405, production 41049017673); P6 retention + bounded purge PASS, size clause FAIL on both (staging #5 at 1.9 MB 41048721411, production #8 at 2.7 MB 41048818929; was 76 MB) → Auditor ruling (Owner item 14). **P28:** staging PASS 41049108337; production FAIL 41049204665 → per-index PROBE #677 (staging fd1d37b, main bfafd3c via #684); production detail 41057438794: email_send_log message index 1080 kB / 11673 scans, message_sent_unique 744 kB / 7930 scans, pkey 912 kB, created 696 kB / 9 scans, recipient 224 kB / 3 scans — the index-heavy shape is real use, so #686 records a reason and fixes the rule that would have called a reason 'stale' on a lane where the table is below the 1 MB floor (CI). **P8 autovacuum (A-4a, SQL 0602, #678 staging b20dce1):** staging PROBE FAIL 41055235768 (dead ratios 78.7 / 27.7 / 17.7 / 11.7 %) → apply 41056359613 → PROBE PASS 41056871842 (all 0 %). **Production (main 5197171 via #687): PROBE FAIL 41059784196 → apply 41061676812 → PROBE PASS 41062720985** (13:32 UTC). 7 daily readings start 2026-10-31. **C-2 unused-index methods PROBE (#679 staging 5f1358f):** staging 41057759135: Supabase linter rule = 140 indexes, proposed rule (linter ∩ public, minus FK-backing, ≥ 14-day window) = 85 → reconciliation doc next; drops wait for A-4c. **P25 interface doc (#680 staging b77dfad):** rev 1–4 BLOCKED by reviews, rev 5 nothing blocking; build waits for Owner/Auditor decisions (item 17). P26/P27/P34 wait for decisions (items 15, 16, 18). **C-2 both lanes (2026-10-30):** methods staging 41057759135 (M1 251 · M2 138 · M3 375 · M4 196 · M5 692 · L 140 · P 85, window 65.7 d) / production 41066132984 (201 · 82 · 329 · 139 · 708 · L 90 · P 48, window ≥ 99.9 d); scope diff staging 41064517323 / production 41066255095: L∖M2 = 2 / 8, all pgmq queue indexes, M2∖L = 0. Doc #693 proposes method P and accounts for the 79 (two explanations, not proven which; safeguards). **P28 PASS both lanes:** staging 41064353003, production 41065692423. **X1/X2:** counting PROBE #694. **X2 (SQL 0606, #698) LIVE both lanes** (production PASS 41080337134). **X1:** shapes measured (56 uniform + 26 mixed); pilot of 9 tables (0608), batch 2 of 11 (0609) and batch 3 of 23 (0611), hot batch A of 10 (0612) and activity_logs + feed_events (0614, production 41136940899) LIVE both lanes — 55/56 uniform tables; user_roles (0613) staging only, production held for the order fix (#719). **2026-10-31: 0613 + order fix 0615–0619 LIVE on production → 56/56 uniform tables, original evaluation order, both lanes.** Left in X1: 26 mixed-role tables measured (PROBE 0620, both lanes identical): 25 have only cross-role overlaps (kept by design, residual); 6 same-role groups on 4 small tables could be merged — cosmetic only, item 19. P34: clause 2 holds by plan on both lanes; clause 1 needs the 24 h delta; clause 3 needs item 18. **Production grants re-verified** = M2 PROBE #609 (production 40987139679) — recorded. |
+| S12 / S5 | 100 | **S5:** the Owner switched Upload resume ON for all members (2026-10-30 ~10:25 UTC) and passed the phone test ("upload test OK", ~10:40 UTC: network dropped mid-upload, resumed, posted once). **S12:** `personal_feed` is ON for everyone on production — **Owner decision: KEEP ON** (2026-10-31). Staging `personal_feed` OFF. |
+| S9 Release | 10 | Seed safety: census baseline PASS (41206776085), side-effects PROBE (41212102408), mute PROBE #794 in CI. 1 M test waits for NOTIFICATIONS COMPLETE (Owner item 21). **App version: now made by the Notification Centre runner (Owner order 17:20 UTC)** — #562/#596 must ride in its bump. |
+
+## Units
+
+| Stage | Unit | PR | Merged staging / main | SQL runs | Live check |
+|---|---|---|---|---|---|
+| S0 | Live video config answers the app | — | — | — | 2026-10-29 17:16 UTC: `/config/site-settings` 200 (video_conversion = "device"); OPTIONS `/config/site-settings` and `/api/video/play-token` with Origin `https://localhost` → 204 + ACAO `https://localhost`; POST play-token with no id → 400 VID-REQ-002 (correct refusal). PASS |
+| S2 | Native crash / OOM / ANR per build (code + SQL 20261031_0100) | #552 → carry #561 | staging a1c82e0 · main b205854 | staging: PROBE FAIL 40929047458 (18:15) → apply 40932015585 (18:34) → PROBE PASS 40932223847 (18:35). production: PROBE FAIL 40934153573 (18:47) → apply 40935836835 (18:58) → PROBE PASS 40935949028 (18:59) | 18:48 UTC live bundle carries it; home + /feed 200 in Chromium, Firefox, WebKit, same text, 0 new console errors. PASS |
+| S2 | Android build installs + proves the exit reader | #562 | staging 6ebf245 · main: rides the S9 version bump (a push of android-build.yml on main starts an app build) | — | — |
+
+| S3 | PROBE 0102 builds its own rolled-back fixture | #567 (+ #571) | staging 26a1c0c | staging 40941214184 FAIL (constraint: ready media needs 'original') → #571 | — |
+| S3 | Click-to-run backfill workflow | #569 | staging e1028f4 | — | — |
+| S3 | PROBE 0102 setup writes without member claims | #573 | staging 9a0f9e1 | staging PROBE 0102 PASS 40946796937 (20:11) | — |
+| S3 | **Carry S3 to main** (#496–#501, #567, #569, #571, #573) | #576 | main 03004ff | production: 0100 PROBE FAIL 40949645431 → apply 40951365749 → PASS 40951832115 · 0101 FAIL 40951913183 → apply 40951975386 → PASS 40952048358 · 0102 FAIL 40952139141 → apply 40952199347 → PASS 40952288920 · coverage 0 % of 507 (40952365255) | 20:32 UTC live; Chromium/Firefox/WebKit home + /feed 200, same text, 0 new console errors. Anonymous GET of a private photo path on the live CDN → 404 (fails closed). PASS |
+
+| S8 | Sitemap: survives a slow generator | #577 | staging fbdb644 · main c801512 (#580) | — | 23:35 UTC PASS (below) |
+| S8 | Sitemap: held ETag / Range no longer pin the thin file; nosniff + CSP | #585 | staging 77ee4e4 · main c801512 (#580) | — | 23:35 UTC: `/sitemap.xml` 200 `x-sitemap-source: dynamic-cached`, 729 URLs (one cold request served the static 12 as designed); If-None-Match → 200, not a stale 304; nosniff + CSP `default-src 'none'`. Home + /feed in Chromium, Firefox, WebKit: 200, same text, 0 new console errors. PASS |
+| S8 | F-AUD-8 rotation SQL to main (files only) | #581 | main b891559 | not run (Owner Vault step first) | — |
+| S8 | F-REV4-1 inventory tools to main | #582 | main cb21960 | PROBE runs: see below | — |
+| S8 | PROBE: credentials the rotation does not scan | #586 → #599 | staging 1703ac4 · main 6f24ab3 | staging PASS 40968413653 (23:11) · production PASS 40973985325 (00:07): trigger args 0, db/role settings 0, pg_net queue 0 | — |
+| S8 | Old open PRs | #323, #130 closed (superseded, comment left) | — | — | — |
+| S8 | Old open PRs, triage of 26 (2026-10-30 06:10) | closed with reason: #428 #408 #286 #278 #277 #259 #256 #215 #210 #200 #192 #157 #155 #154 #151 #103 · carry: #276 (→ #639), #391 post_shares SELECT, #156 certificate lookup error ≠ "not found", #214 fixture lane guard, #175 stale header · Owner/other: #254, #174, #289, #285, #352 | — | — | — |
+
+| S11 | Stale-chunk recovery installed | #589 | staging 52878b6 · main f32c0e9 (#605) | — | 00:18 UTC PASS (below) |
+| S11 | Competition photo encoded once (WebP proof) | #590 | staging 78bf997 · main f32c0e9 (#605) | — | 00:18 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors; live entry script 1,602,160 B |
+| S11 | Photo presign signs size + type | #591 | staging a0dbdd5 · main 26cdaef (#606) | — | edge deploy needs SUPABASE_ACCESS_TOKEN (item 7) |
+| S11 | Admin profile edit refresh; Tagged photos errors | #592 | staging 8fd94b7 · main f32c0e9 (#605) | — | 00:18 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors; live entry script 1,602,160 B |
+| S11 | Judge tap targets ≥ 44 px | #593 | staging dfe3e69 · main f32c0e9 (#605) | — | 00:18 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors; live entry script 1,602,160 B |
+| S11 | Plain member messages for 401/403/429/5xx/offline | #594 | staging ad98977 · main f32c0e9 (#605) | — | 00:18 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors; live entry script 1,602,160 B |
+| S11 | qrcode out of the entry chunk (−25 KB) | #595 | staging d01f8ad · main f32c0e9 (#605) | — | 00:18 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors; live entry script 1,602,160 B |
+| S11 | App build: every template edit proven; synced app = this commit; stale root file removed | #596 | staging b0952c2 | — | goes to main with the S9 bump |
+| S11 | Build-only packages to devDependencies (prod audit 33 → 19, critical 0) | #601 | staging b8b99a2 · main 3164900 (#615) | — | 01:31 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same page head, 0 new console errors |
+| S11 | Doc drift (queryKeys focus default; realtimeCounts guard name) | #602 | staging 95b3479 · main 3164900 (#615) | — | 01:31 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same page head, 0 new console errors |
+| S11 | PROBE: who can read a judge's identity (measure before fixing) | #603 | staging 456025d · main 3164900 | staging 40976973470 (00:49): SELECT policies on all 4 judge tables are judge/admin only, anon reads 0 rows; the 3 owner-safe views have no judge_id and filter `ce.user_id = auth.uid()`; no qualifying owner on staging, so the owner read is unmeasured · production 40986232462 (01:3x): **same as staging** — judge/admin-only SELECT policies, anon 0 rows, no judge_id in the owner-safe views. Finding "owner can read raw judge_id" is **not true on either lane** | — |
+| S11 | One Mention award for all three spellings | #604 | staging 8fbce98 · main 3164900 (#615) | — | 01:31 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same page head, 0 new console errors |
+| S11 | trackPosition wired without moving the bookmark (switch `judge_resume_ambient`, OFF) | #610 | staging 2f46065 · main 3164900 (#615) | — | 01:31 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same page head, 0 new console errors |
+| S11 | usePwaInstall removes its appinstalled listener | #611 | staging 9c0d232 · main e607a69 (#618) | — | 02:19 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors |
+| S11 | Contributor scores cached 5 min (feed remounts stop re-asking) | #612 | staging d9c240f · main e607a69 (#618) | — | 02:19 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors |
+| S11 | Capacitor plugin-contract test vs the pinned versions | #613 | staging 05eb892 · main e607a69 (#618) | — | 02:19 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors |
+| S11 | Telemetry: Firefox's handled auth-lock contention is not a script error (drill finding) | #614 | staging 69d636f · main e607a69 (#618) | — | 02:19 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors |
+| S11 | Drills D1–D9: D2–D6 outage drills PASS in 3 browsers (Firefox rows fail only on the lock noise #614 fixes); D7/D8 PASS on both lane shapes; D1/D9 need item 7 | #616 | staging ba508d1 · main e607a69 (#618) | — | 02:19 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors |
+| S11 | Android build flake: deferred sign-in work cancelled on unmount (other session's PR, landed by this runner) | #578 | staging 1084573 | — | goes to main with the next S11 carry |
+| S11 | npm production high advisories 14 → 1 (zod kept, unreachable) + floors test | #634 | staging b51e036 · main b731799 (#655) | — | 08:05 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same title/heading, 0 new console errors (live entry index-DOov3BjE.js) |
+| S10 | P28 per-index detail PROBE (read-only) | #677 | staging fd1d37b · main bfafd3c (#684) | staging 41051192291 (only posts over the rule) · production 41057438794 (email_send_log detail) | read-only, no live change |
+| S10 | P8 autovacuum thresholds on 4 high-churn tables (A-4a, SQL 0602) | #678 | staging b20dce1 · main 5197171 (#687) | staging: PROBE FAIL 41055235768 → apply 41056359613 → PROBE PASS 41056871842 · **production: PROBE FAIL 41059784196 (13:12) → apply 41061676812 (13:17) → PROBE PASS 41062720985 (13:32)** | 13:50 UTC PASS (3 browsers) |
+| S10 | C-2 unused-index methods PROBE (read-only) | #679 | staging 5f1358f · main 5197171 (#687) | staging 41057759135: L=140, P=85 | read-only |
+| S10 | P25 certificate-PDF interface (doc, PROPOSED rev 5) | #680 | staging b77dfad | — | doc only |
+| S10 | P28 reason for email_send_log + stale-reason rule judged per lane | #686 | staging 89019d8 · main f97eb84 (#692) | PROBE PASS staging 41064353003 · **production 41065692423 (was FAIL 41049204665)** | 13:50 UTC PASS (3 browsers) |
+| S10 | C-2 scope-diff PROBE (names L∖M2 and M2∖L, to account for the 79) | #690 | staging 5332cd8 · main f97eb84 (#692) | staging 41064517323 (2, pgmq) · production 41066255095 (8, pgmq) | read-only |
+| S10 | C-2 reconciliation doc (method P + the 79) | #693 | staging 92e4993 · main 6e60ee3 (#696) | — | doc only; **Auditor to accept and release H-1** |
+| S10 | X1/X2 policy-count PROBE (every counting rule) | #694 | staging a38735e · main 6e60ee3 (#696) | staging 41069834234 · production 41072016755 — identical: 731 policies / 190 tables; X1 438 tuples, 82 tables, 254 policies, 462 excess; X2 32 policies, 16 tables | read-only |
+| S10 | X2: 32 policies evaluate auth calls once per query (SQL 0606), access matrix in-transaction | #698 | staging 9fc485e · main 757d8d6 (#700) | staging: PROBE FAIL 41077100858 → apply 41077239509 (E2 80 cells) → PROBE PASS 41077367799 · **production: PROBE FAIL 41080076944 (15:22) → apply 41080204653 (15:23, E2 240 cells identical) → PROBE PASS 41080337134 (15:24)** | 15:25 UTC PASS: home + /feed 200 in Chromium, Firefox, WebKit, same text, 0 new console errors |
+| S10 | X1 policy-shape PROBE (which tables merge exactly) | #702 | staging b44e6e5 · main 479f486 (#703) | staging 41083370690 · production 41085650031 — identical: 56 uniform (179 → 202 policies, 0 duplicates) + 26 mixed | read-only |
+| S10 | X1 pilot: merge duplicate permissive policies on 9 content tables (SQL 0608) | #705 | staging 4106b34 · main 5a171a9 (#706) | staging: PROBE FAIL 41092207410 → apply 41092332174 → PROBE PASS 41092453808 · **production: PROBE FAIL 41095128197 (17:02) → apply 41095331499 (17:03; E1 10 identities, E2 90 sets identical) → PROBE PASS 41095457551 (17:03)** | 17:06 UTC PASS: home, /feed, /courses (3→3), /journal (4→4) in Chromium, Firefox, WebKit; 0 new console errors |
+| S10 | X1 batch 2: merge duplicate permissive policies on 11 low-traffic tables (SQL 0609) | #707 | staging c07f03a · main a8faef7 (#708) | staging: PROBE FAIL 41100140060 → apply 41101766826 (E1 15, E2 165) → PROBE PASS 41103566644 · **production: PROBE FAIL 41107034821 (18:27) → apply 41107155135 (18:28; E1 15 identities, E2 165 sets identical, ~1.9 s lock) → PROBE PASS 41107270853 (18:29)** | 18:31 UTC PASS: home, /feed, /courses (3→3), /journal (4→4) in Chromium, Firefox, WebKit; 0 new console errors |
+| S10 | X1 proof-cost PROBE (lock time per remaining table) | #709 | staging fbe73b8 · main c9f1d8a (#710) | staging 41112094306 · production 41114463704 (review 1 BLOCKED: timeout inside DO did not bind → fixed) | read-only |
+| S10 | X1 batch 3: merge duplicate permissive policies on 23 judging/money/referral/admin tables (SQL 0611) | #711 | staging 1174bad · main ba553e9 (#712) | staging: PROBE FAIL 41117096534 → apply 41117223085 → PROBE PASS 41117335494 · **production: PROBE FAIL 41119251974 (19:56) → apply 41119357872 (19:57; E1 15 identities, E2 345 sets identical, ~2.2 s) → PROBE PASS 41119466794 (19:58)** | 20:00 UTC PASS: home, /feed, /courses (3→3), /journal (4→4) in Chromium, Firefox, WebKit; 0 new console errors |
+| S10 | X1 hot batch A: 10 feed/profile tables, proof mostly outside the lock (SQL 0612) | #713 → carry #714 | staging 2062291 · main 70c3ba0 (#714) | staging: PROBE FAIL 41123694239 → apply 41123814805 (E1 14, E2 140) → PROBE PASS 41124017395 · **production: PROBE FAIL 41126314594 (20:50) → apply 41126440162 (20:51; 41 → 40 policies, E1 16 identities, E2 160 sets identical) → PROBE PASS 41126559547 (20:52)** | 20:56 UTC PASS: home, /feed, /courses (3→3), /journal (4→4) in Chromium, Firefox, WebKit; same text, same entry bundle, 0 new console errors |
+| S10 | X1 user_roles alone: early ACCESS SHARE, 3 s lock-window cap, 2 s lock timeout (SQL 0613) | #715 → carry #716 | staging b67847d · main fbd3cca (#716) | staging: PROBE FAIL 41127461856 → apply 41127569052 (E1 9, E2 9, 0.8 s) → PROBE PASS 41127688095 · **production: PROBE FAIL 41166717484 (04:00, 2026-10-31; G2/G3 duplicates) → apply 41166802784 (04:01; E1 9 identities, E2 9 sets identical, 0 duplicates) → PROBE PASS 41166883276 (04:05)** (earlier FAIL 41129715631 at 21:24 on 30 Oct, held for #719) | 2026-10-31 live check PASS (below) |
+| S10 | X1 heavy-write tables activity_logs + feed_events, same template, parts in original order (SQL 0614) | #717 → carry #720 | staging 70bf1d3 · main dc78fe3 (#720) | staging: PROBE FAIL 41134259349 → apply 41134360135 → PROBE PASS 41134524944 · **production: PROBE FAIL 41136841316 (22:15) → apply 41136940899 (22:16; E1 10 identities, E2 20 sets identical) → PROBE PASS 41137028865 (22:17)** | 22:19 UTC PASS: home, /feed, /courses (3→3), /journal (4→4) in Chromium, Firefox, WebKit; 0 new console errors |
+| S10 | X1 order restore: merged policies evaluate parts in the original order (SQL 0615–0619, one single-transaction file per merge batch) | #719 + #721 + #722 → carry #723 | staging 785b80c, 3217114, e68965d · **main 5e48e5c (#723)** | staging: 0615 FAIL 41150458059 → apply 41150547655 (1.6 s) → PASS 41150639034 · 0616 41152101398 → 41152218703 (210 ms) → 41152299016 · 0617 41152380805 → 41152451926 (297 ms) → 41152524530 · 0619 41152939470 → 41153047948 (39 ms) → 41153110497 · 0618 41152593848 → (41152659001 stopped at WIN, nothing changed) → #722 → 41154275876 (4.4 s) → 41154434470 · **production (2026-10-31): 0619 FAIL 41167152354 → apply 41167263036 (59 ms; E1/E2 9 identical) → PASS 41167299745 · 0615 FAIL 41167337276 → apply 41167370941 (9/9 tables, 1490 ms) → PASS 41167435789 (23 clauses) · 0616 FAIL 41167473222 → apply 41167519618 (11/11, 188 ms) → PASS 41167567610 (19) · 0617 FAIL 41167604545 → apply 41167663040 (23/23, 247 ms) → PASS 41167713704 (50) · 0618 FAIL 41167751656 → apply 41167787072 (10/10, posts E1 10 / E2 10 identical, 764 ms) → PASS 41167841227 (30)** | **04:2x UTC PASS:** home + /feed 200 in Chromium, Firefox, WebKit ×3 rounds each, same title and heading, 0 new console errors vs the 04:0x baseline. Feed calls seen from the browser (through this sandbox's proxy): post_media_for median 540 → 905 → 611 ms, get_top_contributors_v3 1039 → 1146 → 653 ms across before / after / after-2 samples — network noise dominates; no change measurable from the browser. |
+| S10 | X1 mixed-role design rev 2 (merge within identical role lists only) | #718 | staging 9abfee1 | — | doc only |
+| S10 | P8 7-day readings (PROBE 0602, read-only) | — | — | **reading 1 (2026-10-31 04:2x UTC): staging PASS 41168325701 — dead ratio ≤ 1.9 % on all 5 tables; production PASS 41168484020 — profiles 1.4 %, user_devices 1.5 %, user_notifications 0.8 % (9,530 live), activity_logs 0.1 % (11,516 live), user_roles 0 %** | read-only |
+| S10 | X1 mixed-role groups PROBE (read-only, 0620): what rev 2 would merge + residual | #725 → carry #728 | staging 19d00ae | **staging 41169738819: 26 mixed (= PROBE 0607's set), MERGE 4 tables / 6 groups, 93 → 87; RESID 25 tables; 'one role list' none** · production after #728 | read-only |
+| S10 | P34 role-check PROBE (read-only, 0621): user_roles counters, every function/policy that reads it, plans of the 6 query shapes | #729 → carry #731 | staging 48ba190 · main 2caba75 | **staging 41171557008:** role text, 51 rows / 1 page; seq 2,519,929 vs idx 3,766,810 since 2026-08-25; 21 functions, 0 policies read user_roles directly; exact / user-led / list shapes Index Only Scan by default, role-only shapes Seq Scan (1 page). **production 41172593725 (05:26):** role text, 142 rows / 2 pages; seq 279,820 vs idx 2,162,993 (11.5 %) since cluster start; same 21 functions, 0 policies; **all 6 shapes Index Only Scan with default settings**, Heap Fetches 0 | read-only |
+| S10 | P27: archive, then drop, wallet_ledger_v2_diff_log / v3_mirror_log / wallet_ledger_v2_rows (SQL 0623, Owner decision 16) | #743 → carry #756 | staging bfcdcb0 | staging: PROBE FAIL 41196805181 → apply 41198355051 (1,188 / 0 / 0 rows archived + verified) → PROBE PASS 41200524893 · **production (main 65f0c21 via #756): PROBE FAIL 41203380974 → apply 41205187447 (2,739 / 119 / 10 rows archived + verified) → PROBE PASS 41206332478** | 13:45 UTC PASS: home + /feed 200 in Chromium, Firefox, WebKit; same title + heading; 0 new console errors |
+| S10 | P26 diff-size PROBE (read-only, 0625) | #749 → carry #761 | staging 8f5c7aa | staging 41201522353: 13 UPDATE rows / 330 kB; managed_pages 302 kB (diffs save nothing: whole value changes), ad_zones_v2 4/4 saves changed nothing | read-only |
+| S9 | Seed census PROBE (0800): baseline counts + seeded residue (Owner item 20) | #750 → carry #761 | staging ce0e125 | staging 41202972066 (13:29 UTC): **FAIL — 10,905 leftover seeded posts** (posts.id + marker), nothing else; 230 tables / 23 counters recorded | read-only |
+| S10 | P26 clauses 1–2: audit only money/permissions + deletions; UPDATE stores the change (SQL 0626) | #768 → carry #771 | staging 799431e | staging: PROBE FAIL 41213395500 → apply 41214011058 → PROBE PASS 41214288766 · **production: PROBE FAIL 41216382920 → apply 41216571037 → PROBE PASS 41216887236** · behaviour PROBE 0628 (#772 → #776) staging PASS 41215528115, **production PASS 41219675796** | 16:2x UTC PASS (3 browsers) |
+| S10 | P26 clause 3: rows older than 180 days moved daily to private p26_archive (SQL 0627) | #769 → carry #771 | staging 429c17c | staging: PROBE FAIL 41214410649 → apply 41214671320 → PROBE PASS 41214736705 (0 rows past 180 d) · **production: PROBE FAIL 41217959352 → apply 41218436587 → PROBE PASS 41219085765** (0 rows past 180 d; oldest 2026-07-09, first move ~2027-01-05) | 16:2x UTC PASS (3 browsers) |
+| S9 | Seed side-effects PROBE (0801, read-only) | #767 → carry #771 | staging f3cc576 | staging 41212102408: posts → notifications → push HTTP + e-mail queue; 0 push tokens; e-mail queue depth 155 → **seed held, Owner item 21** | read-only |
+| S8 | F-REV4-1 function inventory, read-only `list` (token now present) | — | — | **staging run 41223663592:** 73 live functions, **all in git, 0 live-only**; `music-check` in git, not live; 53 functions unpinned in config.toml (deploy refuses them until pinned to the live value); **send-push live verify_jwt=true vs config.toml false** — the trigger calls it without a JWT, so trigger pushes on staging are refused (401): consistent with "staging sends no pushes"; push now belongs to the Notification Centre runner, not changed here · production: run 41225918126 queued | read-only |
+| S11 | Photo presign signs size + type — **deployed to staging** (`s3-presign-upload` v6, verify_jwt=false) | #591 | staging a0dbdd5 · main 26cdaef (#606) | deploy run 41229468931 | smoke: OPTIONS from https://localhost → 200 + ACAO; POST without sign-in → 401 JSON. Real signed upload = Owner item 22; production after that |
+| S9 | Seed mute PROBE 0802 (Owner item 21 step 1; staging only, rolled back) | #794 | staging 63f1eed | **staging PASS 41229903894:** control — 50 posts by the most-followed account (514 followers) → +25,700 notifications, +25,700 outbound push requests, +2,550 queued e-mails (all rolled back); **muted (replica) → +0 everywhere**, no write to any table but posts; posts unpublished. Pollers that read posts later: first-post-reminders (can only send fewer: seeded posts make accounts look posted), publish-scheduled-posts (publishes scheduled rows, not existing posts), refresh-feed-scores (no outward call) | read-only (rolled back) |
+| S11 | M2: new public functions not executable by authenticated by default + caller guard (SQL 0400) | #637 | staging e33358b · main 3d0c272 (#668) | staging: PROBE FAIL 41012747066 → apply 41027975519 → PROBE PASS 41030595046 · **production: PROBE FAIL 41035074359 (09:41) → apply 41035290057 (09:42, 487 unchanged) → PROBE PASS 41035380960 (09:42)** | 10:19 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors |
+| S11 | Judging locks act only for the signed-in judge (re-cut #276, SQL 0401) | #639 | staging f263a9f · main 3d0c272 (#668) + PROBE fix #670 (staging d56484a) / #672 (main 36c895d) | **production: PROBE FAIL 41039494213 (10:16; first attempt 41035469818 could not build its fixture — production has no competition entries) → apply 41039649531 (10:17) → PROBE PASS 41039738952 (10:18, post_fix=t ×3)** · staging re-run with fixed PROBE PASS 41037401458 (post_fix=t, real entry) · staging: PROBE FAIL 41031169486 (09:08; member released/took a judge's lock; live bodies == git) → apply 41031329079 (09:10) → PROBE PASS 41032692704 (09:20) | 10:19 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors |
+| S8 | Certificate check: "could not be completed" ≠ "not found" (re-cut #156) | #640 | staging fbe64a2 · main b731799 (#655) | — | 08:05 UTC PASS (same check); /verify-certificate 200 |
+| S8 | post_shares SELECT scoped to visible posts + admins (re-cut #391, SQL 0300) | #641 | staging 8b494b1 · main 3d0c272 (#668) | staging: PROBE FAIL 41032793488 → apply 41032914108 → PROBE PASS 41033005371 · **production: PROBE FAIL 41035739942 (09:46) → apply 41035898609 (09:48) → PROBE PASS 41036117067 (09:55)** | 10:19 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same text, 0 new console errors |
+| S8 | Staging-only 21-account fixture refuses other lanes (re-cut #214) | #642 | staging 171e00b · main b731799 (#655) | none needed | 08:05 UTC PASS (same check) |
+| S11 | One upload type list; support reply photos GPS-guarded; honest "couldn't check" copy | #597 | staging 0c34e68 · main 3164900 (#615) | — | 01:31 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same page head, 0 new console errors |
+| S11 | PROBE: drafts lifecycle (is anything purging 7-day drafts?) | #607 | staging 79183de · main 3164900 | staging 40980320938: all 4 draft functions exist; cron job "mark-expiring-post-drafts" runs daily 03:10 (last run succeeded); **no job purges or reaps** (confirms the gap); 0 drafts on staging · production 40987036808: **14 drafts, all marked expiring, oldest mark 66 days ago, none ever reaped** — the gap is real on live | — |
+| S11 | Retire the frozen RLS baseline (unrun since cd3dc7ef) | #608 | staging 0be4c4a · main 3164900 (#615) | — | 01:31 UTC PASS: home + /feed in Chromium, Firefox, WebKit 200, same page head, 0 new console errors |
+| S11 | PROBE: M2 default EXECUTE privileges vs real callers | #609 | staging 5f67995 · main 3164900 | staging 40984184794: default for functions created by `postgres` in public = EXECUTE to authenticated, not anon/PUBLIC; by `supabase_admin` in public = anon + authenticated. 476 public functions: anon can run 245 (47 client-called, 12 in policies, 129 triggers, 59 other); authenticated 337 (109 / 13 / 129 / 88) · production 40987139679: same defaults; 475 functions, anon 247 (47 / 12 / 131 / 59), authenticated 339 (109 / 13 / 131 / 88) | — |
+| S12/S5 | Switch-state PROBE (confirm OFF) | #588 → #600 | staging 584b305 · main 8af24ef | staging 40972309393 (created 23:19, finished ~00:20): personal_feed **off**, photo_upload_resume **off** (no row), media_ladder_feed off, media_private_photos off, copyright_music_check off; video_ads selected (1), video_posts selected (3), both other sessions' test cohorts · production 40977645548 (finished 00:32): **personal_feed everyone**, photo_upload_resume off (no row), media switches off, copyright_music_check off, video_ads selected (1), video_posts selected (6) | `photo_upload_resume` has no row on live = OFF |
+
+## Findings recorded
+
+- **S10 P34 (2026-10-31):** clause 2 ("every role check uses the (user_id, role) index") holds by plan on production for every query shape in the 21 functions; no policy reads user_roles directly (all go through `has_role`, an exact lookup). Clause 1 ("seq scans ≈ 0") cannot be judged from cumulative counters: the 11.5 % on production since cluster start includes whatever ran before the indexes/X1/X2/P8 changes and full-table joins (e.g. contributor / admin-search functions). Next: the 24 h delta from today's baseline, and attribution by statement if the delta is not ≈ 0. Clause 3 (1 M rows) needs members/roles seeded, which needs auth.users rows → Owner item 18.
+- **S10 X1 regression FIXED on both lanes (2026-10-31 04:16 UTC, carry #723):** every merged policy on production now joins its parts in descending policy-name order (PROBEs 0615–0619 PASS). Earlier text: **S10 X1 regression found and being fixed (21:31 UTC):** Postgres ORs permissive policies in **descending** policy-name order (`rowsecurity.c` builds the list in reverse index order). The X1 merges 0608–0613 joined the parts in **ascending** order, so each merged OR now evaluates its branches in the opposite order. Rows and access are unchanged (E1/E2), but per-row work changed. Example (fixture EXPLAIN): posts SELECT went from `privacy/owner OR has_role` to `has_role OR privacy/owner`, so every visible feed row now pays a `has_role()` call first. Live since 0612 on production (20:51 UTC); the 20:56 live check still passed. **Fix: #719 (SQL 0615)** rebuilds every merged policy in the original order (fixture: planner filter identical to the original). #717 (0614) is fixed to use the right order from the start. **0613 production apply is on hold** until #719 merges. Found by the review of #718.
+- **S10 X1 claim corrected (21:14 UTC, from the #718 rev 1 review):** Postgres already ORs a role's applicable permissive policies into one expression, so merging them does **not** reduce the expressions evaluated per row. The 0608–0614 headers' "Postgres then evaluates one policy per action instead of several" means policy objects, not per-row work. X1's measured effect is fewer duplicate policies (linter / H-2 count); **no query-time gain is claimed or measured**. Uniform merges keep the original policy-name order inside the OR, so evaluation order is unchanged there. **Mixed-role tables:** rev 1 (one guarded policy across role groups) was BLOCKED. It puts every group's expression into every role's plan, so a visitor could hit "permission denied" where today they get rows. Reproduced locally on Postgres 16 with both a hidden table and a hidden function. Rev 2 merges only within an identical (action, role list) and lists the rest as residual.
+- **S11 re-verification (staging fbdb644):** still true — photo presign signs no size/type; competition photos encoded twice at full size; accepted-file lists disagree; no 401/403/429/5xx member messages; stale-chunk reload never installed; judge tap targets 20–40 px; admin profile edit invalidates the wrong key; Tagged photos hides errors; qrcode in the entry chunk; trackPosition / PlacementBoard not wired; 6 hard-coded AAB marker strings; unguarded sed in the app build; stale root android-build.yml; sharp / vite-plugin-pwa in dependencies; deprecated react-mentions; doc drift (queryKeys, realtimeCounts). Already fine: get_broadcast_feed ambiguity (fixed 2026-08-14), native gallery picker wired, refetch storm (staleTime 5 min). Drafts: marked at 7 days but never purged (no purge function in git).
+
+- **F-AUD-8 before production:** the rotation scans Vault, cron.job, cron history and function bodies, not webhook trigger arguments, database settings or the pg_net queue (#586 counts these). Its cron-secret rollback only works if the Edge secret CRON_SECRET is also reverted; keep the time between the Owner's step 1 and the run short.
+- **F-REV4-1 inventory:** the DB-caller PROBE does not see Vault-held cron URLs or webhook triggers — never use it alone to remove a function.
+
+- **S8 sitemap #504 "0 vs 12":** not a defect. Staging's static sitemap is empty on purpose (staging tells crawlers to stay out, `scripts/generate-seo-assets.mjs`), and the dynamic route returns the static file when it is empty. Live static has 12 URLs on `50mmretina.com`; live upstream `functions/v1/sitemap` returns 729 URLs on the same host, so on main the dynamic route would serve 729. Carry needs a production-shaped proof, not a staging one.
+- **S11 re-verified, no change needed:** the 300 s presign shared by a photo pair — both files upload in parallel and each side re-presigns once on 403 (s3Upload.ts uploadPairToS3). POST-CAT-002 — the database minimum is OFF by design until Stage B2, and the client enforces it (categoryChipsSelection.test.ts). Competition entries keep full resolution by design (imageUpload.ts); #590 removed the double encode that ran phones out of memory.
+- **S8 F-AUD-8 PROBE:** production PASS 40973985325 (00:07 UTC): trigger args 0, db/role settings 0, pg_net queue 0. The rotation's own scan covers every place a credential sits.
+- **S11 judging scores (new, from the #603 measurement):** no SELECT path lets an entrant read their own scores — there are only judge/admin policies, and the owner-safe views cover comments, decisions and tags but not scores. Yet Dashboard, SubmissionDetail and PublicProfile read `judge_scores` directly, so entrants most likely see **no scores** (a silent blank, not a leak). Fixing it means a publish-gated `judge_scores_owner_safe` view without judge_id, plus the client switching to it. That is a new member-visible read path, so it should be a decided unit behind a switch; not done here.
+- **S11 drafts (measured on live):** 14 drafts are hidden from their owners and never deleted, oldest 66 days; their photos are still in storage. The design is MARK → PURGE (edge function deletes the photos) → REAP. PURGE does not exist in git, so the fix is that edge function plus a cron call, and deploying it needs item 7. Not built blind.
+- **S11 drafts:** git has MARK (`mark_expiring_post_drafts`) and REAP (`reap_post_drafts(uuid[])`) but no PURGE edge function (step 2 of 20260812110000), so nothing would ever call the reaper. #607 measures what each lane really runs.
+- **S11 awards by label:** `complete-round` builds its award map from catalog LABELS; PlacementBoard hard-codes 3 mandatory awards where the server requires only Winner. Which is right is Owner decision O-3 (item 12); pinning awards by tag id is an edge-function change, so its deploy needs item 7.
+- **S11 trackPosition:** wiring it as written would let the 30 s heartbeat overwrite the judge's intentional bookmark (same DB columns; JudgePanel.tsx notes bookmarks are intentional-only). Needs a local-only ambient store, and a switch because judges would see a new resume prompt.
+- **S11 react-mentions:** npm marks 4.4.10 deprecated ("no longer supported"). Its tarball is unchanged since 2023 (same integrity), so it is not a takeover. Its only audit finding is moderate GHSA-968p in the exact `@babel/runtime` 7.4.5 it pins. A flat override to 7.28.6 fixes it, but the repo forbids `overrides` (an earlier one moved 141 packages into the audited production tree), The advisory is not reachable: react-mentions' build imports 11 Babel helpers (classCallCheck, extends, slicedToArray …) and never the vulnerable `wrapRegExp` (0 occurrences in all 4 dist files). Decision: keep 4.4.10. Replacing it is optional upkeep, not a security fix, and is not done here. Replacing it rewrites the 622-line comment input, so it ships behind a switch.
+- **S11 build:** the image optimizer logs `Cannot find package 'svgo'` for 4 fallback SVGs. Pre-existing; the build stays green.
+- **S11 support attachments (#597):** reply attachments on Help & Support and Admin → Support were uploaded with no location (GPS) check, and their picker hid PNG screenshots. Fixed on staging after merge; the app's main photo paths were already guarded.
+- **S11 app build (#596):** Capacitor 8.5.0's template already ships AGP 8.13.0 / Gradle 8.14.3; the build pins them down to 8.12.3 / 8.13 (the set that built 1028 onward). Recorded, not changed.
+- **Other open PR to main:** #305 (head = `staging` itself, never mergeable by rule) and #103 (Sept). Not treated as collisions.
+
+## Gate reports
+
+**S10 X1 order restore (0615–0619) + user_roles (0613), production** — claim: on all 54 tables merged by 0608–0613 each merged clause is the backed-up parts joined in descending policy-name order (the pre-X1 evaluation order), access unchanged · instrument: PROBE_0613 / PROBE_0615–0619 (exact expected text) + in-transaction DRIFT, E1, ORDER, BIND, E2, POST · before: FAIL on production for every file (ascending order; user_roles unmerged) · after: PASS for every file; 122 multi-part clauses in DESC order; E1/E2 identical on every table; exclusive locks 59–1490 ms (posts batch 764 ms) · PASS · regressions: CI 31/31 on #723, independent review nothing blocking, live check 3 browsers PASS · not verified: per-row database time (no DB-side timing instrument run; browser timings are dominated by network); write paths only via E1 on existing rows. Review notes kept: 0615 phase 2 is not single-statement (it ran in 1.5 s on low-traffic tables).
+
+**S10 X1 hot batch A (0612)** — claim: on the 10 feed/profile tables the duplicate permissive policies are merged into one per action with access unchanged, and the exclusive lock covers only DDL + BIND + E2-after + shape checks · instrument: PROBE_20261031_0612 (G1–G4) + in-transaction E1 (before the lock, REPEATABLE READ), BIND, E2, S · before: FAIL both lanes (duplicates on all 10) · after: PASS both lanes; production 41 → 40 policies, E1 16 identities, E2 160 sets identical (whole DO 6.3 s, most before the lock) · PASS · regressions: CI 33/33 (#713, #714), live check 20:56 PASS (3 browsers, 4 pages, 0 new console errors) · not verified: write paths by real writes (E1 uses existing rows as candidates); exact time inside the lock (no internal timestamps; production proof cost for these tables ≈ 0.3 s by PROBE 0610). Review rev 1 BLOCKED (READ COMMITTED snapshot drift) → REPEATABLE READ + fixed lock order; carry review nothing blocking (non-blocking notes: stacked lock waits up to 5 s per table, PROBE has no positive merged-policy check — added to 0613 as G5).
+
+**S10 X1 batches 2 + 3 (0609, 0611)** — claim: 34 more tables (11 + 23) have one permissive policy per action, access unchanged · instrument: PROBE 0609/0611 (G1–G4) + in-transaction E1/E2/S, same reviewed code as the pilot · before: FAIL both lanes · after: PASS both lanes; production E1/E2 identical (0609: 15 identities, 165 sets; 0611: 15, 345), lock ~1.9 s / ~2.2 s (gate < 5 s) · PASS · regressions: CI 33/33 each, live checks 18:31 and 20:00 PASS · not verified: write paths by real writes (E1 uses existing rows as candidates). Reviews: 0609 rev 1 BLOCKED (hot feed tables in batch) → removed; tables chosen by measured cost (PROBE 0610, rev 1 BLOCKED: timeout inside DO → fixed).
+
+
+**S10 X1 pilot (0608)** — claim: on 9 content tables the duplicate permissive policies are merged into one per action (28 → 36 policies, 0 duplicates) with access unchanged · instrument: PROBE_20261031_0608 (G1 RLS, G2 no duplicates, G3 only merged, G4 backup owner-only) + in-transaction E1 (union of each original policy's accepted rows == merged policy's, per identity × action, USING and WITH CHECK), E2 (visible-row sets through RLS), S (restrictive policies byte-identical; merged actions == original actions) · before: FAIL both lanes (duplicates on all 9) · after: PASS both lanes; E1/E2 identical (staging 12 identities / 108 sets, production 10 / 90) · PASS · regressions: CI 33/33, vitest 31 migration files / 688 tests, live check 17:06 PASS incl. /courses and /journal item counts · not verified: write paths are proven on existing rows as candidates (E1), not by real writes; review rev 1 found and we fixed a service_role → postgres injection path through the backup table before merge.
+
+
+**S10 X2 (0606)** — claim: 32 RLS policies on 16 tables evaluate auth.uid()/auth.role() once per query instead of once per row, with access unchanged · instrument: PROBE_20261031_0606 (G1 32 exist, G2 none bare, G3 lane-wide 0 bare) + in-transaction E1 (text identical without wrappers, policy shape unchanged) and E2 (visible-row matrix) · before: FAIL both lanes (32/32 bare) · after: PASS both lanes; E2 80 cells (staging) / 240 cells (production) identical · PASS · regressions: CI 32/32, vitest (31 migration-related files, 686 tests) green, no app code, live check 15:25 PASS · not verified: write paths (INSERT/UPDATE WITH CHECK) are covered by E1 text equivalence only, E2 counts reads; staging E2 had only 5 identities (few rows); query-time gain not measured (no load test).
+
+
+**S2 native crash / OOM / ANR** — claim: crash rate per app build now counts native crashes and out-of-memory kills, not only script errors · instrument: PROBE_20261031_0100 (7 fixture events → admin read) · before: "starts = 6 (want 2), crashes/oom/anr = null" on both lanes · after: PROBE PASS on both lanes (2 starts, 2 crashes, 1 OOM, 1 ANR, 150.00 per 100) · PASS · regressions: typecheck 0, vitest 4,632 passed, build 0, security 0 critical / 0 high, CI 33/33 · not verified: a real crash on a real phone (needs the S9 app build).
+
+**S3 carry** — claim: S3 code + SQL live with switches OFF, nothing members see changed · instrument: PROBEs 0100/0101/0102 + 3-browser live check · before: PROBEs FAIL on production (objects missing) · after: PASS on both lanes; live pages unchanged · PASS · regressions: typecheck 0, vitest 4,705 passed, build 0, security 0/0, CI 34/34 · not verified: the phone part of the S3 gate (≤ 1440 px, 0 originals, ≥ 70 % fewer bytes) needs backfill + switch-on (Owner).
+
+
+**S11 M2 (0400)** — claim: functions created in `public` are no longer executable by signed-in members unless granted · instrument: PROBE_20261031_0400 (default ACL + a throwaway function's EXECUTE) · before: FAIL on both lanes (G1 default grants authenticated; G2a new function callable) · after: PASS on both lanes; 484 (staging) / 487 (production) existing functions' EXECUTE unchanged · PASS · regressions: typecheck 0, vitest green, CI 33/33, guard test blocks un-granted new functions · not verified: a future migration's own grants (that is what the guard enforces in CI).
+
+**S11 judging locks (0401)** — claim: only the signed-in judge (or admin) can take, extend or release their own lock · instrument: PROBE_20261031_0401 · before: a plain member released and took locks in a judge's name (staging), refusals not enforced (production) · after: all refused, judge-as-self works (staging behaviour), installed bodies identical to the staging-proven ones (production) · PASS · regressions: CI green, JudgePanel only ever passes the user's own id · not verified: a real judging session on production (production has no competition entries yet).
+
+**S8 post_shares (0300)** — claim: a member sees only shares of posts they can see · instrument: PROBE_20261031_0300 on live data, rolled back · before: USING (true) on both lanes · after: stranger 1/3, friend 2/3, sharer 3/3, admin 3/3, anon 0, unshare works — both lanes · PASS · regressions: CI green, live pages unchanged · not verified: none.
+
+**S11 npm advisories** — claim: production high advisories 14 → 1 · instrument: `npm audit --omit=dev` + floors test · before 14 high · after 1 high (zod, unreachable: no constrained collections, test-enforced) · PASS · regressions: typecheck 0, vitest green, live pages unchanged · not verified: zod 4 / react-router 7 majors (not done).
+
+## S9 seed baseline (Owner item 20)
+
+Staging, **before any seeding**, after the leftover 10,905 seeded posts were torn down (teardown run 41205980739). Census PROBE 0800 run **41206776085** (2026-10-31 13:4x UTC): **PASS — 0 seeded rows** in 100 columns. After the 1 M test and its teardown, the same PROBE must PASS again and these lines must match (tables that move on their own — auth sessions/tokens/audit, realtime, cron/telemetry logs — are named with the measured change).
+
+<details><summary>All 256 count lines (C = rows, K = counter sums)</summary>
+
+```
+C|auth.audit_log_entries|rows=0
+C|auth.custom_oauth_providers|rows=0
+C|auth.flow_state|rows=0
+C|auth.identities|rows=52
+C|auth.instances|rows=0
+C|auth.mfa_amr_claims|rows=60
+C|auth.mfa_challenges|rows=0
+C|auth.mfa_factors|rows=0
+C|auth.mfa_recovery_code_sets|rows=0
+C|auth.mfa_recovery_codes|rows=0
+C|auth.oauth_authorizations|rows=0
+C|auth.oauth_client_states|rows=0
+C|auth.oauth_clients|rows=0
+C|auth.oauth_consents|rows=0
+C|auth.one_time_tokens|rows=0
+C|auth.refresh_tokens|rows=527
+C|auth.saml_providers|rows=0
+C|auth.saml_relay_states|rows=0
+C|auth.schema_migrations|rows=82
+C|auth.scim_tokens|rows=0
+C|auth.scim_users|rows=0
+C|auth.sessions|rows=60
+C|auth.sso_domains|rows=0
+C|auth.sso_providers|rows=0
+C|auth.users|rows=52
+C|auth.webauthn_challenges|rows=0
+C|auth.webauthn_credentials|rows=0
+C|pgmq.a_transactional_emails|rows=0
+C|pgmq.meta|rows=1
+C|pgmq.q_transactional_emails|rows=155
+C|public._v3_preflight_snapshot_competition_entries|rows=0
+C|public._v3_preflight_snapshot_judge_decisions|rows=0
+C|public._v3_preflight_snapshot_judge_tag_assignments|rows=0
+C|public._v3_preflight_snapshot_judging_tags|rows=0
+C|public._v3_quarantine_decisions|rows=0
+C|public._v3_quarantine_tag_assignments|rows=0
+C|public.activity_logs|rows=73
+C|public.ad_conversions|rows=0
+C|public.ad_creative_comments|rows=0
+C|public.ad_creative_reactions|rows=0
+C|public.ad_creative_shares|rows=0
+C|public.ad_creatives|rows=1
+C|public.ad_impressions|rows=54
+C|public.ad_videos|rows=1
+C|public.admin_notifications|rows=6
+C|public.admin_vote_adjustments|rows=0
+C|public.ai_chat_usage|rows=0
+C|public.album_photos|rows=0
+C|public.auth_login_attempts|rows=0
+C|public.badge_definitions|rows=6
+C|public.bank_details|rows=0
+C|public.blocked_keywords|rows=0
+C|public.categories|rows=46
+C|public.categories_migration_dropped|rows=0
+C|public.certificate_testimonials|rows=0
+C|public.certificates|rows=3
+C|public.chat_questions|rows=41
+C|public.client_errors|rows=52
+C|public.client_telemetry|rows=0
+C|public.client_telemetry_quota|rows=0
+C|public.comment_reactions|rows=0
+C|public.comment_reports|rows=1
+C|public.comments|rows=0
+C|public.competition_entries|rows=3
+C|public.competition_entry_counts|rows=4
+C|public.competition_judges|rows=1
+C|public.competition_judging_tags|rows=0
+C|public.competition_orders|rows=0
+C|public.competition_payment_details|rows=0
+C|public.competition_round_publish|rows=8
+C|public.competition_votes|rows=0
+C|public.competitions|rows=2
+C|public.contributor_engagement_daily|rows=10
+C|public.course_enrollments|rows=0
+C|public.course_modules|rows=3
+C|public.courses|rows=3
+C|public.custom_url_history|rows=516
+C|public.db_audit_logs|rows=69
+C|public.email_queue_wake_state|rows=1
+C|public.email_send_log|rows=155
+C|public.email_send_state|rows=0
+C|public.email_templates|rows=9
+C|public.email_unsubscribe_tokens|rows=52
+C|public.entry_score_cache|rows=0
+C|public.entry_vote_counts|rows=0
+C|public.f_p35_1_acl_before|rows=6
+C|public.faq_entries|rows=1
+C|public.feature_access|rows=7
+C|public.feature_access_audit|rows=15
+C|public.feature_access_members|rows=4
+C|public.featured_artists|rows=1
+C|public.featured_photos|rows=0
+C|public.feed_author_signals|rows=0
+C|public.feed_events|rows=0
+C|public.feed_favourite_authors|rows=0
+C|public.feed_hidden_posts|rows=0
+C|public.feed_muted_authors|rows=0
+C|public.feed_post_quality|rows=1
+C|public.feed_post_quality_queue|rows=0
+C|public.feed_post_signals|rows=0
+C|public.feed_score_config|rows=44
+C|public.feed_score_watermarks|rows=7
+C|public.feed_session_delivered|rows=0
+C|public.feed_signal_events|rows=0
+C|public.feed_viewer_author_affinity|rows=2
+C|public.feed_viewer_category_interest|rows=0
+C|public.first_post_reminders|rows=0
+C|public.follows|rows=514
+C|public.friendships|rows=1
+C|public.gift_announcements|rows=512
+C|public.gift_credits|rows=1
+C|public.hashtags|rows=84
+C|public.held_result_notifications|rows=0
+C|public.hero_banners|rows=3
+C|public.highlight_items|rows=0
+C|public.highlights|rows=0
+C|public.image_comments|rows=0
+C|public.image_reactions|rows=0
+C|public.journal_articles|rows=0
+C|public.judge_activity_logs|rows=0
+C|public.judge_award_tags|rows=0
+C|public.judge_comments|rows=0
+C|public.judge_decisions|rows=13
+C|public.judge_entry_assignments|rows=12
+C|public.judge_entry_locks|rows=0
+C|public.judge_scores|rows=0
+C|public.judge_sessions|rows=0
+C|public.judge_tag_assignments|rows=1
+C|public.judging_config|rows=0
+C|public.judging_preflight_log|rows=0
+C|public.judging_rounds|rows=8
+C|public.judging_tags|rows=20
+C|public.lesson_progress|rows=0
+C|public.lessons|rows=4
+C|public.media_objects|rows=2
+C|public.media_repair_audit|rows=0
+C|public.member_activity_minutes|rows=167
+C|public.music_library_audit|rows=0
+C|public.music_library_tracks|rows=0
+C|public.name_part_spellings|rows=22
+C|public.newsletter_subscribers|rows=52
+C|public.notification_centre_log|rows=0
+C|public.notification_emit_log|rows=0
+C|public.notification_preferences|rows=0
+C|public.notification_quiet_hours|rows=0
+C|public.notification_types|rows=49
+C|public.office_staff|rows=1
+C|public.ops_alarm_settings|rows=1
+C|public.ops_alarms|rows=2
+C|public.ops_probe_requests|rows=9
+C|public.p5_cron_previous|rows=1
+C|public.p6_cron_previous|rows=1
+C|public.photo_albums|rows=0
+C|public.photo_of_the_day|rows=1
+C|public.portfolio_images|rows=51
+C|public.post_comment_reactions|rows=1
+C|public.post_comments|rows=9
+C|public.post_drafts|rows=0
+C|public.post_hashtags|rows=0
+C|public.post_media|rows=6
+C|public.post_reactions|rows=6
+C|public.post_reports|rows=0
+C|public.post_shares|rows=0
+C|public.post_tags|rows=0
+C|public.post_videos|rows=3
+C|public.posts|rows=11
+C|public.posts_dead_host_backup_20260812|rows=0
+C|public.profile_stats|rows=516
+C|public.profile_views|rows=0
+C|public.profiles|rows=52
+C|public.profiles_public_data|rows=516
+C|public.publish_scheduled_posts_tick_state|rows=1
+C|public.push_config|rows=1
+C|public.push_delivery_log|rows=0
+C|public.push_tokens|rows=0
+C|public.raw_commitments|rows=0
+C|public.referral_codes|rows=1
+C|public.referrals|rows=0
+C|public.reports|rows=0
+C|public.reserved_custom_urls|rows=68
+C|public.role_applications|rows=4
+C|public.role_display_config|rows=7
+C|public.round_snapshots|rows=0
+C|public.scheduled_boosts|rows=0
+C|public.scheduled_posts|rows=0
+C|public.search_recents|rows=3
+C|public.site_settings|rows=34
+C|public.stories|rows=1
+C|public.story_views|rows=0
+C|public.support_tickets|rows=0
+C|public.suppressed_emails|rows=0
+C|public.system_flags|rows=6
+C|public.system_tag_decision_map|rows=9
+C|public.test_agent_config|rows=1
+C|public.test_agent_runs|rows=0
+C|public.ticket_replies|rows=0
+C|public.transliteration_map|rows=341
+C|public.user_badges|rows=1
+C|public.user_block_notices|rows=0
+C|public.user_blocks|rows=0
+C|public.user_devices|rows=10
+C|public.user_notifications|rows=1081
+C|public.user_roles|rows=51
+C|public.v3_stage_catalog|rows=20
+C|public.v3_tag_label_alias|rows=28
+C|public.video_converter_accounts|rows=1
+C|public.video_music_checks|rows=11
+C|public.video_r2_purge_queue|rows=0
+C|public.video_source_events|rows=25
+C|public.video_sources|rows=1
+C|public.video_takedown_audit|rows=0
+C|public.video_versions|rows=13
+C|public.videos|rows=13
+C|public.vote_adjustment_cleanup_log|rows=0
+C|public.wallet_ledger_audit_log|rows=0
+C|public.wallet_ledger_idempotency|rows=0
+C|public.wallet_ledger_shadow_log|rows=0
+C|public.wallet_reconciliation_log|rows=0
+C|public.wallet_transactions|rows=50
+C|public.wallets|rows=50
+C|public.withdrawal_requests|rows=0
+C|public.x1_policy_backup_20261031|rows=179
+C|realtime.messages|rows=0
+C|realtime.schema_migrations|rows=91
+C|realtime.subscription|rows=0
+C|storage.buckets|rows=11
+C|storage.buckets_analytics|rows=0
+C|storage.buckets_vectors|rows=0
+C|storage.migrations|rows=74
+C|storage.objects|rows=4
+C|storage.s3_multipart_uploads|rows=0
+C|storage.s3_multipart_uploads_parts|rows=0
+C|storage.vector_indexes|rows=0
+K|_v3_preflight_snapshot_competition_entries.view_count|sum=0
+K|ai_chat_usage.question_count|sum=0
+K|auth_login_attempts.failed_count|sum=0
+K|chat_questions.ask_count|sum=47
+K|competition_entries.view_count|sum=0
+K|courses.admin_rating_count|sum=5048
+K|gift_credits.recipients_count|sum=513
+K|hashtags.post_count|sum=199
+K|hashtags.unique_user_count|sum=110
+K|judging_preflight_log.db_count|sum=0
+K|judging_preflight_log.diff_count|sum=0
+K|judging_preflight_log.ui_count|sum=0
+K|portfolio_images.view_count|sum=0
+K|posts.comments_count|sum=20
+K|posts.likes_count|sum=135
+K|posts.shares_count|sum=0
+K|posts.viewer_count|sum=0
+K|profile_stats.followers_count|sum=51
+K|profile_stats.following_count|sum=513
+K|profile_stats.friends_count|sum=0
+K|profiles.reengagement_sends_count|sum=0
+K|scheduled_posts.attempt_count|sum=0
+K|scheduled_posts.shifted_count|sum=0
+```
+</details>
+
+## Owner list (plain words, click-only)
+
+1. ~~S0 phone test~~ — **done**, "Video OK" (2026-10-30 07:35 UTC).
+2. **S2 look (after the S9 app update is on your phone):** Admin → Health → "App health". You should see: feed p95 yesterday, upload failure %, the "Crash rate per build" table (with Crashes, OOM, ANR columns), and "Egress per 1,000 feed views". Reply "Health OK" or send a screenshot.
+3. **S3 decision O-1:** old app versions (1.2.24/1.2.25) still show friends-only photos from their old public address. Do you want the app to force an update 2–3 weeks after the new version is in the Play Store, so those addresses can be closed? Reply "O-1 yes" or "O-1 no".
+4. **S3 decision O-2:** a signed photo link for friends-only photos stays valid for 1 hour (someone you unfriend can still see an already-opened photo for up to 1 hour). Reply "O-2 keep 1 h" or name a shorter time.
+5. **S3 backfill (one time, 2 minutes):** GitHub → repository Settings → Environments → **staging** → Add environment secret: name `MEDIA_WORKER_EMAIL`, value = the converter account's e-mail; again `MEDIA_WORKER_PASSWORD` = its password (the same two the video converter machine uses). Repeat on **production**. Then tell me "secrets added".
+6. **S3 Cloudflare (staging first):** Cloudflare → Workers & Pages → the staging Pages project → Settings → Bindings → Add R2 bucket binding: name `PHOTOS`, bucket = the staging photo bucket → Save → redeploy. Same on the production project later (only when you want to switch photos on).
+7. ~~S8 edge functions token~~ — **done by the Owner ("token added", 2026-10-31 16:35 UTC; staging + production).** Now unblocked: S8 function inventory / reconcile / deploy and send-push; S11 drills D1/D9; the presign signing fix (#591/#606) takes effect at the next function deploy; F-AUD-8 rotation step 1 (item 8). Rule: no `d1-deploy-functions.yml` dispatch while the Notification Centre runner is deploying.
+8. **S8 credential rotation (after item 7):** follow `docs/evidence/d1/F-AUD-8/README.md` steps 1–2 (Supabase → Edge Functions → Secrets → new `CRON_SECRET`; Vault → add `faud8_new:cron_secret`), then tell me "vault ready" — I run the rotation within minutes.
+9. **S8 converter password:** Supabase → Authentication → Users → the converter account → Reset password; put the new one in the converter machine's credentials file and in GitHub secret `MEDIA_WORKER_PASSWORD` (item 5).
+10. **S8 F-REV4-6 (award stamps / judge badge):** the finding text is in your claude.ai Project, not in the repository. Paste it to me (or say "skip").
+11. **GitHub (security, 1 minute):** Settings → Environments → **production** → Deployment branches → "Selected branches" → add `main` only. Same for **staging** with `staging`.
+12. **Judging decision O-3 (Round 4 awards):** before Round 4 can be closed, which awards must be given? Today the site requires only a **Winner**. An unused admin board in the code says the original plan required **Winner, 1st Runner-Up and 2nd Runner-Up**. Reply "O-3 winner only" or "O-3 all three".
+13. ~~Personal feed ON on live~~ — **done**, Owner decision: keep ON.
+14. ~~P6 size clause~~ — **Owner: DROP** (2026-10-31 08:13 UTC). Was: the gate says the cron history table must not be among the ten largest tables. It shrank from 76 MB to about 2 MB and is purged hourly, but the whole database is so small that it is still #5 (staging) / #8 (production). Reply "P6 size clause: drop" or "P6 size clause: keep".
+15. ~~P26~~ — **Owner: AS PROPOSED** (08:13 UTC). Was: which tables should P26's retention cover, and how long to keep rows? Reply with a number of days, or "P26: as proposed".
+16. ~~P27~~ — **Owner: ARCHIVE AND DROP** (08:13 UTC; verified archive copy first). Was: three old wallet tables are still live (wallet_ledger_v2_diff_log, v3_mirror_log, wallet_ledger_v2_rows). Reply "P27: archive and drop" or "P27: keep".
+17. ~~P25 §8~~ — **Owner: HOLD** (08:13 UTC): nothing is built from P25-interface.md. Was: read `docs/gates/P25-interface.md` §8 (where the certificate PDF is made, production MEDIA binding, members adding their own entries). Reply "P25 §8: as proposed" or name the changes.
+18. ~~Seeder~~ — **Owner: KEEP / may run on staging** (08:13 UTC). Was: may the 1-million-row test seeder (`d1-seed-staging.yml`) run on staging? S9's re-audit and P34 need it. It writes about 1 M test posts plus their follower notifications into the shared staging database (it never touches the live site). Reply "seeder: yes" or "seeder: no".
+20. ~~Seeder job queue~~ — **Owner: YES, staging only; every seeded row must be deleted everywhere afterwards and proven by PROBE (0 seeded rows, counts back to the recorded baseline)** (09:05 UTC). Was: **Seeder job queue (S9, no click):** the 1-million-post test on staging needs one more tick: every seeded post also adds one background job (the 5-second post worker then works through them; on staging this sends nothing to members' phones as far as measured — I will re-measure before running). Reply "seeder jobs: yes" or "seeder jobs: no". If no, S9's 1 M test cannot run and I report S9 without it.
+22. **S11 upload check on staging (2 minutes):** open https://staging.50mmretina.com, sign in, post one photo. Reply "22: staging upload OK" (or what you saw). Why: the photo-upload signer fix (#591) is deployed on staging only (2026-10-31 18:3x UTC, version 6); live follows only after your OK.
+21. ~~S9 1 M test~~ — **Owner: "mute seeded posts but delete it after test"** (2026-10-31 16:45 UTC): (1) seeded posts create no notifications, push calls, e-mails or background jobs on both paths (today's triggers and the Notification Centre), proven by a small-batch PROBE first; (2) 1 M test on staging only, **after the notification runner reports NOTIFICATIONS COMPLETE**; (3) delete everything and prove 0 seeded rows + counts back to the baseline (census 41206776085).
+19. ~~X1 leftover~~ — **Owner: SKIP** (08:13 UTC). Was: on 4 small tables (featured_photos, highlights, judging_tags, newsletter_subscribers) 6 pairs of access rules for the same members could still be merged into one each. Members would see no difference and nothing gets faster; it only removes 6 linter warnings, but it needs a new safety check written and reviewed. My recommendation: skip it. Reply "X1 leftover: skip" or "X1 leftover: do it".
