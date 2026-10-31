@@ -12,6 +12,7 @@ import { motion } from "framer-motion";
 import { useNotificationsQuery, type UserNotificationGroup } from "@/hooks/notifications/useNotificationsQuery";
 import { useNotificationSound } from "@/hooks/core/useNotificationSound";
 import { getNotifLink } from "@/lib/notificationLinks";
+import { useCentreUi } from "@/lib/notifications/centreUi";
 import { notificationEntryState } from "@/lib/navigationContract";
 import { useDismissOnRouteChange } from "@/hooks/core/useDismissOnRouteChange";
 import { useIsPrimaryInstance } from "@/hooks/core/useIsPrimaryInstance";
@@ -101,8 +102,26 @@ const NOTIF_CATEGORY: Record<string, string> = {
 };
 
 
+/** A bell row's avatar with its type badge (or the type icon alone). */
+function BellAvatar({ avatar, IconComp }: { avatar: string | null; IconComp: React.ComponentType<{ className?: string }> }) {
+  return avatar ? (
+    <div className="relative">
+      <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={avatar} alt="" className="w-9 h-9 rounded-full object-cover" />
+      <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+        <IconComp className="h-2.5 w-2.5 text-primary-foreground" />
+      </div>
+    </div>
+  ) : (
+    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+      <IconComp className="h-4 w-4 text-primary" />
+    </div>
+  );
+}
+
 const NotificationBell = () => {
   const { user } = useAuth();
+  // N7 · notification centre rows, behind site_settings notif_centre_ui (OFF on live).
+  const centreRows = useCentreUi(user?.id);
   const { isAdmin } = useIsAdmin();
   const [open, setOpen] = useState(false);
   const { playNotificationSound } = useNotificationSound();
@@ -537,20 +556,48 @@ const NotificationBell = () => {
                           // Same function, same words, as the history page.
                           const described = describeNotification(subjectFromGroup(group, adminIds));
                           return (
+                            centreRows ? (
+                            <div key={group.group_key} className="flex items-center gap-3 px-4 py-3 border-b border-border/50 hover:bg-muted/20 transition-colors">
+                              {/* N7 · notif_centre_ui: ONE link per row — avatar, sentence and
+                                  time inside it, so a screen reader meets one named control
+                                  instead of an unnamed avatar link plus a second link. */}
+                              <Link
+                                data-notif-row-open="true"
+                                to={link}
+                                state={notificationEntryState(group.type)}
+                                onClick={() => dismissUserGroup(group)}
+                                className="flex items-center gap-3 flex-1 min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              >
+                                <span className="relative shrink-0">
+                                <BellAvatar avatar={avatar} IconComp={IconComp} />
+                                  <span data-notif-unread-dot="true" aria-hidden="true" className="absolute -top-0.5 -left-0.5 h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-background" />
+                                </span>
+                                <span className="flex-1 min-w-0">
+                                  <span className="text-xs block line-clamp-2" style={bodyFont}>
+                                    <span className="sr-only">Unread, </span>{described.text}
+                                  </span>
+                                  <span className="text-[9px] text-muted-foreground" style={headingFont}>{timeAgoFn(group.latest_at)}</span>
+                                </span>
+                              </Link>
+                              {group.type === "post_tag" ? (
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button onClick={() => respondToTag(group, "approved")} className="h-7 w-7 rounded-full bg-primary/10 hover:bg-primary/20 flex items-center justify-center text-primary transition-colors" title="Approve">
+                                    <Check className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button onClick={() => respondToTag(group, "declined")} className="h-7 w-7 rounded-full bg-muted hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors" title="Decline">
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button onClick={() => dismissUserGroup(group, false)} className="h-7 w-7 rounded-full bg-muted hover:bg-muted/80 flex items-center justify-center text-muted-foreground shrink-0 transition-colors" title={group.event_count > 1 ? `Dismiss all ${group.event_count}` : "Dismiss"}>
+                                  <X className="h-3 w-3" />
+                                </button>
+                              )}
+                            </div>
+                            ) : (
                             <div key={group.group_key} className="flex items-center gap-3 px-4 py-3 border-b border-border/50 hover:bg-muted/20 transition-colors">
                               <Link to={link} state={notificationEntryState(group.type)} onClick={() => dismissUserGroup(group)} className="shrink-0">
-                                {avatar ? (
-                                  <div className="relative">
-                                    <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={avatar} alt="" className="w-9 h-9 rounded-full object-cover" />
-                                    <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
-                                      <IconComp className="h-2.5 w-2.5 text-primary-foreground" />
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                                    <IconComp className="h-4 w-4 text-primary" />
-                                  </div>
-                                )}
+                                <BellAvatar avatar={avatar} IconComp={IconComp} />
                               </Link>
                               <div className="flex-1 min-w-0">
                                 {/* `line-clamp-2`, not `truncate`: this column is
@@ -576,6 +623,7 @@ const NotificationBell = () => {
                                 </button>
                               )}
                             </div>
+                            )
                           );
                         })}
                       </NotifSection>

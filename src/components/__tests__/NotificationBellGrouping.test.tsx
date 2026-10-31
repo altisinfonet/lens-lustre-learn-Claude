@@ -34,6 +34,8 @@ import { subjectFromGroup } from "@/lib/notifications/adapters";
 
 /* ── hermetic mocks ──────────────────────────────────────────────────────── */
 
+// Today's bell: the notification centre switch (notif_centre_ui) is OFF.
+vi.mock("@/lib/notifications/centreUi", () => ({ useCentreUi: () => false }));
 vi.mock("@/hooks/core/useAuth", () => ({ useAuth: () => ({ user: { id: "user-1" } }) }));
 vi.mock("@/hooks/core/useIsAdmin", () => ({ useIsAdmin: () => ({ isAdmin: false }) }));
 vi.mock("@/hooks/core/useNotificationSound", () => ({
