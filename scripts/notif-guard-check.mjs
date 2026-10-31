@@ -74,6 +74,13 @@ export function stripSqlComments(s) {
         j++;
       }
       out += s.slice(i, j + 1); i = j + 1;
+    } else if (c === "$" && /^\$[A-Za-z_]?[A-Za-z0-9_]*\$/.test(s.slice(i, i + 64)) && !/[A-Za-z0-9_]/.test(s[i - 1] || "")) {
+      // a dollar-quoted string is copied unchanged up to its closing tag (an
+      // apostrophe inside it must not open a fake '...' string)
+      const tag = /^\$[A-Za-z_]?[A-Za-z0-9_]*\$/.exec(s.slice(i, i + 64))[0];
+      const end = s.indexOf(tag, i + tag.length);
+      const j = end < 0 ? s.length : end + tag.length;
+      out += s.slice(i, j); i = j;
     } else if (c === "-" && s[i + 1] === "-") {
       const j = s.indexOf("\n", i); out += " "; i = j < 0 ? s.length : j;
     } else if (c === "/" && s[i + 1] === "*") {
@@ -84,7 +91,9 @@ export function stripSqlComments(s) {
 }
 
 const TYPE_ALIAS = { int: "integer", int4: "integer", int8: "bigint", int2: "smallint", bool: "boolean",
-  varchar: "character varying", timestamptz: "timestamp with time zone", float8: "double precision" };
+  varchar: "character varying", timestamptz: "timestamp with time zone", float8: "double precision",
+  float: "double precision", decimal: "numeric", real: "float4", char: "character", bpchar: "character",
+  timetz: "time with time zone" };
 const MULTIWORD_TYPE_START = /^(double|character|timestamp|time|bit|interval)\b/;
 
 /** "(a integer DEFAULT 1, OUT b text, VARIADIC xs int[])" → "integer,integer[]" (identity types only). */
@@ -104,8 +113,9 @@ export function normaliseArgs(list) {
     if (words[0] === "out") continue;                          // OUT params are not part of the identity
     if (["in", "inout", "variadic"].includes(words[0])) words = words.slice(1);
     if (words.length > 1 && !MULTIWORD_TYPE_START.test(words.join(" "))) words = words.slice(1);  // drop the name
-    let t = words.join(" ").replace(/^public\./, "");
+    let t = words.join(" ").replace(/^public\./, "").replace(/\s*\([^)]*\)/g, "");   // type modifiers do not count
     t = t.replace(/^([a-z0-9_]+)/, (m) => TYPE_ALIAS[m] || m);
+    t = t.replace(/^(timestamp|time)(?!\s+with)(\[\])?$/, "$1 without time zone$2");
     out.push(t);
   }
   return out.join(",");

@@ -34,6 +34,10 @@ ok(w(fn("c2", "BEGIN INSERT INTO public.user_notifications(user_id) VALUES (1); 
 ok(w(fn("c3", "BEGIN INSERT INTO public.user_notifications(user_id) VALUES (1); END;"), "CREATE FUNCTION public.c3(a integer) RETURNS void LANGUAGE sql AS $$ SELECT 1 $$;").includes("c3"), "adding a non-writing overload keeps the name a writer");
 ok(!w(fn("c4", "BEGIN INSERT INTO public.user_notifications(user_id) VALUES (1); END;"), "DROP FUNCTION public.c4();").includes("c4"), "dropping the writing overload itself forgets it");
 
+ok(w("COMMENT ON FUNCTION public.x() IS $$Don't use$$;\n" + fn("c5", "BEGIN INSERT INTO public.user_notifications(user_id) VALUES (1); END;") + "\n/* DROP FUNCTION public.c5(); */").includes("c5"), "an apostrophe inside $$…$$ does not let a commented-out DROP through");
+ok(!w("CREATE FUNCTION public.c6(p numeric(10,2)) RETURNS void LANGUAGE plpgsql AS $$ BEGIN INSERT INTO public.user_notifications(user_id) VALUES (1); END $$;\nCREATE OR REPLACE FUNCTION public.c6(p numeric) RETURNS void LANGUAGE plpgsql AS $$ BEGIN PERFORM 1; END $$;").includes("c6"), "numeric(10,2) and numeric are the same signature (replace, not overload)");
+ok(!w("CREATE FUNCTION public.c7(t timestamp) RETURNS void LANGUAGE plpgsql AS $$ BEGIN INSERT INTO public.user_notifications(user_id) VALUES (1); END $$;\nDROP FUNCTION public.c7(timestamp without time zone);").includes("c7"), "timestamp = timestamp without time zone");
+
 console.log("SQL — must NOT be a writer");
 ok(!w(fn("b1", "BEGIN -- INSERT INTO public.user_notifications would be wrong\n RETURN NEW; END;")).includes("b1"), "insert only in a -- comment");
 ok(!w(fn("b2", "BEGIN /* INSERT INTO user_notifications */ RETURN NEW; END;")).includes("b2"), "insert only in a /* */ comment");
