@@ -56,7 +56,18 @@ const MATRIX_DOC = join(ROOT, "docs/notification-recipient-integrity-matrix.md")
  *    whether or not a line of logic ever reads one;
  *  - tests, which would let a test assert a column into looking alive.
  */
-const NOT_A_CONSUMER = new Set([SETTINGS_PAGE, PREFS_HOOK, "src/integrations/supabase/types.ts"]);
+const NOT_A_CONSUMER = new Set([
+  SETTINGS_PAGE,
+  PREFS_HOOK,
+  "src/integrations/supabase/types.ts",
+  // The notification centre (N2) names the in-app columns in its type registry
+  // and its decision reads them — but ONLY for a group whose switch is live
+  // (notif_centre_<group>). Every switch ships OFF, so for members these
+  // toggles are still dead. When the Owner switches a group on (N8) and its
+  // makers go through the centre (N3), delete the matching UNWIRED_TOGGLES
+  // entries AND this exemption — that is the moment the switch starts working.
+  "supabase/migrations/20261104_0110_notification_centre.sql",
+]);
 
 const SEARCH_ROOTS = ["supabase/migrations", "supabase/functions", "src"];
 
