@@ -263,8 +263,8 @@ function TypeRowView({ r, open, onToggle, onChanged, onError, onNotice }: {
                 Preview: <strong className="text-foreground">Anindita</strong> {wording || "(built-in sentence)"}
               </p>
               <div className="flex flex-wrap gap-2">
-                <button type="button" disabled={saving || wording === (r.wording_en ?? "")}
-                  onClick={() => void patch({ wording_en: wording }, "wording")}
+                <button type="button" disabled={saving || wording.trim() === (r.wording_en ?? "")}
+                  onClick={() => void patch({ wording_en: wording.trim() }, "wording")}
                   className="px-3 py-1.5 tap-44 rounded-md bg-primary text-primary-foreground text-xs disabled:opacity-50">
                   Save wording
                 </button>
@@ -312,17 +312,17 @@ function MemberLookup() {
   };
   return (
     <div className="space-y-2">
-      <label className="block text-xs text-muted-foreground">
-        Member id
-        <span className="mt-1 flex gap-2">
+      <div className="flex items-end gap-2">
+        <label className="block flex-1 text-xs text-muted-foreground">
+          Member id
           <input value={id} onChange={(e) => setId(e.target.value)}
-            className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground" />
-          <button type="button" disabled={!valid} onClick={() => void look()}
-            className="px-3 py-1.5 tap-44 rounded-md border border-border text-xs inline-flex items-center gap-1 disabled:opacity-50">
-            <Search className="h-3 w-3" aria-hidden="true" /> Look up
-          </button>
-        </span>
-      </label>
+            className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground" />
+        </label>
+        <button type="button" disabled={!valid} onClick={() => void look()}
+          className="px-3 py-1.5 tap-44 rounded-md border border-border text-xs inline-flex items-center gap-1 disabled:opacity-50">
+          <Search className="h-3 w-3" aria-hidden="true" /> Look up
+        </button>
+      </div>
       {err && <p role="alert" className="text-xs text-destructive">{err}</p>}
       {result && <pre className="text-xs whitespace-pre-wrap rounded-md border border-border p-2">{JSON.stringify(result, null, 2)}</pre>}
     </div>

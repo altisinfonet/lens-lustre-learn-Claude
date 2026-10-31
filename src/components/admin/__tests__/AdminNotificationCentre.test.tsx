@@ -90,6 +90,11 @@ describe("Admin → Notification Centre", () => {
     await waitFor(() => expect(rpc).toHaveBeenCalledWith("admin_notif_type_update", { _type: "post_reaction", _patch: { enabled: false } }));
   });
 
+  it("the member id field is named by its label only (the button is outside it)", async () => {
+    render(<AdminNotificationCentre />);
+    expect(await screen.findByRole("textbox", { name: "Member id" })).toBeInTheDocument();
+  });
+
   it("a refusal from the server is shown, not swallowed", async () => {
     rpc.mockImplementation(async () => ({ data: null, error: { message: "admin only" } }));
     render(<AdminNotificationCentre />);

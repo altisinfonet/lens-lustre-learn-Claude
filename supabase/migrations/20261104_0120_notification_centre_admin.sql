@@ -20,8 +20,10 @@
 --   function admin_notif_member_settings(user)   read-only support lookup:
 --            the member's notification settings, quiet hours, block counts.
 --   function notification_centre_send_test(type)   one bell row of that type
---            to the calling admin, through the centre's write path (the N5
---            guard allow-lists the centre, so this is not a new stray writer).
+--            to the calling admin (member types) or the shared admin bell
+--            (admin types), written directly and logged with reason 'test'
+--            (left out of the numbers); allow-listed in the N5 guard. The
+--            normal push / e-mail triggers fire on it like any row.
 --
 -- Rollback: supabase/rollback/20261104_0120_notification_centre_admin_ROLLBACK.sql
 -- PROBE:    supabase/migrations/PROBE_20261104_0120_notification_centre_admin.sql
@@ -121,7 +123,9 @@ BEGIN
            count(*) FILTER (WHERE NOT l.sent AND l.created_at > now() - interval '1 day') AS k1,
            count(*) FILTER (WHERE l.sent)     AS s7,
            count(*) FILTER (WHERE NOT l.sent) AS k7
-      FROM public.notification_centre_log l WHERE l.created_at > now() - interval '7 days' GROUP BY l.type
+      FROM public.notification_centre_log l
+     WHERE l.created_at > now() - interval '7 days' AND NOT ('test' = ANY (l.reasons))   -- admin tests are not traffic
+     GROUP BY l.type
   )
   SELECT t.type, t.audience, t.group_key, t.icon, t.channels, t.default_on, t.member_can_disable,
          t.pref_in_app, t.pref_push, t.pref_email, t.rate_per_hour, t.dedup_window, t.enabled, t.wording_en,
@@ -221,7 +225,8 @@ BEGIN
     ('notif_centre_admin_alerts',         'Admin alerts', 7))
   SELECT k.key, k.label,
          CASE WHEN s.value IS NULL THEN 'off'
-              WHEN s.value IN (to_jsonb('live'::text), to_jsonb('on'::text)) THEN 'everyone'
+              WHEN s.value = to_jsonb('live'::text) AND k.key <> 'notif_centre_ui' THEN 'everyone'
+              WHEN s.value = to_jsonb('on'::text)   AND k.key =  'notif_centre_ui' THEN 'everyone'
               WHEN jsonb_typeof(s.value) = 'object' THEN 'members'
               ELSE 'off' END,
          CASE WHEN jsonb_typeof(s.value -> 'users') = 'array' THEN jsonb_array_length(s.value -> 'users') ELSE 0 END
@@ -258,7 +263,7 @@ BEGIN
                                  (SELECT coalesce(jsonb_agg(DISTINCT u::text), '[]'::jsonb) FROM unnest(_users) u))
            WHEN 'everyone' THEN to_jsonb(CASE WHEN _key = 'notif_centre_ui' THEN 'on' ELSE 'live' END)
          END;
-  IF _mode NOT IN ('off', 'me', 'members', 'everyone') THEN
+  IF _mode IS NULL OR _mode NOT IN ('off', 'me', 'members', 'everyone') THEN
     RAISE EXCEPTION 'mode must be off, me, members or everyone' USING ERRCODE = 'invalid_parameter_value';
   END IF;
   IF _mode = 'members' AND (val -> 'users') = '[]'::jsonb THEN
@@ -318,9 +323,14 @@ DECLARE
 BEGIN
   SELECT * INTO t FROM public.notification_types nt WHERE nt.type = _type;
   IF NOT FOUND THEN RAISE EXCEPTION 'unknown type %', _type USING ERRCODE = 'no_data_found'; END IF;
-  -- one test per admin per type per minute
+  -- one test per type per minute (per admin for member types; for admin types
+  -- across all admins, since every admin sees the shared alert); serialised so
+  -- two quick clicks cannot both pass
+  PERFORM pg_advisory_xact_lock(hashtextextended('notif-test:' || _type || ':' ||
+            CASE WHEN t.audience = 'admin' THEN 'all' ELSE _uid::text END, 0));
   IF EXISTS (SELECT 1 FROM public.notification_centre_log l
-              WHERE l.type = _type AND l.recipient_id = _uid AND 'test' = ANY (l.reasons)
+              WHERE l.type = _type AND 'test' = ANY (l.reasons)
+                AND (t.audience = 'admin' OR l.recipient_id = _uid)
                 AND l.created_at > now() - interval '1 minute') THEN
     RAISE EXCEPTION 'a test of this type was sent less than a minute ago' USING ERRCODE = 'check_violation';
   END IF;
