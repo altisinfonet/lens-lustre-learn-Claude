@@ -14,6 +14,7 @@
 import { useMemo, useState } from "react";
 import ActorPhrase from "@/components/notifications/ActorPhrase";
 import { useCentreUi } from "@/lib/notifications/centreUi";
+import { NOTIFICATION_TABS, TAB_LABEL, inTab, type NotificationTab } from "@/lib/notifications/tabs";
 import { useMemberHandles } from "@/hooks/profile/useMemberHandles";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Bell, X } from "lucide-react";
@@ -270,6 +271,9 @@ const Notifications = () => {
   const { user } = useAuth();
   // N7 · notification centre rows, behind site_settings notif_centre_ui (OFF on live).
   const centreRows = useCentreUi(user?.id);
+  // N7 tabs exist only with the centre rows; with the switch off the list is unchanged.
+  const [tab, setTab] = useState<NotificationTab>("all");
+  const activeTab: NotificationTab = centreRows ? tab : "all";
   const queryClient = useQueryClient();
   const followMutation = useToggleFollow();
   const [busyActor, setBusyActor] = useState<string | null>(null);
@@ -334,9 +338,10 @@ const Notifications = () => {
   const buckets = useMemo(() => {
     const now = new Date();
     const map: Record<BucketKey, NotificationGroup[]> = { new: [], last30: [], earlier: [] };
-    for (const g of groups) map[bucketFor(g, now)].push(g);
+    for (const g of groups) if (inTab(g.type, activeTab)) map[bucketFor(g, now)].push(g);
     return map;
-  }, [groups]);
+  }, [groups, activeTab]);
+  const tabEmpty = activeTab !== "all" && groups.length > 0 && BUCKET_ORDER.every((k) => buckets[k].length === 0);
 
   const openGroup = async (group: NotificationGroup) => {
     if ((group.unread_count ?? 0) > 0) {
@@ -424,6 +429,32 @@ const Notifications = () => {
         </h1>
       </div>
 
+      {centreRows && (
+        <div
+          role="group"
+          aria-label={t("notifications.tabs", "Show")}
+          className="flex gap-1 overflow-x-auto border-b px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {NOTIFICATION_TABS.map((k) => (
+            <button
+              key={k}
+              type="button"
+              aria-pressed={activeTab === k}
+              onClick={() => setTab(k)}
+              className={
+                "shrink-0 whitespace-nowrap border-b-2 px-3 py-2.5 text-xs transition-colors " +
+                (activeTab === k
+                  ? "border-primary font-semibold text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground")
+              }
+              style={bodyFont}
+            >
+              {t(TAB_LABEL[k].key, TAB_LABEL[k].fallback)}
+            </button>
+          ))}
+        </div>
+      )}
+
       {screen === "loading" && (
         <p className="py-10 text-center text-xs text-muted-foreground animate-pulse" style={bodyFont}>
           {t("common.loading", "Loading...")}
@@ -449,6 +480,12 @@ const Notifications = () => {
             {t("notifications.empty", "Nothing here yet.")}
           </p>
         </div>
+      )}
+
+      {screen === "show" && tabEmpty && (
+        <p className="py-16 text-center text-xs text-muted-foreground" style={bodyFont}>
+          {t("notifications.tab_empty", "Nothing in this tab yet.")}
+        </p>
       )}
 
       {BUCKET_ORDER.map((key) =>
