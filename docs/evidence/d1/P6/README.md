@@ -23,3 +23,7 @@
 ## Findings
 - **F-P6-1:** `cron.job_run_details.command` stores each job's full command on every run. On staging three jobs carry literal secrets in their command (x-cron-secret / x-scheduled-posts-secret, plus the anon key), so those values are copied into every run row. The purge shortens their life to 36 h, and moving the secrets to the vault is P9's design. (The values are deliberately not reproduced here.)
 - **F-P6-2:** the ACL on `cron.job_run_details` gives PUBLIC `rd` (SELECT, DELETE). That is pg_cron's default and is filtered by its RLS policy (each user sees their own rows). Recorded for SEC; not changed here.
+
+## Owner decision 14 — size clause dropped (2026-10-31 08:13 UTC, PR #553)
+
+The third clause ("not among the ten largest") is **dropped** by the Owner. Measured 2026-10-30: retention and bounded purge PASS on both lanes; the size clause FAILed only because the whole database is small (staging #5 at 1.9 MB, run 41048721411; production #8 at 2.7 MB, run 41048818929; was 76 MB). `PROBE_p6_cron_history.sql` now raises on clauses (a)–(c) only and prints the size rank so a regrowth stays visible. The gate sentence in GATE_REGISTER is the Auditor's to amend; this file records the ruling.
