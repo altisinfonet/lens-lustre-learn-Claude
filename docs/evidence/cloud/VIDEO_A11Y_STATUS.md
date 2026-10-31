@@ -35,7 +35,7 @@ RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. 
 d2-live-check run 41046580661 on main 36c895d1 (11:16 UTC): home + /feed 200 in Chromium, Firefox, WebKit, same text both loads. Console errors already present: X-Frame-Options in <meta>; Cloudflare beacon blocked by CSP; 401 on profiles_public_data (home); Firefox __cf_bm cookie notice.
 
 ## Progress
-- S7: the 4 built parts (purge worker, takedown, video ads, encoder phone tests) are LIVE: code on main + SQL 0700/0701 PROBE PASS on staging AND production. Still open: live server converter (Owner steps 3-4), cost alerts VID-6 (no budget figure written down yet), short clips (Owner decision 1), staged rollout (switches exist: Off / Selected members / All members — all stay OFF on live). Estimate: ~45% of S7.
+- S7: purge worker, takedown, video ads, encoder phone tests, converter purge tick are LIVE (code on main, SQL 0700/0701 PASS both lanes). Short clips DROPPED by the Owner (out of scope). Open: VID-6 cost alarms (#724), privacy/store text, S7 gate table + rollout steps, Android 1.2.33. Estimate: ~70% of S7.
 - P23: S10a-1 (decision note) live on main; S10a-2 (CI checks A–E over the ten surfaces, ratchet) merged on staging — clauses 1 and 2 of the gate have evidence. Left: S10a-3 (lower the counts: 87 axe nodes + 2 focus findings), S10a-4 (scripted keyboard + screen-reader walkthrough, Chromium + WebKit). About 50% of S10-a.
 
 ## For the S7b offline runner
@@ -56,10 +56,7 @@ d2-live-check run 41046580661 on main 36c895d1 (11:16 UTC): home + /feed 200 in 
 - #542: backing out leaves a switched-off picture-only ad (manual delete); videoAd not cleared after handover; no component tests for the button / initialFile.
 - #541: copyright reason gated in UI only (server check would make it strict); revoked-list KV key is per video (future re-upload must clear it); owner notice mentions a re-upload flow that doesn't exist yet; 0701 precondition doesn't check the dedup_key unique index.
 
-## Owner list (plain steps; nothing here is urgent for today's merges)
-1. DECIDE — short clips: there is no written plan for "short clips", and your rule of 12 Aug 2026 says "No REELS and no LIVE anywhere". Reply with what "short clips" should mean (or "drop it"). Nothing is built until you answer.
-2. DECIDE — video frame: the app shows every video in a tall 9:16 card (decision A1.3 in the VID-1 decision note). The brief I was given says "same frame rule as photos (4:5 … 1.91:1)". Reply "keep 9:16" or "use the photo frame". Nothing changes until you answer.
-3. Live video converter: ALREADY SET UP — checked 13:46 UTC (read-only check, run 41065910066): the converter account exists on the live database and the live converter last asked for work at 13:45 UTC today. Nothing to do. When YOU decide the live site should convert videos on the server: Admin → Video Feature → Video Conversion → "server". Until then phones convert videos themselves ("device", today's setting). I will not change it.
-4. DECIDE — cost alert budget (VID-6): the plan says "count checks per day against a budget alert", but no budget number is written anywhere. Reply with the monthly limit you want an alarm at (for example "alarm if Cloudflare R2 storage passes 8 GB or 800,000 calls in a month" — R2's free allowance is 10 GB stored, 1 million write calls and 10 million read calls per month). Nothing is built until you answer.
-5. S7-f IS ON MAIN (b6437294, 14:37 UTC) — please do this when convenient: update the video converter on the VM so it starts clearing deleted videos' files every hour — the same "Updating the worker" steps in converter/deploy/README.md, for both lanes. Afterwards the converter log shows version 1.3.0 and a line "worker.purge" once an hour.
-6. Feature switches stay OFF on live. When you want to try video yourself: Admin → Video Feature → Video posts → choose "Selected members" → add only your own account. Do not choose "All members" yet (the security rule A1.5 allows only your own account until the upload-signing key is set).
+## Owner list (plain steps, click-only)
+1. Nothing to decide right now. Your 30 Oct decisions are in force: short clips DROPPED; video frame stays 9:16; cost alarm at 8 GB (being built, PR #724); converter worker 1.3.0 on both lanes (done by the local session).
+2. Live video converter is set up and polling. When YOU decide the live site should convert videos on the server: Admin → Video Feature → Video Conversion → "server". Until then phones convert videos themselves ("device"). I will not change it.
+3. Feature switches stay OFF on live. The step-by-step rollout list comes with step 3 of today's order (S7 gate table).
