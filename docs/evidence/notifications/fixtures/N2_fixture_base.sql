@@ -1,0 +1,10 @@
+CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid primary key);
+CREATE TABLE public.site_settings(key text primary key, value jsonb);
+CREATE TABLE public.user_notifications(id uuid primary key default gen_random_uuid(), user_id uuid not null, actor_id uuid, type text not null, title text not null, message text not null, reference_id uuid, is_read boolean not null default false, email_sent boolean not null default false, dedup_key text, created_at timestamptz not null default now());
+CREATE TABLE public.admin_notifications(id uuid primary key default gen_random_uuid(), type text not null, title text not null default '', message text not null default '', reference_id uuid, is_read boolean not null default false, created_at timestamptz not null default now());
+CREATE TABLE public.notification_preferences(id uuid primary key default gen_random_uuid(), user_id uuid unique,
+  email_certificates boolean default true, email_comments boolean default true, email_competition_updates boolean default true, email_course_updates boolean default true, email_friend_requests boolean default true, email_gift_credits boolean default true, email_new_followers boolean default true, email_reactions boolean default true, email_reengagement boolean default true, email_weekly_digest boolean default true,
+  inapp_comments boolean default true, inapp_competitions boolean default true, inapp_reactions boolean default true, inapp_social boolean default true,
+  push_enabled boolean default true, push_reactions boolean default true, push_comments boolean default true, push_friend_requests boolean default true, push_new_followers boolean default true, push_competition_updates boolean default true, push_announcements boolean default true, push_new_posts boolean default true);
+CREATE TABLE public.user_blocks(blocker_id uuid, blocked_id uuid, created_at timestamptz default now());
+INSERT INTO public.user_notifications(user_id, actor_id, type, title, message) VALUES (gen_random_uuid(), gen_random_uuid(), 'post_reaction','t','m');
