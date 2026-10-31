@@ -8,6 +8,7 @@ import { useNotificationPreferences, type NotificationPreferences } from "@/hook
 import { useNotificationSound } from "@/hooks/core/useNotificationSound";
 import PageSEO from "@/components/PageSEO";
 import NotificationSettingsTable from "@/components/notifications/NotificationSettingsTable";
+import QuietHoursSetting from "@/components/notifications/QuietHoursSetting";
 import { useCentreUi } from "@/lib/notifications/centreUi";
 import { useT } from "@/i18n/I18nContext";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
@@ -145,7 +146,10 @@ const NotificationSettings = () => {
               ))}
             </div>
           ) : centreRows ? (
-            <NotificationSettingsTable preferences={preferences} onChange={(f, v) => updatePreference(f, v)} />
+            <>
+              <NotificationSettingsTable preferences={preferences} onChange={(f, v) => updatePreference(f, v)} />
+              <QuietHoursSetting />
+            </>
           ) : (
             <div className="space-y-0 divide-y divide-border/50">
 
