@@ -104,7 +104,8 @@ BEGIN
   PERFORM public.ops_alarm_set(
     'notif_stray_writer',
     cardinality(strays) > 0,
-    format('%s live function(s) write notifications outside the notification centre', cardinality(strays)),
+    format('[%s] %s live function(s) write notifications outside the notification centre',
+           coalesce((SELECT a.lane FROM public.ops_alarm_settings a WHERE a.id = 1), '?'), cardinality(strays)),
     jsonb_build_object('functions', to_jsonb(strays), 'checked_at', now()));
   RETURN cardinality(strays);
 END;
