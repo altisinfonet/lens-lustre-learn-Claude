@@ -36,6 +36,10 @@ vi.mock("@/hooks/social/useFriendshipMutations", () => ({
 vi.mock("@/lib/notifications/centreUi", () => ({ useCentreUi: () => true }));
 let mutual = new Map<string, number>();
 vi.mock("@/hooks/notifications/useMutualFollows", () => ({ useMutualFollowCounts: () => mutual }));
+let previews = new Map<string, { commentId: string; content: string }>();
+vi.mock("@/hooks/notifications/useCommentPreviews", () => ({ useCommentPreviews: () => previews }));
+const mockNavigate = vi.fn();
+vi.mock("react-router-dom", async (orig) => ({ ...(await orig<typeof import("react-router-dom")>()), useNavigate: () => mockNavigate }));
 vi.mock("@/i18n/I18nContext", () => ({
   useT: () => (_key: string, fallback?: string) => fallback ?? _key,
 }));
@@ -258,5 +262,35 @@ describe("/notifications — new follower: people you know (switch on)", () => {
     withGroups([group({ type: "post_reaction" })]);
     renderPage();
     expect(screen.queryByText(/Also follows/)).toBeNull();
+  });
+});
+
+describe("/notifications — comment preview and Reply (switch on)", () => {
+  const CID = "33333333-3333-4333-8333-333333333333";
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFollowingSet.mockReturnValue({ following: new Set<string>(), ready: true });
+    previews = new Map();
+  });
+
+  it("shows what they wrote, and Reply opens the post on that comment", () => {
+    previews = new Map([["c1", { commentId: CID, content: "Lovely light on the river" }]]);
+    withGroups([group({ group_key: "c1", type: "post_comment", reference_id: "post-9", actor_names: ["Partha"], unread_count: 0 })]);
+    renderPage();
+    expect(screen.getByRole("button", { name: /Partha commented on your photo\. .*“Lovely light on the river”/ })).toBeInTheDocument();
+    const reply = screen.getByRole("button", { name: "Reply to Partha" });
+    expect(reply.closest('[data-notif-row-open="true"]')).toBeNull();
+    fireEvent.click(reply);
+    expect(mockNavigate).toHaveBeenCalledWith(`/post/post-9?comment=${CID}`, expect.objectContaining({ state: expect.anything() }));
+  });
+
+  it("no preview → no quote and no Reply button; other types never get one", () => {
+    withGroups([
+      group({ group_key: "c2", type: "post_comment", actor_names: ["Somnath"] }),
+      group({ group_key: "r1", type: "post_reaction", actor_names: ["Vicky"] }),
+    ]);
+    renderPage();
+    expect(screen.queryByRole("button", { name: /^Reply to/ })).toBeNull();
+    expect(screen.queryByText(/“/)).toBeNull();
   });
 });
