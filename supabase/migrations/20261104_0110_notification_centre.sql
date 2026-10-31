@@ -138,7 +138,9 @@ CREATE TABLE public.notification_centre_log (
   channels        jsonb       NOT NULL DEFAULT '{}'::jsonb,
   notification_id uuid
 );
+-- P28: notification_centre_log · 0 rows at launch (written only while a group is live) · the admin page's 24 h / 7 d window and retention purge scan by created_at
 CREATE INDEX notification_centre_log_created_idx ON public.notification_centre_log (created_at);
+-- P28: notification_centre_log · 0 rows at launch · the admin page's per-type numbers read (type, created_at) ranges; without it every page view scans the log
 CREATE INDEX notification_centre_log_type_created_idx ON public.notification_centre_log (type, created_at);
 ALTER TABLE public.notification_centre_log ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.notification_centre_log FROM PUBLIC, anon, authenticated;
