@@ -1,7 +1,7 @@
 # Video + accessibility runner — status
 
 Started 2026-10-30 01:47 UTC. Replaces the earlier supervisor session (no GitHub trace after 2026-10-29 14:19 UTC).
-Last update: 2026-10-31 10:20 UTC.
+Last update: 2026-10-31 10:45 UTC.
 
 THIRD RESTART 2026-10-31 ~03:55 UTC: previous run stopped silently after its 18:23 UTC heartbeat (S10a-4 never pushed; will be rebuilt fresh later). PAUSE cancelled by Owner RESUME. Order now, one PR at a time: 1 VID-6 cost alerts → 2 privacy text → 3 S7 gate table → 4 Android 1.2.33 → 5 S10a-3, S10a-4.
 
@@ -11,7 +11,7 @@ RESTART 2026-10-30 ~05:05 UTC: the previous run stopped silently at ~02:00 UTC. 
 
 ## Now
 07:30 UTC — **S7 100% (Owner steps left: Play Data safety, Apple App Privacy, video rollout + phone/3-browser test, install 1.2.33 and test video + Upload resume).** Android 1.2.33 built: run **41178510127** SUCCESS.
-10:20 UTC — S10a-3 part B LIVE on main ad430baa (carry #744; live check 41191774877). Part C PR #745 (underlined links in sentences, comment-box focus ring): RED-first 41191775892, fix 6e981c2b pushed; CI + review running. Axe nodes on the ten surfaces: 87 → 7 locally. Left after C: 4 notification-row nodes (Owner decision 7) + 3 Admin Health contrast nodes (needs a second red token). Then S10a-4.
+10:45 UTC — S10a-3 part C #745: review nothing blocking; UI gate red on 6e981c2b — root cause: its layout baseline names each control by tag + first two classes (tools/uishot/capture.mjs:270) and I replaced `hover:underline`, so the links read as 'gone'. Fix keeps the first two classes; re-checking the UI gate locally. S10a-4 walkthrough script drafted (tools/uishot/a11y-walkthrough.mjs).
 
 ## Units
 | Unit | PR | State | Merged sha (staging / main) | SQL runs | Live check |
