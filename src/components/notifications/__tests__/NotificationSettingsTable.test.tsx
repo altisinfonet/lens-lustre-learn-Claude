@@ -52,6 +52,17 @@ describe("NotificationSettingsTable", () => {
     expect(screen.queryByRole("switch", { name: "New photos from people you follow — Bell" })).toBeNull();
   });
 
+  it("offers the weekly summary e-mail (sent by SQL 0200) as an e-mail-only row", () => {
+    const onChange = vi.fn();
+    render(<NotificationSettingsTable preferences={{ ...prefs, email_weekly_digest: true }} onChange={onChange} />);
+    const sw = screen.getByRole("switch", { name: "Weekly summary — E-mail" });
+    expect(sw).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(sw);
+    expect(onChange).toHaveBeenCalledWith("email_weekly_digest", false);
+    expect(screen.queryByRole("switch", { name: "Weekly summary — Phone" })).toBeNull();
+    expect(screen.queryByRole("switch", { name: "Weekly summary — Bell" })).toBeNull();
+  });
+
   it("the phone master switch greys out EVERY phone switch, not just one", () => {
     render(<NotificationSettingsTable preferences={{ ...prefs, push_enabled: false }} onChange={vi.fn()} />);
     const phone = screen.getAllByRole("switch").filter((s) => / — Phone$/.test(s.getAttribute("aria-label") || ""));
@@ -93,8 +104,4 @@ describe("NotificationSettingsTable", () => {
     expect(within(row).getByText(/Same as New followers/)).toBeInTheDocument();
   });
 
-  it("does not offer the weekly summary e-mail until it exists", () => {
-    render(<NotificationSettingsTable preferences={prefs} onChange={vi.fn()} />);
-    expect(screen.queryByText(/weekly/i)).toBeNull();
-  });
 });
