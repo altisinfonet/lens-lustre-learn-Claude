@@ -3,7 +3,7 @@
  * failure (429 / 5xx / network) is retried once after a short pause; a
  * permanent one (bad token, 400/404) is not — it is pruned as before.
  */
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { sendWithRetry, isTemporaryFcmFailure } from "../../supabase/functions/_shared/pushRetry";
 
 const res = (status: number, body = "") => ({ ok: status >= 200 && status < 300, status, text: async () => body });
@@ -16,13 +16,15 @@ describe("isTemporaryFcmFailure", () => {
 });
 
 describe("sendWithRetry", () => {
-  const sleep = vi.fn(async () => {});
+  const sleep = vi.fn(async (_ms: number) => {});
+  beforeEach(() => sleep.mockClear());
 
   it("a first success is not repeated", async () => {
     const send = vi.fn(async () => res(200));
     const r = await sendWithRetry(send, sleep);
     expect(r.status).toBe(200);
     expect(send).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
   });
 
   it("a 503 is tried once more after a pause, and the second answer is used", async () => {
@@ -30,7 +32,8 @@ describe("sendWithRetry", () => {
     const r = await sendWithRetry(send, sleep);
     expect(r.status).toBe(200);
     expect(send).toHaveBeenCalledTimes(2);
-    expect(sleep).toHaveBeenCalled();
+    expect(sleep).toHaveBeenCalledTimes(1);
+    expect(sleep).toHaveBeenCalledWith(800);
   });
 
   it("a bad token (404 UNREGISTERED) is not retried", async () => {
@@ -38,6 +41,7 @@ describe("sendWithRetry", () => {
     const r = await sendWithRetry(send, sleep);
     expect(r.status).toBe(404);
     expect(send).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
   });
 
   it("only one retry — a second temporary failure is returned as it is", async () => {

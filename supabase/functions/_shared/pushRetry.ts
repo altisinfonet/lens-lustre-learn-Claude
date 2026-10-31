@@ -7,7 +7,7 @@
  * group is switched on for the member (0160). Every other push is sent exactly
  * once, as today.
  */
-export type FcmResponse = { ok: boolean; status: number; text: () => Promise<string> };
+export type FcmResponse = { ok: boolean; status: number; text: () => Promise<string>; body?: { cancel?: () => Promise<void> } | null };
 
 export function isTemporaryFcmFailure(status: number): boolean {
   return status === 429 || status >= 500;
@@ -28,6 +28,7 @@ export async function sendWithRetry(
     return send();                       // a second network error is thrown, as before
   }
   if (first.ok || !isTemporaryFcmFailure(first.status)) return first;
+  try { await first.body?.cancel?.(); } catch { /* release the unread body; never fails the send */ }
   await sleep(delayMs);
   return send();
 }
