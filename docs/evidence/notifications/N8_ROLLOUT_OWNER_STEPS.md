@@ -100,8 +100,8 @@ nothing for anyone.
 The numbers beside each type show how many were written in the last 24 hours
 and 7 days, and what the centre sent or skipped.
 
-**To stop something quickly**, click **Off** on its row in **Switches**. That
-always works, for everyone, straight away.
+**To undo quickly**, click **Off** on the row in **Switches**. That part goes
+straight back to how it works today, for everyone. That always works.
 
 ## Helping a member
 
