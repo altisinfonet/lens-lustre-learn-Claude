@@ -24,7 +24,7 @@ import type { NotificationSubject } from "@/lib/notifications/describe";
  * There is no deliberate case here — a notification names other people, never
  * the reader, so every actor in it should be reachable.
  */
-export default function ActorPhrase({ subject }: { subject: NotificationSubject }) {
+export default function ActorPhrase({ subject, linkClassName = "hover:underline" }: { subject: NotificationSubject; linkClassName?: string }) {
   const parts = actorPhraseParts(subject);
   if (parts.length === 0) return null;
 
@@ -34,7 +34,7 @@ export default function ActorPhrase({ subject }: { subject: NotificationSubject 
         if (!part.actor) return <span key={i}>{part.text}</span>;
         const href = memberPath(part.actor.username);
         return href ? (
-          <Link key={i} to={href} className="hover:underline">
+          <Link key={i} to={href} className={linkClassName}>
             {part.text}
           </Link>
         ) : (

@@ -114,6 +114,28 @@ describe("/notifications", () => {
     expect(screen.getByText(/shared 33 photos\./)).toBeInTheDocument();
   });
 
+  it("keeps the name links OUT of the row's open button (P23 S10a-3 B: axe nested-interactive)", () => {
+    // A link inside a <button> is invalid HTML and axe's nested-interactive:
+    // a screen reader announces one button and the names inside it are not
+    // reachable as links. The row's open action is its own button, named with
+    // the whole sentence, and the name links are its siblings.
+    withGroups([
+      group({
+        type: "new_post_from_following",
+        actor_ids: ["a1", "a2"],
+        actor_names: ["Anindita Hidayat", "Vicky Roy"],
+        actor_usernames: ["aninditahidayat", "vickyroy87"],
+        actor_count: 2,
+        event_count: 3,
+      }),
+    ]);
+    const { container } = renderPage();
+    expect(container.querySelectorAll("button a, button [role=link]").length).toBe(0);
+    const link = screen.getByRole("link", { name: "Anindita Hidayat" });
+    expect(link.closest("button")).toBeNull();
+    expect(screen.getByRole("button", { name: /Anindita Hidayat and Vicky Roy.*shared 3 photos/ })).toBeInTheDocument();
+  });
+
   it("links every named actor to their handle and never to their id", () => {
     // The F-98 rule, on this page: a member's name is either a link built from
     // their handle or it is plain text that says nobody knew the handle. It is

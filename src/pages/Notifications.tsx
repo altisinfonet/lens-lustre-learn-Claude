@@ -39,7 +39,7 @@ import {
 // The sentence itself comes from the shared layer, NOT from this page. The bell
 // composes from the same function, so the two surfaces cannot drift apart
 // again — see src/lib/notifications/describe.ts for the naming rules.
-import { describeNotification, actorDisplayName } from "@/lib/notifications/describe";
+import { describeNotification, actorDisplayName, actorPhrase } from "@/lib/notifications/describe";
 import { subjectFromGroup } from "@/lib/notifications/adapters";
 import { useAdminIds } from "@/hooks/core/useAdminIds";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
@@ -115,22 +115,34 @@ function NotificationRow({
         unread ? "bg-primary/5" : ""
       } hover:bg-muted/20`}
     >
-      <button
-        onClick={() => onOpen(group)}
-        className="flex items-center gap-3 flex-1 min-w-0 text-left"
-      >
-        <Avatar url={group.actor_avatars?.[0] || undefined} alt={actorDisplayName(subject.actors[0])} />
-        <span className="text-xs leading-relaxed text-foreground min-w-0" style={bodyFont}>
-          {described.hasActor ? (
-            <>
-              <span className="font-semibold"><ActorPhrase subject={subject} /></span> {described.action}
-            </>
-          ) : (
-            described.text
-          )}{" "}
-          <span className="text-muted-foreground">{described.age}</span>
+      {/*
+       * P23 S10a-3 (B) — axe nested-interactive: the name links (F-98c) used to
+       * sit INSIDE the row's open button, which is invalid HTML and hides them
+       * from a screen reader. The open button is now a full-size layer behind
+       * the row, named with the whole sentence; the avatar and text pass clicks
+       * through to it, and only the name links sit above it. Same pixels.
+       */}
+      <div className="relative flex items-center gap-3 flex-1 min-w-0 text-left">
+        <button
+          type="button"
+          onClick={() => onOpen(group)}
+          aria-label={`${described.hasActor ? `${actorPhrase(subject)} ${described.action}` : described.text} ${described.age}`.trim()}
+          className="absolute inset-0"
+        />
+        <span className="relative pointer-events-none flex items-center gap-3 min-w-0">
+          <Avatar url={group.actor_avatars?.[0] || undefined} alt={actorDisplayName(subject.actors[0])} />
+          <span className="text-xs leading-relaxed text-foreground min-w-0" style={bodyFont}>
+            {described.hasActor ? (
+              <>
+                <span className="font-semibold"><ActorPhrase subject={subject} linkClassName="hover:underline pointer-events-auto" /></span> {described.action}
+              </>
+            ) : (
+              described.text
+            )}{" "}
+            <span className="text-muted-foreground">{described.age}</span>
+          </span>
         </span>
-      </button>
+      </div>
 
       {showFollowBack && (
         <button

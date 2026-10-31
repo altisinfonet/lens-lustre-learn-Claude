@@ -81,8 +81,8 @@ const PhotoAlbums = ({ userId, isOwner }: PhotoAlbumsProps) => {
         {isOwner && (
           <Dialog open={showCreate} onOpenChange={setShowCreate}>
             <DialogTrigger asChild>
-              <button className="text-primary hover:text-primary/80">
-                <Plus className="h-3.5 w-3.5" />
+              <button type="button" aria-label="Create album" className="text-primary hover:text-primary/80">
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
             </DialogTrigger>
             <DialogContent className="max-w-xs">

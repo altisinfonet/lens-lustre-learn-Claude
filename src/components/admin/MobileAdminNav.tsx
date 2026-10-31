@@ -77,6 +77,7 @@ export default function MobileAdminNav({ tab, setTab, tabGroups, unresolvedTicke
           {showMenu ? (
             <button
               onClick={() => navigate("/")}
+              aria-label={t("adm.backToSite", "Back to the site")}
               className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors shrink-0"
             >
               <Home className="h-5 w-5" />
@@ -84,6 +85,7 @@ export default function MobileAdminNav({ tab, setTab, tabGroups, unresolvedTicke
           ) : (
             <button
               onClick={handleBackToMenu}
+              aria-label={t("adm.backToMenu", "Back to the admin menu")}
               className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors shrink-0"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -116,6 +118,8 @@ export default function MobileAdminNav({ tab, setTab, tabGroups, unresolvedTicke
           {/* Right: Search + Notifications */}
           <button
             onClick={() => { setSearchOpen(!searchOpen); setSearchQuery(""); }}
+            aria-label={searchOpen ? t("adm.closeSearch", "Close search") : t("adm.search", "Search admin pages")}
+            aria-expanded={searchOpen}
             className={`shrink-0 transition-colors ${searchOpen ? "text-primary" : "text-muted-foreground hover:text-primary"}`}
           >
             {searchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
