@@ -25,6 +25,7 @@ import {
   SEED_NAMESPACE, insertBatchSql, parseArgs, CENSUS_SQL, TEARDOWN_SQL,
   TEARDOWN_ALBUM_GUARD_SQL, TEARDOWN_RESIDUE_SQL, TEARDOWN_PROOF_COUNTS,
   TEARDOWN_MUST_NOT_MOVE, teardownVerdict,
+  TEARDOWN_CHILDREN_GUARD_SQL, MUTE_PROOF_COUNTS,
 } from './db-seed-staging.mjs';
 
 // The lane guard and the baseline have their own suite,
@@ -404,14 +405,61 @@ check('the seeder refuses to write without --ack-enqueue-jobs, and the refusal s
   assert(/REFUSING:.*enqueue/s.test(src.slice(refusal, canary)), 'the refusal does not say why');
 });
 
-check('the seeder never sets session_replication_role', () => {
-  // Switching the triggers off would produce a database with no hashtag rows,
-  // no queue rows, no fan-out and no counters — one the application could never
-  // have produced — which silently changes what every gate measured on it means.
+// ── Owner decision 21 (2026-10-31): seeded posts are MUTED ──────────────────
+// This replaces the old case "the seeder never sets session_replication_role".
+// The Owner ruled that seeded posts must set off no notification, push call,
+// e-mail or background job on either notification path; PROBE 0802 (staging
+// run 41229903894) proved `SET LOCAL session_replication_role = replica` does
+// exactly that and that this role may set it. The cases below pin the mute.
+const MUTE_RE = /^\s*SET LOCAL session_replication_role = replica;/;
+
+check('every insert batch is muted: it starts with SET LOCAL session_replication_role = replica ⟵ REGRESSION (Owner 21)', () => {
+  for (const [from, to] of [[1, 200], [201, 5200], [999801, 1000000]]) {
+    const sql = insertBatchSql({ fromOrdinal: from, toOrdinal: to, privacyMix: MIX });
+    assert(MUTE_RE.test(sql), `insert batch ${from}..${to} is not muted — its triggers would fan out`);
+  }
+});
+
+check('the teardown is muted the same way, so it reverses a muted insert exactly ⟵ REGRESSION (Owner 21)', () => {
+  // A muted insert increments no counter; an UNmuted delete could decrement
+  // one (any AFTER DELETE counter trigger), leaving members' counters below
+  // the baseline. Symmetry: muted in, muted out.
+  assert(MUTE_RE.test(TEARDOWN_SQL(1, 5000)), 'the teardown delete is not muted');
+});
+
+check('the mute is LOCAL to the transaction — never a session-wide SET that could outlive it on a pooled connection', () => {
+  const src = readFileSync(new URL('./db-seed-staging.mjs', import.meta.url), 'utf8')
+    .replace(/^\s*\/\/.*$/gm, '');
+  assert(!/SET\s+(SESSION\s+)?session_replication_role/i.test(src.replace(/SET LOCAL session_replication_role/g, '')),
+    'a non-LOCAL SET session_replication_role is in the seeder');
+});
+
+check('a muted teardown refuses while ANY row in a table with a foreign key to posts points at the batch ⟵ REGRESSION (Owner 21)', () => {
+  // Replica mode also skips the foreign-key cascade triggers, so a muted delete
+  // would ORPHAN a child row instead of removing it. The guard must find every
+  // such table from the catalogue (not a hand-kept list) and run before the delete.
+  const sql = TEARDOWN_CHILDREN_GUARD_SQL(1, 5000);
+  assert(/pg_constraint/.test(sql) && /contype\s*=\s*'f'/.test(sql), 'the guard does not read the FK catalogue');
+  assert(/confrelid\s*=\s*'public\.posts'::regclass/.test(sql), 'the guard does not look at FKs to public.posts');
+  assert(/AS children_pointing_at_seed/.test(sql), 'the guard does not name its count');
   const src = readFileSync(new URL('./db-seed-staging.mjs', import.meta.url), 'utf8');
-  const setsIt = /^\s*[^/].*session_replication_role\s*=/m.test(src)
-    || /SET\s+session_replication_role/i.test(src.replace(/^\s*\/\/.*$/gm, ''));
-  assert(!setsIt, 'the seeder sets session_replication_role');
+  const guard = src.indexOf('TEARDOWN_CHILDREN_GUARD_SQL(from, to)');
+  const del = src.indexOf('psql(dsn, TEARDOWN_SQL(from, to)');
+  assert(guard > 0 && del > 0 && guard < del, 'the children guard does not run before the delete');
+});
+
+check('the canary proves the mute before the main run: a moved fan-out count stops the seed ⟵ REGRESSION (Owner 21)', () => {
+  const src = readFileSync(new URL('./db-seed-staging.mjs', import.meta.url), 'utf8');
+  const proof = src.indexOf('MUTE FAILED');
+  const mainRun = src.indexOf('Seeding ordinals ${args.canary + 1}');
+  assert(proof > 0, 'no mute check after the canary');
+  assert(mainRun > 0 && proof < mainRun, 'the mute check comes after the main run starts');
+  for (const k of MUTE_PROOF_COUNTS) {
+    assert(new RegExp(`AS\\s+${k}\\b`).test(CENSUS_SQL), `the census does not count ${k}, so the canary cannot see it move`);
+  }
+  for (const k of ['user_notifications', 'post_hashtags', 'feed_events', 'post_reports']) {
+    assert(MUTE_PROOF_COUNTS.includes(k), `${k} is not in the canary's mute proof`);
+  }
 });
 
 

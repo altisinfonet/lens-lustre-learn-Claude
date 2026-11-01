@@ -52,14 +52,27 @@
 //      detection are not in conflict — identical output for the same seed is
 //      not the same thing as identical rows within one run.
 //
-// ⚠ WHAT THIS SCRIPT WILL NOT DO: it will not set session_replication_role to
-// 'replica' to switch the triggers off.  Two reasons, and the second matters
-// more than the first.  It cannot — `postgres` on this platform is not a
-// superuser (measured 2026-09-02: rolsuper = false).  And it should not: a
-// database seeded with the triggers off has no hashtag rows, no queue rows, no
-// fan-out and no counters, so every gate measured against it would be
-// measuring a database the application could never have produced.  That is a
-// silent change to what the evidence means, which is worse than a slow seed.
+// ⚠ MUTED SINCE 2026-11-01 — OWNER DECISION 21 (2026-10-31 16:45 UTC: "mute
+// seeded posts but delete it after test").  Every insert batch and every
+// teardown batch begins with `SET LOCAL session_replication_role = replica`,
+// so none of the triggers above fire: no notification, push call, e-mail or
+// background job on either notification path (the old notify_* triggers and
+// the Notification Centre).  Measured, not assumed: PROBE 0802 (staging run
+// 41229903894) — 50 unmuted posts by the most-followed account made +25,700
+// notifications, +25,700 push requests and +2,550 queued e-mails; the same 50
+// muted made +0 everywhere and wrote to no table but posts; and this role MAY
+// set session_replication_role (the 2026-09-02 reading "not a superuser, so it
+// cannot" no longer holds on this platform).
+//   The cost the old text named is real and is now stated rather than hidden:
+// a muted seed has no hashtag rows, no queue rows, no fan-out and no counters.
+// Any gate measured against it measures READ paths at 1 M posts (feed, search,
+// role checks), not write-time fan-out — say so in every report that uses it.
+//   SET LOCAL, never SET: the mute ends with the batch's own transaction, so it
+// cannot outlive it on a pooled connection.  Replica mode also skips the
+// foreign-key cascade triggers, so the teardown first refuses while any row in
+// any table with a foreign key to posts points at the batch (read from the
+// catalogue — TEARDOWN_CHILDREN_GUARD_SQL), and the canary stops the run if a
+// fan-out count moved (MUTE_PROOF_COUNTS).
 //
 // ⚠ posts IS IN THE supabase_realtime PUBLICATION (measured 2026-09-02).  One
 // million inserts therefore produce one million change records for the realtime
@@ -149,6 +162,17 @@ const SEED_STRIDE_SECONDS = 30;
 
 const SEED_TABLES = ['posts'];
 
+// Owner decision 21: every write this script makes is muted (see the header).
+// LOCAL: it ends with the batch's own BEGIN … COMMIT (psqlPayload).
+const MUTE_SQL = 'SET LOCAL session_replication_role = replica;';
+
+// The counts the canary must see unmoved after a muted batch. Each is a table
+// a trigger on posts writes to (or a FK child the realtime/feed path fills);
+// a non-zero delta means the mute did not hold and the run stops.
+const MUTE_PROOF_COUNTS = [
+  'user_notifications', 'post_hashtags', 'hashtags', 'feed_events', 'post_reports', 'post_media',
+];
+
 // ── Deterministic row expression ───────────────────────────────────────────
 // Generated server-side from generate_series so a million rows never cross the
 // wire. hashtextextended is deterministic for a given input and stable across
@@ -158,7 +182,7 @@ function insertBatchSql({ fromOrdinal, toOrdinal, privacyMix }) {
     .map((p, i) => `WHEN r.bucket < ${privacyMix.slice(0, i + 1).reduce((a, b) => a + b.weight, 0)} THEN '${p.name}'`)
     .join('\n                 ');
 
-  return `
+  return `${MUTE_SQL}
     WITH authors AS (
       SELECT p.id, (row_number() OVER (ORDER BY p.id) - 1) AS k
         FROM public.profiles p
@@ -291,7 +315,7 @@ const HIGHEST_ORDINAL_SQL = (max) => `
 // implicit transaction: either both apply or neither does. Notifications first,
 // because that delete reads the id set on its own and must not come to depend
 // on the posts row still being there.
-const TEARDOWN_SQL = (fromOrdinal, toOrdinal) => `
+const TEARDOWN_SQL = (fromOrdinal, toOrdinal) => `${MUTE_SQL}
   DELETE FROM public.user_notifications n
    USING generate_series(${fromOrdinal}, ${toOrdinal}) g
    WHERE n.reference_id = md5('${SEED_NAMESPACE}:post:' || g)::uuid;
@@ -352,6 +376,32 @@ const TEARDOWN_ALBUM_GUARD_SQL = (fromOrdinal, toOrdinal) => `
     FROM public.album_photos a
    WHERE a.post_id IN (SELECT md5('${SEED_NAMESPACE}:post:' || g)::uuid
                          FROM generate_series(${fromOrdinal}, ${toOrdinal}) g)
+`;
+
+// ── Owner 21 · a MUTED delete skips the foreign-key cascades too ───────────
+// Replica mode switches off the RI triggers as well as the user ones, so a
+// muted DELETE of a post that still has a child row would orphan that row
+// instead of cascading it (or being refused by NO ACTION). The guard counts,
+// for the batch's derived id set, the rows in EVERY table holding a foreign key
+// to public.posts — read from pg_constraint at run time, so a table added next
+// month is covered without editing this file — and the teardown refuses on any.
+// query_to_xml runs one count per FK without needing a function or a DO block.
+const TEARDOWN_CHILDREN_GUARD_SQL = (fromOrdinal, toOrdinal) => `
+  SELECT coalesce(sum((xpath('/row/c/text()', query_to_xml(format(
+           'SELECT count(*) AS c FROM %s t WHERE t.%I IN '
+           || '(SELECT md5(%L || g)::uuid FROM generate_series(%s, %s) g)',
+           c.conrelid::regclass, a.attname, '${SEED_NAMESPACE}:post:',
+           ${Number(fromOrdinal)}, ${Number(toOrdinal)}),
+         false, true, '')))[1]::text::bigint), 0)::bigint AS children_pointing_at_seed,
+         string_agg(DISTINCT c.conrelid::regclass::text || '.' || a.attname, ', ') AS fk_columns_checked,
+         (SELECT count(*) FROM pg_constraint x
+           WHERE x.contype = 'f' AND x.confrelid = 'public.posts'::regclass
+             AND array_length(x.conkey, 1) > 1)::bigint                 AS composite_fks_not_checked
+    FROM pg_constraint c
+    JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
+   WHERE c.contype = 'f'
+     AND c.confrelid = 'public.posts'::regclass
+     AND array_length(c.conkey, 1) = 1
 `;
 
 // ── The verdict · a pure function, because a verdict tested by regex is not ──
@@ -550,6 +600,19 @@ function main() {
         );
         process.exit(2);
       }
+      // Owner 21: the delete below is muted, so no FK cascade runs. Refuse
+      // while any child row in any FK-to-posts table points at this batch.
+      const children = queryOne(dsn, TEARDOWN_CHILDREN_GUARD_SQL(from, to));
+      if (Number(children.children_pointing_at_seed) > 0 || Number(children.composite_fks_not_checked) > 0) {
+        console.error(
+          `\n\nREFUSING at ordinals ${from}..${to}: ${children.children_pointing_at_seed} child row(s) point at a `
+          + `seeded post (checked: ${children.fk_columns_checked}); composite FKs not checked: `
+          + `${children.composite_fks_not_checked}. The delete is muted (Owner 21), so a cascade would not run `
+          + 'and the child would be orphaned. Find what wrote them before tearing this batch down. '
+          + 'Earlier batches in this run have already been torn down; nothing in this batch was.',
+        );
+        process.exit(2);
+      }
       psql(dsn, TEARDOWN_SQL(from, to), { readOnly: false, timeoutMs: 600000 });
       process.stdout.write(`\r  torn down through ordinal ${to} of ${args.rows}`);
     }
@@ -618,8 +681,14 @@ function main() {
     posts_per_author_approx: Math.round(args.rows / Math.max(before.profiles, 1)),
     created_at_span_days: Math.round((args.rows * SEED_STRIDE_SECONDS) / 86400),
     census_before: before,
+    muted: {
+      how: MUTE_SQL,
+      decision: 'Owner decision 21 (2026-10-31): seeded posts set off no notification, push, e-mail or job on either notification path.',
+      proof: 'PROBE 0802 staging run 41229903894 (muted 50 posts: +0 everywhere); this run re-checks after the canary (MUTE_PROOF_COUNTS).',
+      means: 'The trigger consequences listed below DO NOT HAPPEN while muted; they are kept as the reason the mute exists. Measurements on a muted seed are read-path measurements only.',
+    },
     consequences_you_are_accepting: [
-      `posts is in the supabase_realtime publication: ~${args.rows.toLocaleString()} change records will be produced for the realtime decoder.`,
+      `IF posts is in a logical-replication publication, ~${args.rows.toLocaleString()} change records reach its decoder: replica mode stops triggers, not decoding (PROBE 0802 checks posts is in none).`,
       `trg_enqueue_post_created fires per row: it calls pgmq.send('post_jobs', …). MEASURED ON STAGING `
         + '2026-09-04: the pgmq queue \'post_jobs\' DOES NOT EXIST there (pgmq holds only transactional_emails), '
         + 'and enqueue_post_job swallows the failure as a RAISE WARNING. So on staging as it stands today this '
@@ -661,10 +730,10 @@ function main() {
   // It does NOT acknowledge this. This flag does, and nothing else does.
   if (!args.ackEnqueueJobs) {
     console.error(
-      `\nREFUSING: seeding ${args.rows.toLocaleString()} posts will enqueue ~${args.rows.toLocaleString()} jobs through `
-      + 'trg_enqueue_post_created, which process-post-jobs (every 5 s, 100 per run) will then drain. '
-      + 'That is the Owner\'s decision, not this script\'s. Re-run with --ack-enqueue-jobs once it has been made. '
-      + 'Nothing was written.',
+      `\nREFUSING: unmuted, seeding ${args.rows.toLocaleString()} posts would enqueue ~${args.rows.toLocaleString()} jobs through `
+      + 'trg_enqueue_post_created, which process-post-jobs (every 5 s, 100 per run) would then drain. The seed is '
+      + 'muted (Owner 21) and the canary proves it, but the acknowledgement stays the Owner\'s (item 20), not this '
+      + 'script\'s. Re-run with --ack-enqueue-jobs once it has been made. Nothing was written.',
     );
     process.exit(2);
   }
@@ -688,6 +757,22 @@ function main() {
     census_after_canary: afterCanary,
   };
   console.log(JSON.stringify(canary, null, 2));
+
+  // ── Owner 21 · the canary is the in-run proof of the mute ───────────────
+  // A muted batch writes posts and nothing else. If any fan-out count moved,
+  // the mute did not hold: stop before the main run and say how to undo.
+  const moved = MUTE_PROOF_COUNTS
+    .map((k) => ({ count: k, delta: Number(afterCanary[k]) - Number(before[k]) }))
+    .filter((m) => m.delta !== 0);
+  if (moved.length > 0) {
+    console.error(
+      `\nMUTE FAILED after the canary: ${moved.map((m) => `${m.count} ${m.delta > 0 ? '+' : ''}${m.delta}`).join(', ')}. `
+      + 'The main run was NOT started. Undo the canary with: '
+      + `node scripts/db-seed-staging.mjs --teardown --yes --rows ${args.canary}`,
+    );
+    process.exit(1);
+  }
+  console.log(`Mute holds: ${MUTE_PROOF_COUNTS.join(', ')} all +0 after ${args.canary} canary posts.`);
 
   // ── Main run, resumable ─────────────────────────────────────────────────
   console.log(`\nSeeding ordinals ${args.canary + 1}..${args.rows} in batches of ${args.batch}.`);
@@ -732,6 +817,7 @@ export {
   SEED_NAMESPACE, SEED_CONTENT_MARKER, SEED_TABLES,
   insertBatchSql, parseArgs, CENSUS_SQL, TEARDOWN_SQL, TEARDOWN_ALBUM_GUARD_SQL,
   TEARDOWN_RESIDUE_SQL, TEARDOWN_PROOF_COUNTS, TEARDOWN_MUST_NOT_MOVE, HIGHEST_ORDINAL_SQL,
+  TEARDOWN_CHILDREN_GUARD_SQL, MUTE_PROOF_COUNTS,
 };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
