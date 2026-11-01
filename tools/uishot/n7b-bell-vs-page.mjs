@@ -17,9 +17,11 @@
 import { chromium } from "playwright";
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 
 const BASE = (process.env.BASE || "https://50mmretina.com").replace(/\/$/, "");
-const OUT = process.env.OUT || "n7b-shots";
+// Signed-in screenshots go to the temp folder by default, never into the repo by accident.
+const OUT = process.env.OUT || join(tmpdir(), "n7b-shots");
 const EMAIL = process.env.REVIEW_DEMO_EMAIL;
 const PASSWORD = process.env.REVIEW_DEMO_PASSWORD;
 // MANUAL=1: a visible browser opens the live sign-in page and waits (up to 15
@@ -62,6 +64,8 @@ async function signIn(context) {
     await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 60_000 });
   } catch (e) {
     // Say WHY (the form's own message — e.g. the server-side Turnstile check), never the credentials.
+    // Blank the form first: the picture must never carry the account's e-mail.
+    await page.locator("input").evaluateAll((els) => els.forEach((e) => { e.value = ""; })).catch(() => {});
     await page.screenshot({ path: join(OUT, "sign-in-failed.png") }).catch(() => {});
     const msg = await page.locator('[role="alert"], .text-destructive').allInnerTexts().catch(() => []);
     result.signInFailed = msg.join(" | ").slice(0, 300) || "no message on the form";
@@ -142,7 +146,10 @@ result.phone = { opensPage: phoneOpensPage, dropdownShown: phoneDropdown, rows: 
 step(`phone 390: bell opens /notifications ${phoneOpensPage}, dropdown ${phoneDropdown}`);
 
 await browser.close();
-const ok = n > 0 && differing.length === 0 && bellHasTabs && phoneOpensPage && !phoneDropdown;
+// A row with no [data-notif-row] wrapper reads "" — that must fail, never match.
+const allReal = [...bellRows.slice(0, n), ...pageRows.slice(0, n)].every((r) => r.length > 0);
+result.desktop.allRowsHaveMarkup = allReal;
+const ok = n > 0 && allReal && differing.length === 0 && bellHasTabs && phoneOpensPage && !phoneDropdown;
 result.ok = ok;
 writeFileSync(join(OUT, "result.json"), JSON.stringify(result, null, 2));
 console.log(ok ? "N7b LIVE CHECK: PASS" : "N7b LIVE CHECK: FAIL");
