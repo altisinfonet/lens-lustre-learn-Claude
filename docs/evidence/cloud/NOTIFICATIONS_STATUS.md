@@ -1,3 +1,5 @@
+NOTIFICATIONS COMPLETE — 2026-11-01 03:55 UTC. Everything is on main, production SQL 0130–0230 PASS, send-push deployed (production run 41267363139), live check 41267407788 OK, switches all OFF, N8 guide on main (#783). App 1.2.34: PR #801 (staging 3e1ef321), carry #802 (main c3c42d7b), android-build run 41269744391 (run number 137, versionCode 1137) SUCCESS.
+
 N0 COMPLETE
 
 # Notification centre runner — status
@@ -44,3 +46,5 @@ Heartbeat: 2026-10-31 18:42 UTC (measured) — Production N6: FAIL 41223352518 �
 
 - 02:25 UTC: carry PR #800 (N4-N8 remainder) open to main; review NOTHING BLOCKING; CI running. Staging SQL 0130-0230 all VERIFIED.
 - Owner item (info): when the new screens are switched on, the weekly summary e-mail defaults ON for members with activity. Tell the Owner before switching on.
+
+- 03:55 UTC: NOTIFICATIONS COMPLETE. Android 1.2.34 build run 41269744391 success (versionCode 1137). Owner: take the signed bundle from that run and follow the N8 guide to switch groups on, one at a time. Info: weekly summary e-mail defaults ON once the new screens are switched on.
