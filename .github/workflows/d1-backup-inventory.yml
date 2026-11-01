@@ -108,6 +108,7 @@ jobs:
               "- PITR window: earliest \((.physical_backup_data.earliest_physical_backup_date_unix) | ts), latest \((.physical_backup_data.latest_physical_backup_date_unix) | ts)",
               "",
               (if (.pitr_enabled // false) then "Worst-case data loss (RPO) today: minutes (point-in-time recovery is on)."
+               elif ((.backups // []) | length) == 0 then "Worst-case data loss (RPO) today: TOTAL. NO restorable backup is listed for this project and PITR is off, so there is nothing to restore from."
                else "Worst-case data loss (RPO) today: everything since the newest backup above, up to about 24 h with daily backups (PITR is off)." end)
             ' /tmp/backups.json
           } | tee -a "$GITHUB_STEP_SUMMARY"
