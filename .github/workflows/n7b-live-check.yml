@@ -39,7 +39,7 @@ jobs:
           REVIEW_DEMO_PASSWORD: ${{ secrets.REVIEW_DEMO_PASSWORD }}
         run: |
           cp tools/uishot/n7b-bell-vs-page.mjs /tmp/pw/run.mjs
-          node /tmp/pw/run.mjs
+          HEADED=1 xvfb-run -a node /tmp/pw/run.mjs
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4

@@ -30,7 +30,12 @@ mkdirSync(OUT, { recursive: true });
 const result = { base: BASE, at: new Date().toISOString(), steps: [] };
 const step = (s) => { result.steps.push(s); console.log(s); };
 
-const browser = await chromium.launch();
+// Headed (under xvfb in CI) with the automation flag off: the live sign-in is
+// protected by Cloudflare Turnstile, which a bare headless browser fails.
+const browser = await chromium.launch({
+  headless: process.env.HEADED !== "1",
+  args: ["--disable-blink-features=AutomationControlled"],
+});
 
 async function signIn(context) {
   const page = await context.newPage();
@@ -41,7 +46,17 @@ async function signIn(context) {
   await pw.waitFor({ timeout: 30_000 });
   await pw.fill(PASSWORD);
   await page.locator('button[type="submit"]').first().click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 60_000 });
+  try {
+    await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 60_000 });
+  } catch (e) {
+    // Say WHY (the form's own message — e.g. the server-side Turnstile check), never the credentials.
+    await page.screenshot({ path: join(OUT, "sign-in-failed.png") }).catch(() => {});
+    const msg = await page.locator('[role="alert"], .text-destructive').allInnerTexts().catch(() => []);
+    result.signInFailed = msg.join(" | ").slice(0, 300) || "no message on the form";
+    writeFileSync(join(OUT, "result.json"), JSON.stringify(result, null, 2));
+    console.error(`sign-in did not complete: ${result.signInFailed}`);
+    throw e;
+  }
   step(`signed in, now at ${new URL(page.url()).pathname}`);
   return page;
 }
