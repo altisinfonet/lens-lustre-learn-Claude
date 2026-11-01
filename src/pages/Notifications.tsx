@@ -13,13 +13,12 @@
  * scroll listener to the replacement screen would be a poor trade for saving one
  * tap.
  */
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import ActorPhrase from "@/components/notifications/ActorPhrase";
 import CentreNotificationList from "@/components/notifications/CentreNotificationList";
 import { NotificationAvatar as Avatar, NotificationRowThumb as RowThumb } from "@/components/notifications/CentreNotificationRow";
 import { useCentreUi } from "@/lib/notifications/centreUi";
-import { NOTIFICATION_TABS, TAB_LABEL, type NotificationTab } from "@/lib/notifications/tabs";
-import { centreSections, visibleCentreGroups } from "@/lib/notifications/sections";
+import { visibleCentreGroups } from "@/lib/notifications/sections";
 import { useMemberHandles } from "@/hooks/profile/useMemberHandles";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Bell, X } from "lucide-react";
@@ -247,9 +246,6 @@ const Notifications = () => {
   const { user } = useAuth();
   // N7 · notification centre rows, behind site_settings notif_centre_ui.
   const centreRows = useCentreUi(user?.id);
-  // N7 tabs exist only with the centre rows; with the switch off the list is unchanged.
-  const [tab, setTab] = useState<NotificationTab>("all");
-  const activeTab: NotificationTab = centreRows ? tab : "all";
 
   const { data, isLoading, isError, error: historyError, fetchStatus, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useNotificationHistory();
@@ -267,7 +263,6 @@ const Notifications = () => {
     [data],
   );
 
-  const tabEmpty = activeTab !== "all" && groups.length > 0 && centreSections(groups, activeTab).length === 0;
 
   return (
     <div className="max-w-2xl mx-auto pb-16">
@@ -308,32 +303,6 @@ const Notifications = () => {
         </h1>
       </div>
 
-      {centreRows && screen === "show" && (
-        <div
-          role="group"
-          aria-label={t("notifications.tabs", "Filter notifications")}
-          className="flex gap-1 overflow-x-auto border-b px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          {NOTIFICATION_TABS.map((k) => (
-            <button
-              key={k}
-              type="button"
-              aria-pressed={activeTab === k}
-              onClick={() => setTab(k)}
-              className={
-                "shrink-0 whitespace-nowrap border-b-2 px-3 py-2.5 text-xs transition-colors " +
-                (activeTab === k
-                  ? "border-primary font-semibold text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground")
-              }
-              style={bodyFont}
-            >
-              {t(TAB_LABEL[k].key, TAB_LABEL[k].fallback)}
-            </button>
-          ))}
-        </div>
-      )}
-
       {screen === "loading" && (
         <p className="py-10 text-center text-xs text-muted-foreground animate-pulse" style={bodyFont}>
           {t("common.loading", "Loading...")}
@@ -361,16 +330,10 @@ const Notifications = () => {
         </div>
       )}
 
-      {screen === "show" && tabEmpty && (
-        <p className="py-16 text-center text-xs text-muted-foreground" style={bodyFont}>
-          {hasNextPage
-            ? t("notifications.tab_empty_more", "Nothing in this tab yet. Older notifications may have some.")
-            : t("notifications.tab_empty", "Nothing in this tab yet.")}
-        </p>
-      )}
-
+      {/* N7 tabs, the empty-tab line and the sections all live in the one
+          list the bell renders too (N7b). */}
       {centreRows ? (
-        <CentreNotificationList groups={groups} tab={activeTab} />
+        <CentreNotificationList groups={groups} hasMore={!!hasNextPage} />
       ) : (
         <ClassicNotificationList groups={groups} />
       )}

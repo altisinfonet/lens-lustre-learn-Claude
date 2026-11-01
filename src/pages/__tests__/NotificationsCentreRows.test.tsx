@@ -38,6 +38,7 @@ let mutual = new Map<string, number>();
 vi.mock("@/hooks/notifications/useMutualFollows", () => ({ useMutualFollowCounts: () => mutual }));
 let previews = new Map<string, { commentId: string; content: string }>();
 vi.mock("@/hooks/notifications/useCommentPreviews", () => ({ useCommentPreviews: () => previews }));
+vi.mock("@/hooks/notifications/useNotificationPreferences", () => ({ useNotificationPreferences: () => ({ updatePreference: vi.fn() }) }));
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async (orig) => ({ ...(await orig<typeof import("react-router-dom")>()), useNavigate: () => mockNavigate }));
 vi.mock("@/i18n/I18nContext", () => ({
@@ -140,13 +141,14 @@ describe("/notifications — centre rows (switch on)", () => {
     expect(container.querySelectorAll('[data-notif-row-open="true"]').length).toBe(1);
   });
 
-  it("keeps Follow back and Delete as their own buttons beside the row", () => {
+  it("keeps Follow back and the ⋯ menu as their own buttons beside the row (N7b: no X on the row)", () => {
     withGroups([group({ type: "new_follower", actor_usernames: ["kasprzwoo"] })]);
     renderPage();
     const follow = screen.getByRole("button", { name: /follow back/i });
     expect(follow.closest('[data-notif-row-open="true"]')).toBeNull();
-    const del = screen.getByRole("button", { name: /^delete$/i });
-    expect(del.closest('[data-notif-row-open="true"]')).toBeNull();
+    expect(screen.queryByRole("button", { name: /^delete$/i })).toBeNull();
+    const more = screen.getByRole("button", { name: "More options" });
+    expect(more.closest('[data-notif-row-open="true"]')).toBeNull();
   });
 });
 

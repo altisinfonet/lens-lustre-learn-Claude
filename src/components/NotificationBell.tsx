@@ -4,7 +4,8 @@ import ProfileLink from "@/components/ProfileLink";
 import { createPortal } from "react-dom";
 import { Bell, UserPlus, Gift, Check, X, HelpCircle, MessageCircle, Heart, Award, Trophy, Eye, Vote, Users, Camera, BookOpen, GraduationCap, Star, Cake, Newspaper, Tag } from "lucide-react";
 import { toast } from "@/hooks/core/use-toast";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
@@ -126,6 +127,7 @@ const NotificationBell = () => {
   // N7 · notification centre rows, behind site_settings notif_centre_ui (OFF on live).
   const centreRows = useCentreUi(user?.id);
   const t = useT();
+  const navigate = useNavigate();
   const { isAdmin } = useIsAdmin();
   const [open, setOpen] = useState(false);
   const { playNotificationSound } = useNotificationSound();
@@ -375,7 +377,17 @@ const NotificationBell = () => {
   return (
     <div className="relative" ref={containerRef}>
       <button
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          // N7b · on a phone-width screen (the Android app included) the
+          // centre's bell opens the full page, Instagram-style; a wide screen
+          // keeps the dropdown with the same rows.
+          if (centreRows && isPhoneWidth()) {
+            setOpen(false);
+            navigate("/notifications");
+            return;
+          }
+          setOpen(!open);
+        }}
         /**
          * NO CIRCLE, AND A FULL 44px TARGET. Owner, 2026-08-15: *"from the
          * notification remove round circle"*.
@@ -559,7 +571,7 @@ const NotificationBell = () => {
                         /notifications (CentreNotificationList) — one view, one
                         set of actions. Its classic per-category rows are only
                         for the switch off. */}
-                    {centreRows ? <BellCentreList /> : Object.entries(groupedNotifs).map(([category, groups]) => (
+                    {centreRows ? <BellCentreList totalCount={totalCount} onNavigate={() => setOpen(false)} /> : Object.entries(groupedNotifs).map(([category, groups]) => (
                       <NotifSection key={category} title={category}>
                         {groups.map((group) => {
                           const IconComp = NOTIF_ICON[group.type] || Bell;
@@ -662,10 +674,18 @@ const NotificationBell = () => {
  * history /notifications shows (same query, same cache — so "See all" opens
  * instantly), rendered by the SAME list. Mounted only while the panel is open.
  */
-function BellCentreList() {
+function BellCentreList({ totalCount, onNavigate }: { totalCount: number; onNavigate: () => void }) {
   const t = useT();
-  const { data, isLoading } = useNotificationHistory();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { data, isLoading, hasNextPage } = useNotificationHistory();
   const groups = visibleCentreGroups(data?.pages?.[0] ?? []);
+  // The badge is live (realtime); the history is cached. When the panel opens,
+  // and whenever the badge moves while it is open, read the history afresh so
+  // a new notification is never counted but missing from the list.
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ["notification-history", user?.id ?? ""] });
+  }, [totalCount, queryClient, user?.id]);
   if (isLoading && !data) {
     return (
       <p className="py-8 text-center text-[10px] tracking-[0.2em] uppercase text-muted-foreground animate-pulse" style={headingFont}>
@@ -683,7 +703,16 @@ function BellCentreList() {
       </div>
     );
   }
-  return <CentreNotificationList groups={groups} />;
+  return <CentreNotificationList groups={groups} hasMore={!!hasNextPage || (data?.pages?.length ?? 0) > 1} onNavigate={onNavigate} />;
+}
+
+/** N7b · below the md breakpoint (phones, the Android app) the bell opens the page. */
+function isPhoneWidth(): boolean {
+  try {
+    return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(max-width: 767px)").matches;
+  } catch {
+    return false;
+  }
 }
 
 const NotifSection = ({ title, children }: { title: string; children: React.ReactNode }) => (
