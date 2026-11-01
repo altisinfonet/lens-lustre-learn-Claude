@@ -39,8 +39,16 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  *  so the client's rpc is narrowed through `unknown` to this one shape. */
 type RpcResult<T> = { data: T | null; error: { message: string } | null };
 type LooseRpc = (fn: string, args?: Record<string, unknown>) => PromiseLike<RpcResult<unknown>>;
-const rpc = async <T,>(fn: string, args?: Record<string, unknown>): Promise<RpcResult<T>> =>
-  (await (supabase.rpc as unknown as LooseRpc)(fn, args)) as RpcResult<T>;
+const NOT_SET_UP = "This page is still being set up. The database part has not been installed yet — please try again later.";
+/** A database function that does not exist yet (PostgREST PGRST202 / Postgres 42883) is
+ *  shown as a plain sentence, never the raw technical message. */
+const isMissingFunction = (e: { code?: string; message: string }) =>
+  e.code === "PGRST202" || e.code === "42883" || /could not find the function|function .* does not exist/i.test(e.message);
+const rpc = async <T,>(fn: string, args?: Record<string, unknown>): Promise<RpcResult<T>> => {
+  const r = (await (supabase.rpc as unknown as LooseRpc)(fn, args)) as RpcResult<T>;
+  if (r.error && isMissingFunction(r.error as { code?: string; message: string })) return { data: null, error: { message: NOT_SET_UP } };
+  return r;
+};
 
 export default function AdminNotificationCentre() {
   const [switches, setSwitches] = useState<SwitchRow[] | null>(null);

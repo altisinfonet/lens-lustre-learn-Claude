@@ -182,4 +182,15 @@ describe("Admin → Notification Centre", () => {
       await waitFor(() => expect(rpc).toHaveBeenCalledWith("admin_notif_announce", expect.objectContaining({ _who: "members", _members: [a, b] })));
     });
   });
+
+  it("a database function that is not there yet shows a plain 'still being set up' message", async () => {
+    rpc.mockImplementation(async () => ({
+      data: null,
+      error: { code: "PGRST202", message: "Could not find the function public.admin_notif_switches without parameters in the schema cache" },
+    }));
+    render(<AdminNotificationCentre />);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("This page is still being set up");
+    expect(alert).not.toHaveTextContent(/PGRST202|schema cache|admin_notif/);
+  });
 });
