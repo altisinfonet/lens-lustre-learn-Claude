@@ -39,3 +39,5 @@ Heartbeat: 2026-10-31 18:42 UTC (measured) — Production N6: FAIL 41223352518 �
    notifications). The new notification centre will obey them once you switch
    a group on (see the step list that will be in Admin → Notification Centre).
    Nothing to click yet — just know that switching a group on makes them work.
+
+- Heartbeat 2026-11-01 01:43 UTC: runner restarted, acting as GitHub user altisinfonet.
