@@ -17,6 +17,8 @@ vi.mock("@/integrations/supabase/client", () => ({
     }),
   },
 }));
+const blocked = new Set<string>();
+vi.mock("@/hooks/core/useBlockedUsers", () => ({ useBlockedUsers: () => ({ blockedIds: blocked }) }));
 vi.mock("@/hooks/core/useAuth", () => ({ useAuth: () => ({ user: { id: "me" } }) }));
 
 import { useCommentPreviews } from "@/hooks/notifications/useCommentPreviews";
@@ -31,14 +33,15 @@ const g = (over: Record<string, unknown>) => ({ group_key: "k", type: "post_comm
 describe("useCommentPreviews (N7)", () => {
   beforeEach(() => {
     calls.length = 0;
+    blocked.clear();
     tables.user_notifications = [
       { id: "n1", dedup_key: `post_comment:${C1}:owner`, created_at: "2026-10-31T10:00:00Z" },
       { id: "n2", dedup_key: `post_comment:${C2}:owner`, created_at: "2026-10-31T11:00:00Z" },
       { id: "n3", dedup_key: null, created_at: "2026-10-31T12:00:00Z" },
     ];
     tables.post_comments = [
-      { id: C1, content: "Older comment", post_id: "p1" },
-      { id: C2, content: "Lovely light on the river", post_id: "p1" },
+      { id: C1, content: "Older comment", post_id: "p1", user_id: "author" },
+      { id: C2, content: "Lovely light on the river", post_id: "p1", user_id: "author" },
     ];
   });
 
@@ -55,7 +58,7 @@ describe("useCommentPreviews (N7)", () => {
   });
 
   it("no dedup key, or a deleted comment → no preview", async () => {
-    tables.post_comments = [{ id: C2, content: "Lovely light on the river", post_id: "p1" }];   // C1 deleted
+    tables.post_comments = [{ id: C2, content: "Lovely light on the river", post_id: "p1", user_id: "author" }];   // C1 deleted
     const { result } = renderHook(
       () => useCommentPreviews([
         g({ group_key: "b", notification_ids: ["n3"], reference_id: "p1" }),
@@ -74,5 +77,13 @@ describe("useCommentPreviews (N7)", () => {
     const { result } = renderHook(() => useCommentPreviews([g({ group_key: "e", notification_ids: ["n2"], reference_id: "p1" })] as never, true), { wrapper: wrap });
     await waitFor(() => expect(calls.map((c) => c.table)).toContain("post_comments"));
     expect(result.current.get("e")).toBeUndefined();
+  });
+
+  it("a comment by a member the reader blocked is never quoted", async () => {
+    tables.post_comments = [{ id: C2, content: "Rude words", post_id: "p1", user_id: "badguy" }];
+    blocked.add("badguy");
+    const { result } = renderHook(() => useCommentPreviews([g({ group_key: "f", notification_ids: ["n2"], reference_id: "p1" })] as never, true), { wrapper: wrap });
+    await waitFor(() => expect(calls.map((c) => c.table)).toContain("post_comments"));
+    expect(result.current.get("f")).toBeUndefined();
   });
 });

@@ -6,11 +6,13 @@
  * members read their own notification rows and the comments of posts they can
  * see — so two batched reads, no SQL change: the rows' dedup keys, then those
  * comments. The newest notification in a group decides which comment shows.
+ * A comment by a member the reader blocked is never quoted.
  * Any error → no previews (the row just has no quote and no Reply).
  */
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
+import { useBlockedUsers } from "@/hooks/core/useBlockedUsers";
 import { commentIdFromDedupKey, isCommentNotificationType } from "@/lib/notificationComment";
 import type { NotificationGroup } from "@/lib/notificationText";
 
@@ -19,13 +21,15 @@ const EMPTY = new Map<string, CommentPreview>();
 
 export function useCommentPreviews(groups: NotificationGroup[], enabled: boolean): Map<string, CommentPreview> {
   const { user } = useAuth();
+  const { blockedIds } = useBlockedUsers();
+  const blockedKey = Array.from(blockedIds).sort().join(",");
   const wanted = groups
     .filter((g) => isCommentNotificationType(g.type) && !!g.reference_id && (g.notification_ids?.length ?? 0) > 0)
     .slice(0, 50);
   const ids = Array.from(new Set(wanted.flatMap((g) => g.notification_ids ?? []))).sort().slice(0, 200);
 
   const query = useQuery({
-    queryKey: ["notif-comment-previews", user?.id ?? "", ids.join(",")],
+    queryKey: ["notif-comment-previews", user?.id ?? "", ids.join(","), blockedKey],
     enabled: enabled && !!user?.id && ids.length > 0,
     retry: false,
     staleTime: 60_000,
@@ -51,18 +55,18 @@ export function useCommentPreviews(groups: NotificationGroup[], enabled: boolean
       if (commentIds.length === 0) return EMPTY;
       const { data: comments, error: e2 } = await supabase
         .from("post_comments")
-        .select("id, content, post_id")
+        .select("id, content, post_id, user_id")
         .in("id", commentIds);
       if (e2) throw e2;
       const byComment = new Map(
-        ((comments ?? []) as Array<{ id: string; content: string; post_id: string }>).map((c) => [c.id, c]),
+        ((comments ?? []) as Array<{ id: string; content: string; post_id: string; user_id: string }>).map((c) => [c.id, c]),
       );
       const postOf = new Map(wanted.map((g) => [g.group_key, g.reference_id]));
       const out = new Map<string, CommentPreview>();
       for (const [key, cid] of pick) {
         const c = byComment.get(cid);
         // the quote must be from the post Reply opens
-        if (c && c.post_id === postOf.get(key) && c.content?.trim()) out.set(key, { commentId: cid, content: c.content.trim() });
+        if (c && !blockedIds.has(c.user_id) && c.post_id === postOf.get(key) && c.content?.trim()) out.set(key, { commentId: cid, content: c.content.trim() });
       }
       return out;
     },
