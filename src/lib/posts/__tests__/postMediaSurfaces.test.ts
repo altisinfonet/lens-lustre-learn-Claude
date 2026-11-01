@@ -39,7 +39,8 @@ const SURFACES: Record<string, { what: string; must: RegExp[] }> = {
       /<FeedVideoCard video=\{media\.video\}/,
     ],
   },
-  "src/pages/Notifications.tsx": {
+  // N7b: the notification row moved here from src/pages/Notifications.tsx (the page imports its thumbnail).
+  "src/components/notifications/CentreNotificationRow.tsx": {
     what: "notification thumbnail (small) — VideoPoster",
     must: [
       /from "@\/lib\/posts\/subjectMedia"/,
@@ -120,6 +121,7 @@ describe("BUG-VID-HOME sweep — no file reads post media without video support"
 
   it("a notification's post thumbnail is drawn through postMedia, never straight from thumbnail_url", () => {
     expect(read("src/pages/Notifications.tsx")).not.toMatch(/src=\{group\.thumbnail_url\}/);
+    expect(read("src/components/notifications/CentreNotificationRow.tsx")).not.toMatch(/src=\{group\.thumbnail_url\}/);
   });
 
   it("positive control: the sweep sees the known post readers, and no exception is stale", () => {
