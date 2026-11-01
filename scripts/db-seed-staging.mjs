@@ -767,8 +767,9 @@ function main() {
   if (moved.length > 0) {
     console.error(
       `\nMUTE FAILED after the canary: ${moved.map((m) => `${m.count} ${m.delta > 0 ? '+' : ''}${m.delta}`).join(', ')}. `
-      + 'The main run was NOT started. Undo the canary with: '
-      + `node scripts/db-seed-staging.mjs --teardown --yes --rows ${args.canary}`,
+      + 'The main run was NOT started. Do NOT re-run. The muted teardown '
+      + `(--teardown --yes --rows ${args.canary}) refuses while the child rows the failed mute wrote exist, `
+      + 'so the canary must be reversed by a reviewed, unmuted cleanup — report it first.',
     );
     process.exit(1);
   }
