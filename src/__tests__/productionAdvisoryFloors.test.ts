@@ -3,7 +3,12 @@
  * ranges of the high/moderate advisories fixed on 2026-10-30.
  *
  * Measured before the fix (`npm audit --omit=dev`, staging ba508d1):
- * 19 findings, 14 high. After: 5 findings, 1 high (zod, below), 4 moderate. `npm audit fix` (lockfile only, package.json ranges
+ * 19 findings, 14 high. After: 5 findings, 1 high (zod, below), 4 moderate.
+ * 2026-10-31: new advisories put the production glob 10.5.0 and its minimatch
+ * 9.0.9 (both via sucrase 3.35.0) back in range: 8 findings → 5 after a
+ * lockfile-only fix. sucrase 3.35.1 uses tinyglobby instead of glob, which
+ * brings picomatch into the production tree; it is taken at 4.0.7, outside
+ * the 4.0.0–4.0.3 range listed below. `npm audit fix` (lockfile only, package.json ranges
  * unchanged) moved every production copy below out of its vulnerable range.
  * The CI security gate still blocks only on `critical`, so without this test a
  * later lockfile regeneration could bring any of these back silently.
@@ -24,17 +29,20 @@ const parse = (s: string): V => {
 };
 const cmp = (x: V, y: V) => x[0] - y[0] || x[1] - y[1] || x[2] - y[2];
 
-/** Vulnerable range per package, from the advisories: [lowest affected, highest affected]. */
-const VULNERABLE: Record<string, [string, string]> = {
+/** Vulnerable range(s) per package, from the advisories: [lowest affected, highest affected]. */
+const VULNERABLE: Record<string, [string, string] | [string, string][]> = {
   "@remix-run/router": ["0.0.0", "1.23.2"],
   "brace-expansion": ["2.0.0", "2.1.6"],
   dompurify: ["0.0.0", "3.4.16"],
   fflate: ["0.8.0", "0.8.2"],
-  glob: ["10.2.0", "10.4.5"],
+  // 2026-10-31: GHSA AbortSignal cancellation bypass, >=9.0.0 <=14.0.1 (supersedes 10.2.0–10.4.5).
+  glob: ["9.0.0", "14.0.1"],
   lodash: ["0.0.0", "4.17.23"],
-  minimatch: ["9.0.0", "9.0.6"],
+  // 2026-10-31: globparts amplification DoS, <11.0.1 (supersedes 9.0.0–9.0.6).
+  minimatch: ["0.0.0", "11.0.0"],
   nanoid: ["0.0.0", "3.3.17"],
-  picomatch: ["0.0.0", "2.3.1"],
+  // 2026-10-31: POSIX class method injection + extglob ReDoS, >=4.0.0 <4.0.4.
+  picomatch: [["0.0.0", "2.3.1"], ["4.0.0", "4.0.3"]],
   postcss: ["0.0.0", "8.5.22"],
   "postcss-selector-parser": ["0.0.0", "6.1.4"],
   // The two HIGH react-router advisories end at 6.30.3 (fixed 6.30.4). Two
@@ -57,11 +65,14 @@ describe("production dependencies stay out of fixed advisory ranges", () => {
     for (const [path, meta] of Object.entries(lock.packages)) {
       if (!path || meta.dev || !meta.version) continue;
       const name = path.slice(path.lastIndexOf("node_modules/") + "node_modules/".length);
-      const range = VULNERABLE[name];
-      if (!range) continue;
+      const entry = VULNERABLE[name];
+      if (!entry) continue;
+      const ranges = (Array.isArray(entry[0]) ? entry : [entry]) as [string, string][];
       const v = parse(meta.version);
-      if (cmp(v, parse(range[0])) >= 0 && cmp(v, parse(range[1])) <= 0) {
-        hits.push(`${path}@${meta.version} (vulnerable ${range[0]}–${range[1]})`);
+      for (const range of ranges) {
+        if (cmp(v, parse(range[0])) >= 0 && cmp(v, parse(range[1])) <= 0) {
+          hits.push(`${path}@${meta.version} (vulnerable ${range[0]}–${range[1]})`);
+        }
       }
     }
     expect(hits).toEqual([]);
