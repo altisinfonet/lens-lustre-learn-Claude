@@ -33,6 +33,10 @@ vi.mock("@/lib/video/postVideoRead", () => ({ fetchPostVideoMap: () => Promise.r
 vi.mock("@/hooks/social/useFriendshipMutations", () => ({ useToggleFollow: () => ({ mutateAsync: vi.fn(), isPending: false }) }));
 vi.mock("@/hooks/notifications/useMutualFollows", () => ({ useMutualFollowCounts: () => new Map() }));
 vi.mock("@/hooks/notifications/useCommentPreviews", () => ({ useCommentPreviews: () => new Map() }));
+const updatePreference = vi.fn();
+vi.mock("@/hooks/notifications/useNotificationPreferences", () => ({
+  useNotificationPreferences: () => ({ updatePreference: (f: string, v: boolean) => updatePreference(f, v) }),
+}));
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async (orig) => ({ ...(await orig<typeof import("react-router-dom")>()), useNavigate: () => mockNavigate }));
 const tagUpdate = vi.fn();
@@ -154,14 +158,25 @@ describe("bell — centre rows (switch on)", () => {
     expect(markGroupRead).toHaveBeenCalledWith(["n1", "n2", "n3", "n4"]);
   });
 
-  it("Delete is its own button beside the row and removes the group", async () => {
+  it("Remove sits in the row's own ⋯ menu (no X on the row) and removes the group", async () => {
     renderBell();
     openBell();
-    const row = (await screen.findByRole("button", { name: /Read Person started following you/ })).parentElement!;
-    const del = row.querySelector('button[aria-label="Delete"]') as HTMLButtonElement;
-    expect(del.closest('[data-notif-row-open="true"]')).toBeNull();
-    fireEvent.click(del);
+    const row = (await screen.findByRole("button", { name: /Read Person started following you/ })).closest("[data-notif-row]")!;
+    expect(row.querySelector('button[aria-label="Delete"]')).toBeNull();
+    const more = row.querySelector('button[aria-label="More options"]') as HTMLButtonElement;
+    expect(more.closest('[data-notif-row-open="true"]')).toBeNull();
+    fireEvent.click(more);
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
     await waitFor(() => expect(deleteGroup).toHaveBeenCalledWith(["n1", "n2", "n3", "n4"]));
+  });
+
+  it("⋯ Turn off this kind writes the bell setting for that kind", async () => {
+    renderBell();
+    openBell();
+    const row = (await screen.findByRole("button", { name: /Read Person started following you/ })).closest("[data-notif-row]")!;
+    fireEvent.click(row.querySelector('button[aria-label="More options"]') as HTMLButtonElement);
+    fireEvent.click(screen.getByRole("button", { name: "Turn off this kind" }));
+    expect(updatePreference).toHaveBeenCalledWith("inapp_social", false);
   });
 
   it("a waiting photo tag can still be approved from the bell", async () => {
@@ -192,6 +207,29 @@ describe("bell — centre rows (switch on)", () => {
     openBell();
     expect(await screen.findByRole("button", { name: /Read Person started following you/ })).toBeTruthy();
     expect(screen.queryByText("No new notifications")).toBeNull();
+  });
+
+  it("N7b · on a phone-width screen (and the app) the bell opens the full /notifications page, not a dropdown", () => {
+    const mm = window.matchMedia;
+    window.matchMedia = ((q: string) => ({ matches: q.includes("max-width"), media: q, addEventListener: () => {}, removeEventListener: () => {} })) as never;
+    try {
+      renderBell();
+      openBell();
+      expect(mockNavigate).toHaveBeenCalledWith("/notifications");
+      expect(document.getElementById("notification-panel")).toBeNull();
+    } finally {
+      window.matchMedia = mm;
+    }
+  });
+
+  it("N7b · on a wide screen the dropdown keeps the same tabs as the page", async () => {
+    renderBell();
+    openBell();
+    const tabs = await screen.findByRole("group", { name: "Filter notifications" });
+    expect([...tabs.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["All", "Comments & mentions", "Follows", "Competitions"]);
+    fireEvent.click(screen.getByRole("button", { name: "Follows" }));
+    expect(screen.queryByRole("button", { name: /^Unread, Partha Dalal/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /Read Person started following you/ })).toBeTruthy();
   });
 
   it("says Loading while the history is first read", () => {

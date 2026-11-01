@@ -29,6 +29,7 @@ vi.mock("@/hooks/profile/useMemberHandles", () => ({ useMemberHandles: () => new
 vi.mock("@/hooks/core/useNetworkQuality", () => ({ useNetworkQuality: () => ({ online: true }) }));
 vi.mock("@/lib/video/postVideoRead", () => ({ fetchPostVideoMap: () => Promise.resolve(new Map()) }));
 vi.mock("@/hooks/social/useFriendshipMutations", () => ({ useToggleFollow: () => ({ mutateAsync: vi.fn(), isPending: false }) }));
+vi.mock("@/hooks/notifications/useNotificationPreferences", () => ({ useNotificationPreferences: () => ({ updatePreference: vi.fn() }) }));
 vi.mock("@/hooks/notifications/useMutualFollows", () => ({ useMutualFollowCounts: () => new Map([["f1", 2]]) }));
 vi.mock("@/hooks/notifications/useCommentPreviews", () => ({
   useCommentPreviews: () => new Map([["c1", { commentId: "cm-1", content: "Lovely light on this one" }]]),
@@ -130,7 +131,9 @@ function read(root: HTMLElement) {
     rows: Array.from(s.querySelectorAll('[data-notif-row-open="true"]')).map((o) => o.parentElement!.outerHTML),
   }));
   const rows = Array.from(root.querySelectorAll('[data-notif-row-open="true"]')).map((o) => o.parentElement!.outerHTML);
-  return { sections, rows };
+  // N7b-2: the tabs belong to the one list too.
+  const tabs = root.querySelector('[role="group"][aria-label="Filter notifications"]')?.outerHTML ?? null;
+  return { sections, rows, tabs };
 }
 
 beforeEach(() => {
@@ -152,6 +155,8 @@ describe("N7b · the bell and /notifications show one view", () => {
     expect(fromBell.rows).toEqual(fromPage.rows);
     expect(fromPage.sections.length).toBeGreaterThan(0);
     expect(fromBell.sections).toEqual(fromPage.sections);
+    expect(fromPage.tabs).not.toBeNull();
+    expect(fromBell.tabs).toEqual(fromPage.tabs);
   });
 
   it("the bell has no category headers of its own (no 'Reactions', 'Followers', 'Comments')", () => {
