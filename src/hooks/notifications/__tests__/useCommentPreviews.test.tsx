@@ -18,7 +18,8 @@ vi.mock("@/integrations/supabase/client", () => ({
   },
 }));
 const blocked = new Set<string>();
-vi.mock("@/hooks/core/useBlockedUsers", () => ({ useBlockedUsers: () => ({ blockedIds: blocked }) }));
+let blockedReady = true;
+vi.mock("@/hooks/core/useBlockedUsers", () => ({ useBlockedUsers: () => ({ blockedIds: blocked, isSuccess: blockedReady }) }));
 vi.mock("@/hooks/core/useAuth", () => ({ useAuth: () => ({ user: { id: "me" } }) }));
 
 import { useCommentPreviews } from "@/hooks/notifications/useCommentPreviews";
@@ -34,6 +35,7 @@ describe("useCommentPreviews (N7)", () => {
   beforeEach(() => {
     calls.length = 0;
     blocked.clear();
+    blockedReady = true;
     tables.user_notifications = [
       { id: "n1", dedup_key: `post_comment:${C1}:owner`, created_at: "2026-10-31T10:00:00Z" },
       { id: "n2", dedup_key: `post_comment:${C2}:owner`, created_at: "2026-10-31T11:00:00Z" },
@@ -85,5 +87,12 @@ describe("useCommentPreviews (N7)", () => {
     const { result } = renderHook(() => useCommentPreviews([g({ group_key: "f", notification_ids: ["n2"], reference_id: "p1" })] as never, true), { wrapper: wrap });
     await waitFor(() => expect(calls.map((c) => c.table)).toContain("post_comments"));
     expect(result.current.get("f")).toBeUndefined();
+  });
+
+  it("nothing is quoted until the reader's blocked list has loaded (or if it failed to load)", async () => {
+    blockedReady = false;
+    renderHook(() => useCommentPreviews([g({ group_key: "h", notification_ids: ["n2"], reference_id: "p1" })] as never, true), { wrapper: wrap });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(calls).toHaveLength(0);
   });
 });

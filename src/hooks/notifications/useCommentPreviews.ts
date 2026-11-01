@@ -7,6 +7,7 @@
  * see — so two batched reads, no SQL change: the rows' dedup keys, then those
  * comments. The newest notification in a group decides which comment shows.
  * A comment by a member the reader blocked is never quoted.
+ * Nothing is read until the blocked list has loaded (a failed read → no previews).
  * Any error → no previews (the row just has no quote and no Reply).
  */
 import { useQuery } from "@tanstack/react-query";
@@ -21,7 +22,7 @@ const EMPTY = new Map<string, CommentPreview>();
 
 export function useCommentPreviews(groups: NotificationGroup[], enabled: boolean): Map<string, CommentPreview> {
   const { user } = useAuth();
-  const { blockedIds } = useBlockedUsers();
+  const { blockedIds, isSuccess: blockedLoaded } = useBlockedUsers();
   const blockedKey = Array.from(blockedIds).sort().join(",");
   const wanted = groups
     .filter((g) => isCommentNotificationType(g.type) && !!g.reference_id && (g.notification_ids?.length ?? 0) > 0)
@@ -30,7 +31,7 @@ export function useCommentPreviews(groups: NotificationGroup[], enabled: boolean
 
   const query = useQuery({
     queryKey: ["notif-comment-previews", user?.id ?? "", ids.join(","), blockedKey],
-    enabled: enabled && !!user?.id && ids.length > 0,
+    enabled: enabled && blockedLoaded && !!user?.id && ids.length > 0,
     retry: false,
     staleTime: 60_000,
     queryFn: async () => {
