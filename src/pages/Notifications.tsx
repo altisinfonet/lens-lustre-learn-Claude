@@ -17,6 +17,7 @@ import { useCentreUi } from "@/lib/notifications/centreUi";
 import { NOTIFICATION_TABS, TAB_LABEL, inTab, type NotificationTab } from "@/lib/notifications/tabs";
 import { centreHeadline, isBigMoment } from "@/lib/notifications/centreWording";
 import { useMutualFollowCounts } from "@/hooks/notifications/useMutualFollows";
+import { useCommentPreviews, type CommentPreview } from "@/hooks/notifications/useCommentPreviews";
 import { useMemberHandles } from "@/hooks/profile/useMemberHandles";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Bell, X } from "lucide-react";
@@ -106,12 +107,18 @@ function NotificationRow({
   video,
   centreRows = false,
   mutualFollows,
+  commentPreview,
+  onReply,
 }: {
   group: NotificationGroup;
   /** N7 (site_settings notif_centre_ui): one control per row, plain bold names, unread dot. */
   centreRows?: boolean;
   /** N7 · new followers only: how many people the member follows that this follower also follows. */
   mutualFollows?: number;
+  /** N7 · comment rows: what they wrote (from the row's own dedup key). */
+  commentPreview?: CommentPreview;
+  /** N7 · open the post on that comment, ready to reply. */
+  onReply?: (group: NotificationGroup, commentId: string) => void;
   /** BUG-VID-HOME: the post's playable video when the notification is about a video post (one batched read for the list). */
   video: FeedVideo | null;
   isFollowing: boolean;
@@ -169,6 +176,12 @@ function NotificationRow({
             {described.hasActor ? (
               <>
                 <ActorPhrase subject={subject} plain /> {described.action}
+                {commentPreview && (
+                  <>
+                    {" "}
+                    <span className="block line-clamp-2 text-muted-foreground">“{commentPreview.content}”</span>
+                  </>
+                )}
                 {group.type === "new_follower" && (mutualFollows ?? 0) > 0 && (
                   <>
                     {" "}
@@ -196,6 +209,21 @@ function NotificationRow({
             </span>
           )}
         </button>
+
+        {commentPreview && onReply && (
+          <button
+            type="button"
+            onClick={() => onReply(group, commentPreview.commentId)}
+            aria-label={t("notifications.reply_to", "Reply to {name}").replace(
+              "{name}",
+              group.actor_names?.[0] || group.actor_usernames?.[0] || t("notifications.a_member", "A member"),
+            )}
+            className="shrink-0 px-3 py-1.5 tap-44 rounded-md border border-border text-[11px] font-semibold text-foreground hover:bg-muted/40"
+            style={headingFont}
+          >
+            {t("notifications.reply", "Reply")}
+          </button>
+        )}
 
         {showFollowBack && (
           <button
@@ -369,6 +397,21 @@ const Notifications = () => {
   }, [groups, activeTab]);
   const tabEmpty = activeTab !== "all" && groups.length > 0 && BUCKET_ORDER.every((k) => buckets[k].length === 0);
 
+  // N7 · comment preview + Reply (centre rows only).
+  const commentPreviews = useCommentPreviews(groups, centreRows);
+  const replyTo = async (group: NotificationGroup, commentId: string) => {
+    if ((group.unread_count ?? 0) > 0) {
+      try {
+        await markGroupRead(group.notification_ids ?? []);
+        queryClient.invalidateQueries({ queryKey: ["notification-history", user?.id ?? ""] });
+        queryClient.invalidateQueries({ queryKey: queryKeys.notifications(user?.id ?? "") });
+      } catch {
+        // Never block navigation on the read-marking write.
+      }
+    }
+    navigate(`/post/${group.reference_id}?comment=${commentId}`, { state: notificationEntryState(group.type) });
+  };
+
   const openGroup = async (group: NotificationGroup) => {
     if ((group.unread_count ?? 0) > 0) {
       try {
@@ -539,6 +582,8 @@ const Notifications = () => {
                 video={videoFor(group)}
                 centreRows={centreRows}
                 mutualFollows={mutualFollows.get(group.actor_ids?.[0] ?? "")}
+                commentPreview={group.reference_id ? commentPreviews.get(group.group_key) : undefined}
+                onReply={replyTo}
               />
             ))}
           </section>
