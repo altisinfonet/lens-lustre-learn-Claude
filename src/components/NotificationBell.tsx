@@ -4,7 +4,8 @@ import ProfileLink from "@/components/ProfileLink";
 import { createPortal } from "react-dom";
 import { Bell, UserPlus, Gift, Check, X, HelpCircle, MessageCircle, Heart, Award, Trophy, Eye, Vote, Users, Camera, BookOpen, GraduationCap, Star, Cake, Newspaper, Tag } from "lucide-react";
 import { toast } from "@/hooks/core/use-toast";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,7 +14,8 @@ import { useNotificationsQuery, type UserNotificationGroup } from "@/hooks/notif
 import { useNotificationSound } from "@/hooks/core/useNotificationSound";
 import { getNotifLink } from "@/lib/notificationLinks";
 import { useCentreUi } from "@/lib/notifications/centreUi";
-import { centreHeadline, isBigMoment } from "@/lib/notifications/centreWording";
+import { visibleCentreGroups } from "@/lib/notifications/sections";
+import CentreNotificationList from "@/components/notifications/CentreNotificationList";
 import { useT } from "@/i18n/I18nContext";
 import { notificationEntryState } from "@/lib/navigationContract";
 import { useDismissOnRouteChange } from "@/hooks/core/useDismissOnRouteChange";
@@ -21,7 +23,7 @@ import { useIsPrimaryInstance } from "@/hooks/core/useIsPrimaryInstance";
 import { describeNotification, relativeAge } from "@/lib/notifications/describe";
 import { subjectFromGroup } from "@/lib/notifications/adapters";
 import { useAdminIds } from "@/hooks/core/useAdminIds";
-import { markGroupRead } from "@/hooks/notifications/useNotificationHistory";
+import { markGroupRead, useNotificationHistory } from "@/hooks/notifications/useNotificationHistory";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { isWalletNotificationType } from "@/lib/native/iosReview";
 
@@ -125,6 +127,7 @@ const NotificationBell = () => {
   // N7 · notification centre rows, behind site_settings notif_centre_ui (OFF on live).
   const centreRows = useCentreUi(user?.id);
   const t = useT();
+  const navigate = useNavigate();
   const { isAdmin } = useIsAdmin();
   const [open, setOpen] = useState(false);
   const { playNotificationSound } = useNotificationSound();
@@ -374,7 +377,17 @@ const NotificationBell = () => {
   return (
     <div className="relative" ref={containerRef}>
       <button
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          // N7b · on a phone-width screen (the Android app included) the
+          // centre's bell opens the full page, Instagram-style; a wide screen
+          // keeps the dropdown with the same rows.
+          if (centreRows && isPhoneWidth()) {
+            setOpen(false);
+            navigate("/notifications");
+            return;
+          }
+          setOpen(!open);
+        }}
         /**
          * NO CIRCLE, AND A FULL 44px TARGET. Owner, 2026-08-15: *"from the
          * notification remove round circle"*.
@@ -438,7 +451,11 @@ const NotificationBell = () => {
               initial={{ opacity: 0, y: 8, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.2 }}
-              className="absolute right-0 top-full mt-2 w-80 max-h-[480px] bg-card border border-border shadow-xl z-50 overflow-hidden flex flex-col"
+              className={`absolute right-0 top-full mt-2 ${
+                // N7b · the centre rows carry a thumbnail and Follow back / Reply;
+                // they need the room the page gives them.
+                centreRows ? "w-96 max-w-[calc(100vw-1rem)] max-h-[560px]" : "w-80 max-h-[480px]"
+              } bg-card border border-border shadow-xl z-50 overflow-hidden flex flex-col`}
             >
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-border">
@@ -465,13 +482,16 @@ const NotificationBell = () => {
 
               {/* Content */}
               <div className="overflow-y-auto flex-1">
-                {loading && totalCount === 0 ? (
+                {/* With the centre on, the list shows read rows too (the top of
+                    "See all"), so "no UNREAD notifications" is not "nothing to
+                    show" — BellCentreList says its own loading/empty. */}
+                {!centreRows && loading && totalCount === 0 ? (
                   <div className="py-8 text-center">
                     <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground animate-pulse" style={headingFont}>
                       Loading...
                     </span>
                   </div>
-                ) : totalCount === 0 ? (
+                ) : !centreRows && totalCount === 0 ? (
                   <div className="py-10 text-center">
                     <Bell className="h-6 w-6 text-muted-foreground/20 mx-auto mb-2" />
                     <p className="text-xs text-muted-foreground" style={bodyFont}>
@@ -547,7 +567,11 @@ const NotificationBell = () => {
                         The database decides what a group is (notif_group_key),
                         so a day of reactions is one line here and one line on
                         /notifications. It used to be 40 lines here and 1 there. */}
-                    {Object.entries(groupedNotifs).map(([category, groups]) => (
+                    {/* N7b · with the centre on, the bell renders THE SAME list as
+                        /notifications (CentreNotificationList) — one view, one
+                        set of actions. Its classic per-category rows are only
+                        for the switch off. */}
+                    {centreRows ? <BellCentreList totalCount={totalCount} onNavigate={() => setOpen(false)} /> : Object.entries(groupedNotifs).map(([category, groups]) => (
                       <NotifSection key={category} title={category}>
                         {groups.map((group) => {
                           const IconComp = NOTIF_ICON[group.type] || Bell;
@@ -559,63 +583,6 @@ const NotificationBell = () => {
                           // Same function, same words, as the history page.
                           const described = describeNotification(subjectFromGroup(group, adminIds));
                           return (
-                            centreRows ? (
-                            <div
-                              key={group.group_key}
-                              data-notif-big={isBigMoment(group.type) ? "true" : undefined}
-                              className={`flex items-center gap-3 px-4 py-3 border-b border-border/50 hover:bg-muted/20 transition-colors ${
-                                isBigMoment(group.type) ? "border-l-4 border-l-primary bg-primary/10" : ""
-                              }`}
-                            >
-                              {/* N7 · notif_centre_ui: ONE link per row — avatar, sentence and
-                                  time inside it, so a screen reader meets one named control
-                                  instead of an unnamed avatar link plus a second link. */}
-                              <Link
-                                data-notif-row-open="true"
-                                to={link}
-                                state={notificationEntryState(group.type)}
-                                onClick={() => dismissUserGroup(group)}
-                                className="flex items-center gap-3 flex-1 min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                              >
-                                <span className="relative shrink-0">
-                                  <BellAvatar avatar={avatar} IconComp={IconComp} />
-                                  {(group.unread_count ?? 0) > 0 && (
-                                    <span data-notif-unread-dot="true" aria-hidden="true" className="absolute -top-0.5 -left-0.5 h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-background" />
-                                  )}
-                                </span>
-                                <span className="flex-1 min-w-0">
-                                  <span className="text-xs block line-clamp-2" style={bodyFont}>
-                                    {(group.unread_count ?? 0) > 0 && <span className="sr-only">{t("notifications.unread", "Unread")}, </span>}
-                                    {(() => {
-                                      // N7 · same headline + server detail as the history page.
-                                      const headline = described.hasActor ? null : centreHeadline(group.type);
-                                      return headline ? (
-                                        <>
-                                          <strong className="font-semibold">{t(headline.key, headline.fallback)}</strong>{" "}
-                                          {described.text}
-                                        </>
-                                      ) : described.text;
-                                    })()}
-                                  </span>
-                                  <span className="text-[9px] text-muted-foreground" style={headingFont}>{timeAgoFn(group.latest_at)}</span>
-                                </span>
-                              </Link>
-                              {group.type === "post_tag" ? (
-                                <div className="flex items-center gap-1 shrink-0">
-                                  <button onClick={() => respondToTag(group, "approved")} aria-label={t("notifications.approve_tag", "Approve tag")} className="h-7 w-7 tap-44 rounded-full bg-primary/10 hover:bg-primary/20 flex items-center justify-center text-primary transition-colors" title="Approve">
-                                    <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                                  </button>
-                                  <button onClick={() => respondToTag(group, "declined")} aria-label={t("notifications.decline_tag", "Decline tag")} className="h-7 w-7 tap-44 rounded-full bg-muted hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors" title="Decline">
-                                    <X className="h-3.5 w-3.5" aria-hidden="true" />
-                                  </button>
-                                </div>
-                              ) : (
-                                <button onClick={() => dismissUserGroup(group, false)} aria-label={group.event_count > 1 ? `Dismiss all ${group.event_count}` : "Dismiss"} className="h-7 w-7 tap-44 rounded-full bg-muted hover:bg-muted/80 flex items-center justify-center text-muted-foreground shrink-0 transition-colors" title={group.event_count > 1 ? `Dismiss all ${group.event_count}` : "Dismiss"}>
-                                  <X className="h-3 w-3" aria-hidden="true" />
-                                </button>
-                              )}
-                            </div>
-                            ) : (
                             <div key={group.group_key} className="flex items-center gap-3 px-4 py-3 border-b border-border/50 hover:bg-muted/20 transition-colors">
                               <Link to={link} state={notificationEntryState(group.type)} onClick={() => dismissUserGroup(group)} className="shrink-0">
                                 <BellAvatar avatar={avatar} IconComp={IconComp} />
@@ -644,7 +611,6 @@ const NotificationBell = () => {
                                 </button>
                               )}
                             </div>
-                            )
                           );
                         })}
                       </NotifSection>
@@ -677,7 +643,7 @@ const NotificationBell = () => {
 
               {/* Say it when the panel is not showing everything, rather than
                   quietly stopping — which is what the old 30-row cap did. */}
-              {hiddenEvents > 0 && (
+              {!centreRows && hiddenEvents > 0 && (
                 <div className="px-4 py-2 border-t border-border/50 text-center">
                   <Link to="/notifications" onClick={() => setOpen(false)} className="text-[10px] text-muted-foreground hover:text-primary transition-colors" style={bodyFont}>
                     {hiddenEvents} more not shown here — see all
@@ -702,6 +668,52 @@ const NotificationBell = () => {
     </div>
   );
 };
+
+/**
+ * N7b · the bell's panel with the centre on: the first page of the SAME
+ * history /notifications shows (same query, same cache — so "See all" opens
+ * instantly), rendered by the SAME list. Mounted only while the panel is open.
+ */
+function BellCentreList({ totalCount, onNavigate }: { totalCount: number; onNavigate: () => void }) {
+  const t = useT();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { data, isLoading, hasNextPage } = useNotificationHistory();
+  const groups = visibleCentreGroups(data?.pages?.[0] ?? []);
+  // The badge is live (realtime); the history is cached. When the panel opens,
+  // and whenever the badge moves while it is open, read the history afresh so
+  // a new notification is never counted but missing from the list.
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ["notification-history", user?.id ?? ""] });
+  }, [totalCount, queryClient, user?.id]);
+  if (isLoading && !data) {
+    return (
+      <p className="py-8 text-center text-[10px] tracking-[0.2em] uppercase text-muted-foreground animate-pulse" style={headingFont}>
+        {t("common.loading", "Loading...")}
+      </p>
+    );
+  }
+  if (groups.length === 0) {
+    return (
+      <div className="py-10 text-center">
+        <Bell className="h-6 w-6 text-muted-foreground/20 mx-auto mb-2" />
+        <p className="text-xs text-muted-foreground" style={bodyFont}>
+          {t("notifications.empty", "Nothing here yet.")}
+        </p>
+      </div>
+    );
+  }
+  return <CentreNotificationList groups={groups} hasMore={!!hasNextPage || (data?.pages?.length ?? 0) > 1} onNavigate={onNavigate} />;
+}
+
+/** N7b · below the md breakpoint (phones, the Android app) the bell opens the page. */
+function isPhoneWidth(): boolean {
+  try {
+    return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(max-width: 767px)").matches;
+  } catch {
+    return false;
+  }
+}
 
 const NotifSection = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <div>

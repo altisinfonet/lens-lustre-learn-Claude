@@ -67,13 +67,16 @@ const NOT_A_CONSUMER = new Set([
   // for members notif_centre_ui covers, which is OFF on live. Like 0110 below,
   // a reader behind an OFF switch does not make the switch work for members.
   "supabase/migrations/20261104_0200_notification_weekly_summary.sql",
-  // The notification centre (N2) names the in-app columns in its type registry
-  // and its decision reads them — but ONLY for a group whose switch is live
-  // (notif_centre_<group>). Every switch ships OFF, so for members these
-  // toggles are still dead. When the Owner switches a group on (N8) and its
-  // makers go through the centre (N3), delete the matching UNWIRED_TOGGLES
-  // entries AND this exemption — that is the moment the switch starts working.
-  "supabase/migrations/20261104_0110_notification_centre.sql",
+  // N7b: the row's "Turn off this kind" (lib/notifications/kinds.ts) WRITES the
+  // in-app columns, like the settings table — a writer, not a reader.
+  "src/lib/notifications/kinds.ts",
+  // (Removed N7b, 2026-11-01: the 0110 exemption. The centre's decision reads
+  // the in-app columns only for a live group; measured on production
+  // 2026-11-01 ~15:20 UTC by the N7b runner, public site_settings read:
+  // notif_centre_likes_comments, _follows_friends, _competitions,
+  // _announcements, _account, _wallet_support_roles, _admin_alerts all
+  // "live". So 0110 IS the reader now, and the four inapp_* entries below
+  // were deleted as this note instructed.)
 ]);
 
 const SEARCH_ROOTS = ["supabase/migrations", "supabase/functions", "src"];
@@ -83,14 +86,6 @@ const SEARCH_ROOTS = ["supabase/migrations", "supabase/functions", "src"];
  * A fix removes the line; it is not meant to live here indefinitely.
  */
 const UNWIRED_TOGGLES: Record<string, string> = {
-  inapp_reactions:
-    "OWNER DECISION: either the bell starts hiding reaction notifications for members who switch this off, or the switch comes off the page. Dead since the CREATE TABLE that added it on 2026-04-07",
-  inapp_comments:
-    "OWNER DECISION: same choice as inapp_reactions — wire the bell to it or remove the control. Dead since 2026-04-07",
-  inapp_social:
-    "OWNER DECISION: same choice as inapp_reactions; covers follows and friend requests. Dead since 2026-04-07",
-  inapp_competitions:
-    "OWNER DECISION: same choice as inapp_reactions; covers competition activity. Dead since 2026-04-07",
   email_weekly_digest:
     "BUILT in 20261104_0200 (weekly summary e-mail), but it only reaches members the new screens (notif_centre_ui) cover — OFF on live, so for members on today's page this switch still does nothing. Delete this entry and the 0200 exemption above when notif_centre_ui is on for everyone (N8)",
 };

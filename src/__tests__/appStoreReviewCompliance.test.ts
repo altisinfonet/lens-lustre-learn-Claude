@@ -82,7 +82,9 @@ describe("App Store review compliance — final iOS round", () => {
     const bell = read("src/components/NotificationBell.tsx");
     expect(bell).toMatch(/allUserNotifications\.filter\(\(g\) => !isWalletNotificationType\(g\.type\)\)/);
     expect(bell).toMatch(/\{!ios && giftNotifications\.length > 0/);
-    expect(read("src/pages/Notifications.tsx")).toMatch(/isNativeIOSApp\(\) && isWalletNotificationType\(g\.type\)/);
+    // N7b: the page (and the bell's centre panel) filter through the one shared rule.
+    expect(read("src/pages/Notifications.tsx")).toMatch(/visibleCentreGroups\(\(data\?\.pages \?\? \[\]\)\.flat\(\)\)/);
+    expect(read("src/lib/notifications/sections.ts")).toMatch(/const ios = isNativeIOSApp\(\);\s*return ios \? groups\.filter\(\(g\) => !isWalletNotificationType\(g\.type\)\) : groups;/);
     expect(read("src/pages/NotificationSettings.tsx")).toMatch(/\{!isNativeIOSApp\(\) && \(\s*<ToggleRow\s*icon=\{<Gift/);
     for (const f of ["src/components/settings/DeleteAccountSection.tsx", "src/pages/HelpSupport.tsx"]) {
       const iosText = [...read(f).matchAll(/isNativeIOSApp\(\)\s*\?\s*"([^"]+)"/g)].map((m) => m[1]).join(" ");
