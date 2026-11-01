@@ -40,13 +40,16 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 type RpcResult<T> = { data: T | null; error: { message: string } | null };
 type LooseRpc = (fn: string, args?: Record<string, unknown>) => PromiseLike<RpcResult<unknown>>;
 const NOT_SET_UP = "This page is still being set up. The database part has not been installed yet — please try again later.";
-/** A database function that does not exist yet (PostgREST PGRST202 / Postgres 42883) is
- *  shown as a plain sentence, never the raw technical message. */
-const isMissingFunction = (e: { code?: string; message: string }) =>
-  e.code === "PGRST202" || e.code === "42883" || /could not find the function|function .* does not exist/i.test(e.message);
+/** The function we CALLED is not in the database yet: PostgREST PGRST202, or Postgres 42883 whose
+ *  message names that very function. An error raised from inside an existing function is not this. */
+const isMissingFunction = (fn: string, e: { code?: string; message: string }) =>
+  e.code === "PGRST202" || (e.code === "42883" && e.message.includes(`${fn}(`));
 const rpc = async <T,>(fn: string, args?: Record<string, unknown>): Promise<RpcResult<T>> => {
   const r = (await (supabase.rpc as unknown as LooseRpc)(fn, args)) as RpcResult<T>;
-  if (r.error && isMissingFunction(r.error as { code?: string; message: string })) return { data: null, error: { message: NOT_SET_UP } };
+  if (r.error && isMissingFunction(fn, r.error as { code?: string; message: string })) {
+    console.error(`[AdminNotificationCentre] ${fn} is not installed yet:`, r.error);
+    return { data: null, error: { message: NOT_SET_UP } };
+  }
   return r;
 };
 
