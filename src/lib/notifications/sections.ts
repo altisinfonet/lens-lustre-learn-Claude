@@ -6,16 +6,26 @@
  * bell used to sort by category ("Reactions", "Followers" …) while the page
  * sorted by time — the Owner saw two different screens for one inbox.
  *
- * A section is about WHEN, never about what kind: the kind is on the row.
+ * A section is about WHEN, never about what kind (the kind is the row's
+ * badge): New · This week · Last 30 days · Earlier. "New" is everything still
+ * unread (bucketFor's honest rule — no curated "highlights"); the rest go by
+ * the age of the group's latest event.
  */
-import { bucketFor, BUCKET_LABEL, type BucketKey, type NotificationGroup } from "@/lib/notificationText";
+import { bucketFor, type NotificationGroup } from "@/lib/notificationText";
 import { inTab, type NotificationTab } from "@/lib/notifications/tabs";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { isWalletNotificationType } from "@/lib/native/iosReview";
 
-export type CentreSectionKey = BucketKey;
+export type CentreSectionKey = "new" | "week" | "last30" | "earlier";
 
-export const CENTRE_SECTION_ORDER: CentreSectionKey[] = ["new", "last30", "earlier"];
+export const CENTRE_SECTION_ORDER: CentreSectionKey[] = ["new", "week", "last30", "earlier"];
+
+const LABEL: Record<CentreSectionKey, string> = {
+  new: "New",
+  week: "This week",
+  last30: "Last 30 days",
+  earlier: "Earlier",
+};
 
 export interface CentreSection<G extends NotificationGroup = NotificationGroup> {
   key: CentreSectionKey;
@@ -30,6 +40,13 @@ export function visibleCentreGroups<G extends NotificationGroup>(groups: G[]): G
   return ios ? groups.filter((g) => !isWalletNotificationType(g.type)) : groups;
 }
 
+export function centreSectionFor(group: NotificationGroup, now: Date = new Date()): CentreSectionKey {
+  const bucket = bucketFor(group, now);
+  if (bucket !== "last30") return bucket;
+  const ageDays = (now.getTime() - new Date(group.latest_at).getTime()) / 86_400_000;
+  return ageDays <= 7 ? "week" : "last30";
+}
+
 /** Non-empty sections, in order, holding only the rows of the chosen tab. */
 export function centreSections<G extends NotificationGroup>(
   groups: G[],
@@ -37,10 +54,10 @@ export function centreSections<G extends NotificationGroup>(
   now: Date = new Date(),
 ): CentreSection<G>[] {
   const map = new Map<CentreSectionKey, G[]>(CENTRE_SECTION_ORDER.map((k) => [k, []]));
-  for (const g of groups) if (inTab(g.type, tab)) map.get(bucketFor(g, now))!.push(g);
+  for (const g of groups) if (inTab(g.type, tab)) map.get(centreSectionFor(g, now))!.push(g);
   return CENTRE_SECTION_ORDER.filter((k) => map.get(k)!.length > 0).map((k) => ({
     key: k,
-    label: { key: `notifications.bucket.${k}`, fallback: BUCKET_LABEL[k] },
+    label: { key: `notifications.bucket.${k}`, fallback: LABEL[k] },
     groups: map.get(k)!,
   }));
 }
