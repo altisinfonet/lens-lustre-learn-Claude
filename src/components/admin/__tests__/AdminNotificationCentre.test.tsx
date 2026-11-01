@@ -182,4 +182,26 @@ describe("Admin → Notification Centre", () => {
       await waitFor(() => expect(rpc).toHaveBeenCalledWith("admin_notif_announce", expect.objectContaining({ _who: "members", _members: [a, b] })));
     });
   });
+
+  it("a database function that is not there yet shows a plain 'still being set up' message", async () => {
+    rpc.mockImplementation(async () => ({
+      data: null,
+      error: { code: "PGRST202", message: "Could not find the function public.admin_notif_switches without parameters in the schema cache" },
+    }));
+    render(<AdminNotificationCentre />);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("This page is still being set up");
+    expect(alert).not.toHaveTextContent(/PGRST202|schema cache|admin_notif/);
+  });
+
+  it("an error from INSIDE an existing function (e.g. 42883 on another function) is shown as it is", async () => {
+    rpc.mockImplementation(async (fn: string) => {
+      if (fn === "admin_notif_switches") return { data: null, error: { code: "42883", message: "function lower(uuid) does not exist" } };
+      return { data: [], error: null };
+    });
+    render(<AdminNotificationCentre />);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("function lower(uuid) does not exist");
+    expect(alert).not.toHaveTextContent("still being set up");
+  });
 });
