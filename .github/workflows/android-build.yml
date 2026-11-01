@@ -784,6 +784,11 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
+          # 2026-11-01: bumped 1.2.34 -> 1.2.35. 1.2.34 (run 137 on c3c42d7b) is spent. 1.2.35 carries
+          # N7b into the app: the bell and See all are ONE view (same rows, same tabs, sections New /
+          # This week / Last 30 days / Earlier), type badges, two stacked avatars, a ⋯ menu (Remove,
+          # Turn off this kind), swipe left to remove, and on a phone the bell opens the full page.
+          # Owner checked it on the live site (screenshots, 16:05 UTC) and said "build app". No switch changes.
           # 2026-11-01: bumped 1.2.33 -> 1.2.34. 1.2.33 (run 136 on 2f13f196) is spent. 1.2.34 carries
           # the new notification centre into the app: one row design with unread dot and tabs, comment
           # preview + Reply, "also follows N people you know", big-moment cards, settings as one table
@@ -883,8 +888,8 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
-          sed -i 's/versionName "1.0"/versionName "1.2.34"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.34 (1.2.33 is spent - run 136)"
+          sed -i 's/versionName "1.0"/versionName "1.2.35"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.35 (1.2.34 is spent - run 137)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
 
