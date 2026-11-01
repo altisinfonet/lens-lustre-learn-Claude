@@ -29,7 +29,7 @@ export function useBlockedUsers() {
   const qc = useQueryClient();
   const key = queryKeys.blockedUsers(userId ?? "");
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isSuccess } = useQuery({
     queryKey: key,
     enabled: !!userId,
     queryFn: async (): Promise<BlockRow[]> => {
@@ -109,6 +109,8 @@ export function useBlockedUsers() {
     blockedIds,
     blockedRows: data ?? [],
     isLoading,
+    /** true once the list has loaded; false while loading or if the read failed */
+    isSuccess,
     isBlocked,
     block: blockMutation.mutate,
     blocking: blockMutation.isPending,

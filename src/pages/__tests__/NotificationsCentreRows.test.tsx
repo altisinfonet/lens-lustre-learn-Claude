@@ -34,6 +34,12 @@ vi.mock("@/hooks/social/useFriendshipMutations", () => ({
   useToggleFollow: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock("@/lib/notifications/centreUi", () => ({ useCentreUi: () => true }));
+let mutual = new Map<string, number>();
+vi.mock("@/hooks/notifications/useMutualFollows", () => ({ useMutualFollowCounts: () => mutual }));
+let previews = new Map<string, { commentId: string; content: string }>();
+vi.mock("@/hooks/notifications/useCommentPreviews", () => ({ useCommentPreviews: () => previews }));
+const mockNavigate = vi.fn();
+vi.mock("react-router-dom", async (orig) => ({ ...(await orig<typeof import("react-router-dom")>()), useNavigate: () => mockNavigate }));
 vi.mock("@/i18n/I18nContext", () => ({
   useT: () => (_key: string, fallback?: string) => fallback ?? _key,
 }));
@@ -189,5 +195,102 @@ describe("/notifications — tabs (switch on)", () => {
     expect(screen.getByText("Nothing in this tab yet. Older notifications may have some.")).toBeInTheDocument();
     expect(screen.queryByText("Nothing here yet.")).toBeNull();
     expect(screen.getByRole("button", { name: "Load older notifications" })).toBeInTheDocument();
+  });
+});
+
+describe("/notifications — app headlines (switch on)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFollowingSet.mockReturnValue({ following: new Set<string>(), ready: true });
+  });
+
+  it("an impersonal type leads with the app headline and keeps the server detail", () => {
+    withGroups([group({ type: "entry_shortlisted", actor_ids: [], actor_names: [], actor_usernames: [], actor_avatars: [],
+      actor_count: 0, unread_count: 0, message: 'Your entry in "Golden Hour" has been shortlisted.' })]);
+    renderPage();
+    const btn = screen.getByRole("button", { name: /^Entry shortlisted Your entry in "Golden Hour" has been shortlisted\./ });
+    expect(btn.querySelector("strong")?.textContent).toBe("Entry shortlisted");
+    expect(btn.closest('[data-notif-big="true"]')).toBeNull();
+  });
+
+  it("a big moment is a highlighted card", () => {
+    withGroups([group({ type: "competition_winner", actor_ids: [], actor_names: [], actor_usernames: [], actor_avatars: [],
+      actor_count: 0, message: 'Your entry in "Golden Hour" received: top_100.' })]);
+    const { container } = renderPage();
+    expect(container.querySelector('[data-notif-big="true"]')).not.toBeNull();
+    expect(screen.getByText("Your entry won an award").tagName).toBe("STRONG");
+  });
+
+  it("an unread big-moment card still says Unread and shows the dot", () => {
+    withGroups([group({ type: "entry_finalist", unread_count: 1, actor_ids: [], actor_names: [], actor_usernames: [],
+      actor_avatars: [], actor_count: 0, message: 'Your entry in "Golden Hour" is a finalist.' })]);
+    renderPage();
+    const btn = screen.getByRole("button", { name: /^Unread, You're a finalist Your entry/ });
+    expect(btn.querySelector('[data-notif-unread-dot="true"]')).not.toBeNull();
+    expect(btn.closest('[data-notif-big="true"]')).not.toBeNull();
+  });
+});
+
+describe("/notifications — new follower: people you know (switch on)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFollowingSet.mockReturnValue({ following: new Set<string>(), ready: true });
+    mutual = new Map();
+  });
+
+  it("says how many people you know the new follower also follows", () => {
+    mutual = new Map([["f1", 3]]);
+    withGroups([group({ type: "new_follower", actor_ids: ["f1"], actor_names: ["Follower One"], actor_usernames: ["f1"], unread_count: 0 })]);
+    renderPage();
+    const btn = screen.getByRole("button", { name: /Follower One started following you\. .*Also follows 3 people you know/ });
+    expect(btn).toHaveAttribute("data-notif-row-open", "true");
+  });
+
+  it("one person reads in the singular; none says nothing", () => {
+    mutual = new Map([["f1", 1], ["f2", 0]]);
+    withGroups([
+      group({ group_key: "x1", type: "new_follower", actor_ids: ["f1"], actor_names: ["Follower One"], actor_usernames: ["f1"] }),
+      group({ group_key: "x2", type: "new_follower", actor_ids: ["f2"], actor_names: ["Follower Two"], actor_usernames: ["f2"] }),
+    ]);
+    renderPage();
+    expect(screen.getByText("Also follows 1 person you know")).toBeInTheDocument();
+    expect(screen.queryAllByText(/Also follows/)).toHaveLength(1);
+  });
+
+  it("other types never get the line", () => {
+    mutual = new Map([["actor-1", 5]]);
+    withGroups([group({ type: "post_reaction" })]);
+    renderPage();
+    expect(screen.queryByText(/Also follows/)).toBeNull();
+  });
+});
+
+describe("/notifications — comment preview and Reply (switch on)", () => {
+  const CID = "33333333-3333-4333-8333-333333333333";
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFollowingSet.mockReturnValue({ following: new Set<string>(), ready: true });
+    previews = new Map();
+  });
+
+  it("shows what they wrote, and Reply opens the post on that comment", () => {
+    previews = new Map([["c1", { commentId: CID, content: "Lovely light on the river" }]]);
+    withGroups([group({ group_key: "c1", type: "post_comment", reference_id: "post-9", actor_names: ["Partha"], unread_count: 0 })]);
+    renderPage();
+    expect(screen.getByRole("button", { name: /Partha commented on your photo\. .*“Lovely light on the river”/ })).toBeInTheDocument();
+    const reply = screen.getByRole("button", { name: "Reply to Partha" });
+    expect(reply.closest('[data-notif-row-open="true"]')).toBeNull();
+    fireEvent.click(reply);
+    expect(mockNavigate).toHaveBeenCalledWith(`/post/post-9?comment=${CID}`, expect.objectContaining({ state: expect.anything() }));
+  });
+
+  it("no preview → no quote and no Reply button; other types never get one", () => {
+    withGroups([
+      group({ group_key: "c2", type: "post_comment", actor_names: ["Somnath"] }),
+      group({ group_key: "r1", type: "post_reaction", actor_names: ["Vicky"] }),
+    ]);
+    renderPage();
+    expect(screen.queryByRole("button", { name: /^Reply to/ })).toBeNull();
+    expect(screen.queryByText(/“/)).toBeNull();
   });
 });

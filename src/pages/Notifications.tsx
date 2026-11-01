@@ -15,6 +15,9 @@ import { useMemo, useState } from "react";
 import ActorPhrase from "@/components/notifications/ActorPhrase";
 import { useCentreUi } from "@/lib/notifications/centreUi";
 import { NOTIFICATION_TABS, TAB_LABEL, inTab, type NotificationTab } from "@/lib/notifications/tabs";
+import { centreHeadline, isBigMoment } from "@/lib/notifications/centreWording";
+import { useMutualFollowCounts } from "@/hooks/notifications/useMutualFollows";
+import { useCommentPreviews, type CommentPreview } from "@/hooks/notifications/useCommentPreviews";
 import { useMemberHandles } from "@/hooks/profile/useMemberHandles";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Bell, X } from "lucide-react";
@@ -103,10 +106,19 @@ function NotificationRow({
   adminIds,
   video,
   centreRows = false,
+  mutualFollows,
+  commentPreview,
+  onReply,
 }: {
   group: NotificationGroup;
   /** N7 (site_settings notif_centre_ui): one control per row, plain bold names, unread dot. */
   centreRows?: boolean;
+  /** N7 · new followers only: how many people the member follows that this follower also follows. */
+  mutualFollows?: number;
+  /** N7 · comment rows: what they wrote (from the row's own dedup key). */
+  commentPreview?: CommentPreview;
+  /** N7 · open the post on that comment, ready to reply. */
+  onReply?: (group: NotificationGroup, commentId: string) => void;
   /** BUG-VID-HOME: the post's playable video when the notification is about a video post (one batched read for the list). */
   video: FeedVideo | null;
   isFollowing: boolean;
@@ -131,10 +143,15 @@ function NotificationRow({
     group.type === "new_follower" && !!actorId && followReady && !isFollowing;
 
   if (centreRows) {
+    // N7 · impersonal types lead with an app headline; the server text stays
+    // underneath (it names the competition / award). Big moments are cards.
+    const headline = described.hasActor ? null : centreHeadline(group.type);
+    const big = isBigMoment(group.type);
     return (
       <div
+        data-notif-big={big ? "true" : undefined}
         className={`flex items-center gap-3 px-4 py-3 border-b border-border/50 transition-colors ${
-          unread ? "bg-primary/5" : ""
+          big ? "border-l-4 border-l-primary bg-primary/10" : unread ? "bg-primary/5" : ""
         } hover:bg-muted/20`}
       >
         <button
@@ -159,6 +176,27 @@ function NotificationRow({
             {described.hasActor ? (
               <>
                 <ActorPhrase subject={subject} plain /> {described.action}
+                {commentPreview && (
+                  <>
+                    {" "}
+                    <span className="block line-clamp-2 text-muted-foreground">“{commentPreview.content}”</span>
+                  </>
+                )}
+                {group.type === "new_follower" && (mutualFollows ?? 0) > 0 && (
+                  <>
+                    {" "}
+                    <span className="block text-muted-foreground">
+                      {mutualFollows === 1
+                        ? t("notifications.mutual_one", "Also follows 1 person you know")
+                        : t("notifications.mutual_many", "Also follows {n} people you know").replace("{n}", String(mutualFollows))}
+                    </span>
+                  </>
+                )}
+              </>
+            ) : headline ? (
+              <>
+                <strong className="font-semibold">{t(headline.key, headline.fallback)}</strong>{" "}
+                <span className="block">{described.text}</span>
               </>
             ) : (
               described.text
@@ -171,6 +209,21 @@ function NotificationRow({
             </span>
           )}
         </button>
+
+        {commentPreview && onReply && (
+          <button
+            type="button"
+            onClick={() => onReply(group, commentPreview.commentId)}
+            aria-label={t("notifications.reply_to", "Reply to {name}").replace(
+              "{name}",
+              group.actor_names?.[0] || group.actor_usernames?.[0] || t("notifications.a_member", "A member"),
+            )}
+            className="shrink-0 px-3 py-1.5 tap-44 rounded-md border border-border text-[11px] font-semibold text-foreground hover:bg-muted/40"
+            style={headingFont}
+          >
+            {t("notifications.reply", "Reply")}
+          </button>
+        )}
 
         {showFollowBack && (
           <button
@@ -328,12 +381,13 @@ const Notifications = () => {
     return v && v !== "hidden" ? v : null;
   };
 
-  const { following, ready: followReady } = useFollowingSet(
-    useMemo(
-      () => groups.filter((g) => g.type === "new_follower").map((g) => g.actor_ids?.[0]).filter(Boolean) as string[],
-      [groups],
-    ),
+  const newFollowerIds = useMemo(
+    () => groups.filter((g) => g.type === "new_follower").map((g) => g.actor_ids?.[0]).filter(Boolean) as string[],
+    [groups],
   );
+  const { following, ready: followReady } = useFollowingSet(newFollowerIds);
+  // N7 · "Also follows N people you know" (SQL 0190) — centre rows only.
+  const mutualFollows = useMutualFollowCounts(newFollowerIds, centreRows);
 
   const buckets = useMemo(() => {
     const now = new Date();
@@ -342,6 +396,21 @@ const Notifications = () => {
     return map;
   }, [groups, activeTab]);
   const tabEmpty = activeTab !== "all" && groups.length > 0 && BUCKET_ORDER.every((k) => buckets[k].length === 0);
+
+  // N7 · comment preview + Reply (centre rows only).
+  const commentPreviews = useCommentPreviews(groups, centreRows);
+  const replyTo = async (group: NotificationGroup, commentId: string) => {
+    if ((group.unread_count ?? 0) > 0) {
+      try {
+        await markGroupRead(group.notification_ids ?? []);
+        queryClient.invalidateQueries({ queryKey: ["notification-history", user?.id ?? ""] });
+        queryClient.invalidateQueries({ queryKey: queryKeys.notifications(user?.id ?? "") });
+      } catch {
+        // Never block navigation on the read-marking write.
+      }
+    }
+    navigate(`/post/${group.reference_id}?comment=${commentId}`, { state: notificationEntryState(group.type) });
+  };
 
   const openGroup = async (group: NotificationGroup) => {
     if ((group.unread_count ?? 0) > 0) {
@@ -512,6 +581,9 @@ const Notifications = () => {
                 adminIds={adminIds}
                 video={videoFor(group)}
                 centreRows={centreRows}
+                mutualFollows={mutualFollows.get(group.actor_ids?.[0] ?? "")}
+                commentPreview={group.reference_id ? commentPreviews.get(group.group_key) : undefined}
+                onReply={replyTo}
               />
             ))}
           </section>
