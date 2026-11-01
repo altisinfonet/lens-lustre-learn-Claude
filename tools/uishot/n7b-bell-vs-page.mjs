@@ -22,8 +22,13 @@ const BASE = (process.env.BASE || "https://50mmretina.com").replace(/\/$/, "");
 const OUT = process.env.OUT || "n7b-shots";
 const EMAIL = process.env.REVIEW_DEMO_EMAIL;
 const PASSWORD = process.env.REVIEW_DEMO_PASSWORD;
-if (!EMAIL || !PASSWORD) {
-  console.error("REVIEW_DEMO_EMAIL / REVIEW_DEMO_PASSWORD not set");
+// MANUAL=1: a visible browser opens the live sign-in page and waits (up to 15
+// minutes) for a PERSON to sign in — the way to pass the site's Turnstile
+// check, which an automated browser on a CI runner cannot. Nothing is typed
+// for them and nothing they type is read or saved by this script.
+const MANUAL = process.env.MANUAL === "1";
+if (!MANUAL && (!EMAIL || !PASSWORD)) {
+  console.error("REVIEW_DEMO_EMAIL / REVIEW_DEMO_PASSWORD not set (or run with MANUAL=1)");
   process.exit(2);
 }
 mkdirSync(OUT, { recursive: true });
@@ -33,13 +38,20 @@ const step = (s) => { result.steps.push(s); console.log(s); };
 // Headed (under xvfb in CI) with the automation flag off: the live sign-in is
 // protected by Cloudflare Turnstile, which a bare headless browser fails.
 const browser = await chromium.launch({
-  headless: process.env.HEADED !== "1",
+  headless: process.env.HEADED !== "1" && !MANUAL,
+  channel: process.env.CHANNEL || undefined, // e.g. CHANNEL=chrome for the installed Chrome
   args: ["--disable-blink-features=AutomationControlled"],
 });
 
 async function signIn(context) {
   const page = await context.newPage();
   await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
+  if (MANUAL) {
+    console.log("Sign in in the browser window that just opened. Waiting up to 15 minutes…");
+    await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 15 * 60_000 });
+    step(`signed in by hand, now at ${new URL(page.url()).pathname}`);
+    return page;
+  }
   await page.locator('input[type="email"]').first().fill(EMAIL);
   await page.locator('button[type="submit"]').first().click();
   const pw = page.locator('input[type="password"]').first();
