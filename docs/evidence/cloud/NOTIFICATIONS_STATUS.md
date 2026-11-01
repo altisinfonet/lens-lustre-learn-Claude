@@ -41,3 +41,6 @@ Heartbeat: 2026-10-31 18:42 UTC (measured) — Production N6: FAIL 41223352518 �
    Nothing to click yet — just know that switching a group on makes them work.
 
 - Heartbeat 2026-11-01 01:43 UTC: runner restarted, acting as GitHub user altisinfonet.
+
+- 02:25 UTC: carry PR #800 (N4-N8 remainder) open to main; review NOTHING BLOCKING; CI running. Staging SQL 0130-0230 all VERIFIED.
+- Owner item (info): when the new screens are switched on, the weekly summary e-mail defaults ON for members with activity. Tell the Owner before switching on.
