@@ -36,6 +36,8 @@ const read = (p: string) => stripComments(readFileSync(join(process.cwd(), p), "
 const hook = read("src/hooks/notifications/useNotificationHistory.ts");
 const page = read("src/pages/Notifications.tsx");
 const bell = read("src/components/NotificationBell.tsx");
+const actions = read("src/hooks/notifications/useNotificationActions.ts");
+const list = read("src/components/notifications/CentreNotificationList.tsx");
 const migration = readFileSync(
   join(process.cwd(), "supabase/migrations/20260802190000_members_can_delete_own_notifications.sql"),
   "utf8",
@@ -73,19 +75,24 @@ describe("delete really deletes", () => {
 });
 
 describe("delete is not dismiss", () => {
+  // N7b: the row actions moved to one shared hook (page + the bell's centre panel).
   it("the history row offers it, wired to the delete call", () => {
     expect(page).toMatch(/onDelete=\{removeGroup\}/);
-    expect(page).toMatch(/await deleteGroup\(/);
+    expect(list).toMatch(/onDelete=\{removeGroup\}/);
+    expect(actions).toMatch(/await deleteGroup\(/);
   });
 
   it("leaves the row on screen if the delete failed", () => {
     // A delete that appears to work and reappears on the next refetch is worse
     // than one that visibly did nothing.
-    const fn = page.slice(page.search(/const removeGroup/));
+    const fn = actions.slice(actions.search(/const removeGroup/));
     expect(fn.slice(0, fn.indexOf("};"))).toMatch(/catch\s*\{[\s\S]*return;/);
   });
 
-  it("NEVER lets the bell delete anything — its X means mark read", () => {
+  // N7b: with the centre on, the bell's panel renders the shared list, whose
+  // Delete is the page's Delete (its own labelled control, never mark-read).
+  // The bell's OWN classic X (switch off) still only marks read.
+  it("the bell's own classic X never deletes — it means mark read", () => {
     expect(bell).not.toContain("deleteGroup");
     expect(bell).not.toMatch(/from\("user_notifications"\)[\s\S]{0,80}\.delete\(\)/);
   });

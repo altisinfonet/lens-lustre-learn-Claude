@@ -371,7 +371,10 @@ function useNotifCacheUpdaters(userId: string | undefined) {
 
   const clearAll = useCallback(() => {
     patch(() => EMPTY);
-  }, [patch]);
+    // N7b · the bell's panel (centre on) shows the history list too — its
+    // unread tints must clear with the badge.
+    queryClient.invalidateQueries({ queryKey: ["notification-history", userId ?? ""] });
+  }, [patch, queryClient, userId]);
 
   return {
     bumpUnread,
