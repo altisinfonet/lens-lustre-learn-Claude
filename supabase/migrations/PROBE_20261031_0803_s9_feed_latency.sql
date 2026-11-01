@@ -76,7 +76,7 @@ BEGIN
         SELECT count(*)::int, max(x.feed_pos) INTO got, mx_pos
           FROM public.get_feed_page('for_you', v = 'FP', 's9f-' || v || '-' || s, after_pos,
                                     10, CASE WHEN pg = 1 THEN 3 ELSE 0 END, NULL::text[]) x;
-        ms := extract(epoch FROM clock_timestamp() - t0) * 1000;
+        ms := (extract(epoch FROM clock_timestamp() - t0) * 1000)::double precision;
         IF v = 'FP' THEN t_fp := t_fp || ms; ELSE t_fb := t_fb || ms; END IF;
         IF pg = 1 AND got = 0 THEN first_ok := false; END IF;
         after_pos := coalesce(mx_pos, after_pos);
@@ -87,11 +87,11 @@ BEGIN
   FOR s IN 1..12 LOOP
     t0 := clock_timestamp();
     SELECT count(*)::int INTO got FROM public.get_personal_feed('{}'::uuid[], 10, 3, NULL::text[], 's9f-PF-' || s);
-    t_pf := t_pf || extract(epoch FROM clock_timestamp() - t0) * 1000;
+    t_pf := t_pf || (extract(epoch FROM clock_timestamp() - t0) * 1000)::double precision;
     IF got = 0 THEN first_ok := false; END IF;
     t0 := clock_timestamp();
     SELECT count(*)::int INTO got FROM public.get_broadcast_feed('{}'::uuid[], 10, 3, NULL::text[], 's9f-BF-' || s);
-    t_bf := t_bf || extract(epoch FROM clock_timestamp() - t0) * 1000;
+    t_bf := t_bf || (extract(epoch FROM clock_timestamp() - t0) * 1000)::double precision;
     IF got = 0 THEN first_ok := false; END IF;
   END LOOP;
 
