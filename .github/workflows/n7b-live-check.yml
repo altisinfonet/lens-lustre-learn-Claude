@@ -1,0 +1,49 @@
+name: N7b · bell vs See all on the LIVE site
+
+# HARD GATE evidence for N7b (one notification view): signs in on the LIVE site
+# as the review demo account, opens the bell dropdown (desktop) and
+# /notifications, compares the rows' markup, checks that a 390 px phone's bell
+# opens the page, and uploads the screenshots (dark mode) as an artifact.
+# Reads the live site only; changes nothing. Credentials come from the
+# existing REVIEW_DEMO_* secrets and are never printed.
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/n7b-live-check.yml"
+      - "tools/uishot/n7b-bell-vs-page.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-check:
+    name: Bell preview == See all on live (desktop + 390 px, dark)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Install Playwright (Chromium only)
+        run: |
+          mkdir -p /tmp/pw && cd /tmp/pw && npm init -y >/dev/null && npm i --no-audit --no-fund playwright@1.62.1 >/dev/null
+          npx --prefix /tmp/pw playwright install --with-deps chromium >/dev/null
+      - name: Sign in on live and capture
+        env:
+          BASE: https://50mmretina.com
+          OUT: n7b-shots
+          NODE_PATH: /tmp/pw/node_modules
+          REVIEW_DEMO_EMAIL: ${{ secrets.REVIEW_DEMO_EMAIL }}
+          REVIEW_DEMO_PASSWORD: ${{ secrets.REVIEW_DEMO_PASSWORD }}
+        run: |
+          cp tools/uishot/n7b-bell-vs-page.mjs /tmp/pw/run.mjs
+          node /tmp/pw/run.mjs
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: n7b-live-shots
+          path: n7b-shots/
+          retention-days: 14
