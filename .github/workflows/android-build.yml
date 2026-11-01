@@ -820,6 +820,10 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
+          # 2026-11-01: bumped 1.2.35 -> 1.2.36. 1.2.35 (run 138, 41328942399 on 48186230) is spent.
+          # 1.2.36 is the ONE final app version after S9 (Owner order, 31 Oct): it carries everything on
+          # main, including the S2 native-exit reader (#562) and the S11 build guards (#596), which
+          # 1.2.34 and 1.2.35 were built without. No switch changes.
           # 2026-11-01: bumped 1.2.34 -> 1.2.35. 1.2.34 (run 137 on c3c42d7b) is spent. 1.2.35 carries
           # N7b into the app: the bell and See all are ONE view (same rows, same tabs, sections New /
           # This week / Last 30 days / Earlier), type badges, two stacked avatars, a ⋯ menu (Remove,
@@ -924,8 +928,8 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
-          sed -i 's/versionName "1.0"/versionName "1.2.35"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.35 (1.2.34 is spent - run 137)"
+          sed -i 's/versionName "1.0"/versionName "1.2.36"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.36 (1.2.35 is spent - run 138)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
           # S11: prove both edits landed — exactly one versionCode, the derived
