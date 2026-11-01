@@ -115,6 +115,19 @@ describe("d1-backup-inventory.yml is read-only", () => {
     for (const b of runBlocks()) expect(b).not.toContain("${{");
   });
 
+  it("the RPO line never promises a backup that the listing does not show (first runs: 0 backups on both lanes)", () => {
+    // Runs 41333844334 (staging) / 41333846929 (production), 2026-11-01:
+    // PITR off AND 0 backups listed, yet the old line read "up to about 24 h
+    // with daily backups". With nothing listed there is nothing to restore.
+    const rpo = text.slice(text.indexOf("Worst-case data loss"));
+    expect(rpo).toMatch(/\(\.backups \/\/ \[\]\) \| length\) == 0/);
+    expect(text).toMatch(/NO restorable backup is listed/);
+    const zeroBranch = text.indexOf("NO restorable backup is listed");
+    const dailyBranch = text.indexOf("up to about 24 h");
+    expect(zeroBranch).toBeGreaterThan(0);
+    expect(zeroBranch).toBeLessThan(dailyBranch);
+  });
+
   it("the lane is fixed by target + full branch ref", () => {
     expect(text).toMatch(/BRANCH_REF: \$\{\{ github\.ref \}\}/);
     expect(text).not.toMatch(/github\.ref_name/);
