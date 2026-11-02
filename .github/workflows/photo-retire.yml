@@ -1,0 +1,144 @@
+name: Photo retire — delete queued photo files (lane-guarded)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Photo plan U6 / U7 — runs tools/media-derivatives/retire.mjs, which deletes
+# ONLY the files the database has queued in photo_retire (state 'due', marked
+# in the last 24 h) through the lane's /api/media/retire route.
+#
+# WHAT GETS QUEUED, AND BY WHOM (never by this workflow):
+#   comp_full  competition full-size files 30 days after FINAL results — by the
+#              daily database job, only while the switch competition_fullsize_purge
+#              is on (Admin → Features). Off = nothing is ever queued.
+#   post_old   old post files after the URL swap — only by the Owner-gated U7
+#              migration (20261110_0105), never automatically.
+#
+# TRIGGERS:
+#   schedule  05:10 UTC daily, from main = PRODUCTION, mode run, kind comp_full
+#             only (an hour after the database job). With the switch off the
+#             list is empty and the run deletes nothing.
+#   dispatch  any lane / mode / kind; dry-run is the default.
+#
+# WHO IT RUNS AS: the converter account (MEDIA_WORKER_EMAIL / _PASSWORD,
+# environment secrets — the same account as s3-media-backfill.yml). The token
+# is masked, kept in a 0600 file and removed at the end.
+#
+# FENCES: target=production must run from main, staging from staging
+# (github.ref); the site / Supabase URL / anon key come from the target, never
+# typed; refuses to start without both secrets. No ${{ inside any run: block.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  schedule:
+    - cron: '10 5 * * *'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "staging = fpszggreishhuvdpkmdr, production = jtdtehuqtinjxropkkcn"
+        required: true
+        type: choice
+        options: [staging, production]
+      mode:
+        description: "dry-run (count + bytes, deletes nothing) or run"
+        required: true
+        type: choice
+        options: [dry-run, run]
+        default: dry-run
+      kind:
+        description: "comp_full (competition full size, U6) · post_old (old post files, U7) · all"
+        required: true
+        type: choice
+        options: [comp_full, post_old, all]
+        default: comp_full
+
+concurrency:
+  group: photo-retire-${{ inputs.target || 'production' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  retire:
+    name: ${{ inputs.mode || 'run' }} photo retire (${{ inputs.kind || 'comp_full' }}) on ${{ inputs.target || 'production' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ inputs.target || 'production' }}
+    env:
+      TARGET_LANE: ${{ inputs.target || 'production' }}
+      BRANCH_REF: ${{ github.ref }}
+      MODE: ${{ inputs.mode || 'run' }}
+      KIND: ${{ inputs.kind || 'comp_full' }}
+      EVENT: ${{ github.event_name }}
+    steps:
+      - name: The branch must match the target, and the lane is fixed by it
+        run: |
+          set -euo pipefail
+          case "$TARGET_LANE" in
+            production) WANT=refs/heads/main;    SITE=https://www.50mmretina.com;     SB=https://jtdtehuqtinjxropkkcn.supabase.co
+                        ANON=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0ZHRlaHVxdGluanhyb3Bra2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzI3MjEsImV4cCI6MjA5OTE0ODcyMX0.qY8BI5LXb6uLzTwbpf8AleZ6UZyfeaOA0q4_TC5CEpo ;;
+            staging)    WANT=refs/heads/staging; SITE=https://staging.50mmretina.com; SB=https://fpszggreishhuvdpkmdr.supabase.co
+                        ANON=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwc3pnZ3JlaXNoaHV2ZHBrbWRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxMDcyNDUsImV4cCI6MjEwNDY4MzI0NX0.h3t2eZ8hwXDev6JydjsDnA8CpXFlKve4CaUlXp_mwiQ ;;
+            *) echo "::error::Unknown target '$TARGET_LANE'."; exit 1 ;;
+          esac
+          if [ "$BRANCH_REF" != "$WANT" ]; then
+            echo "::error::target='$TARGET_LANE' must be dispatched from '$WANT', not '$BRANCH_REF'. Refusing."
+            exit 1
+          fi
+          case "$MODE" in dry-run|run) ;; *) echo "::error::mode must be dry-run or run"; exit 1 ;; esac
+          case "$KIND" in comp_full|post_old|all) ;; *) echo "::error::kind must be comp_full, post_old or all"; exit 1 ;; esac
+          if [ "$EVENT" = "schedule" ] && [ "$KIND" != "comp_full" ]; then
+            echo "::error::the schedule deletes competition full-size files only"; exit 1
+          fi
+          { echo "SITE=$SITE"; echo "SB_URL=$SB"; echo "SB_ANON=$ANON"; } >> "$GITHUB_ENV"
+          echo "Lane OK: $TARGET_LANE ($SITE) from $BRANCH_REF, $MODE, $KIND ($EVENT)."
+
+      - name: Refuse to start without the worker account
+        env:
+          WORKER_EMAIL: ${{ secrets.MEDIA_WORKER_EMAIL }}
+          WORKER_PASSWORD: ${{ secrets.MEDIA_WORKER_PASSWORD }}
+        run: |
+          if [ -z "$WORKER_EMAIL" ] || [ -z "$WORKER_PASSWORD" ]; then
+            echo "::error::MEDIA_WORKER_EMAIL / MEDIA_WORKER_PASSWORD are not set on the '$TARGET_LANE' environment."
+            exit 1
+          fi
+          echo "Worker account secrets present. Their values are never printed."
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Sign in as the worker account (token masked, 0600 file)
+        env:
+          WORKER_EMAIL: ${{ secrets.MEDIA_WORKER_EMAIL }}
+          WORKER_PASSWORD: ${{ secrets.MEDIA_WORKER_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          trap 'rm -f "$RUNNER_TEMP/auth.json"' EXIT
+          code=$(jq -n '{email: env.WORKER_EMAIL, password: env.WORKER_PASSWORD}' | curl -sS -o "$RUNNER_TEMP/auth.json" -w '%{http_code}' -X POST \
+            -H "apikey: $SB_ANON" -H "content-type: application/json" \
+            --data-binary @- "$SB_URL/auth/v1/token?grant_type=password")
+          if [ "$code" != "200" ]; then
+            echo "::error::sign-in answered $code (wrong secret, or the account is not confirmed)."
+            rm -f "$RUNNER_TEMP/auth.json"; exit 1
+          fi
+          TOKEN=$(jq -r '.access_token // empty' "$RUNNER_TEMP/auth.json")
+          rm -f "$RUNNER_TEMP/auth.json"
+          [ -n "$TOKEN" ] || { echo "::error::no access token in the sign-in answer"; exit 1; }
+          echo "::add-mask::$TOKEN"
+          printf '%s' "$TOKEN" > "$RUNNER_TEMP/worker.jwt"
+          echo "MEDIA_WORKER_JWT_FILE=$RUNNER_TEMP/worker.jwt" >> "$GITHUB_ENV"
+          echo "Signed in. The token is masked and stored in a 0600 file."
+
+      - name: Run the deleter
+        run: |
+          set -euo pipefail
+          ARGS=(--site "$SITE" --kind "$KIND")
+          [ "$MODE" = "dry-run" ] && ARGS+=(--dry-run)
+          node tools/media-derivatives/retire.mjs "${ARGS[@]}"
+
+      - name: Forget the token
+        if: always()
+        run: rm -f "$RUNNER_TEMP/worker.jwt" "$RUNNER_TEMP/auth.json"
