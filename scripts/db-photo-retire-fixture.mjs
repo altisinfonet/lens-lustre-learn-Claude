@@ -83,7 +83,7 @@ for (const lane of ["production", "staging"]) {
   step(db, "0103 refuses a second apply (PRE-002)", "fail", { file: MIG, lane }, "U6-0103-PRE-002");
   step(db, "PROBE after the apply PASSES", "ok", { file: PROBE, lane }, "PROBE PASS");
   step(db, "the switch list = the lane's own + competition_fullsize_purge", "ok",
-    { sql: check(`(SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'feature_access_feature_check') = ${`'${keys0.replace(/'/g, "''").replace(/\]\)\)\)$/, ", 'competition_fullsize_purge'::text])))")}'`}`, "switch list kept + new key") });
+    { sql: check(`(SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'feature_access_feature_check') = ${`'${keys0.replace(/\]\)\)\)$/, ", 'competition_fullsize_purge'::text])))").replace(/'/g, "''")}'`}`, "switch list kept + new key") });
 
   step(db, "dry run finds exactly the 3 due photos", "ok", { sql: check("(public.competition_fullsize_mark(true) ->> 'due')::int = 3", "dry run due = 3") });
   step(db, "a run while the switch is OFF changes nothing", "ok",
@@ -107,12 +107,16 @@ for (const lane of ["production", "staging"]) {
   step(db, "the deleter's claim sees the 2 due rows (admin)", "ok", { sql: `${AS_ADMIN} ${check("(SELECT count(*) FROM public.photo_retire_claim(50, NULL)) = 2", "claim = 2")}` });
   step(db, "a row marked more than 24 h ago is not claimable", "ok",
     { sql: `BEGIN; UPDATE public.photo_retire SET marked_at = now() - interval '25 hours'; ${AS_ADMIN} ${check("(SELECT count(*) FROM public.photo_retire_claim(50, NULL)) = 0", "stale rows not claimed")} ROLLBACK;` });
+  step(db, "the next daily run re-checks stale due rows and makes them claimable again", "ok",
+    { sql: `BEGIN; UPDATE public.photo_retire SET marked_at = now() - interval '25 hours';
+            ${check("(public.competition_fullsize_mark(false) ->> 'restamped')::int = 2", "stale rows re-checked")}
+            ${AS_ADMIN} ${check("(SELECT count(*) FROM public.photo_retire_claim(50, NULL)) = 2", "re-checked rows claimable")} ROLLBACK;` });
 
   step(db, "ROLLBACK refuses while the switch is on (RB-PRE-002)", "fail", { file: RB, lane }, "U6-0103-RB-PRE-002");
   step(db, "(fixture) switch off", "ok", { sql: SWITCH("off") });
   step(db, "ROLLBACK restores the entries and removes everything", "ok", { file: RB, lane }, "3 entry photo(s) back on their full size");
   step(db, "entries exactly as before; no job, no switch, the lane's own list", "ok", { sql: check(
-    `(SELECT photos FROM public.competition_entries WHERE id = ${E1}) = ARRAY['${C}a1-w6000h4000-l4f.webp', '${C}a2-w4000h6000-l4f.webp']
+    `(SELECT photos FROM public.competition_entries WHERE id = ${E1}) = ARRAY['${C}a1-w6000h4000-l4f.webp', '${C}a2-w4000h6000-l4f.webp?v=1']
      AND (SELECT photos[1] FROM public.competition_entries WHERE id = '00000000-0000-4000-8000-0000000000e5') = '${C}f1-w3000h2000-l4f.webp'
      AND NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'competition-fullsize-retire')
      AND NOT EXISTS (SELECT 1 FROM public.feature_access WHERE feature = 'competition_fullsize_purge')
@@ -124,7 +128,8 @@ for (const lane of ["production", "staging"]) {
   step(db, "PROBE PASSES again", "ok", { file: PROBE, lane }, "PROBE PASS");
   step(db, "switch on, mark, the deleter records one deletion", "ok", { sql:
     `${SWITCH("everyone")} SELECT public.competition_fullsize_mark(false); ${AS_ADMIN}
-     ${check("public.photo_retire_done((SELECT min(id) FROM public.photo_retire_claim(50, NULL)), 123456) AND (SELECT count(*) FROM public.photo_retire_claim(50, NULL)) = 1", "one deleted, one still due")}` });
+     SELECT public.photo_retire_done((SELECT min(id) FROM public.photo_retire_claim(50, NULL)), 123456);
+     ${check("(SELECT count(*) FROM public.photo_retire_claim(50, NULL)) = 1", "one deleted, one still due")}` });
   step(db, "done is refused to a plain member", "fail", { sql: `${AS_MEMBER} SELECT public.photo_retire_done(1, 1);` }, "PHOTO-RT-001");
   step(db, "(fixture) switch off", "ok", { sql: SWITCH("off") });
   step(db, "ROLLBACK refuses once a file is deleted (RB-PRE-003)", "fail", { file: RB, lane }, "U6-0103-RB-PRE-003");

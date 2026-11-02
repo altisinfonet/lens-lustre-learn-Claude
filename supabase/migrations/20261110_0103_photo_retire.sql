@@ -148,6 +148,7 @@ CREATE TABLE public.photo_retire (
   deleted_at      timestamptz,
   deleted_by      uuid
 );
+-- P28: photo_retire · 0 rows at launch, at most a few hundred per day · partial, due rows only; the deleter's claim reads due rows by marked_at
 CREATE INDEX photo_retire_due_idx ON public.photo_retire (marked_at) WHERE state = 'due';
 COMMENT ON TABLE public.photo_retire IS
   'Photo plan U6/U7: files queued for deletion (due), deleted, or kept because something still names them. '
@@ -208,7 +209,7 @@ RETURNS jsonb
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path TO '' AS $fn$
 DECLARE
   _uid uuid := (SELECT auth.uid()); _mode text; _r record; _new text; _swapped int := 0; _skipped int := 0;
-  _due int; _kept int := 0; _keys text[]; _ref record;
+  _due int; _kept int := 0; _restamped int := 0; _keys text[]; _ref record;
   _re constant text := '^https://' || replace(public.photo_retire_cdn(), '.', '\.')
     || '/(competition-photos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/competitions/[A-Za-z0-9_.-]+-w[0-9]{1,5}h[0-9]{1,5}-l4f\.webp)(\?[^#]*)?$';
 BEGIN
@@ -250,17 +251,23 @@ BEGIN
     END;
   END LOOP;
 
-  -- anything still named elsewhere (a featured photo, a certificate, a post …) is KEPT
+  -- anything still named elsewhere (a featured photo, a certificate, a post …) is KEPT —
+  -- checked for the rows marked now AND for due rows the deleter did not reach within
+  -- 24 h (a missed day): those are re-checked here and re-stamped, never deleted stale.
   SELECT array_agg(r.object_key) INTO _keys FROM public.photo_retire r
-   WHERE r.kind = 'comp_full' AND r.state = 'due' AND r.marked_at >= now() - interval '1 minute';
+   WHERE r.kind = 'comp_full' AND r.state = 'due'
+     AND (r.marked_at >= now() - interval '1 minute' OR r.marked_at < now() - interval '24 hours');
   FOR _ref IN SELECT f.object_key, string_agg(DISTINCT f.found_in, ', ') AS w FROM public.photo_retire_referenced(_keys) f GROUP BY f.object_key LOOP
     UPDATE public.photo_retire r SET state = 'kept', note = r.note || ' · kept: still named in ' || _ref.w
      WHERE r.object_key = _ref.object_key AND r.state = 'due';
     _kept := _kept + 1;
   END LOOP;
+  UPDATE public.photo_retire r SET marked_at = now()
+   WHERE r.kind = 'comp_full' AND r.state = 'due' AND r.marked_at < now() - interval '24 hours';
+  GET DIAGNOSTICS _restamped = ROW_COUNT;
 
   RETURN jsonb_build_object('dry_run', false, 'switch', _mode, 'due_found', _due, 'swapped', _swapped,
-                            'skipped', _skipped, 'kept_still_named', _kept);
+                            'skipped', _skipped, 'kept_still_named', _kept, 'restamped', _restamped);
 END;
 $fn$;
 REVOKE ALL ON FUNCTION public.competition_fullsize_mark(boolean) FROM PUBLIC, anon;

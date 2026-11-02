@@ -69,8 +69,18 @@ describe("U6/U7 retire route", () => {
     { id: 4, kind: "post_old", object_key: `post-images/${O}/posts/gone.webp` },            // already absent
   ];
 
+  const R2048 = FULL.replace("-l4f.webp", "-l4f-r2048.webp");
+
+  it("a competition full size whose 2048 copy is NOT in the store is refused — never deleted, never recorded", async () => {
+    const s = setup([rows[0]], { [FULL]: 5_000_000 });
+    const b = await (await s.call({ limit: 50 })).json() as Record<string, unknown>;
+    expect(b).toMatchObject({ deleted: 0, refused: [1] });
+    expect(s.deleted).toEqual([]);
+    expect(s.calls.some((c) => c.startsWith("done"))).toBe(false);
+  });
+
   it("dry run: counts and sums the bytes, deletes nothing, records nothing", async () => {
-    const s = setup(rows, { [FULL]: 5_000_000, [OLD]: 700_000 });
+    const s = setup(rows, { [FULL]: 5_000_000, [OLD]: 700_000, [R2048]: 400_000 });
     const res = await s.call({ dry_run: true, limit: 50 });
     const b = await res.json() as Record<string, unknown>;
     expect(res.status).toBe(200);
@@ -80,7 +90,7 @@ describe("U6/U7 retire route", () => {
   });
 
   it("run: deletes only allowed keys, records each (absent ones as 0 bytes), refuses a v2 copy", async () => {
-    const s = setup(rows, { [FULL]: 5_000_000, [OLD]: 700_000 });
+    const s = setup(rows, { [FULL]: 5_000_000, [OLD]: 700_000, [R2048]: 400_000 });
     const b = await (await s.call({ limit: 50 })).json() as Record<string, unknown>;
     expect(b).toMatchObject({ dry_run: false, deleted: 2, bytes: 5_700_000, absent: 1, refused: [3] });
     expect(s.deleted).toEqual([FULL, OLD]);

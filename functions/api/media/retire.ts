@@ -8,10 +8,12 @@
  *   2. isRetireKey (src/lib/media/photoRetire.ts): a key that is not a v2
  *      competition full-size file / an old post file is REFUSED and left alone
  *      (reported by id) — whatever the database said.
+ *      A comp_full file whose `-l4f-r2048` copy is NOT in the store is refused
+ *      too: the entry must never be left without a photo.
  *   3. HEAD for the size. dry_run: count + bytes only, nothing deleted, nothing
  *      recorded. run: delete, then `photo_retire_done(id, bytes)`; an object
  *      already absent is recorded with 0 bytes.
- * Never writes an object. At most 2 R2 operations and 1 database call per file.
+ * Never writes an object. At most 3 R2 operations and 1 database call per file.
  */
 import { asMember, handleError, json, member, readJson, HttpError } from "../video/_lib";
 import { bucketFor, rpc, type MediaEnv } from "./derivatives/_lib";
@@ -35,6 +37,8 @@ export async function handleRetire(request: Request, env: MediaEnv, fetchImpl: t
     const refused: number[] = [];
     for (const r of list) {
       if (!isRetireKey(r.kind, r.object_key)) { refused.push(r.id); continue; }
+      // A competition full size goes only while its credited 2048 copy is really there.
+      if (r.kind === "comp_full" && !(await bucket.head(r.object_key.replace(/-l4f\.webp$/, "-l4f-r2048.webp")))) { refused.push(r.id); continue; }
       const head = await bucket.head(r.object_key);
       const size = head?.size ?? 0;
       if (head) { present++; bytes += size; } else absent++;

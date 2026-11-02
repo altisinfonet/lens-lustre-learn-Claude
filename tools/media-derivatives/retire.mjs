@@ -37,7 +37,8 @@ async function batch(after) {
     body: JSON.stringify({ limit: 50, kind, after, dry_run: dryRun }),
   });
   const b = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(`retire ${res.status} ${b.error ?? ""} ${b.message ?? ""}`);
+  // A missing route can answer 200 with the site's HTML page: anything but the route's JSON is a failure.
+  if (!res.ok || typeof b.checked !== "number") throw new Error(`retire ${res.status} ${b.error ?? "not the retire route's answer"} ${b.message ?? ""}`);
   return b;
 }
 
