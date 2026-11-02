@@ -1,15 +1,15 @@
 **Smart photo plan runner: status** (file: `docs/evidence/cloud/PHOTO_PLAN_STATUS.md`; never merge this PR)
 
-Last update: 2026-11-02 15:18 UTC (local runner, resumed run)
+Last update: 2026-11-02 17:20 UTC (local runner, third run, resumed after the Owner pause at 15:25)
 
 | Unit | PRs | Merged (staging / main) | SQL / workflow runs (UTC) | Live check | % |
 |---|---|---|---|---|---|
 | U0 measure | #820 · carry #822 | 8cf88d4f / dd8209e6 | read-only, 40 live photos 10:34 | ✓ (with #822) | 100 |
 | U1a camera details (DB) | #821 · carry #822 | 33692afb / dd8209e6 | **staging:** PROBE 41435125694 FAIL A1 (expected) 11:15 · apply 41444038665 ✓ 12:22 · PROBE 41444176542 **PASS** 12:22 · **production:** PROBE 41453960303 FAIL A1 (expected) 13:33 · apply 41454507922 ✓ 13:37 · PROBE 41454710509 **PASS** 13:38 (photo_set_v2 = off, 0 rows) | d2-live-check 41462810560 on dd8209e6 14:34: Chromium/Firefox/WebKit, home + /feed + /notifications 200 with text, same text both loads; console lines identical to the 1 Nov check 41339223796 (9 = 9, 0 new) | 100 |
-| U1b upload path (client) | #823 · pin #826 | 932271d5 / — | function `detect-orphan-files` deploy 41454742939 refused (verify_jwt not pinned) → #826 pins the live value `true` (staging 41454742939, production 41462864810) | — | 75 |
-| U2 display | #825 | e71c59fb / — | — | — | 70 |
-| U3 download removal | #827 (CI green, in review) | — | — | — | 50 |
-| U4 save mobile data | — | — | — | — | 0 |
+| U1b upload path (client) | #823 · pin #826 | 932271d5 / — | function `detect-orphan-files` deploy 41454742939 refused (verify_jwt not pinned) → #826 pins the live value `true` (staging 41454742939, production 41462864810). #826 CI 25 pass; its one red check was VID-1 attempt 1: the runner's apt install of ffmpeg hung 20 min and was cancelled (runner infrastructure, not the 5-line config change); attempt 2 passed 15:23. Next: review, merge, deploy staging | — | 80 |
+| U2 display | #825 | e71c59fb / — | no SQL | — (not on main yet) | 85 |
+| U3 download removal | #827 | 67f9a389 / — | no SQL | — (not on main yet) | 85 |
+| U4 save mobile data + 4 review follow-ups | — (started 17:20) | — | — | — | 5 |
 | U5 backfill | — | — | — | — | 0 |
 | U6 competition auto-delete | — | — | — | — | 0 |
 | U7 delete old big files | — | — | — | — | 0 |
