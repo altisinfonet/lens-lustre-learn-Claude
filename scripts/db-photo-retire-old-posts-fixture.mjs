@@ -72,8 +72,8 @@ for (const lane of ["production", "staging"]) {
   step(db, "0101 applies", "ok", { file: M("20261110_0101_photo_set_backfill.sql"), lane });
   step(db, "the worker records every photo; F6's caption is no longer refused", "ok", { sql: `${WORKER} UPDATE public.blocked_keywords SET is_active = false;` });
   step(db, "0103 applies", "ok", { file: M("20261110_0103_photo_retire.sql"), lane });
+  step(db, "(fixture) photo_set_v2 on", "ok", { sql: V2("everyone") });
   step(db, "FAIL-FIRST: 0104 refuses while posts still show old files (PRE-004)", "fail", { file: U7, lane }, "U7-0104-PRE-004");
-  step(db, "(fixture) photo_set_v2 on; the swap", "ok", { sql: V2("everyone") });
   step(db, "0102 swaps the 5 posts", "ok", { file: M("20261110_0102_photo_set_swap.sql"), lane });
   step(db, "FAIL-FIRST: PROBE red — swapped photos not queued", "fail", { file: U7_PROBE, lane }, "PROBE FAIL U1: 6 swapped photo(s)");
   if (lane === "production") {
@@ -91,11 +91,12 @@ for (const lane of ["production", "staging"]) {
      AND NOT EXISTS (SELECT 1 FROM public.photo_retire WHERE object_key ~ '-l4' OR object_key LIKE 'avatars/%')`, "13 keys, rungs 2, thumbs 5, F7 kept, no v2 copy") });
   step(db, "PROBE PASS", "ok", { file: U7_PROBE, lane }, "PROBE PASS");
   step(db, "a re-run queues nothing new", "ok", { file: U7, lane }, "queued 0 new file(s)");
-  step(db, "the swap rollback leaves every queued post alone", "ok", { file: SWAP_RB, lane }, "0 post(s) restored · 5 not touched");
+  step(db, "the swap rollback leaves every post with a queued file alone (F7's only old file is KEPT: it may go back)", "ok", { file: SWAP_RB, lane }, "1 post(s) restored · 4 not touched");
+  step(db, "F7 is back on its kept old file", "ok", { sql: check(`(SELECT image_urls[1] FROM public.posts WHERE id = '00000000-0000-4000-8000-0000000000f7') LIKE '%/posts/f7-w600h400.webp'`, "F7 restored to its kept file") });
   step(db, "0104 ROLLBACK refuses with no lane", "fail", { file: U7_RB }, "ROLLBACK REFUSED");
   step(db, "0104 ROLLBACK frees all 13", "ok", { file: U7_RB, lane }, "13 queued row(s) removed · 0 file(s) already deleted");
   step(db, "0104 ROLLBACK refuses a second run", "fail", { file: U7_RB, lane }, "U7-0104-RB-PRE-002");
-  step(db, "now the swap rollback restores all 5", "ok", { file: SWAP_RB, lane }, "5 post(s) restored · 0 not touched");
+  step(db, "now the swap rollback restores the other 4", "ok", { file: SWAP_RB, lane }, "4 post(s) restored · 0 not touched");
   step(db, "re-swap", "ok", { file: M("20261110_0102_photo_set_swap.sql"), lane }, "swapped 5");
   step(db, "re-queue", "ok", { file: U7, lane }, "queued 13 new file(s)");
   step(db, "(fixture) the deleter deletes F1's old photo", "ok", { sql:

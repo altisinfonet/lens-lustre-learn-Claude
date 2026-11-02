@@ -78,6 +78,10 @@ BEGIN
   END IF;
 
   _host := public.photo_set_backfill_cdn();
+  -- PRE-005 · the lane asserted by the workflow is the lane this database was built for.
+  IF _host <> (CASE current_setting('p32.lane') WHEN 'production' THEN 'cdn.50mmretina.com' ELSE 'cdn-staging.50mmretina.com' END) THEN
+    RAISE EXCEPTION 'U7-0104-PRE-005: p32.lane is % but this database''s photo host is % — refusing', current_setting('p32.lane'), _host;
+  END IF;
   _re := '^https://' || replace(_host, '.', '\.')
       || '/(post-images/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+\.webp)(?:\?[^#]*)?$';
 
@@ -99,6 +103,8 @@ BEGIN
         SELECT (regexp_match(_p.old_thumb, _re))[1]
          WHERE split_part((regexp_match(_p.old_thumb, _re))[1], '/', 2) = split_part(_p.old_key, '/', 2)
            AND (regexp_match(_p.old_thumb, _re))[1] !~* '-l4f?(-thumb|-r[0-9]{3,4})?\.webp$'
+           AND position('..' IN (regexp_match(_p.old_thumb, _re))[1]) = 0
+           AND split_part((regexp_match(_p.old_thumb, _re))[1], '/', 3) <> 'd'
         UNION ALL
         SELECT regexp_replace(_p.old_key, '-l3\.webp$', '-l3-r' || r || '.webp')
           FROM unnest(ARRAY['1080', '1440']) r WHERE _p.old_key ~ '-l3\.webp$'
@@ -119,6 +125,12 @@ BEGIN
      WHERE r.object_key = _ref.object_key AND r.state = 'due';
     _kept := _kept + 1;
   END LOOP;
+  -- an old -l3 photo that is kept keeps its rungs too: no column names a rung,
+  -- the renderer derives them from the photo's name.
+  UPDATE public.photo_retire r SET state = 'kept', note = r.note || ' · kept: its -l3 photo is kept'
+   WHERE r.kind = 'post_old' AND r.state = 'due' AND r.object_key ~ '-l3-r(1080|1440)\.webp$'
+     AND EXISTS (SELECT 1 FROM public.photo_retire b
+                  WHERE b.object_key = regexp_replace(r.object_key, '-l3-r(1080|1440)\.webp$', '-l3.webp') AND b.state = 'kept');
   -- the deleter claims rows marked in the last 24 h: this run is the fresh check
   UPDATE public.photo_retire r SET marked_at = now() WHERE r.kind = 'post_old' AND r.state = 'due';
 
