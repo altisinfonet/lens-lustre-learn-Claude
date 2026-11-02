@@ -13,7 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
 
-export type FeatureName = "video_posts" | "video_ads" | "copyright_music_check" | "personal_feed" | "media_ladder_feed" | "media_private_photos" | "photo_upload_resume";
+export type FeatureName = "video_posts" | "video_ads" | "copyright_music_check" | "personal_feed" | "media_ladder_feed" | "media_private_photos" | "photo_upload_resume" | "photo_set_v2";
 
 export const FEATURE_REFRESH_MS = 60_000;
 

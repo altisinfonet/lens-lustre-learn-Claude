@@ -1,0 +1,70 @@
+name: D1 · photo camera details (U1a) — lane-shaped fixture
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING BUT A THROWAWAY postgres:17.6 SERVICE CONTAINER.
+# HOLDS NO SECRET: the container password below is a literal placeholder for a
+# database that exists for the length of this job.
+#
+# WHAT IT PROVES (20261110_0100). scripts/db-photo-camera-fixture.mjs runs the
+# REAL migration, PROBE and ROLLBACK over supabase/tests/photo-camera/ in a
+# production shape and a staging shape (staging also holds a switch key another
+# runner added concurrently), and requires: the gate and the PROBE red BEFORE
+# the apply (fail-first); every refusal; PROBE PASS leaving no row; the gate
+# (no GPS ever stored, strict whitelist, caps, author-only write while
+# photo_set_v2 allows it, author-only hide, reads under can_view_post, hidden
+# rows author-only, cascade) PASS; the rollback restores the lane's exact
+# switch list; PROBE and gate red again; re-apply PASS.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261110_0100_photo_camera_info.sql'
+      - 'supabase/migrations/PROBE_20261110_0100_photo_camera_info.sql'
+      - 'supabase/rollback/20261110_0100_photo_camera_info_ROLLBACK.sql'
+      - 'supabase/tests/photo-camera/**'
+      - 'scripts/db-photo-camera-fixture.mjs'
+      - '.github/workflows/d1-photo-camera-fixture.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  fixture:
+    name: camera details on lane-shaped databases
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_PASSWORD: fixture-not-a-secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: fixture-not-a-secret
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install psql
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: The throwaway server
+        run: psql -X -d postgres -tAc 'select version()'
+
+      - name: Fixture — fail-first, apply, PROBE, gate, rollback, re-apply (both shapes)
+        run: node scripts/db-photo-camera-fixture.mjs
