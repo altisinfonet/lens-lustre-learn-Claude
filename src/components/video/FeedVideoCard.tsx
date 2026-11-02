@@ -51,8 +51,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { hasSavedPreview, maybeSaveVideoPreview, offlineLoaderFor, savedPreviewInfo, savedPreviewUrl } from "@/lib/video/offlineVideo";
 import {
   CONTROLS_HIDE_MS, autoplayWithSound, claimPlayback, getSoundPref, isAppleWebKit, isNativeApp, leavePlayback, levelCap,
-  pickHlsEngine, releasePlayback, setSoundPref, shouldPlay, startPlayback, userActivated,
+  pickHlsEngine, releasePlayback, setSoundPref, shouldPlay, startPlayback, userActivated, videoStartPlan,
 } from "@/lib/video/playback";
+import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
+import { getLinkKind, getSaveMobileData, savingDataNow } from "@/lib/dataSaver";
 import { grantDue, requestGrant, type PlayGrant } from "@/lib/video/playGrant";
 import { VIDEO_FRAME_ASPECT } from "@/lib/video/videoFrame";
 import type { FeedVideo } from "@/lib/video/postVideoRead";
@@ -98,6 +100,10 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
   onWatchPct?: (pct: number) => void;
 }) {
   const cardId = useId();
+  // Photo plan U4 (switch `photo_set_v2`): read when the stream's levels are known.
+  const v2 = usePhotoSetV2();
+  const v2Ref = useRef(v2);
+  v2Ref.current = v2;
   const box = useRef<HTMLDivElement>(null);
   const el = useRef<HTMLVideoElement>(null);
   const hls = useRef<HlsInstance | null>(null);
@@ -200,6 +206,18 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
         ...(g ? {} : { loader: offlineLoaderFor(Hls.DefaultConfig.loader as never) }),
       }) as unknown as HlsInstance;
       const applyCap = () => {
+        // U4 (switch on): 720p start on Wi-Fi, 480p on mobile data (or a link the
+        // device cannot name), 240p start + 480p cap with "Save mobile data",
+        // 240p only on a slow network. Set here, before hls.js's auto start
+        // reads startLevel (MANIFEST_PARSED fires inside MANIFEST_LOADED, ahead
+        // of the playlist loader's autostart handler). Switch off: today's rule.
+        if (v2Ref.current) {
+          const kind = getLinkKind();
+          const plan = videoStartPlan(h.levels, { slow: getNetState().slow, saving: savingDataNow(getSaveMobileData(), kind), kind });
+          if (plan.start >= 0) h.startLevel = plan.start;
+          h.autoLevelCapping = plan.cap;
+          return;
+        }
         const cap = levelCap(h.levels, getNetState().slow);
         h.autoLevelCapping = Number.isFinite(cap) ? cap : -1;
       };

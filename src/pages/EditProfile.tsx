@@ -31,6 +31,7 @@ import { useT, useI18n } from "@/i18n/I18nContext";
 import { LANGS } from "@/i18n/translations";
 import { useCategories } from "@/hooks/useCategories";
 import { categoryLabelKey, normaliseInterests } from "@/lib/categories";
+import { SaveMobileDataSetting } from "@/components/settings/SaveMobileDataSetting";
 
 /**
  * Photography categories come from `public.categories` now — the single source
@@ -888,6 +889,9 @@ const EditProfile = () => {
                 Videos saved on this phone →
               </Link>
             </div>
+
+            {/* Photo plan U4 — "Save mobile data" (switch photo_set_v2; off ⇒ nothing rendered) */}
+            <SaveMobileDataSetting />
 
             {/* SOW §5.2 — Search engine privacy toggle */}
             <div className="border-t border-border pt-4">
