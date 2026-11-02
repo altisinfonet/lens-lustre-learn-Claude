@@ -1,0 +1,28 @@
+{
+  "measured_utc": "2026-11-02T10:34:25.545Z",
+  "lane": "production (cdn.50mmretina.com, public posts via anon REST)",
+  "posts_listed": 571,
+  "sample_photos": 40,
+  "l3_count": 30,
+  "avg_long_edge": 2134,
+  "avg_kb_today": {
+    "original": 735,
+    "thumb600": 37,
+    "r1080": 140,
+    "r1440": 240
+  },
+  "avg_kb_new": {
+    "w2048_q85": 357,
+    "w2048_q92": 507,
+    "w1080_q82": 127,
+    "w600_q78": 41,
+    "w320_q75": 12
+  },
+  "stored_per_photo_kb": {
+    "today": 1028,
+    "new": 537
+  },
+  "storage_saving_pct": 47.7,
+  "fullscreen_saving_pct": 51.4,
+  "grid_saving_pct_320_vs_600thumb": 66.8
+}
