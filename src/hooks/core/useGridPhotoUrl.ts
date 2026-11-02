@@ -6,7 +6,7 @@
  */
 import { useCallback, useState } from "react";
 import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
-import { photoSetGridUrl } from "@/lib/imageLadder";
+import { photoSetGridUrl, photoSetUrl } from "@/lib/imageLadder";
 
 export function useGridPhotoUrl(): (url: string) => string {
   const on = usePhotoSetV2();
@@ -25,6 +25,8 @@ export function useGridPhotoSrc(url: string | null | undefined): { src: string |
   if (!url) return { src: url ?? undefined, onError: undefined };
   const small = gridUrl(url);
   if (small === url) return { src: url, onError: undefined };
-  if (failedFor === url) return { src: url, onError: undefined };
+  // The fallback is the credited 2048 (for `-l4` that IS the given URL; for
+  // `-l4f` it is `-r2048`, never the competition full-size file).
+  if (failedFor === url) return { src: photoSetUrl(url, 2048), onError: undefined };
   return { src: small, onError: () => setFailedFor(url) };
 }

@@ -200,6 +200,15 @@ describe("grid tiles fall back when their 320 copy fails (U2 review follow-up)",
     fireEvent.error(container.querySelector("img")!);
     expect(container.querySelector("img")!.getAttribute("src")).toBe(L4);
   });
+
+  it("a competition (-l4f) tile falls back to its credited 2048, never the full-size file", async () => {
+    const L4F = `${CDN}-w4000h3000-l4f.webp`;
+    const { container } = wrap(<NotificationRowThumb media={postMedia({ image_urls: [L4F] } as never)} />);
+    await settle();
+    expect(container.querySelector("img")!.getAttribute("src")).toBe(`${CDN}-w4000h3000-l4f-r320.webp`);
+    fireEvent.error(container.querySelector("img")!);
+    expect(container.querySelector("img")!.getAttribute("src")).toBe(`${CDN}-w4000h3000-l4f-r2048.webp`);
+  });
 });
 
 describe("the ⓘ sheet owns the arrow keys (U2 review follow-up)", () => {
