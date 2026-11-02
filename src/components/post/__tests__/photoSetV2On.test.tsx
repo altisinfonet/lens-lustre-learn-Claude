@@ -272,18 +272,16 @@ describe("blur preview in the feed photo", () => {
   const backdrop = (c: HTMLElement) => c.querySelector('img[aria-hidden="true"]') as HTMLImageElement | null;
   const sharp = (c: HTMLElement) => Array.from(c.querySelectorAll("img")).find((i) => !i.hasAttribute("aria-hidden"))!;
 
-  it("a new photo: the 320 copy is the placeholder; the real photo fades in; srcset untouched", async () => {
-    const off = (() => { switchOn = false; return wrap(<PostMedia urls={[L4]} thumbUrls={[L4_THUMB]} />); })();
-    await settle();
-    const srcsetOff = sharp(off.container).getAttribute("srcset");
-    off.unmount();
+  it("a new photo: the 320 copy is the placeholder; the real photo fades in; srcset = the feed's 600 + 1080 (U4)", async () => {
     switchOn = true;
     const { container } = wrap(<PostMedia urls={[L4]} thumbUrls={[L4_THUMB]} />);
     await settle();
     expect(backdrop(container)!.getAttribute("src")).toBe(L4_320);
     expect(sharp(container).className).toMatch(/opacity-0/);
     expect(sharp(container).className).toMatch(/transition-opacity/);
-    expect(sharp(container).getAttribute("srcset")).toBe(srcsetOff);
+    // U2 kept today's srcset (600 + the 2048 master). U4 (the U3 review follow-up,
+    // "feed keeps 1080") makes it the 600 + 1080 copies: photoSetV2U4.test.tsx.
+    expect(sharp(container).getAttribute("srcset")).toBe(`${L4_THUMB} 600w, ${CDN}-w2048h1365-l4-r1080.webp 1080w`);
     fireEvent.load(sharp(container));
     expect(sharp(container).className).toMatch(/opacity-100/);
   });

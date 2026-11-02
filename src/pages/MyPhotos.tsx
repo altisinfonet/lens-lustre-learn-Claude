@@ -21,7 +21,7 @@ import Lightbox from "@/components/Lightbox";
 import ImageEngagement from "@/components/ImageEngagement";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import { useT } from "@/i18n/I18nContext";
-import { useGridPhotoUrl } from "@/hooks/core/useGridPhotoUrl";
+import { useGridPhotoSrc } from "@/hooks/core/useGridPhotoUrl";
 
 const PAGE_SIZE = 20;
 
@@ -35,7 +35,8 @@ const SquarePhotoCard = ({ imageUrl, postId, index, overlay, onClick }: {
   imageUrl: string; postId?: string; index: number; overlay?: React.ReactNode; onClick?: () => void;
 }) => {
   // Photo plan U2 (switch `photo_set_v2`): a new photo's 320 copy; any other URL unchanged.
-  const gridUrl = useGridPhotoUrl();
+  // U4: a 320 copy that fails falls back to the photo's own URL, once.
+  const tile = useGridPhotoSrc(imageUrl);
   const inner = (
     <motion.div
       initial={{ opacity: 1, scale: 0.96 }}
@@ -44,7 +45,8 @@ const SquarePhotoCard = ({ imageUrl, postId, index, overlay, onClick }: {
       className="relative aspect-square rounded-md overflow-hidden bg-muted group cursor-pointer"
     >
       <img
-        src={gridUrl(imageUrl)}
+        src={tile.src}
+        onError={tile.onError}
         alt="Photo"
         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
         loading="lazy"

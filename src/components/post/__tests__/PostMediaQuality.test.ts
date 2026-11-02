@@ -51,7 +51,8 @@ describe("the sharp layer shows the original, not the thumbnail", () => {
   });
 
   it("uses the original when the URL cannot be transformed", () => {
-    expect(CODE).toMatch(/const sharpSrc = transformable \? buildRenderUrl\(src, 800\) : src;/);
+    // Photo plan U4: only a v2 photo with switch photo_set_v2 on (`v2Set`) takes its 1080/600 copy.
+    expect(CODE).toMatch(/const sharpSrc = v2Set \? v2Set\.src : transformable \? buildRenderUrl\(src, 800\) : src;/);
   });
 
   it("still paints the thumbnail as the instant backdrop", () => {
@@ -119,7 +120,10 @@ describe("the browser is given both copies, with honest widths", () => {
 describe("a dead thumbnail still degrades instead of breaking", () => {
   it("drops the srcset and shows the original when the sharp image errors", () => {
     expect(CODE).toMatch(/srcSet=\{failed \? undefined : srcSet\}/);
-    expect(CODE).toMatch(/src=\{failed \? src : sharpSrc\}/);
+    // Photo plan U4: `failSrc` is `src` for every photo except a v2 (-l4/-l4f)
+    // one with switch photo_set_v2 on, which falls back to its credited 2048.
+    expect(CODE).toMatch(/src=\{failed \? failSrc : sharpSrc\}/);
+    expect(CODE).toMatch(/const failSrc = v2Set \? fullScreenPhotoUrl\(src, true\) : src;/);
   });
 
   it("never guesses a thumbnail address — it only reads a stored one", () => {

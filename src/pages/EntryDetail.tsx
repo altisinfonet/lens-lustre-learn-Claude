@@ -8,6 +8,7 @@ import { fetchProfileMap } from "@/lib/profileMapCache";
 import { ArrowLeft, Trophy, Share2, Copy, MessageCircle, Globe, Heart, Scale } from "lucide-react";
 import { usePhotoDownload } from "@/hooks/core/usePhotoDownload";
 import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
+import { useDataSaver } from "@/hooks/core/useDataSaver";
 import { inlinePhotoUrl } from "@/lib/photoProtection";
 import DownloadButton from "@/components/DownloadButton";
 import { toast } from "@/hooks/core/use-toast";
@@ -80,6 +81,8 @@ const EntryDetail = () => {
   // full-size file. Switch off: today's button and today's photo for everyone.
   const { canDownload, downloading, download: downloadImg } = usePhotoDownload(true);
   const photoSetV2 = usePhotoSetV2();
+  // U4: "Save mobile data" on mobile data → one size down (the 600 copy).
+  const savingData = useDataSaver().saving;
 
   const [searchParams, setSearchParams] = useSearchParams();
   const { toggleVoteAsync, isVoting } = useCompetitionVoting({
@@ -300,7 +303,7 @@ const EntryDetail = () => {
             <div>
               {entry.photos.length === 1 ? (
                 <div className="relative group/img">
-                  <img src={inlinePhotoUrl(entry.photos[0], photoSetV2)} alt={entry.title} className="w-full" loading="lazy" onContextMenu={(e) => e.preventDefault()} draggable={false} />
+                  <img src={inlinePhotoUrl(entry.photos[0], photoSetV2, savingData)} alt={entry.title} className="w-full" loading="lazy" onContextMenu={(e) => e.preventDefault()} draggable={false} />
                   <PhaseWatermark
                     phase={entry.competitionPhase}
                     currentRound={entry.competitionCurrentRound}
