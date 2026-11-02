@@ -9,6 +9,11 @@ project_id = "jtdtehuqtinjxropkkcn"
     verify_jwt = false
   [functions.detect-ai-image]
     verify_jwt = false
+  # Pinned to the live value (true on staging, d1-deploy-functions inventory
+  # run 41454742939, 2026-11-02) so the photo plan U1b orphan-key change can
+  # deploy. Called by admins with a user JWT, never by a cron without one.
+  [functions.detect-orphan-files]
+    verify_jwt = true
   [functions.migrate-storage]
     verify_jwt = false
   [functions.process-email-queue]
