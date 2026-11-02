@@ -820,6 +820,11 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
+          # 2026-11-02: bumped 1.2.36 -> 1.2.37. 1.2.36 (run 139, 41341965644 on 90d9c4fa) is spent.
+          # 1.2.37 is the ONE app version of the Smart Photo Plan (Owner-approved 2026-11-02): it carries
+          # U1–U7 (new photo set + credit, camera details, download removal and WebView long-press off,
+          # Save mobile data, backfill/retire server pieces). Every new behaviour is behind photo_set_v2 /
+          # competition_fullsize_purge, both OFF on live: the app looks and behaves as 1.2.36 until the Owner switches.
           # 2026-11-01: bumped 1.2.35 -> 1.2.36. 1.2.35 (run 138, 41328942399 on 48186230) is spent.
           # 1.2.36 is the ONE final app version after S9 (Owner order, 31 Oct): it carries everything on
           # main, including the S2 native-exit reader (#562) and the S11 build guards (#596), which
@@ -928,8 +933,8 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
-          sed -i 's/versionName "1.0"/versionName "1.2.36"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.36 (1.2.35 is spent - run 138)"
+          sed -i 's/versionName "1.0"/versionName "1.2.37"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.37 (1.2.36 is spent - run 139)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
           # S11: prove both edits landed — exactly one versionCode, the derived
