@@ -24,6 +24,7 @@ import { describeNotification } from "@/lib/notifications/describe";
 import { subjectFromGroup } from "@/lib/notifications/adapters";
 import { badgeFor, bellSettingFor, BELL_SETTING_COVERS, type BellSetting, type NotificationBadge } from "@/lib/notifications/kinds";
 import { postMedia } from "@/lib/posts/subjectMedia";
+import { useGridPhotoUrl } from "@/hooks/core/useGridPhotoUrl";
 import type { NotificationGroup } from "@/lib/notificationText";
 import type { CommentPreview } from "@/hooks/notifications/useCommentPreviews";
 import type { FeedVideo } from "@/lib/video/postVideoRead";
@@ -81,11 +82,14 @@ const BADGE_ICON: Record<NotificationBadge, typeof Heart> = {
 
 /** The post's picture for a row: its video's poster, else its photograph. */
 export function NotificationRowThumb({ media }: { media: ReturnType<typeof postMedia> }) {
+  // Photo plan U2 (switch `photo_set_v2`): a new photo's 320 copy; any other URL unchanged.
+  const gridUrl = useGridPhotoUrl();
+  const first = media.imageUrls[0];
   return media.video ? (
     <VideoPoster video={media.video} />
   ) : (
     <img
-      src={media.imageUrls[0]}
+      src={first ? gridUrl(first) : first}
       alt=""
       referrerPolicy="no-referrer"
       loading="lazy"

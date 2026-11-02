@@ -11,7 +11,7 @@
  * which is exactly what stopped the notification bell being enlarged in the
  * same pass. The glyphs inside are unchanged.
  */
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { CDN_HOST as LANE_CDN_HOST, SITE_ORIGIN } from "@/lib/env";
 import { X, ChevronLeft, ChevronRight, Heart } from "lucide-react";
 import { useDownloadImage } from "@/hooks/core/useDownloadImage";
@@ -22,7 +22,8 @@ import ZoomableImage from "@/components/media/ZoomableImage";
 import { ladderFor, originalFor } from "@/lib/media/resolvedMedia";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import { frameAspectFor, frameAspectForUrls, parseImageDims } from "@/lib/imageFrame";
-import { hasLadderMarker, rungPath, rungPlan, rungWidthFor } from "@/lib/imageLadder";
+import { hasLadderMarker, photoSetBlurUrl, rungPath, rungPlan, rungWidthFor } from "@/lib/imageLadder";
+import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
 import { useNetworkQuality } from "@/hooks/core/useNetworkQuality";
 
 interface PostMediaProps {
@@ -54,6 +55,17 @@ interface PostMediaProps {
    * identical prop rather than growing a second shape for the same fact.
    */
   author?: PhotoAuthor;
+  /**
+   * Photo plan U2 (switch `photo_set_v2`, given only while it is on): which
+   * photo of an album is showing, so the card's camera line/strip can follow it.
+   */
+  onSlideChange?: (index: number) => void;
+  /**
+   * Photo plan U2 (app, switch on): an extra control in the full-screen
+   * viewer's top bar for the photo at `index` — the camera-details ⓘ.
+   * Absent ⇒ the viewer renders exactly as before.
+   */
+  viewerAction?: (index: number) => ReactNode;
 }
 
 /**
@@ -79,7 +91,7 @@ interface PostMediaProps {
  * A photo WITH dimensions in its name is never measured, so new posts still
  * have zero reflow.
  */
-const PostMedia = ({ urls, thumbUrls, onDoubleTapLike, interceptFirstTap, author }: PostMediaProps) => {
+const PostMedia = ({ urls, thumbUrls, onDoubleTapLike, interceptFirstTap, author, onSlideChange, viewerAction }: PostMediaProps) => {
   const first = urls[0];
   // One frame per card, taken from the first photo — see src/lib/imageFrame.ts.
   // An album must not resize between slides: the buttons would move under the
@@ -105,9 +117,9 @@ const PostMedia = ({ urls, thumbUrls, onDoubleTapLike, interceptFirstTap, author
 
   const frameAspect = measuredAspect ?? declaredAspect;
   if (urls.length === 1) {
-    return <SingleImagePost src={first} thumb={thumbUrls?.[0]} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} interceptFirstTap={interceptFirstTap} author={author} />;
+    return <SingleImagePost src={first} thumb={thumbUrls?.[0]} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} interceptFirstTap={interceptFirstTap} author={author} viewerAction={viewerAction} />;
   }
-  return <AlbumCarousel urls={urls} thumbUrls={thumbUrls} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} interceptFirstTap={interceptFirstTap} author={author} />;
+  return <AlbumCarousel urls={urls} thumbUrls={thumbUrls} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} interceptFirstTap={interceptFirstTap} author={author} onSlideChange={onSlideChange} viewerAction={viewerAction} />;
 };
 
 /* ── Supabase render-endpoint helpers ──
@@ -440,11 +452,39 @@ const ProgressiveImage = ({
    * rendered. A flat card background behind a letterboxed photo is a rounding
    * error next to a 14.7 MB decode.
    */
-  const lqip = backdropFailed
+  /**
+   * PHOTO PLAN U2 · BLUR PREVIEW (switch `photo_set_v2`). This backdrop is
+   * already "a tiny blurred placeholder, then the real photo fades in"; U2
+   * changes only WHICH file it is and WHEN it is fetched:
+   *   · a new photo (-l4 / -l4f) → its 320 copy (decision 6), a fraction of the
+   *     600 thumb; other CDN photos keep the stored 600 thumb; none → nothing;
+   *   · if the sharp photo is ALREADY decoded from cache at mount, no
+   *     placeholder is requested at all and the photo shows at once (no fade).
+   *     The check runs in a layout effect, before the placeholder <img> exists
+   *     and before paint, so neither a request nor a flash happens.
+   * Decided ONCE per mount (`useState(initial)`): if the switch answer arrives
+   * after today's backdrop has started loading, that backdrop is kept rather
+   * than swapped — a swap would be the extra request this must not cause.
+   * The frame (aspect-ratio box) and the srcset are untouched: no layout shift.
+   */
+  const v2Now = usePhotoSetV2();
+  const [v2] = useState(v2Now);
+  const sharpRef = useRef<HTMLImageElement | null>(null);
+  // v2 only: null = not checked yet (no placeholder yet), true = sharp photo was already cached.
+  const [cached, setCached] = useState<boolean | null>(null);
+  useLayoutEffect(() => {
+    if (!v2) return;
+    const img = sharpRef.current;
+    const ready = !!img && img.complete && img.naturalWidth > 0;
+    if (ready) setLoaded(true);
+    setCached(ready);
+  }, [v2]);
+  // Switch off: `v2` is false and this is exactly the pre-U2 expression.
+  const lqip = backdropFailed || (v2 && cached !== false)
     ? null
     : transformable
       ? buildLqipUrl(src)
-      : thumb ?? null;
+      : (v2 ? photoSetBlurUrl(src) : null) ?? thumb ?? null;
   // The sharp layer is the ORIGINAL again. The thumbnail has not been dropped —
   // it still paints the backdrop instantly, and it is the small end of the
   // srcset below, so a slot that only needs 600px still downloads only 600px.
@@ -480,6 +520,7 @@ const ProgressiveImage = ({
         />
       )}
       <img
+        ref={sharpRef}
         src={failed ? src : sharpSrc}
         srcSet={failed ? undefined : srcSet}
         sizes={!failed && srcSet ? (slowLink ? SLOW_FEED_SIZES : FEED_SIZES) : undefined}
@@ -577,7 +618,7 @@ function useTapOrDoubleTap(
 }
 
 /* ── Single Image ── */
-const SingleImagePost = ({ src, thumb, frameAspect, onNaturalSize, onDoubleTapLike, interceptFirstTap, author }: { src: string; thumb?: string | null; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void; interceptFirstTap?: () => boolean; author?: PhotoAuthor }) => {
+const SingleImagePost = ({ src, thumb, frameAspect, onNaturalSize, onDoubleTapLike, interceptFirstTap, author, viewerAction }: { src: string; thumb?: string | null; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void; interceptFirstTap?: () => boolean; author?: PhotoAuthor; viewerAction?: (index: number) => ReactNode }) => {
   const [heart, setHeart] = useState<{ x: number; y: number; id: number } | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const { downloading, download } = useDownloadImage();
@@ -611,7 +652,7 @@ const SingleImagePost = ({ src, thumb, frameAspect, onNaturalSize, onDoubleTapLi
       {/* The viewer is handed the ORIGINAL url, never the 800px render copy
           the card displays. Zooming a downscaled thumbnail would magnify the
           downscale, which is the opposite of the point. */}
-      <CarouselLightbox urls={[src]} currentIndex={lightboxOpen ? 0 : null} onClose={() => setLightboxOpen(false)} onNavigate={() => {}} author={author} />
+      <CarouselLightbox urls={[src]} currentIndex={lightboxOpen ? 0 : null} onClose={() => setLightboxOpen(false)} onNavigate={() => {}} author={author} viewerAction={viewerAction} />
     </>
   );
 };
@@ -623,7 +664,7 @@ function preloadImage(url: string | undefined) { if (!url) return; const img = n
 const SWIPE_THRESHOLD = 50;
 const SWIPE_VELOCITY = 300;
 
-const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTapLike, interceptFirstTap, author }: { urls: string[]; thumbUrls?: (string | null | undefined)[]; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void; interceptFirstTap?: () => boolean; author?: PhotoAuthor }) => {
+const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTapLike, interceptFirstTap, author, onSlideChange, viewerAction }: { urls: string[]; thumbUrls?: (string | null | undefined)[]; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void; interceptFirstTap?: () => boolean; author?: PhotoAuthor; onSlideChange?: (index: number) => void; viewerAction?: (index: number) => ReactNode }) => {
   const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -656,6 +697,9 @@ const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTa
     preloadImage(urls[(current + 1) % urls.length]);
     preloadImage(urls[(current - 1 + urls.length) % urls.length]);
   }, [current, urls]);
+
+  // U2: the card's camera line/strip follows the slide (wired only while photo_set_v2 is on).
+  useEffect(() => { onSlideChange?.(current); }, [current, onSlideChange]);
 
   const navigate = useCallback((newDir: number) => {
     setDirection(newDir);
@@ -727,15 +771,15 @@ const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTa
         </div>
       </div>
 
-      <CarouselLightbox urls={urls} currentIndex={lightboxOpen ? current : null} onClose={() => setLightboxOpen(false)} onNavigate={setCurrent} author={author} />
+      <CarouselLightbox urls={urls} currentIndex={lightboxOpen ? current : null} onClose={() => setLightboxOpen(false)} onNavigate={setCurrent} author={author} viewerAction={viewerAction} />
     </>
   );
 };
 
 /* ── Full-screen Lightbox ── */
-interface CarouselLightboxProps { urls: string[]; currentIndex: number | null; onClose: () => void; onNavigate: (index: number) => void; author?: PhotoAuthor; }
+interface CarouselLightboxProps { urls: string[]; currentIndex: number | null; onClose: () => void; onNavigate: (index: number) => void; author?: PhotoAuthor; viewerAction?: (index: number) => ReactNode; }
 
-const CarouselLightbox = ({ urls, currentIndex, onClose, onNavigate, author }: CarouselLightboxProps) => {
+const CarouselLightbox = ({ urls, currentIndex, onClose, onNavigate, author, viewerAction }: CarouselLightboxProps) => {
   const isOpen = currentIndex !== null;
   const { downloading, download } = useDownloadImage();
   const [zoomed, setZoomed] = useState(false);
@@ -789,6 +833,7 @@ const CarouselLightbox = ({ urls, currentIndex, onClose, onNavigate, author }: C
               iconSize="h-5 w-5"
               ariaLabel="Download photo"
             />
+            {viewerAction?.(currentIndex)}
             <button onClick={onClose} aria-label="Close photo viewer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors">
               <X className="h-5 w-5" />
             </button>

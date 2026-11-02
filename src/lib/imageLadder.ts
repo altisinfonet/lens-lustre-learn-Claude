@@ -218,6 +218,27 @@ export function photoSetUrl(storedUrl: string, size: PhotoSetSize): string {
 }
 
 /**
+ * U2 · GRIDS (profile grid, My Photos, notification thumbnails) — the 320 copy
+ * for a v2 photo, and NOTHING ELSE changes: an old `-l3` or unmarked URL comes
+ * back exactly as given (photoSetUrl would map `-l3` to its thumb, which is a
+ * decision today's grids already make for themselves from `thumbnail_urls`).
+ */
+export function photoSetGridUrl(url: string): string {
+  return photoSetMarker(url) ? photoSetUrl(url, 320) : url;
+}
+
+/**
+ * U2 · BLUR PLACEHOLDER for a v2 photo: its 320 copy, or null when the photo is
+ * too small to have one (the "320" would be the photo itself — nothing to gain)
+ * or is not a v2 photo (today's stored thumb serves those).
+ */
+export function photoSetBlurUrl(url: string): string | null {
+  if (!photoSetMarker(url)) return null;
+  const small = photoSetUrl(url, 320);
+  return /-r320\.[a-z0-9]+(?:[?#]|$)/i.test(small) ? small : null;
+}
+
+/**
  * The derived rung siblings (no column names them) that a v2 key promises,
  * per the dimensions in its name. The `-thumb` copy is not listed: it is
  * recorded in `thumbnail_urls` / `photo_thumbnails` like every thumb.
