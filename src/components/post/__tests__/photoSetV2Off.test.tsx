@@ -9,7 +9,7 @@
  * URLs, the case U2 changes when the switch is on. If any byte of their markup
  * moves, this file fails.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -78,9 +78,24 @@ async function settle() {
   await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
 }
 
+/**
+ * THE CLOCK IS FIXED. The feed card shows "reach / viewed by" figures that grow
+ * with the post's age (lib/displayEngagement.ts, age is its only input), so a
+ * snapshot taken with the real clock goes stale: these were written at
+ * 2026-11-02 ~13:47 UTC and fail from 15:32 UTC on (873 → 874 reach; CI run
+ * 41491197888). Only `Date` is faked; timers stay real (settle() waits on them).
+ * 14:00 UTC is inside the window the stored figures belong to (13:29–15:32).
+ */
+const SNAPSHOT_CLOCK = Date.parse("2026-11-02T14:00:00Z");
+
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(SNAPSHOT_CLOCK);
   rpc.mockClear();
   signedIn = true;
+});
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("photo_set_v2 OFF — every U2 surface renders exactly today's markup", () => {
