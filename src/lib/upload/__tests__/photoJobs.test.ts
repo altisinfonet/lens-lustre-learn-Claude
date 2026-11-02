@@ -116,3 +116,30 @@ describe("photo job", () => {
     expect(s.presigned.length).toBe(0);
   });
 });
+
+describe("photo plan U1b · photo_set_v2 on the resumable path", () => {
+  const encV2 = async (f: File): Promise<EncodedPhoto> => ({
+    full: { blob: new Blob([new Uint8Array(f.size)], { type: "image/webp" }), width: 2048, height: 1536 },
+    thumb: new Blob([new Uint8Array(10)], { type: "image/webp" }),
+    rungs: [{ rung: 1080, blob: new Blob([new Uint8Array(20)], { type: "image/webp" }) }, { rung: 320, blob: new Blob([new Uint8Array(5)], { type: "image/webp" }) }],
+    marker: "-l4",
+  });
+
+  it("a v2 encode is stored under -l4 (2048 / thumb / 1080 / 320), deterministically", async () => {
+    const j = await createPhotoJob({ id: "v1", userId: U, files: files(), post }, encV2);
+    expect(j.slots[0].objects.map((o) => o.path)).toEqual([
+      "post-images/u1/posts/v1-0-w2048h1536-l4.webp",
+      "post-images/u1/posts/v1-0-w2048h1536-l4-thumb.webp",
+      "post-images/u1/posts/v1-0-w2048h1536-l4-r1080.webp",
+      "post-images/u1/posts/v1-0-w2048h1536-l4-r320.webp",
+    ]);
+  });
+
+  it("camera details travel on the job record (read before the encode), and old jobs have none", async () => {
+    const camera = [{ ord: 1, camera: "Canon EOS R5", iso: 400 }];
+    const j = await createPhotoJob({ id: "v2", userId: U, files: files(), post, camera }, encV2);
+    expect(j.camera).toEqual(camera);
+    const old = await createPhotoJob({ id: "v3", userId: U, files: files(), post }, enc);
+    expect("camera" in old).toBe(false);
+  });
+});

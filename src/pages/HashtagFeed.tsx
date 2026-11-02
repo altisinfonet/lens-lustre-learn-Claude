@@ -15,6 +15,7 @@ import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import PresenceAvatar from "@/components/PresenceAvatar";
 import PageSEO from "@/components/PageSEO";
+import { PostCameraDetails, PostCameraInfoButton } from "@/components/post/CameraDetails";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -207,7 +208,16 @@ const HashtagFeed = () => {
                     <FeedVideoCard video={media.video} />
                   </div>
                 ) : media.imageUrls.length > 0 ? (
-                  <FacebookPhotoGrid urls={media.imageUrls} author={{ userId: post.user_id, name: post.author_name ?? null, handle: post.author_handle ?? null }} />
+                  <>
+                    {/* U2 (switch photo_set_v2): web strip under the caption, app line under the photo. */}
+                    <PostCameraDetails postId={post.id} imageUrls={media.imageUrls} place="caption" />
+                    <FacebookPhotoGrid
+                      urls={media.imageUrls}
+                      author={{ userId: post.user_id, name: post.author_name ?? null, handle: post.author_handle ?? null }}
+                      viewerAction={(i) => <PostCameraInfoButton postId={post.id} imageUrls={media.imageUrls} index={i} />}
+                    />
+                    <PostCameraDetails postId={post.id} imageUrls={media.imageUrls} place="photo" />
+                  </>
                 ) : null;
               })()}
             </div>

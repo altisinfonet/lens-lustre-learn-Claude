@@ -13,8 +13,6 @@ import type { FeedVideo } from "@/lib/video/postVideoRead";
 import { useAuth } from "@/hooks/core/useAuth";
 import { fetchProfileMap } from "@/lib/profileMapCache";
 import { Globe, Users, Lock, ArrowLeft, Share2, Copy, Flag, MoreHorizontal, MessageCircle, Eye, WifiOff } from "lucide-react";
-import { useDownloadImage } from "@/hooks/core/useDownloadImage";
-import DownloadButton from "@/components/DownloadButton";
 import { toast } from "@/hooks/core/use-toast";
 import RichContentRenderer from "@/components/RichContentRenderer";
 import TranslateBar from "@/components/post/TranslateBar";
@@ -137,7 +135,6 @@ const PostDetail = () => {
   const shownRef = useRef<{ postId: string; viewer: string | null } | null>(null);
   offlineRef.current = offline;
   const [showComments, setShowComments] = useState(true);
-  const { downloading, download: downloadImg } = useDownloadImage();
 
   const { blockedIds } = useBlockedUsers();
   // S4-a: the page now scrolls on into the author's posts and the feed — Back

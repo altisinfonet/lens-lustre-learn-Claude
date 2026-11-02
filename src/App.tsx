@@ -18,6 +18,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import RedirectHandler from "@/components/RedirectHandler";
 import { AndroidBackButton } from "@/hooks/core/useAndroidBackButton";
+import AppPhotoSaveGuard from "@/components/AppPhotoSaveGuard";
 import BrandLoader from "@/components/BrandLoader";
 import DynamicFavicon from "@/components/DynamicFavicon";
 import SplashScreen from "@/components/SplashScreen";
@@ -378,6 +379,9 @@ const App = () => {
               No-op on the web. See useAndroidBackButton.ts for the priority
               order (close overlay -> go back -> exit app). */}
           <AndroidBackButton />
+          {/* Photo plan U3: in the app with photo_set_v2 on, long-press
+              "save image" is off on every photo. Web / switch off: nothing. */}
+          <AppPhotoSaveGuard />
           <LanguageAccountSync />
           {/* OFF-1: feed, profiles, own posts, notifications kept on the device. */}
           <OfflineDeviceStoreBridge />

@@ -36,6 +36,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { avatarInitial } from "@/lib/displayName";
 import BlockUserDialog from "@/components/moderation/BlockUserDialog";
+import { CameraInfoButton, CameraLine, CameraStrip } from "@/components/post/CameraDetails";
+import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
+import { postPhotoCameraKey, usePostPhotoCamera } from "@/hooks/feed/usePostPhotoCamera";
+import { cameraStateFor } from "@/lib/photoCameraDisplay";
+import { setPostPhotoCameraHidden } from "@/lib/photoCameraRead";
+import { isNativeApp } from "@/lib/video/playback";
 
 const displayFont = { fontFamily: "var(--font-display)" };
 const headingFont = { fontFamily: "var(--font-heading)" };
@@ -196,6 +202,31 @@ const PostCard = ({
     post.thumbnail_urls && post.thumbnail_urls.length === imageUrls.length
       ? post.thumbnail_urls
       : undefined;
+
+  /**
+   * PHOTO PLAN U2 · CAMERA DETAILS (switch `photo_set_v2`; OFF ⇒ none of this
+   * renders and nothing is read — photoSetV2Off.test.tsx pins today's markup).
+   * App: one line under the photo + ⓘ in the full-screen viewer. Web: the
+   * compact strip under the caption. Batched read: one call per page of cards.
+   */
+  const photoSetOn = usePhotoSetV2();
+  const inApp = isNativeApp();
+  const cameraRows = usePostPhotoCamera(post.id, photoSetOn && imageUrls.length > 0);
+  const [cameraSlide, setCameraSlide] = useState(0);
+  const cameraState = photoSetOn ? cameraStateFor(cameraRows, cameraSlide, imageUrls[cameraSlide]) : null;
+  const cameraHidden = !!cameraRows?.some((r) => r.hidden);
+  const toggleCameraHidden = async () => {
+    setActionLoading(true);
+    try {
+      await setPostPhotoCameraHidden(post.id, !cameraHidden);
+      await queryClient.invalidateQueries({ queryKey: postPhotoCameraKey(post.id) });
+      toast({ title: cameraHidden ? "Camera details are shown again" : "Camera details hidden from others" });
+    } catch {
+      toast({ title: "Could not change the camera details", description: "Please try again.", variant: "destructive" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!currentUserId) return;
@@ -483,6 +514,13 @@ const PostCard = ({
                   >
                     <Pencil className="h-4 w-4 mr-2.5" /> Edit caption
                   </DropdownMenuItem>
+                  {photoSetOn && !!cameraRows && cameraRows.length > 0 && (
+                    <DropdownMenuItem onClick={toggleCameraHidden} disabled={actionLoading} className="py-2.5" data-testid="post-camera-hidden">
+                      {cameraHidden
+                        ? <><Eye className="h-4 w-4 mr-2.5" /> Show camera details</>
+                        : <><EyeOff className="h-4 w-4 mr-2.5" /> Hide camera details</>}
+                    </DropdownMenuItem>
+                  )}
                   {viewerIsTagged && (
                     <DropdownMenuItem
                       onClick={removeMyTag}
@@ -608,6 +646,10 @@ const PostCard = ({
             /* RED #5 + #8 — the card already knows whose photograph this is;
                the viewer did not. Same three fields the header link uses. */
             author={{ userId: post.user_id, name: post.author_name ?? null, handle: post.author_handle ?? null }}
+            onSlideChange={photoSetOn ? setCameraSlide : undefined}
+            viewerAction={photoSetOn && inApp
+              ? (i) => <CameraInfoButton state={cameraStateFor(cameraRows, i, imageUrls[i])} />
+              : undefined}
             onDoubleTapLike={() => {
               if (currentUserId && !post.user_reaction) onReact(post.id, "like");
             }}
@@ -642,6 +684,8 @@ const PostCard = ({
           )}
         </div>
       )}
+      {/* U2 · APP: one small camera line under the photo; nothing when it has none. */}
+      {photoSetOn && inApp && <CameraLine state={cameraState} />}
 
       {/* ── ACTION ROW — ICONS WITH THEIR COUNTS BESIDE THEM ──
 
@@ -800,6 +844,8 @@ const PostCard = ({
           }
         />
       )}
+      {/* U2 · WEB: the compact camera strip under the caption (not sticky). */}
+      {photoSetOn && !inApp && !isEditing && <CameraStrip state={cameraState} />}
     </div>
   );
 };

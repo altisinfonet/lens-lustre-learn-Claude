@@ -63,7 +63,8 @@ export interface ImageDims {
  */
 // `-l3` is the B3d ladder marker (see imageLadder.ts); it sits between the
 // dims and the optional `-thumb`, and parsing must tolerate all four forms.
-const DIMS_RE = /-w(\d{1,6})h(\d{1,6})(?:-l3)?(?:-thumb)?\.[a-z0-9]+$/i;
+// `-l4` / `-l4f` is the photo set v2 marker (photo plan U1b), same position.
+const DIMS_RE = /-w(\d{1,6})h(\d{1,6})(?:-l3|-l4f?)?(?:-thumb)?\.[a-z0-9]+$/i;
 
 /** Upper bound on a plausible photo edge. Guards against a garbage filename. */
 const MAX_EDGE = 100_000;

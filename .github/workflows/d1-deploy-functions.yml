@@ -177,7 +177,10 @@ jobs:
           set -euo pipefail
           while read -r n; do
             echo "── deploying $n"
-            supabase functions deploy "$n" --project-ref "$PROJECT_REF"
+            # --yes: the CLI (setup-cli `latest`) now asks before deploying and
+            # cannot ask here (run 41490540929 refused, nothing changed). This
+            # workflow has already confirmed: functions == confirm, lane-guarded.
+            supabase functions deploy "$n" --project-ref "$PROJECT_REF" --yes
           done < /tmp/deploy.txt
 
       - name: Re-read after deploy

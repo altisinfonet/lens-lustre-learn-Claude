@@ -11,10 +11,10 @@
  * which is exactly what stopped the notification bell being enlarged in the
  * same pass. The glyphs inside are unchanged.
  */
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { CDN_HOST as LANE_CDN_HOST, SITE_ORIGIN } from "@/lib/env";
 import { X, ChevronLeft, ChevronRight, Heart } from "lucide-react";
-import { useDownloadImage } from "@/hooks/core/useDownloadImage";
+import { usePhotoDownload } from "@/hooks/core/usePhotoDownload";
 import DownloadButton from "@/components/DownloadButton";
 import ProfileLink from "@/components/ProfileLink";
 import type { PhotoAuthor } from "@/components/FacebookPhotoGrid";
@@ -22,8 +22,11 @@ import ZoomableImage from "@/components/media/ZoomableImage";
 import { ladderFor, originalFor } from "@/lib/media/resolvedMedia";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import { frameAspectFor, frameAspectForUrls, parseImageDims } from "@/lib/imageFrame";
-import { hasLadderMarker, rungPath, rungPlan, rungWidthFor } from "@/lib/imageLadder";
+import { hasLadderMarker, photoSetBlurUrl, rungPath, rungPlan, rungWidthFor } from "@/lib/imageLadder";
+import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
 import { useNetworkQuality } from "@/hooks/core/useNetworkQuality";
+import { useDataSaver } from "@/hooks/core/useDataSaver";
+import { feedPhotoSet, fullScreenPhotoUrl } from "@/lib/photoProtection";
 
 interface PostMediaProps {
   urls: string[];
@@ -54,6 +57,17 @@ interface PostMediaProps {
    * identical prop rather than growing a second shape for the same fact.
    */
   author?: PhotoAuthor;
+  /**
+   * Photo plan U2 (switch `photo_set_v2`, given only while it is on): which
+   * photo of an album is showing, so the card's camera line/strip can follow it.
+   */
+  onSlideChange?: (index: number) => void;
+  /**
+   * Photo plan U2 (app, switch on): an extra control in the full-screen
+   * viewer's top bar for the photo at `index` — the camera-details ⓘ.
+   * Absent ⇒ the viewer renders exactly as before.
+   */
+  viewerAction?: (index: number) => ReactNode;
 }
 
 /**
@@ -79,7 +93,7 @@ interface PostMediaProps {
  * A photo WITH dimensions in its name is never measured, so new posts still
  * have zero reflow.
  */
-const PostMedia = ({ urls, thumbUrls, onDoubleTapLike, interceptFirstTap, author }: PostMediaProps) => {
+const PostMedia = ({ urls, thumbUrls, onDoubleTapLike, interceptFirstTap, author, onSlideChange, viewerAction }: PostMediaProps) => {
   const first = urls[0];
   // One frame per card, taken from the first photo — see src/lib/imageFrame.ts.
   // An album must not resize between slides: the buttons would move under the
@@ -105,9 +119,9 @@ const PostMedia = ({ urls, thumbUrls, onDoubleTapLike, interceptFirstTap, author
 
   const frameAspect = measuredAspect ?? declaredAspect;
   if (urls.length === 1) {
-    return <SingleImagePost src={first} thumb={thumbUrls?.[0]} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} interceptFirstTap={interceptFirstTap} author={author} />;
+    return <SingleImagePost src={first} thumb={thumbUrls?.[0]} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} interceptFirstTap={interceptFirstTap} author={author} viewerAction={viewerAction} />;
   }
-  return <AlbumCarousel urls={urls} thumbUrls={thumbUrls} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} interceptFirstTap={interceptFirstTap} author={author} />;
+  return <AlbumCarousel urls={urls} thumbUrls={thumbUrls} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} interceptFirstTap={interceptFirstTap} author={author} onSlideChange={onSlideChange} viewerAction={viewerAction} />;
 };
 
 /* ── Supabase render-endpoint helpers ──
@@ -316,7 +330,7 @@ function intrinsicFromName(url: string): { w: number; h: number } | null {
   // The uploader bakes the size into the filename: `…-w1920h1280.webp`, and
   // `…-w1920h1280-thumb.webp` for its 600px copy. Without those numbers there
   // are no width descriptors and srcset cannot be built at all.
-  const m = url.match(/-w(\d+)h(\d+)(?:-l3)?(?:-thumb)?\.[a-z0-9]+(?:[?#]|$)/i);
+  const m = url.match(/-w(\d+)h(\d+)(?:-l3|-l4f?)?(?:-thumb)?\.[a-z0-9]+(?:[?#]|$)/i);
   if (!m) return null;
   const w = Number(m[1]);
   const h = Number(m[2]);
@@ -440,17 +454,58 @@ const ProgressiveImage = ({
    * rendered. A flat card background behind a letterboxed photo is a rounding
    * error next to a 14.7 MB decode.
    */
-  const lqip = backdropFailed
+  /**
+   * PHOTO PLAN U2 · BLUR PREVIEW (switch `photo_set_v2`). This backdrop is
+   * already "a tiny blurred placeholder, then the real photo fades in"; U2
+   * changes only WHICH file it is and WHEN it is fetched:
+   *   · a new photo (-l4 / -l4f) → its 320 copy (decision 6), a fraction of the
+   *     600 thumb; other CDN photos keep the stored 600 thumb; none → nothing;
+   *   · if the sharp photo is ALREADY decoded from cache at mount, no
+   *     placeholder is requested at all and the photo shows at once (no fade).
+   *     The check runs in a layout effect, before the placeholder <img> exists
+   *     and before paint, so neither a request nor a flash happens.
+   * Decided ONCE per mount (`useState(initial)`): if the switch answer arrives
+   * after today's backdrop has started loading, that backdrop is kept rather
+   * than swapped — a swap would be the extra request this must not cause.
+   * The frame (aspect-ratio box) and the srcset are untouched: no layout shift.
+   */
+  const v2Now = usePhotoSetV2();
+  const [v2] = useState(v2Now);
+  const sharpRef = useRef<HTMLImageElement | null>(null);
+  // v2 only: null = not checked yet (no placeholder yet), true = sharp photo was already cached.
+  const [cached, setCached] = useState<boolean | null>(null);
+  useLayoutEffect(() => {
+    if (!v2) return;
+    const img = sharpRef.current;
+    const ready = !!img && img.complete && img.naturalWidth > 0;
+    if (ready) setLoaded(true);
+    setCached(ready);
+  }, [v2]);
+  // Switch off: `v2` is false and this is exactly the pre-U2 expression.
+  const lqip = backdropFailed || (v2 && cached !== false)
     ? null
     : transformable
       ? buildLqipUrl(src)
-      : thumb ?? null;
+      : (v2 ? photoSetBlurUrl(src) : null) ?? thumb ?? null;
   // The sharp layer is the ORIGINAL again. The thumbnail has not been dropped —
   // it still paints the backdrop instantly, and it is the small end of the
   // srcset below, so a slot that only needs 600px still downloads only 600px.
-  const sharpSrc = transformable ? buildRenderUrl(src, 800) : src;
+  /**
+   * PHOTO PLAN U4 (switch `photo_set_v2`, decided once per mount like `v2`):
+   *   · a new photo (-l4 / -l4f) → its 600 + 1080 copies, src = 1080 — the
+   *     feed keeps 1080; the credited 2048 is for full screen only;
+   *   · "Save mobile data" on mobile data → one size down: the 600 copy alone,
+   *     and old photos are told the slot is small (SLOW_FEED_SIZES → their 600).
+   * Switch off: `v2Set` is null and `saving` false — exactly the pre-U4 render.
+   */
+  const saving = useDataSaver().saving;
+  const v2Set = v2 ? feedPhotoSet(src, saving) : null;
+  const sharpSrc = v2Set ? v2Set.src : transformable ? buildRenderUrl(src, 800) : src;
   let srcSet = transformable ? buildSrcSet(src) : buildThumbFirstSrcSet(thumb, src);
   if (ladder) srcSet = ladder.srcSet; // S3-c: 600/1080/1440 derivatives, never the original
+  if (v2Set) srcSet = v2Set.srcSet;
+  // A v2 copy that fails falls back to the credited 2048 (never `-l4f`'s full size).
+  const failSrc = v2Set ? fullScreenPhotoUrl(src, true) : src;
 
   return (
     <>
@@ -480,9 +535,10 @@ const ProgressiveImage = ({
         />
       )}
       <img
-        src={failed ? src : sharpSrc}
+        ref={sharpRef}
+        src={failed ? failSrc : sharpSrc}
         srcSet={failed ? undefined : srcSet}
-        sizes={!failed && srcSet ? (slowLink ? SLOW_FEED_SIZES : FEED_SIZES) : undefined}
+        sizes={!failed && srcSet ? (slowLink || saving ? SLOW_FEED_SIZES : FEED_SIZES) : undefined}
         alt=""
         className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"} ${className ?? ""}`}
         loading="lazy"
@@ -577,10 +633,11 @@ function useTapOrDoubleTap(
 }
 
 /* ── Single Image ── */
-const SingleImagePost = ({ src, thumb, frameAspect, onNaturalSize, onDoubleTapLike, interceptFirstTap, author }: { src: string; thumb?: string | null; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void; interceptFirstTap?: () => boolean; author?: PhotoAuthor }) => {
+const SingleImagePost = ({ src, thumb, frameAspect, onNaturalSize, onDoubleTapLike, interceptFirstTap, author, viewerAction }: { src: string; thumb?: string | null; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void; interceptFirstTap?: () => boolean; author?: PhotoAuthor; viewerAction?: (index: number) => ReactNode }) => {
   const [heart, setHeart] = useState<{ x: number; y: number; id: number } | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const { downloading, download } = useDownloadImage();
+  // U3: posts are member photos — with photo_set_v2 on, nobody is offered download. Off: today.
+  const { canDownload, downloading, download } = usePhotoDownload(false);
 
   const handleTap = useTapOrDoubleTap(
     (x, y) => {
@@ -602,16 +659,18 @@ const SingleImagePost = ({ src, thumb, frameAspect, onNaturalSize, onDoubleTapLi
       <div className="relative group/img w-full overflow-hidden rounded-sm bg-muted/30 cursor-zoom-in" style={{ aspectRatio: String(frameAspect) }} onClick={handleTap}>
         <ProgressiveImage src={src} thumb={thumb} onNaturalSize={onNaturalSize} />
         <AnimatePresence>{heart && <DoubleTapHeart key={heart.id} x={heart.x} y={heart.y} />}</AnimatePresence>
-        <DownloadButton
-          downloading={downloading === src}
-          onClick={(e) => { e.stopPropagation(); download(src); }}
-          className="absolute bottom-3 right-3 grid h-11 w-11 place-items-center rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-card shadow-sm"
-        />
+        {canDownload && (
+          <DownloadButton
+            downloading={downloading === src}
+            onClick={(e) => { e.stopPropagation(); download(src); }}
+            className="absolute bottom-3 right-3 grid h-11 w-11 place-items-center rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-card shadow-sm"
+          />
+        )}
       </div>
       {/* The viewer is handed the ORIGINAL url, never the 800px render copy
           the card displays. Zooming a downscaled thumbnail would magnify the
           downscale, which is the opposite of the point. */}
-      <CarouselLightbox urls={[src]} currentIndex={lightboxOpen ? 0 : null} onClose={() => setLightboxOpen(false)} onNavigate={() => {}} author={author} />
+      <CarouselLightbox urls={[src]} currentIndex={lightboxOpen ? 0 : null} onClose={() => setLightboxOpen(false)} onNavigate={() => {}} author={author} viewerAction={viewerAction} />
     </>
   );
 };
@@ -623,12 +682,12 @@ function preloadImage(url: string | undefined) { if (!url) return; const img = n
 const SWIPE_THRESHOLD = 50;
 const SWIPE_VELOCITY = 300;
 
-const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTapLike, interceptFirstTap, author }: { urls: string[]; thumbUrls?: (string | null | undefined)[]; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void; interceptFirstTap?: () => boolean; author?: PhotoAuthor }) => {
+const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTapLike, interceptFirstTap, author, onSlideChange, viewerAction }: { urls: string[]; thumbUrls?: (string | null | undefined)[]; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void; interceptFirstTap?: () => boolean; author?: PhotoAuthor; onSlideChange?: (index: number) => void; viewerAction?: (index: number) => ReactNode }) => {
   const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [heart, setHeart] = useState<{ x: number; y: number; id: number } | null>(null);
-  const { downloading, download } = useDownloadImage();
+  const { canDownload, downloading, download } = usePhotoDownload(false); // U3: see SingleImagePost
 
   /**
    * A swipe ends in a click event. Without this the member would flick to the
@@ -656,6 +715,9 @@ const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTa
     preloadImage(urls[(current + 1) % urls.length]);
     preloadImage(urls[(current - 1 + urls.length) % urls.length]);
   }, [current, urls]);
+
+  // U2: the card's camera line/strip follows the slide (wired only while photo_set_v2 is on).
+  useEffect(() => { onSlideChange?.(current); }, [current, onSlideChange]);
 
   const navigate = useCallback((newDir: number) => {
     setDirection(newDir);
@@ -698,11 +760,13 @@ const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTa
 
         <div className="absolute top-3 right-3 z-10 px-2 py-0.5 rounded-full bg-black/50 text-white text-xs font-medium">{current + 1}/{urls.length}</div>
 
-        <DownloadButton
-          downloading={downloading === urls[current]}
-          onClick={(e) => { e.stopPropagation(); download(urls[current]); }}
-          className="absolute bottom-3 right-3 grid h-11 w-11 place-items-center rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/album:opacity-100 transition-opacity hover:bg-card shadow-sm z-10"
-        />
+        {canDownload && (
+          <DownloadButton
+            downloading={downloading === urls[current]}
+            onClick={(e) => { e.stopPropagation(); download(urls[current]); }}
+            className="absolute bottom-3 right-3 grid h-11 w-11 place-items-center rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/album:opacity-100 transition-opacity hover:bg-card shadow-sm z-10"
+          />
+        )}
 
         {/* THE DOTS STAY 6px AND 8px; THE BUTTONS AROUND THEM ARE 44x32.
             Reported by the sweep at 8x8 and 6x6 — the smallest controls in the
@@ -727,17 +791,17 @@ const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTa
         </div>
       </div>
 
-      <CarouselLightbox urls={urls} currentIndex={lightboxOpen ? current : null} onClose={() => setLightboxOpen(false)} onNavigate={setCurrent} author={author} />
+      <CarouselLightbox urls={urls} currentIndex={lightboxOpen ? current : null} onClose={() => setLightboxOpen(false)} onNavigate={setCurrent} author={author} viewerAction={viewerAction} />
     </>
   );
 };
 
 /* ── Full-screen Lightbox ── */
-interface CarouselLightboxProps { urls: string[]; currentIndex: number | null; onClose: () => void; onNavigate: (index: number) => void; author?: PhotoAuthor; }
+interface CarouselLightboxProps { urls: string[]; currentIndex: number | null; onClose: () => void; onNavigate: (index: number) => void; author?: PhotoAuthor; viewerAction?: (index: number) => ReactNode; }
 
-const CarouselLightbox = ({ urls, currentIndex, onClose, onNavigate, author }: CarouselLightboxProps) => {
+const CarouselLightbox = ({ urls, currentIndex, onClose, onNavigate, author, viewerAction }: CarouselLightboxProps) => {
   const isOpen = currentIndex !== null;
-  const { downloading, download } = useDownloadImage();
+  const { canDownload, downloading, download } = usePhotoDownload(false); // U3: see SingleImagePost
   const [zoomed, setZoomed] = useState(false);
 
   const goPrev = useCallback(() => { if (currentIndex === null) return; onNavigate(currentIndex > 0 ? currentIndex - 1 : urls.length - 1); }, [currentIndex, urls.length, onNavigate]);
@@ -782,13 +846,18 @@ const CarouselLightbox = ({ urls, currentIndex, onClose, onNavigate, author }: C
           )}
           <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
             <span className="text-sm text-white/60 mr-2">{currentIndex + 1} / {urls.length}</span>
-            <DownloadButton
-              downloading={downloading === urls[currentIndex]}
-              onClick={(e) => { e.stopPropagation(); download(urls[currentIndex]); }}
-              className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors disabled:opacity-60"
-              iconSize="h-5 w-5"
-              ariaLabel="Download photo"
-            />
+            {/* U3: no download with photo_set_v2 on; the counter, the ⓘ action
+                and Close keep their order, so focus is name → ⓘ → Close. */}
+            {canDownload && (
+              <DownloadButton
+                downloading={downloading === urls[currentIndex]}
+                onClick={(e) => { e.stopPropagation(); download(urls[currentIndex]); }}
+                className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors disabled:opacity-60"
+                iconSize="h-5 w-5"
+                ariaLabel="Download photo"
+              />
+            )}
+            {viewerAction?.(currentIndex)}
             <button onClick={onClose} aria-label="Close photo viewer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors">
               <X className="h-5 w-5" />
             </button>

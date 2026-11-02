@@ -119,11 +119,25 @@ async function publish(j: PhotoJob): Promise<string> {
   throw new PhotoRefused(settled.error.message);
 }
 
+/**
+ * U1b: once the post exists, its camera details (read before the encode, kept
+ * on the job) are saved with ONE set_post_photo_camera call. Fire-and-forget:
+ * savePostPhotoCamera never throws, and the post is never held for it. A
+ * replayed publish returns the same post and the save is idempotent per ord.
+ */
+async function publishAndSaveCamera(j: PhotoJob): Promise<string> {
+  const postId = await publish(j);
+  if (j.camera && j.camera.length > 0) {
+    void import("@/lib/photoCamera").then((m) => m.savePostPhotoCamera(postId, j.camera!)).catch(() => undefined);
+  }
+  return postId;
+}
+
 export const realPhotoJobDeps: PhotoJobDeps = {
   presign: (objs) => presignObjects(objs),
   put: (url, data, contentType, represign, onProgress) =>
     putWithRetry(url, data, { label: "Photo", headers: { "Content-Type": contentType }, represign, onProgress: (sent) => onProgress(sent) }),
-  publish,
+  publish: publishAndSaveCamera,
   online: () => onlineManager.isOnline(),
   now: () => Date.now(),
 };

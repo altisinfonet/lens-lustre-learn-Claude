@@ -182,6 +182,13 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
       "Correct by design — the Post button is disabled in this state, so reaching this branch means the button and createPost's guard disagreed. Check both; they are meant to carry the same three conditions. Until Stage B2 activates POST-CAT-002 this guard is the only thing enforcing the 1-5 rule.",
   },
   {
+    code: "POST-2009",
+    severity: "warn",
+    description: "A new post's camera details (photo plan U1b, switch photo_set_v2) could not be saved.",
+    resolution:
+      "The post itself SUCCEEDED — the details are never allowed to fail or hold it. PHOTO-CAM-007 in the reason means photo_set_v2 was not on for the member when the call reached the server (the screen's 60-second switch cache and the server disagreed); any other PHOTO-CAM code is a payload the client mapper (src/lib/photoCamera.ts) should never build — reproduce it in photoCamera.test.ts.",
+  },
+  {
     code: "DRAFT-2001",
     severity: "warn",
     description: "Saving a post draft was refused.",
@@ -495,6 +502,13 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     description: "The photo location (GPS) check could not load its reader, so an original photo was not uploaded.",
     resolution:
       "The guard is failing closed by design: without the reader it cannot prove the photo carries no location. The reader is loaded on demand (P13); a failed load means the page could not fetch its own files (offline web, or a deploy replaced them). The member can retry once the page reloads. A steady rate on a healthy network means the on-demand chunk is missing from the deploy.",
+  },
+  {
+    code: "FILE-5014",
+    severity: "warn",
+    description: "The new photo set (2048/1080/600/320, switch photo_set_v2) could not be made on this device, so today's set was uploaded instead.",
+    resolution:
+      "The member's upload SUCCEEDS with today's copies (no credit, no 320). One photo is usually an unusual file; many on one platform mean its canvas or WebP encoder refuses the new path — compare with FILE-5004 on the same device. U5's backfill can make the new set for these photos later.",
   },
 
   // ── STORY ─────────────────────────────────────────────────────────────────
