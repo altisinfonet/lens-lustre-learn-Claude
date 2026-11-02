@@ -66,8 +66,8 @@ describe("U5 backfill keys — the -l4 set written BESIDE an old photo", () => {
     const src = readFileSync(join(process.cwd(), "supabase/functions/detect-orphan-files/index.ts"), "utf8");
     const snap = src.slice(src.indexOf("const SNAPSHOT_COLUMNS"), src.indexOf("];", src.indexOf("const SNAPSHOT_COLUMNS")));
     expect(snap).toMatch(/\{ table: "photo_set_backfill", columns: \["new_url", "new_thumb"\] \}/);
-    // the OLD url is deliberately not a reference there: after the swap it must become collectable (U7)
-    expect(snap).not.toMatch(/photo_set_backfill"[^}]*old_url/);
+    // after the swap the old photo is what the swap rollback restores: referenced while the swap record exists
+    expect(snap).toMatch(/\{ table: "photo_set_swap", columns: \["old_image_urls", "old_thumbnail_urls", "old_image_url", "old_thumbnail_url"\] \}/);
   });
 
   it("slot keys use the uploader's spelling and nothing else", () => {

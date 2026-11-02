@@ -37,7 +37,7 @@ BEGIN
   RAISE NOTICE 'photo-set backfill (lane %, CDN %): pending photos=% · recorded=% · swapped posts=%',
     current_setting('p32.lane'), _host, _pending, _recorded, (SELECT count(*) FROM public.photo_set_swap);
 
-  IF _host IS DISTINCT FROM CASE current_setting('p32.lane') WHEN 'production' THEN 'cdn.50mmretina.com' ELSE 'cdn-staging.50mmretina.com' END THEN
+  IF _host IS DISTINCT FROM (CASE current_setting('p32.lane') WHEN 'production' THEN 'cdn.50mmretina.com' ELSE 'cdn-staging.50mmretina.com' END) THEN
     RAISE EXCEPTION 'PROBE FAIL A2: the CDN host % is not this lane''s', _host;
   END IF;
   IF EXISTS (SELECT 1 FROM pg_class WHERE oid IN ('public.photo_set_backfill'::regclass, 'public.photo_set_swap'::regclass) AND NOT relrowsecurity) THEN

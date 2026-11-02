@@ -59,3 +59,20 @@ Friends-only / only-me posts are not visible to the anon read; the census
 * SQL: fixture `scripts/db-photo-set-backfill-fixture.mjs` on both lane shapes
   (CI `d1-photo-set-backfill-fixture.yml`).
 * The backfill record keeps every old URL, which is the list U7 starts from.
+* Orphan report: recorded new copies count as referenced before the swap;
+  after it, the old files stay referenced through `photo_set_swap.old_*` (the
+  swap rollback needs them) until U7 retires those rows.
+
+## Known limits (independent review of #832, recorded)
+
+* `put` checks "nothing at the key" and then writes (two R2 calls, not one
+  conditional put). Only this route writes these keys and runs are
+  serialised per lane (workflow concurrency), so there is no second writer.
+* `photo_set_backfill_record` is callable by an admin / the converter directly,
+  without the `done` route's per-copy HEAD. The worker never does that; a
+  person doing it by hand could make the swap point at a missing copy.
+* Photos past slot 50 of one post are not queued (no post on either lane has
+  more than 10); such a post would stay MISSING in the census and never swap.
+* When `thumbnail_urls` was NULL and a post mixes converted and unconverted
+  photos, the swap writes NULL into the unconverted slots (the display falls
+  back to the photo itself, as for any missing thumb). Rolled back exactly.

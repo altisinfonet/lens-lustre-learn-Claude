@@ -151,10 +151,13 @@ const SNAPSHOT_COLUMNS: { table: string; columns: string[] }[] = [
   { table: "_v3_preflight_snapshot_judging_tags", columns: ["image_url"] },
   // Photo plan U5 (20261110_0101): an old photo's backfilled v2 set, recorded
   // before the URL swap puts it in `posts`. Its -r1080 / -r320 siblings follow
-  // from the `-l4` marker below. The OLD url is deliberately NOT listed: after
-  // the swap the old file must become collectable (U7). Listed here, not in
-  // REFERENCE_COLUMNS, so a lane where 0101 is not applied yet is tolerated.
+  // from the `-l4` marker below. Listed here, not in REFERENCE_COLUMNS, so a
+  // lane where 0101 is not applied yet is tolerated.
   { table: "photo_set_backfill", columns: ["new_url", "new_thumb"] },
+  // …and after the swap, the OLD photo is what 20261110_0102's rollback puts
+  // back: kept referenced while the swap record exists. U7 deletes old files
+  // only through its own audited path, which retires these rows first.
+  { table: "photo_set_swap", columns: ["old_image_urls", "old_thumbnail_urls", "old_image_url", "old_thumbnail_url"] },
 ];
 
 Deno.serve(async (req) => {
