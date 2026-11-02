@@ -145,6 +145,13 @@ const loadImage = async (file: File | Blob): Promise<CanvasImageSource & { width
 };
 
 /**
+ * The same decoder, for the photo set v2 encoder (photoSetEncode.ts), which
+ * decodes ONCE and draws every copy from that one bitmap. Same two decode
+ * paths, same ImageDecodeError — nothing here changes for existing callers.
+ */
+export const decodeImageForCanvas = loadImage;
+
+/**
  * Load an image from a URL into an HTMLImageElement.
  */
 const loadImageFromUrl = (url: string): Promise<HTMLImageElement> =>

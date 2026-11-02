@@ -27,6 +27,10 @@ import { useSubmitCompetitionEntry } from "@/hooks/competition/useCompetitionEnt
 import { storageRemove } from "@/lib/storageUpload";
 import { uploadImageWithThumbnail } from "@/lib/imageUpload";
 import { useAuth } from "@/hooks/core/useAuth";
+import { useFeatureAllowed } from "@/hooks/core/useFeatureAllowed";
+import { useProfileCore } from "@/hooks/profile/useProfileData";
+import { photoSetOption } from "@/lib/photoSetUpload";
+import { photoSetSiblingKeys } from "@/lib/imageLadder";
 import { useUserRoles } from "@/hooks/profile/useUserRoles";
 import { useWallet } from "@/hooks/wallet/useWallet";
 import { toast } from "@/hooks/core/use-toast";
@@ -63,6 +67,10 @@ const CompetitionSubmit = () => {
   const t = useT();
   const { id: slugOrId } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
+  // Photo plan U1b: with photo_set_v2 on, an entry also gets the credited 2048
+  // (owner = the entrant, the signed-in member) + 1080 / 600 / 320 copies.
+  const photoSetV2 = useFeatureAllowed("photo_set_v2");
+  const { data: entrantProfile } = useProfileCore(user?.id);
   const { loading: rolesLoading } = useUserRoles();
   const { balance, deductFunds, loading: walletLoading } = useWallet();
   const navigate = useNavigate();
@@ -161,6 +169,8 @@ const CompetitionSubmit = () => {
           type: "competition",
           userId: user.id,
           cacheControl: "3600",
+          // U1b: adds no key at all when photo_set_v2 is off (today's call exactly).
+          ...photoSetOption(photoSetV2, entrantProfile),
         });
 
         // Default per-photo title: filename without extension (user can edit)
@@ -206,6 +216,8 @@ const CompetitionSubmit = () => {
     const p = photos[index];
     const paths = [p.path];
     if (p.thumbnailPath && p.thumbnailPath !== p.path) paths.push(p.thumbnailPath);
+    // U1b: a -l4f entry's 2048 / 1080 / 320 copies go with it ([] for every other name).
+    paths.push(...photoSetSiblingKeys(p.path));
     await storageRemove("competition-photos", paths);
     setPhotos((prev) => prev.filter((_, i) => i !== index));
   };

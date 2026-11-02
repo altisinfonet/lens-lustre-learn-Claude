@@ -316,7 +316,7 @@ function intrinsicFromName(url: string): { w: number; h: number } | null {
   // The uploader bakes the size into the filename: `…-w1920h1280.webp`, and
   // `…-w1920h1280-thumb.webp` for its 600px copy. Without those numbers there
   // are no width descriptors and srcset cannot be built at all.
-  const m = url.match(/-w(\d+)h(\d+)(?:-l3)?(?:-thumb)?\.[a-z0-9]+(?:[?#]|$)/i);
+  const m = url.match(/-w(\d+)h(\d+)(?:-l3|-l4f?)?(?:-thumb)?\.[a-z0-9]+(?:[?#]|$)/i);
   if (!m) return null;
   const w = Number(m[1]);
   const h = Number(m[2]);
