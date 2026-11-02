@@ -26,6 +26,7 @@ import { LADDER_MARKER, RUNG_QUALITY, rungPath, rungPlan } from "@/lib/imageLadd
 import { dimsSuffix } from "@/lib/imageFrame";
 import { backoffMs } from "@/lib/offline/outbox";
 import { idbUploadStore, memoryUploadStore, type UploadJobStore } from "./jobStore";
+import type { CameraItem } from "@/lib/photoCamera";
 
 export const PHOTO_DB = "retina-photo-uploads";
 export const PHOTO_MAX_ATTEMPTS = 12;
@@ -58,6 +59,12 @@ export interface PhotoJob {
   nextAt: number;
   postId?: string;
   lastError?: string;
+  /**
+   * Photo plan U1b (photo_set_v2 on): camera details read from the ORIGINAL
+   * files before the encode, saved with set_post_photo_camera once the post
+   * exists (photoJobDeps.publish). Absent on jobs made with the switch off.
+   */
+  camera?: CameraItem[];
 }
 
 /** The server said no: retrying cannot help. */
@@ -98,6 +105,13 @@ export interface EncodedPhoto {
   full: { blob: Blob; width: number; height: number };
   thumb: Blob;
   rungs: { rung: number; blob: Blob }[];
+  /**
+   * U1b: the name marker this encode promises. Absent = today's `-l3`
+   * (published only when rungs exist). The photo set v2 encoder sets `-l4`:
+   * its promise is "every copy the plan allows is stored", kept even when a
+   * tiny photo has no rung (imageLadder.ts, PHOTO SET V2).
+   */
+  marker?: string;
 }
 export type PhotoEncoder = (file: File) => Promise<EncodedPhoto>;
 
@@ -120,8 +134,8 @@ export const defaultPhotoEncoder: PhotoEncoder = async (file) => {
 };
 
 /** The deterministic key of slot `i` — the same on every retry and every resume. */
-export function photoObjectPath(userId: string, jobId: string, i: number, w: number, h: number, ladder: boolean): string {
-  return `${PHOTO_BUCKET}/${userId}/posts/${jobId}-${i}${dimsSuffix(w, h)}${ladder ? LADDER_MARKER : ""}.webp`;
+export function photoObjectPath(userId: string, jobId: string, i: number, w: number, h: number, ladder: boolean, marker: string = LADDER_MARKER): string {
+  return `${PHOTO_BUCKET}/${userId}/posts/${jobId}-${i}${dimsSuffix(w, h)}${ladder ? marker : ""}.webp`;
 }
 
 /**
@@ -129,7 +143,7 @@ export function photoObjectPath(userId: string, jobId: string, i: number, w: num
  * Throws if a photo cannot be encoded (the composer then uses today's path).
  */
 export async function createPhotoJob(
-  input: { id: string; userId: string; files: File[]; post: PhotoPost },
+  input: { id: string; userId: string; files: File[]; post: PhotoPost; camera?: CameraItem[] },
   enc: PhotoEncoder = defaultPhotoEncoder,
   now: () => number = Date.now,
 ): Promise<PhotoJob> {
@@ -138,8 +152,8 @@ export async function createPhotoJob(
   const blobs: { path: string; blob: Blob }[] = [];
   for (let i = 0; i < input.files.length; i++) {
     const e = await enc(input.files[i]);
-    const ladder = e.rungs.length > 0;
-    const full = photoObjectPath(input.userId, input.id, i, e.full.width, e.full.height, ladder);
+    const ladder = e.marker ? true : e.rungs.length > 0;
+    const full = photoObjectPath(input.userId, input.id, i, e.full.width, e.full.height, ladder, e.marker ?? LADDER_MARKER);
     const parts = [
       { path: full, blob: e.full.blob },
       { path: full.replace(/\.webp$/, "-thumb.webp"), blob: e.thumb },
@@ -154,6 +168,7 @@ export async function createPhotoJob(
   for (const b of blobs) await s.putFile(input.id, b.path, b.blob);
   const job: PhotoJob = {
     id: input.id, userId: input.userId, createdAt: now(), step: "encoded", slots, post: input.post, attempts: 0, nextAt: 0,
+    ...(input.camera && input.camera.length > 0 ? { camera: input.camera } : {}),
   };
   await s.putJob(job);
   emit({ type: "changed", job });

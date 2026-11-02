@@ -383,6 +383,18 @@ Deno.serve(async (req) => {
         referencedPaths.add(`${m[1]}-l3-r1080${m[2]}`);
         referencedPaths.add(`${m[1]}-l3-r1440${m[2]}`);
       }
+      // Photo plan U1b: the photo set v2 (`-l4` posts, `-l4f` competition
+      // full-size keeps) stores 2048/1080/600/320 copies beside the named
+      // file, again in no column. Every sibling the set can have is derived
+      // (a superset is safe: an address that was never stored matches no
+      // object). Mirrors src/lib/imageLadder.ts photoSetUrl.
+      const m4 = key.match(/^(.*)-l4(f?)(\.[a-z0-9]+)$/i);
+      if (m4) {
+        referencedPaths.add(`${m4[1]}-l4${m4[2]}-r2048${m4[3]}`);
+        referencedPaths.add(`${m4[1]}-l4${m4[2]}-r1080${m4[3]}`);
+        referencedPaths.add(`${m4[1]}-l4${m4[2]}-r320${m4[3]}`);
+        referencedPaths.add(`${m4[1]}-l4${m4[2]}-thumb${m4[3]}`);
+      }
     }
 
     // Step 2: List all files in each bucket

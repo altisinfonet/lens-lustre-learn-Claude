@@ -30,6 +30,8 @@ import { useIsBanned } from "@/hooks/core/useIsBanned";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadImageWithThumbnail } from "@/lib/imageUpload";
 import { createPhotoJob, runPhotoJob } from "@/lib/upload/photoJobs";
+import { photoSetOption, photoSetPhotoEncoder } from "@/lib/photoSetUpload";
+import { cameraItems, readCameraInfos, savePostPhotoCamera, type CameraInfo } from "@/lib/photoCamera";
 import { photoResumeOn, realPhotoJobDeps } from "@/lib/upload/photoJobDeps";
 import { queryKeys } from "@/lib/queryKeys";
 import { isS3Enabled } from "@/lib/s3Upload";
@@ -239,6 +241,9 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   const fileInputRef = useRef<HTMLInputElement>(null);
   // VID-1 (Owner 2026-10-11): one picker for photos and videos, like Instagram.
   const videoAllowed = useFeatureAllowed("video_posts");
+  // Photo plan U1b: the new photo set (2048 credited / 1080 / 600 / 320) and
+  // camera details. False while unknown, signed out or on any error — today's path.
+  const photoSetV2 = useFeatureAllowed("photo_set_v2");
   const [pickedVideo, setPickedVideo] = useState<File | null>(null);
   /**
    * ONE REF FOR BOTH CAPTION BOXES, and that is not a shortcut.
@@ -996,6 +1001,8 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       type: "post",
       userId: user.id,
       cacheControl: "3600",
+      // U1b: adds no key at all when photo_set_v2 is off (today's call exactly).
+      ...photoSetOption(photoSetV2, currentProfile),
     });
     logger.info({
       code: "FILE-5003",
@@ -1185,13 +1192,18 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     }
     const id = publishIdemKey.current;
     try {
+      // U1b (photo_set_v2 on): camera details from the ORIGINAL files before the
+      // encode, kept on the job; the new set's encoder. Off: today's call exactly.
+      const v2 = photoSetOption(photoSetV2, currentProfile).photoSet;
+      const camera = v2 ? cameraItems(await readCameraInfos(selectedImages)) : [];
       await createPhotoJob({
         id, userId: user.id, files: selectedImages,
         post: {
           content: captionMentions.convert(newContent.trim()), privacy: newPrivacy,
           categories: postCategories, indexingDisabled: excludeFromSearch,
         },
-      });
+        ...(camera.length > 0 ? { camera } : {}),
+      }, v2 ? photoSetPhotoEncoder(v2.creditText) : undefined);
     } catch {
       return false;
     }
@@ -1346,6 +1358,11 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       // S7b-5b: no network and this post cannot be kept on the phone: say so,
       // keep the composer as it is (nothing is cleared or uploaded).
       if (noNetworkForPost()) { toast(OFFLINE_NOT_SENT); setPosting(false); return; }
+      // U1b (photo_set_v2 on): camera details read from the ORIGINAL files,
+      // before uploadPhotos re-encodes them. Index = ord in image_urls. Never
+      // throws; null per photo without details. Off: nothing is read. Not for a
+      // scheduled post: its row is made later by the publisher, with no member.
+      const cameraInfos: (CameraInfo | null)[] | null = photoSetV2 && !scheduleAt ? await readCameraInfos(selectedImages) : null;
       const { uploadedUrls, uploadedThumbs, uploadedStored } = await uploadPhotos(correlationId);
       // Phase 3B — Schedule branch: divert INSERT to scheduled_posts (RLS-gated).
       // Window validated by DB trigger validate_scheduled_post_window (5min…90d).
@@ -1519,6 +1536,10 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           variant: "destructive",
         });
       } else {
+        // U1b: ONE set_post_photo_camera call now that the post row exists.
+        // Fire-and-forget — savePostPhotoCamera never throws, and the post is
+        // never held or failed for it (it logs POST-2009 instead).
+        if (newPost?.id && cameraInfos) void savePostPhotoCamera(newPost.id, cameraItems(cameraInfos));
         // Persist photo tags (if any) — friends-only, all start as 'pending'
         if (newPost?.id && pendingTags.length > 0) {
           const tagRows = pendingTags.map((t) => ({
