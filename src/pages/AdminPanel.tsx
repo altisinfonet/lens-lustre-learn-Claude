@@ -98,6 +98,7 @@ const VALID_ROUTES = new Set([
   "wallet", "gifts", "transactions", "orders",
   "seo", "advertisements", "features", "push_notification", "performance", "announcements", "newsletter_faq", "analytics",
   "video_posts", "video_ads", "video_music_check", "video_conversion", "personal_feed", "upload_resume",
+  "new_photos", "competition_fullsize",
   "page_management", "menu_builder", "redirects",
   "settings", "auth_pages", "email_templates", "database",
   "health", "app_events", "activity_logs", "admin_notifications", "notifications_health", "notification_centre", "test_agent",
@@ -190,6 +191,11 @@ const tabGroups = [
   /* S12-F3: the personal feed's switch (Off / Selected members / All members). */
   { label: "Feed", items: [
     ["personal_feed", "Personal Feed", Sparkles],
+  ] as const },
+  /* Smart photo plan: the Owner's two switches (photo_set_v2, competition_fullsize_purge). */
+  { label: "Photos", items: [
+    ["new_photos", "New Photos", Image],
+    ["competition_fullsize", "Competition Full Size", Trophy],
   ] as const },
   { label: "Pages & Navigation", items: [
     ["page_management", "Page Management", FileText],
@@ -317,6 +323,8 @@ const AdminPanel = () => {
       {currentRoute === "video_conversion" && <LazyTab><AdminVideoConversion /></LazyTab>}
       {currentRoute === "personal_feed" && <LazyTab><div className="space-y-4"><AdminVideoFeature feature="personal_feed" /><AdminFeedMix /></div></LazyTab>}
       {currentRoute === "upload_resume" && <LazyTab><AdminVideoFeature feature="photo_upload_resume" /></LazyTab>}
+      {currentRoute === "new_photos" && <LazyTab><AdminVideoFeature feature="photo_set_v2" /></LazyTab>}
+      {currentRoute === "competition_fullsize" && <LazyTab><AdminVideoFeature feature="competition_fullsize_purge" /></LazyTab>}
       {currentRoute === "push_notification" && <LazyTab><AdminPushBroadcast /></LazyTab>}
       {currentRoute === "performance" && <LazyTab><AdminPerformance user={user} /></LazyTab>}
       {currentRoute === "announcements" && <LazyTab><AdminAnnouncements user={user} /></LazyTab>}
