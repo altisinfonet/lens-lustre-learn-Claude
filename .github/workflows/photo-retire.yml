@@ -121,7 +121,9 @@ jobs:
             -H "apikey: $SB_ANON" -H "content-type: application/json" \
             --data-binary @- "$SB_URL/auth/v1/token?grant_type=password")
           if [ "$code" != "200" ]; then
-            echo "::error::sign-in answered $code (wrong secret, or the account is not confirmed)."
+            # Only Supabase's fixed reason word is printed (e.g. invalid_credentials, user_banned) — never the body.
+            REASON=$(jq -r '(.error_code // .error // "unknown") | tostring | gsub("[^a-z_]"; "")' "$RUNNER_TEMP/auth.json" 2>/dev/null || echo unknown)
+            echo "::error::sign-in answered $code, reason '$REASON' (wrong secret, banned or unconfirmed account)."
             rm -f "$RUNNER_TEMP/auth.json"; exit 1
           fi
           TOKEN=$(jq -r '.access_token // empty' "$RUNNER_TEMP/auth.json")
