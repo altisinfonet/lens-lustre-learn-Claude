@@ -9,7 +9,8 @@
  * admin, refuses copyright_music_check On without the music-API key, writes one
  * audit row); a page that hides a control is never the enforcement.
  */
-export type FeatureKey = "video_posts" | "video_ads" | "copyright_music_check" | "personal_feed" | "media_ladder_feed" | "media_private_photos" | "photo_upload_resume";
+export type FeatureKey = "video_posts" | "video_ads" | "copyright_music_check" | "personal_feed" | "media_ladder_feed" | "media_private_photos" | "photo_upload_resume"
+  | "photo_set_v2" | "competition_fullsize_purge";
 export type FeatureMode = "off" | "selected" | "everyone";
 
 export const FEATURE_MODES: ReadonlyArray<{ mode: FeatureMode; label: string }> = [
@@ -42,6 +43,16 @@ export const FEATURE_INFO: Record<FeatureKey, { title: string; blurb: string }> 
     title: "Upload resume",
     blurb: "Photo and video uploads keep trying on a bad network and continue after the app is closed. Each post is published once.",
   },
+  // Photo plan U1a–U4 (20261110_0100): the whole new photo experience, one switch.
+  photo_set_v2: {
+    title: "New photos (2048 / 1080 / 600 / 320 + camera details)",
+    blurb: "Who gets the new photos: new uploads stored as 2048 (with your credit) / 1080 / 600 / 320 copies, camera details under photos, light grids, \"Save mobile data\", no member download (admins and judges keep it on competition entries). Old photos change only after the separate swap step.",
+  },
+  // Photo plan U6 (20261110_0103): read by the daily database job; only "All members" turns it on.
+  competition_fullsize_purge: {
+    title: "Delete competition full-size files",
+    blurb: "When on (All members), a competition entry's full-size photo is deleted 30 days after the final results are published; the entry keeps its credited 2048 copy. Off = nothing is ever deleted. \"Selected members\" does nothing here.",
+  },
 };
 
 export const NOTE_MAX = 500;
@@ -64,7 +75,8 @@ export interface FeatureState {
   history: FeatureHistoryRow[];
 }
 
-const FEATURES = new Set<string>(["video_posts", "video_ads", "copyright_music_check", "personal_feed", "media_ladder_feed", "media_private_photos", "photo_upload_resume"]);
+const FEATURES = new Set<string>(["video_posts", "video_ads", "copyright_music_check", "personal_feed", "media_ladder_feed", "media_private_photos", "photo_upload_resume",
+  "photo_set_v2", "competition_fullsize_purge"]);
 const MODES = new Set<string>(["off", "selected", "everyone"]);
 
 /** feature_admin_state() → cards. Unknown features / modes are dropped, never guessed. */
