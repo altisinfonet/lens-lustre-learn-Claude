@@ -121,28 +121,17 @@ jobs:
         env:
           WORKER_EMAIL: ${{ secrets.MEDIA_WORKER_EMAIL }}
           WORKER_PASSWORD: ${{ secrets.MEDIA_WORKER_PASSWORD }}
+          # Only for production's CAPTCHA-protected password grant (worker-session.mjs header).
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           set -euo pipefail
           umask 077
-          trap 'rm -f "$RUNNER_TEMP/auth.json"' EXIT
-          # jq reads the secrets from its environment and curl reads the body on
-          # stdin: the password is never on any process's command line.
-          code=$(jq -n '{email: env.WORKER_EMAIL, password: env.WORKER_PASSWORD}' | curl -sS -o "$RUNNER_TEMP/auth.json" -w '%{http_code}' -X POST \
-            -H "apikey: $SB_ANON" -H "content-type: application/json" \
-            --data-binary @- "$SB_URL/auth/v1/token?grant_type=password")
-          if [ "$code" != "200" ]; then
-            # Only Supabase's fixed reason word is printed (e.g. invalid_credentials, user_banned) — never the body.
-            REASON=$(jq -r '(.error_code // .error // "unknown") | tostring | gsub("[^a-z_]"; "")' "$RUNNER_TEMP/auth.json" 2>/dev/null || echo unknown)
-            echo "::error::sign-in answered $code, reason '$REASON' (wrong secret, banned or unconfirmed account)."
-            rm -f "$RUNNER_TEMP/auth.json"; exit 1
-          fi
-          TOKEN=$(jq -r '.access_token // empty' "$RUNNER_TEMP/auth.json")
-          rm -f "$RUNNER_TEMP/auth.json"
-          [ -n "$TOKEN" ] || { echo "::error::no access token in the sign-in answer"; exit 1; }
-          echo "::add-mask::$TOKEN"
-          printf '%s' "$TOKEN" > "$RUNNER_TEMP/worker.jwt"
+          # Secrets are read from the environment by the tool, never from a command line;
+          # it masks the token before writing it (0600) and prints it nowhere. It never signs
+          # other sessions out (the live video converter uses the same account).
+          node tools/media-derivatives/worker-session.mjs --out "$RUNNER_TEMP/worker.jwt"
+          [ -s "$RUNNER_TEMP/worker.jwt" ] || { echo "::error::the sign-in tool wrote no token"; exit 1; }
           echo "MEDIA_WORKER_JWT_FILE=$RUNNER_TEMP/worker.jwt" >> "$GITHUB_ENV"
-          echo "Signed in. The token is masked and stored in a 0600 file."
 
       - name: Run the backfill tool
         run: |

@@ -88,7 +88,11 @@ describe("S3-e backfill workflow — fences", () => {
     for (const e of exprs) expect(e).toMatch(/^secrets\.[A-Z_]+$/);
     expect(wf.match(/secrets\.[A-Z_]+/g)?.sort()).toEqual([
       "secrets.MEDIA_WORKER_EMAIL", "secrets.MEDIA_WORKER_EMAIL", "secrets.MEDIA_WORKER_PASSWORD", "secrets.MEDIA_WORKER_PASSWORD",
+      "secrets.SUPABASE_ACCESS_TOKEN",
     ]);
+    // the management token is bound on the sign-in step alone
+    expect(steps().filter((s) => s.env.includes("secrets.SUPABASE_ACCESS_TOKEN")).map((s) => s.name))
+      .toEqual(["Sign in as the worker account (token masked, 0600 file)"]);
   });
 
   it("refuses to start when either secret is missing", () => {
@@ -100,14 +104,23 @@ describe("S3-e backfill workflow — fences", () => {
 
   it("the password never reaches a command line; the token is masked first, kept 0600 and removed", () => {
     const signIn = step("Sign in as the worker account").run;
-    expect(signIn).not.toMatch(/\$WORKER_PASSWORD|\$\{WORKER_PASSWORD\}/); // only jq's env.WORKER_PASSWORD reads it
-    expect(signIn).toContain("env.WORKER_PASSWORD");
-    expect(signIn).toContain("--data-binary @-");
+    // the secrets reach the tool through its environment only (worker-session.mjs reads process.env)
+    expect(signIn).not.toMatch(/\$WORKER_PASSWORD|\$\{WORKER_PASSWORD\}|\$SUPABASE_ACCESS_TOKEN|\$WORKER_EMAIL/);
+    expect(signIn).toContain('node tools/media-derivatives/worker-session.mjs --out "$RUNNER_TEMP/worker.jwt"');
     expect(signIn).toContain("umask 077");
-    expect(signIn.indexOf("::add-mask::$TOKEN")).toBeGreaterThan(0);
-    expect(signIn.indexOf("::add-mask::$TOKEN")).toBeLessThan(signIn.indexOf("worker.jwt"));
-    const printing = signIn.split("\n").filter((l) => /\b(echo|printf)\s[^;]*\$TOKEN/.test(l)).map((l) => l.trim());
-    expect(printing).toEqual(['echo "::add-mask::$TOKEN"', `printf '%s' "$TOKEN" > "$RUNNER_TEMP/worker.jwt"`]);
+    expect(signIn).not.toMatch(/\$TOKEN/);
+    const tool = fs.readFileSync(path.join(ROOT, "tools/media-derivatives/worker-session.mjs"), "utf8");
+    // masked before it is written; written 0600; never logged; nobody signed out
+    expect(tool.indexOf("mask(token);")).toBeGreaterThan(0);
+    expect(tool.indexOf("mask(token);")).toBeLessThan(tool.indexOf("writeFileSync(out, token, { mode: 0o600 })"));
+    const logs = [...tool.matchAll(/console\.(?:log|error)\((.*?)\);/g)].map((m) => m[1]);
+    expect(logs).toEqual([
+      '"usage: --out <file>"',
+      "`::add-mask::${v}`",
+      "`Signed in as the worker account via ${via}. The token is masked and stored in a 0600 file.`",
+      '`::error::${e instanceof Refused ? e.message : "sign-in failed (unexpected error)"}`',
+    ]);
+    expect(tool).not.toContain("/auth/v1/logout");
     for (const s of steps()) {
       expect(s.run).not.toMatch(/set -x|\b(cat|tee|head|tail)\b[^\n]*(worker\.jwt|auth\.json|MEDIA_WORKER_JWT_FILE)/);
     }
