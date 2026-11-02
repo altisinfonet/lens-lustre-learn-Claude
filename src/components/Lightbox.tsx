@@ -6,7 +6,7 @@ import ImageEngagement from "@/components/ImageEngagement";
 import AdZone from "@/components/ads/AdZone";
 import DownloadButton from "@/components/DownloadButton";
 import ZoomableImage from "@/components/media/ZoomableImage";
-import { useDownloadImage } from "@/hooks/core/useDownloadImage";
+import { usePhotoDownload } from "@/hooks/core/usePhotoDownload";
 
 interface LightboxProps {
   images: { id?: string; src: string; title: string; category: string; photoIndex?: number }[];
@@ -20,7 +20,10 @@ interface LightboxProps {
 
 const Lightbox = memo(({ images, currentIndex, isOpen, onClose, onPrev, onNext, imageType = "portfolio" }: LightboxProps) => {
   const current = images[currentIndex];
-  const { downloading, download } = useDownloadImage();
+  // U3: the download below is the PORTFOLIO one (competition entries already
+  // have none here). With photo_set_v2 on, portfolio photos are member
+  // photos → no download. Switch off: today's button.
+  const { canDownload, downloading, download } = usePhotoDownload(false);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -55,7 +58,7 @@ const Lightbox = memo(({ images, currentIndex, isOpen, onClose, onPrev, onNext, 
               <span className="text-xs text-muted-foreground" style={{ fontFamily: "var(--font-heading)" }}>{currentIndex + 1} / {images.length}</span>
             </div>
             <div className="flex items-center gap-2">
-              {imageType !== "competition_entry" && (
+              {imageType !== "competition_entry" && canDownload && (
                 <DownloadButton
                   downloading={downloading === current.src}
                   onClick={(e) => { e.stopPropagation(); download(current.src, `${current.title || "photo"}.jpg`); }}

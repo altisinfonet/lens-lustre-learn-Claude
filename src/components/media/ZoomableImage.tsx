@@ -3,6 +3,8 @@ import { motion, useMotionValue, animate } from "framer-motion";
 import { useGesture } from "@use-gesture/react";
 import { logger } from "@/lib/logger";
 import { deviceContext } from "@/lib/deviceContext";
+import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
+import { fullScreenPhotoUrl } from "@/lib/photoProtection";
 
 /**
  * THE ONE ZOOMABLE PHOTOGRAPH. Build 1055.
@@ -104,7 +106,16 @@ export interface ZoomableImageProps {
   > & { "data-watermark"?: string };
 }
 
-const ZoomableImage = ({ src, alt = "", className, wrapperClassName = "w-full h-full", onZoomChange, imgProps }: ZoomableImageProps) => {
+const ZoomableImage = ({ src: given, alt = "", className, wrapperClassName = "w-full h-full", onZoomChange, imgProps }: ZoomableImageProps) => {
+  /**
+   * PHOTO PLAN U3 (switch `photo_set_v2`): every full-screen viewer goes
+   * through this component, so this is the ONE place that decides which copy
+   * full screen shows. A new photo (`-l4` / `-l4f`) → its credited 2048 copy —
+   * what right-click "save image" then gets on the web — and never a
+   * competition entry's full-size file. Old photos and switch off: the URL
+   * the caller gave, exactly as today.
+   */
+  const src = fullScreenPhotoUrl(given, usePhotoSetV2());
   const wrapperRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 

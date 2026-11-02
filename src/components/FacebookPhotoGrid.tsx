@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
-import { useDownloadImage } from "@/hooks/core/useDownloadImage";
+import { usePhotoDownload } from "@/hooks/core/usePhotoDownload";
+import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
+import { inlinePhotoUrl } from "@/lib/photoProtection";
 import DownloadButton from "@/components/DownloadButton";
 import ProfileLink from "@/components/ProfileLink";
 import ZoomableImage from "@/components/media/ZoomableImage";
@@ -30,11 +32,19 @@ interface FacebookPhotoGridProps {
   onPhotoClick?: (index: number) => void;
   author?: PhotoAuthor;
   initialIndex?: number;
+  /**
+   * Photo plan U3: the photos are a competition entry's. With `photo_set_v2`
+   * on, only admins and judges are offered download, and only here; on posts
+   * nobody is. Switch off: ignored (today's download for everyone).
+   */
+  competitionEntry?: boolean;
 }
 
-const FacebookPhotoGrid = ({ urls, onPhotoClick, initialIndex, author }: FacebookPhotoGridProps) => {
+const FacebookPhotoGrid = ({ urls, onPhotoClick, initialIndex, author, competitionEntry = false }: FacebookPhotoGridProps) => {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const { downloading, download } = useDownloadImage();
+  const { canDownload, downloading, download } = usePhotoDownload(competitionEntry);
+  // U3: inline, a new photo shows its 1080 copy (never an entry's full-size file). Off: today's URL.
+  const v2 = usePhotoSetV2();
   const lastAppliedInitialRef = useRef<number | null>(null);
   const count = urls.length;
   if (count === 0) return null;
@@ -67,18 +77,20 @@ const FacebookPhotoGrid = ({ urls, onPhotoClick, initialIndex, author }: Faceboo
       style={aspectRatio ? { aspectRatio } : undefined}
       onClick={() => openLightbox(index)}
     >
-      <img src={src} alt="" className={`w-full transition-transform duration-300 group-hover/photo:scale-[1.02] ${aspectRatio ? "h-full object-cover" : "object-contain max-h-[70vh]"}`} loading="lazy" />
+      <img src={inlinePhotoUrl(src, v2)} alt="" className={`w-full transition-transform duration-300 group-hover/photo:scale-[1.02] ${aspectRatio ? "h-full object-cover" : "object-contain max-h-[70vh]"}`} loading="lazy" />
       {overlay && (
         <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
           <span className="text-white text-3xl font-bold">+{overlay}</span>
         </div>
       )}
-      <DownloadButton
-        downloading={downloading === src}
-        onClick={(e) => { e.stopPropagation(); download(src); }}
-        className="absolute bottom-2 right-2 p-1.5 rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/photo:opacity-100 transition-opacity hover:bg-card shadow-sm z-10 disabled:opacity-60"
-        iconSize="h-3.5 w-3.5"
-      />
+      {canDownload && (
+        <DownloadButton
+          downloading={downloading === src}
+          onClick={(e) => { e.stopPropagation(); download(src); }}
+          className="absolute bottom-2 right-2 p-1.5 rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/photo:opacity-100 transition-opacity hover:bg-card shadow-sm z-10 disabled:opacity-60"
+          iconSize="h-3.5 w-3.5"
+        />
+      )}
     </div>
   );
 
@@ -100,17 +112,17 @@ const FacebookPhotoGrid = ({ urls, onPhotoClick, initialIndex, author }: Faceboo
   return (
     <>
       {grid}
-      <PostLightbox urls={urls} currentIndex={lightboxIndex} onClose={() => setLightboxIndex(null)} onNavigate={navigateLightbox} author={author} />
+      <PostLightbox urls={urls} currentIndex={lightboxIndex} onClose={() => setLightboxIndex(null)} onNavigate={navigateLightbox} author={author} competitionEntry={competitionEntry} />
     </>
   );
 };
 
 /* ── Full-screen Lightbox ── */
-interface PostLightboxProps { urls: string[]; currentIndex: number | null; onClose: () => void; onNavigate: (index: number) => void; author?: PhotoAuthor; }
+interface PostLightboxProps { urls: string[]; currentIndex: number | null; onClose: () => void; onNavigate: (index: number) => void; author?: PhotoAuthor; competitionEntry?: boolean; }
 
-const PostLightbox = ({ urls, currentIndex, onClose, onNavigate, author }: PostLightboxProps) => {
+const PostLightbox = ({ urls, currentIndex, onClose, onNavigate, author, competitionEntry = false }: PostLightboxProps) => {
   const isOpen = currentIndex !== null;
-  const { downloading, download } = useDownloadImage();
+  const { canDownload, downloading, download } = usePhotoDownload(competitionEntry);
   const [zoomed, setZoomed] = useState(false);
 
   const goPrev = useCallback(() => { if (currentIndex === null) return; onNavigate(currentIndex > 0 ? currentIndex - 1 : urls.length - 1); }, [currentIndex, urls.length, onNavigate]);
@@ -170,13 +182,18 @@ const PostLightbox = ({ urls, currentIndex, onClose, onNavigate, author }: PostL
           )}
           <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
             <span className="text-sm text-white/60 mr-2">{currentIndex + 1} / {urls.length}</span>
-            <DownloadButton
-              downloading={downloading === urls[currentIndex]}
-              onClick={(e) => { e.stopPropagation(); download(urls[currentIndex]); }}
-              className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors disabled:opacity-60"
-              iconSize="h-5 w-5"
-              ariaLabel="Download photo"
-            />
+            {/* U3: with photo_set_v2 on, offered only to admins/judges on a
+                competition entry. Removing it leaves the counter and Close in
+                the same order, so focus still goes name → Close. */}
+            {canDownload && (
+              <DownloadButton
+                downloading={downloading === urls[currentIndex]}
+                onClick={(e) => { e.stopPropagation(); download(urls[currentIndex]); }}
+                className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors disabled:opacity-60"
+                iconSize="h-5 w-5"
+                ariaLabel="Download photo"
+              />
+            )}
             <button onClick={onClose} aria-label="Close photo viewer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors">
               <X className="h-5 w-5" />
             </button>

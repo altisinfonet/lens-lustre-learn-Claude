@@ -14,7 +14,7 @@
 import { useState, useCallback, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { CDN_HOST as LANE_CDN_HOST, SITE_ORIGIN } from "@/lib/env";
 import { X, ChevronLeft, ChevronRight, Heart } from "lucide-react";
-import { useDownloadImage } from "@/hooks/core/useDownloadImage";
+import { usePhotoDownload } from "@/hooks/core/usePhotoDownload";
 import DownloadButton from "@/components/DownloadButton";
 import ProfileLink from "@/components/ProfileLink";
 import type { PhotoAuthor } from "@/components/FacebookPhotoGrid";
@@ -621,7 +621,8 @@ function useTapOrDoubleTap(
 const SingleImagePost = ({ src, thumb, frameAspect, onNaturalSize, onDoubleTapLike, interceptFirstTap, author, viewerAction }: { src: string; thumb?: string | null; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void; interceptFirstTap?: () => boolean; author?: PhotoAuthor; viewerAction?: (index: number) => ReactNode }) => {
   const [heart, setHeart] = useState<{ x: number; y: number; id: number } | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const { downloading, download } = useDownloadImage();
+  // U3: posts are member photos — with photo_set_v2 on, nobody is offered download. Off: today.
+  const { canDownload, downloading, download } = usePhotoDownload(false);
 
   const handleTap = useTapOrDoubleTap(
     (x, y) => {
@@ -643,11 +644,13 @@ const SingleImagePost = ({ src, thumb, frameAspect, onNaturalSize, onDoubleTapLi
       <div className="relative group/img w-full overflow-hidden rounded-sm bg-muted/30 cursor-zoom-in" style={{ aspectRatio: String(frameAspect) }} onClick={handleTap}>
         <ProgressiveImage src={src} thumb={thumb} onNaturalSize={onNaturalSize} />
         <AnimatePresence>{heart && <DoubleTapHeart key={heart.id} x={heart.x} y={heart.y} />}</AnimatePresence>
-        <DownloadButton
-          downloading={downloading === src}
-          onClick={(e) => { e.stopPropagation(); download(src); }}
-          className="absolute bottom-3 right-3 grid h-11 w-11 place-items-center rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-card shadow-sm"
-        />
+        {canDownload && (
+          <DownloadButton
+            downloading={downloading === src}
+            onClick={(e) => { e.stopPropagation(); download(src); }}
+            className="absolute bottom-3 right-3 grid h-11 w-11 place-items-center rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-card shadow-sm"
+          />
+        )}
       </div>
       {/* The viewer is handed the ORIGINAL url, never the 800px render copy
           the card displays. Zooming a downscaled thumbnail would magnify the
@@ -669,7 +672,7 @@ const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTa
   const [direction, setDirection] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [heart, setHeart] = useState<{ x: number; y: number; id: number } | null>(null);
-  const { downloading, download } = useDownloadImage();
+  const { canDownload, downloading, download } = usePhotoDownload(false); // U3: see SingleImagePost
 
   /**
    * A swipe ends in a click event. Without this the member would flick to the
@@ -742,11 +745,13 @@ const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTa
 
         <div className="absolute top-3 right-3 z-10 px-2 py-0.5 rounded-full bg-black/50 text-white text-xs font-medium">{current + 1}/{urls.length}</div>
 
-        <DownloadButton
-          downloading={downloading === urls[current]}
-          onClick={(e) => { e.stopPropagation(); download(urls[current]); }}
-          className="absolute bottom-3 right-3 grid h-11 w-11 place-items-center rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/album:opacity-100 transition-opacity hover:bg-card shadow-sm z-10"
-        />
+        {canDownload && (
+          <DownloadButton
+            downloading={downloading === urls[current]}
+            onClick={(e) => { e.stopPropagation(); download(urls[current]); }}
+            className="absolute bottom-3 right-3 grid h-11 w-11 place-items-center rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/album:opacity-100 transition-opacity hover:bg-card shadow-sm z-10"
+          />
+        )}
 
         {/* THE DOTS STAY 6px AND 8px; THE BUTTONS AROUND THEM ARE 44x32.
             Reported by the sweep at 8x8 and 6x6 — the smallest controls in the
@@ -781,7 +786,7 @@ interface CarouselLightboxProps { urls: string[]; currentIndex: number | null; o
 
 const CarouselLightbox = ({ urls, currentIndex, onClose, onNavigate, author, viewerAction }: CarouselLightboxProps) => {
   const isOpen = currentIndex !== null;
-  const { downloading, download } = useDownloadImage();
+  const { canDownload, downloading, download } = usePhotoDownload(false); // U3: see SingleImagePost
   const [zoomed, setZoomed] = useState(false);
 
   const goPrev = useCallback(() => { if (currentIndex === null) return; onNavigate(currentIndex > 0 ? currentIndex - 1 : urls.length - 1); }, [currentIndex, urls.length, onNavigate]);
@@ -826,13 +831,17 @@ const CarouselLightbox = ({ urls, currentIndex, onClose, onNavigate, author, vie
           )}
           <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
             <span className="text-sm text-white/60 mr-2">{currentIndex + 1} / {urls.length}</span>
-            <DownloadButton
-              downloading={downloading === urls[currentIndex]}
-              onClick={(e) => { e.stopPropagation(); download(urls[currentIndex]); }}
-              className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors disabled:opacity-60"
-              iconSize="h-5 w-5"
-              ariaLabel="Download photo"
-            />
+            {/* U3: no download with photo_set_v2 on; the counter, the ⓘ action
+                and Close keep their order, so focus is name → ⓘ → Close. */}
+            {canDownload && (
+              <DownloadButton
+                downloading={downloading === urls[currentIndex]}
+                onClick={(e) => { e.stopPropagation(); download(urls[currentIndex]); }}
+                className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors disabled:opacity-60"
+                iconSize="h-5 w-5"
+                ariaLabel="Download photo"
+              />
+            )}
             {viewerAction?.(currentIndex)}
             <button onClick={onClose} aria-label="Close photo viewer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors">
               <X className="h-5 w-5" />
