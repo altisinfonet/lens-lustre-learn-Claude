@@ -40,7 +40,8 @@ export interface R2ObjectLike {
 }
 export interface R2BucketLike {
   head(key: string): Promise<{ size: number; etag?: string } | null>;
-  get(key: string): Promise<R2ObjectLike | null>;
+  /** `range` (photo plan U5): read only a header — the real binding supports it. */
+  get(key: string, options?: { range?: { offset: number; length: number } }): Promise<R2ObjectLike | null>;
   put(key: string, value: ArrayBuffer | Uint8Array | string, options?: {
     httpMetadata?: { contentType?: string };
     customMetadata?: Record<string, string>;

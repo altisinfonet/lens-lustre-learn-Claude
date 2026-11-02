@@ -149,6 +149,12 @@ const SNAPSHOT_COLUMNS: { table: string; columns: string[] }[] = [
   { table: "posts_dead_host_backup_20260812", columns: ["image_urls", "thumbnail_urls"] },
   { table: "_v3_preflight_snapshot_competition_entries", columns: ["photos", "photo_thumbnails"] },
   { table: "_v3_preflight_snapshot_judging_tags", columns: ["image_url"] },
+  // Photo plan U5 (20261110_0101): an old photo's backfilled v2 set, recorded
+  // before the URL swap puts it in `posts`. Its -r1080 / -r320 siblings follow
+  // from the `-l4` marker below. The OLD url is deliberately NOT listed: after
+  // the swap the old file must become collectable (U7). Listed here, not in
+  // REFERENCE_COLUMNS, so a lane where 0101 is not applied yet is tolerated.
+  { table: "photo_set_backfill", columns: ["new_url", "new_thumb"] },
 ];
 
 Deno.serve(async (req) => {
