@@ -31,6 +31,12 @@ import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
 import { usePostPhotoCamera } from "@/hooks/feed/usePostPhotoCamera";
 import { isNativeApp } from "@/lib/video/playback";
 
+/**
+ * Also keeps ← / → typed in the sheet from the full-screen viewer behind it:
+ * React's stopPropagation stops the native event at the portal's container, so
+ * the viewer's `window` listener never sees it (U4 checked the U2 review's
+ * worry; locked by photoSetV2U4.test.tsx "the ⓘ sheet owns the arrow keys").
+ */
 const stop = (e: ReactMouseEvent | ReactKeyboardEvent) => e.stopPropagation();
 
 export const NO_CAMERA_SHEET = "This photo has no camera information.";
@@ -182,6 +188,23 @@ export function CameraInfoButton({ state, className }: { state: CameraState | nu
       <CameraSheet open={open} onOpenChange={setOpen} state={state} />
     </>
   );
+}
+
+/**
+ * U4 (the U2 review follow-up) · the ⓘ for a full-screen viewer that is not
+ * PostCard's own (FacebookPhotoGrid on the hashtag page): the camera details of
+ * the photo on screen. App only, like PostCard's; switch off / web ⇒ null and
+ * nothing is read.
+ */
+export function PostCameraInfoButton({ postId, imageUrls, index }: { postId: string; imageUrls: readonly string[]; index: number }) {
+  const on = usePhotoSetV2();
+  if (!on || !isNativeApp() || !imageUrls[index]) return null;
+  return <PostCameraInfoButtonOn postId={postId} imageUrls={imageUrls} index={index} />;
+}
+
+function PostCameraInfoButtonOn({ postId, imageUrls, index }: { postId: string; imageUrls: readonly string[]; index: number }) {
+  const rows = usePostPhotoCamera(postId, true);
+  return <CameraInfoButton state={cameraStateFor(rows, index, imageUrls[index])} />;
 }
 
 /* ── For a post card that is not PostCard (the hashtag page) ── */

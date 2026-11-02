@@ -4,6 +4,7 @@ import { useGesture } from "@use-gesture/react";
 import { logger } from "@/lib/logger";
 import { deviceContext } from "@/lib/deviceContext";
 import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
+import { useDataSaver } from "@/hooks/core/useDataSaver";
 import { fullScreenPhotoUrl } from "@/lib/photoProtection";
 
 /**
@@ -115,7 +116,9 @@ const ZoomableImage = ({ src: given, alt = "", className, wrapperClassName = "w-
    * competition entry's full-size file. Old photos and switch off: the URL
    * the caller gave, exactly as today.
    */
-  const src = fullScreenPhotoUrl(given, usePhotoSetV2());
+  // U4: "Save mobile data" on mobile data → one size down (the 1080 copy).
+  const saving = useDataSaver().saving;
+  const src = fullScreenPhotoUrl(given, usePhotoSetV2(), saving);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 

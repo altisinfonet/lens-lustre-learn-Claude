@@ -1,7 +1,8 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { usePhotoDownload } from "@/hooks/core/usePhotoDownload";
 import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
+import { useDataSaver } from "@/hooks/core/useDataSaver";
 import { inlinePhotoUrl } from "@/lib/photoProtection";
 import DownloadButton from "@/components/DownloadButton";
 import ProfileLink from "@/components/ProfileLink";
@@ -38,13 +39,20 @@ interface FacebookPhotoGridProps {
    * nobody is. Switch off: ignored (today's download for everyone).
    */
   competitionEntry?: boolean;
+  /**
+   * U4: an extra control in the full-screen toolbar for the photo on screen
+   * (the hashtag page passes the app ⓘ, PostCameraInfoButton). Absent: none.
+   */
+  viewerAction?: (index: number) => ReactNode;
 }
 
-const FacebookPhotoGrid = ({ urls, onPhotoClick, initialIndex, author, competitionEntry = false }: FacebookPhotoGridProps) => {
+const FacebookPhotoGrid = ({ urls, onPhotoClick, initialIndex, author, competitionEntry = false, viewerAction }: FacebookPhotoGridProps) => {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const { canDownload, downloading, download } = usePhotoDownload(competitionEntry);
   // U3: inline, a new photo shows its 1080 copy (never an entry's full-size file). Off: today's URL.
   const v2 = usePhotoSetV2();
+  // U4: "Save mobile data" on mobile data → one size down (the 600 copy).
+  const saving = useDataSaver().saving;
   const lastAppliedInitialRef = useRef<number | null>(null);
   const count = urls.length;
   if (count === 0) return null;
@@ -77,7 +85,7 @@ const FacebookPhotoGrid = ({ urls, onPhotoClick, initialIndex, author, competiti
       style={aspectRatio ? { aspectRatio } : undefined}
       onClick={() => openLightbox(index)}
     >
-      <img src={inlinePhotoUrl(src, v2)} alt="" className={`w-full transition-transform duration-300 group-hover/photo:scale-[1.02] ${aspectRatio ? "h-full object-cover" : "object-contain max-h-[70vh]"}`} loading="lazy" />
+      <img src={inlinePhotoUrl(src, v2, saving)} alt="" className={`w-full transition-transform duration-300 group-hover/photo:scale-[1.02] ${aspectRatio ? "h-full object-cover" : "object-contain max-h-[70vh]"}`} loading="lazy" />
       {overlay && (
         <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
           <span className="text-white text-3xl font-bold">+{overlay}</span>
@@ -112,15 +120,15 @@ const FacebookPhotoGrid = ({ urls, onPhotoClick, initialIndex, author, competiti
   return (
     <>
       {grid}
-      <PostLightbox urls={urls} currentIndex={lightboxIndex} onClose={() => setLightboxIndex(null)} onNavigate={navigateLightbox} author={author} competitionEntry={competitionEntry} />
+      <PostLightbox urls={urls} currentIndex={lightboxIndex} onClose={() => setLightboxIndex(null)} onNavigate={navigateLightbox} author={author} competitionEntry={competitionEntry} viewerAction={viewerAction} />
     </>
   );
 };
 
 /* ── Full-screen Lightbox ── */
-interface PostLightboxProps { urls: string[]; currentIndex: number | null; onClose: () => void; onNavigate: (index: number) => void; author?: PhotoAuthor; competitionEntry?: boolean; }
+interface PostLightboxProps { urls: string[]; currentIndex: number | null; onClose: () => void; onNavigate: (index: number) => void; author?: PhotoAuthor; competitionEntry?: boolean; viewerAction?: (index: number) => ReactNode; }
 
-const PostLightbox = ({ urls, currentIndex, onClose, onNavigate, author, competitionEntry = false }: PostLightboxProps) => {
+const PostLightbox = ({ urls, currentIndex, onClose, onNavigate, author, competitionEntry = false, viewerAction }: PostLightboxProps) => {
   const isOpen = currentIndex !== null;
   const { canDownload, downloading, download } = usePhotoDownload(competitionEntry);
   const [zoomed, setZoomed] = useState(false);
@@ -194,6 +202,7 @@ const PostLightbox = ({ urls, currentIndex, onClose, onNavigate, author, competi
                 ariaLabel="Download photo"
               />
             )}
+            {viewerAction?.(currentIndex)}
             <button onClick={onClose} aria-label="Close photo viewer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors">
               <X className="h-5 w-5" />
             </button>

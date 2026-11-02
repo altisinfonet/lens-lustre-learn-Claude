@@ -25,6 +25,8 @@ import { frameAspectFor, frameAspectForUrls, parseImageDims } from "@/lib/imageF
 import { hasLadderMarker, photoSetBlurUrl, rungPath, rungPlan, rungWidthFor } from "@/lib/imageLadder";
 import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
 import { useNetworkQuality } from "@/hooks/core/useNetworkQuality";
+import { useDataSaver } from "@/hooks/core/useDataSaver";
+import { feedPhotoSet, fullScreenPhotoUrl } from "@/lib/photoProtection";
 
 interface PostMediaProps {
   urls: string[];
@@ -488,9 +490,22 @@ const ProgressiveImage = ({
   // The sharp layer is the ORIGINAL again. The thumbnail has not been dropped —
   // it still paints the backdrop instantly, and it is the small end of the
   // srcset below, so a slot that only needs 600px still downloads only 600px.
-  const sharpSrc = transformable ? buildRenderUrl(src, 800) : src;
+  /**
+   * PHOTO PLAN U4 (switch `photo_set_v2`, decided once per mount like `v2`):
+   *   · a new photo (-l4 / -l4f) → its 600 + 1080 copies, src = 1080 — the
+   *     feed keeps 1080; the credited 2048 is for full screen only;
+   *   · "Save mobile data" on mobile data → one size down: the 600 copy alone,
+   *     and old photos are told the slot is small (SLOW_FEED_SIZES → their 600).
+   * Switch off: `v2Set` is null and `saving` false — exactly the pre-U4 render.
+   */
+  const saving = useDataSaver().saving;
+  const v2Set = v2 ? feedPhotoSet(src, saving) : null;
+  const sharpSrc = v2Set ? v2Set.src : transformable ? buildRenderUrl(src, 800) : src;
   let srcSet = transformable ? buildSrcSet(src) : buildThumbFirstSrcSet(thumb, src);
   if (ladder) srcSet = ladder.srcSet; // S3-c: 600/1080/1440 derivatives, never the original
+  if (v2Set) srcSet = v2Set.srcSet;
+  // A v2 copy that fails falls back to the credited 2048 (never `-l4f`'s full size).
+  const failSrc = v2Set ? fullScreenPhotoUrl(src, true) : src;
 
   return (
     <>
@@ -521,9 +536,9 @@ const ProgressiveImage = ({
       )}
       <img
         ref={sharpRef}
-        src={failed ? src : sharpSrc}
+        src={failed ? failSrc : sharpSrc}
         srcSet={failed ? undefined : srcSet}
-        sizes={!failed && srcSet ? (slowLink ? SLOW_FEED_SIZES : FEED_SIZES) : undefined}
+        sizes={!failed && srcSet ? (slowLink || saving ? SLOW_FEED_SIZES : FEED_SIZES) : undefined}
         alt=""
         className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"} ${className ?? ""}`}
         loading="lazy"

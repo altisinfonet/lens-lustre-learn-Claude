@@ -51,6 +51,44 @@ export function levelCap(levels: readonly LevelLike[], slow: boolean): number {
   return low;
 }
 
+/**
+ * PHOTO PLAN U4 · WHERE A VIDEO STARTS (Owner decision 6, switch `photo_set_v2`;
+ * the caller uses today's `startLevel: 0` + `levelCap` while it is off):
+ *   slow network                 → 240p only (today's rule, kept)
+ *   "Save mobile data" saving    → start 240p, never above 480p (one size down)
+ *   Wi-Fi / cable                → start 720p (or the best ≤ 720p it has)
+ *   mobile data / cannot say     → start 480p (or the best ≤ 480p it has)
+ * ABR may move from the start unless a cap is set. Indexes are hls.js level
+ * indexes (sorted by bitrate there; read by height here, so order never
+ * matters). `-1` = hls.js's own default (no levels known, or no cap).
+ */
+export const START_HEIGHT = { wifi: 720, mobile: 480, unknown: 480 } as const;
+export const SAVING_MAX_HEIGHT = 480;
+
+/** Index of the tallest level not above `maxHeight`; the smallest level when none fits. */
+function bestAtMost(levels: readonly LevelLike[], maxHeight: number): number {
+  let best = -1;
+  for (let i = 0; i < levels.length; i++) {
+    const hgt = levels[i].height ?? Infinity;
+    if (hgt > maxHeight) continue;
+    if (best === -1 || hgt > (levels[best].height ?? 0) || (hgt === (levels[best].height ?? 0) && (levels[i].bitrate ?? 0) > (levels[best].bitrate ?? 0))) best = i;
+  }
+  if (best !== -1) return best;
+  const low = levelCap(levels, true);
+  return Number.isFinite(low) ? low : -1;
+}
+
+export function videoStartPlan(
+  levels: readonly LevelLike[],
+  i: { slow: boolean; saving: boolean; kind: "wifi" | "mobile" | "unknown" },
+): { start: number; cap: number } {
+  if (levels.length === 0) return { start: -1, cap: -1 };
+  const low = levelCap(levels, true) as number;
+  if (i.slow) return { start: low, cap: low };
+  if (i.saving) return { start: low, cap: bestAtMost(levels, SAVING_MAX_HEIGHT) };
+  return { start: bestAtMost(levels, START_HEIGHT[i.kind]), cap: -1 };
+}
+
 export function tokenNeedsRefresh(expiresAtS: number | null | undefined, nowS: number): boolean {
   if (typeof expiresAtS !== "number" || !Number.isFinite(expiresAtS)) return true;
   return expiresAtS - nowS <= TOKEN_REFRESH_MARGIN_S;
