@@ -26,6 +26,9 @@ export function usePhotoSetV2(): boolean {
       queryKey: featureAllowedKey("photo_set_v2", userId),
       enabled: live,
       staleTime: FEATURE_REFRESH_MS,
+      // P10: the SAME poll as useFeatureAllowed (same query key, so react-query
+      // runs one of them, not two): R-103 "switch changes apply within 60 s, no
+      // app release"; paused in the background.
       refetchInterval: live ? FEATURE_REFRESH_MS : false,
       refetchOnWindowFocus: true,
       retry: false,
