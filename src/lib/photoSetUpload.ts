@@ -33,7 +33,7 @@ import { PHOTO_SET_FULL_MARKER, PHOTO_SET_MARKER, rungPath } from "@/lib/imageLa
 import { dimsSuffix } from "@/lib/imageFrame";
 import { logger } from "@/lib/logger";
 import { describeStoredObject } from "@/lib/media/storedObject";
-import { encodePhotoSet, type EncodedSetCopy } from "@/lib/photoSetEncode";
+import { encodePhotoSet, type EncodedPhotoSet, type EncodedSetCopy } from "@/lib/photoSetEncode";
 import { creditOwnerName, creditText } from "@/lib/photoCredit";
 import {
   generateImagePath, isPrivateBucket, shouldUpsert,
@@ -56,6 +56,12 @@ export function photoSetOption(
 }
 
 const rungOf = (c: EncodedSetCopy) => Number(c.slot.slice(1));
+
+/** encodePhotoSet's null (no real WebP encoder, U2) becomes the same "use today's path" throw as any refusal. */
+function needWebp(set: EncodedPhotoSet | null): EncodedPhotoSet {
+  if (!set) throw new Error("this browser has no WebP encoder (toBlob returned another type)");
+  return set;
+}
 
 function fellBack(err: unknown, type: string, file: File): null {
   logger.warn({
@@ -97,9 +103,9 @@ export async function uploadPhotoSet(
         fullFile = r.webpFile;
         fullDims = { width: r.width, height: r.height };
       }
-      set = (await encodePhotoSet(fullFile, true, photoSet.creditText)).copies;
+      set = needWebp(await encodePhotoSet(fullFile, true, photoSet.creditText)).copies;
     } else {
-      set = (await encodePhotoSet(file, false, photoSet.creditText)).copies;
+      set = needWebp(await encodePhotoSet(file, false, photoSet.creditText)).copies;
       const master = set.find((c) => c.slot === "master");
       if (!master) throw new Error("photo set has no 2048 master");
       fullFile = master.file;
@@ -190,7 +196,7 @@ export async function uploadPhotoSet(
  */
 export function photoSetPhotoEncoder(creditTextLine: string): PhotoEncoder {
   return async (file: File): Promise<EncodedPhoto> => {
-    const { copies } = await encodePhotoSet(file, false, creditTextLine);
+    const { copies } = needWebp(await encodePhotoSet(file, false, creditTextLine));
     const master = copies.find((c) => c.slot === "master");
     const thumb = copies.find((c) => c.slot === "thumb");
     if (!master || !thumb) throw new Error("photo set is incomplete");

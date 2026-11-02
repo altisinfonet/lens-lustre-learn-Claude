@@ -12,7 +12,8 @@
  * rounding as compressImage, so the dimensions in the filename are exact.
  * A canvas re-encode carries no metadata, so no copy can carry GPS.
  *
- * Throws (ImageDecodeError, no canvas, encoder refusal) — the uploader then
+ * Throws (ImageDecodeError, no canvas, encoder refusal) or returns null (a copy
+ * came back as anything but real WebP) — either way the uploader then
  * falls back to today's set, so a post is never lost to this encoder.
  */
 import { decodeImageForCanvas } from "@/lib/imageCompression";
@@ -38,11 +39,21 @@ export function fitInside(width: number, height: number, max: number): { width: 
 
 function toBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Failed to create image/webp blob"))), "image/webp", quality);
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Failed to create image/webp blob"))), WEBP, quality);
   });
 }
 
-export async function encodePhotoSet(file: File, keepFull: boolean, creditText: string): Promise<EncodedPhotoSet> {
+/**
+ * U2 (review of #823): a browser without a WebP encoder does not refuse —
+ * `toBlob(cb, "image/webp")` silently hands back a PNG. Stored under a `.webp`
+ * name with `image/webp` metadata that would be a lie (and a 5–10× heavier
+ * file), so ANY copy whose blob is not really WebP makes the whole set null and
+ * the uploader uses today's path.
+ */
+const WEBP = "image/webp";
+
+/** Null = this browser cannot make the set (no real WebP encoder); use today's path. */
+export async function encodePhotoSet(file: File, keepFull: boolean, creditText: string): Promise<EncodedPhotoSet | null> {
   const img = await decodeImageForCanvas(file);
   const source = { width: img.width, height: img.height };
   if (!(source.width > 0 && source.height > 0)) throw new Error("decoded image has no size");
@@ -64,6 +75,7 @@ export async function encodePhotoSet(file: File, keepFull: boolean, creditText: 
       // Free the backing store now: a phone holds the source plus ONE canvas at a time.
       canvas.width = 0;
       canvas.height = 0;
+      if (blob.type !== WEBP) return null;
       const suffix = c.slot === "master" ? "" : c.slot === "thumb" ? "-thumb" : `-${c.slot}`;
       copies.push({ ...c, width, height, file: new File([blob], `${base}${suffix}.webp`, { type: "image/webp" }) });
     }

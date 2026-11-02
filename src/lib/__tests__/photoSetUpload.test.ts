@@ -123,6 +123,21 @@ describe("switch ON — posts", () => {
     expect(r.url).toMatch(/-l3\.webp$/);
   });
 
+  it("U2: a browser without a WebP encoder (encodePhotoSet → null) falls back to today's set", async () => {
+    encodePhotoSet.mockResolvedValueOnce(null as never);
+    const { uploadImageWithThumbnail } = await import("@/lib/imageUpload");
+    const r = await uploadImageWithThumbnail({ bucket: "post-images", file: jpeg(), type: "post", userId: "u1", photoSet: { creditText: CREDIT } });
+    expect(compressImageToFiles.mock.calls[0][2]).toEqual({ maxDimension: 2560 });
+    expect(r.url).toMatch(/-l3\.webp$/);
+    expect(r.url).not.toMatch(/-l4/);
+  });
+
+  it("U2: the queued-upload encoder throws on null too, so the composer uses today's path", async () => {
+    encodePhotoSet.mockResolvedValueOnce(null as never);
+    const { photoSetPhotoEncoder } = await import("@/lib/photoSetUpload");
+    await expect(photoSetPhotoEncoder(CREDIT)(jpeg())).rejects.toThrow(/WebP/);
+  });
+
   it("other image types ignore photoSet (profile / admin uploads unchanged)", async () => {
     const { uploadImageWithThumbnail } = await import("@/lib/imageUpload");
     await uploadImageWithThumbnail({ bucket: "avatars", file: jpeg(), type: "featured", userId: "u1", photoSet: { creditText: CREDIT } });
