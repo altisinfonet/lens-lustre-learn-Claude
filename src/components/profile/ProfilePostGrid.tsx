@@ -60,6 +60,8 @@ import { postMedia } from "@/lib/posts/subjectMedia";
 import VideoPoster from "@/components/video/VideoPoster";
 import { formatClock } from "@/components/video/FeedVideoCard";
 import FeedCardWindow from "@/components/feed/FeedCardWindow";
+import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
+import { photoSetGridUrl, photoSetMarker } from "@/lib/imageLadder";
 
 interface Props {
   posts: UnifiedPost[];
@@ -127,7 +129,11 @@ export const SHOWCASE_ASPECT = 3 / 2;
  * thumbnails live on Supabase storage, and guessing broke many posts on
  * 2026-08-07.
  */
-export function tileSrc(post: UnifiedPost): string | null {
+export function tileSrc(post: UnifiedPost, photoSetV2 = false): string | null {
+  // Photo plan U2 (switch `photo_set_v2`): a NEW photo (-l4 / -l4f) has a 320
+  // copy made for exactly this tile; every other photo keeps the rule below.
+  const first = post.image_urls?.[0];
+  if (photoSetV2 && typeof first === "string" && photoSetMarker(first)) return photoSetGridUrl(first);
   const thumb = post.thumbnail_urls?.[0];
   if (typeof thumb === "string" && thumb.length > 0) return thumb;
   return post.image_urls?.[0] ?? null;
@@ -184,7 +190,8 @@ const GridTile = memo(function GridTile({ post }: { post: UnifiedPost }) {
   const navigate = useNavigate();
   const [failed, setFailed] = useState(false);
   const [revealed, setRevealed] = useState(false);
-  const src = failed ? post.image_urls?.[0] ?? null : tileSrc(post);
+  const photoSetV2 = usePhotoSetV2();
+  const src = failed ? post.image_urls?.[0] ?? null : tileSrc(post, photoSetV2);
   const count = post.image_urls?.length ?? 0;
   // A video post shows its own still frame, never an empty photo tile (src/lib/posts/subjectMedia.ts).
   const { video } = postMedia(post);
