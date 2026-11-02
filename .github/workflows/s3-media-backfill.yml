@@ -49,6 +49,12 @@ on:
         required: false
         type: string
         default: "0"
+      job:
+        description: "ladder = S3 600/1080/1440 for media posts · photo-set = photo plan U5, the v2 set (credited 2048/1080/600/320) beside every old post photo"
+        required: false
+        type: choice
+        options: [ladder, photo-set]
+        default: ladder
 
 concurrency:
   group: s3-media-backfill-${{ inputs.target }}
@@ -59,7 +65,7 @@ permissions:
 
 jobs:
   backfill:
-    name: ${{ inputs.mode }} media derivatives on ${{ inputs.target }}
+    name: ${{ inputs.mode }} ${{ inputs.job || 'ladder' }} backfill on ${{ inputs.target }}
     runs-on: ubuntu-latest
     timeout-minutes: 55
     environment: ${{ inputs.target }}
@@ -68,6 +74,7 @@ jobs:
       BRANCH_REF: ${{ github.ref }}
       MODE: ${{ inputs.mode }}
       MAX_IN: ${{ inputs.max }}
+      JOB: ${{ inputs.job }}
       # The worker e-mail / password are bound ONLY on the two steps that need
       # them, never job-wide: npm install scripts and the tool never see them.
     steps:
@@ -140,7 +147,12 @@ jobs:
           set -euo pipefail
           ARGS=(--site "$SITE" --max "$MAX_IN")
           [ "$MODE" = "dry-run" ] && ARGS+=(--dry-run)
-          node tools/media-derivatives/run.mjs "${ARGS[@]}"
+          case "${JOB:-ladder}" in
+            ladder)    TOOL=tools/media-derivatives/run.mjs ;;
+            photo-set) TOOL=tools/media-derivatives/photo-set.mjs ;;
+            *) echo "::error::job must be ladder or photo-set"; exit 1 ;;
+          esac
+          node "$TOOL" "${ARGS[@]}"
 
       - name: Forget the token
         if: always()

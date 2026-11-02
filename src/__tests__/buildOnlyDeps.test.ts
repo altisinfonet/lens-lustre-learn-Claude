@@ -44,8 +44,9 @@ describe("build-only packages are devDependencies", () => {
       expect(users).toEqual(name === "vite-plugin-image-optimizer" ? ["vite.config.ts"] : []);
     });
   }
-  it("sharp's one user is the backfill tool, which CI runs after a full `npm ci`", () => {
-    expect(imports("sharp", files(path.join(ROOT, "tools"))).map((f) => path.relative(ROOT, f))).toEqual(["tools/media-derivatives/run.mjs"]);
+  it("sharp's users are the two backfill tools (S3 ladder, photo plan U5), which CI runs after a full `npm ci`", () => {
+    expect(imports("sharp", files(path.join(ROOT, "tools"))).map((f) => path.relative(ROOT, f)).sort())
+      .toEqual(["tools/media-derivatives/photo-set.mjs", "tools/media-derivatives/run.mjs"]);
     expect(fs.readFileSync(path.join(ROOT, ".github/workflows/s3-media-backfill.yml"), "utf8")).toMatch(/run: npm ci --no-audit --no-fund\n/);
   });
 });

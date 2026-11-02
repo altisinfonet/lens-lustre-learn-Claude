@@ -1,0 +1,72 @@
+name: D1 · photo-set backfill + swap (U5) — lane-shaped fixture
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING BUT A THROWAWAY postgres:17.6 SERVICE CONTAINER.
+# HOLDS NO SECRET: the container password below is a literal placeholder for a
+# database that exists for the length of this job.
+#
+# WHAT IT PROVES (20261110_0101 + 0102). scripts/db-photo-set-backfill-fixture.mjs
+# runs the REAL migrations, PROBEs, census and ROLLBACKs over
+# supabase/tests/photo-set-backfill/ in a production shape and a staging shape
+# (each lane's measured URL classes), and requires: PROBE and census red before
+# the apply; every refusal (no lane, second run, plain member, production swap
+# while photo_set_v2 is off, rollback order); the worker functions record
+# exactly the six in-scope photos; the swap takes every ready post, skips the
+# one its caption trigger refuses, takes it on a re-run; the exact posts after
+# the swap; the swap rollback restores every post byte-for-byte.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261110_0101_photo_set_backfill.sql'
+      - 'supabase/migrations/PROBE_20261110_0101_photo_set_backfill.sql'
+      - 'supabase/migrations/PROBE_20261110_0101_photo_set_census.sql'
+      - 'supabase/rollback/20261110_0101_photo_set_backfill_ROLLBACK.sql'
+      - 'supabase/migrations/20261110_0102_photo_set_swap.sql'
+      - 'supabase/migrations/PROBE_20261110_0102_photo_set_swap.sql'
+      - 'supabase/rollback/20261110_0102_photo_set_swap_ROLLBACK.sql'
+      - 'supabase/tests/photo-set-backfill/**'
+      - 'scripts/db-photo-set-backfill-fixture.mjs'
+      - '.github/workflows/d1-photo-set-backfill-fixture.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  fixture:
+    name: photo-set backfill + swap on lane-shaped databases
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_PASSWORD: fixture-not-a-secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: fixture-not-a-secret
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install psql
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: The throwaway server
+        run: psql -X -d postgres -tAc 'select version()'
+
+      - name: Fixture — fail-first, apply, PROBE, worker, census, swap, gate, rollbacks (both shapes)
+        run: node scripts/db-photo-set-backfill-fixture.mjs
