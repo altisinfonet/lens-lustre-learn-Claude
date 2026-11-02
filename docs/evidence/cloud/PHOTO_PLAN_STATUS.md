@@ -1,6 +1,6 @@
 **Smart photo plan runner: status** (file: `docs/evidence/cloud/PHOTO_PLAN_STATUS.md`; never merge this PR)
 
-Last update: 2026-11-02 18:56 UTC (local runner, third run — stopped after the carry + live check; U5 next)
+Last update: 2026-11-02 21:35 UTC (local runner, fourth run — U5/U6 on main, U7 on staging, production sign-in fix #837 and app 1.2.37 #838 in CI)
 
 | Unit | PRs | Merged (staging / main) | SQL / workflow runs (UTC) | Live check | % |
 |---|---|---|---|---|---|
@@ -10,10 +10,10 @@ Last update: 2026-11-02 18:56 UTC (local runner, third run — stopped after the
 | U2 display | #825 · #829 · carry #831 | e71c59fb + 0e2cf81f / c723e498 | no SQL. #829: the switch-OFF snapshots held age-based reach figures, stale from 15:32 UTC (every PR's unit tests red, e.g. 41491197888); fixed clock in that test, snapshots unchanged | 41504451476 ✓ | 100 (switch OFF) |
 | U3 download removal | #827 · carry #831 | 67f9a389 / c723e498 | no SQL | 41504451476 ✓ | 100 (switch OFF) |
 | U4 save mobile data + review follow-ups | #830 · carry #831 | 492aa191 / c723e498 | no SQL | 41504451476 ✓ | 100 (switch OFF) |
-| U5 backfill | — | — | — | — | 0 (design chosen, see below) |
-| U6 competition auto-delete | — | — | — | — | 0 |
-| U7 delete old big files | — | — | — | — | 0 (waits for the Owner, see list) |
-| App bump | — | — | — | — | 0 |
+| U5 backfill | #832 · carry #833 · sign-in fix #837 | 83000083 / 3d9f9760 | **staging:** PROBE 41514251258 FAIL A1 (expected) 19:54 · apply 41514428601 ✓ · PROBE 41514534347 **PASS** · `detect-orphan-files` 41514649231 ✓ · copies dry-run 41514677532 (2) → run 41514822543 ✓ 2/2 recorded (sizes + credit checked on the CDN) · census 41515035895 **PASS** 2/2 · swap PROBE 41515536452 FAIL S1 (expected) → swap 41515642089 ✓ → PROBE 41515785819 **PASS** → rollback 41515956002 ✓ (URLs byte-identical) → swap again 41516084403 ✓. **production:** PROBE 41518615738 FAIL A1 (expected) 20:25 · apply 41519121704 ✓ 20:29 · PROBE 41519706443 **PASS** 20:30 (598 photos pending) · `detect-orphan-files` 41519736975 ✓ (v34) · copies 41519876024 ✗ sign-in 400 = **production Auth CAPTCHA on the password grant** (coordinator, 21:10) → fixed in #837 (server-side session like the live converter, nobody signed out) | 41524138226 ✓ | 85 (production copies + census after #837 is on main; swap waits for the Owner) |
+| U6 competition auto-delete | #834 · carry #835 | 31f3dce2 / 22fa3a4e | **staging:** PROBE 41520718664 FAIL A1 (expected) · apply 41520835443 ✓ · PROBE 41520965510 **PASS** (2 competitions, none final) · `photo-retire.yml` dry-run 41523936652 (0). **production:** PROBE 41523553680 FAIL A1 (expected) 20:55 · apply 41523719198 ✓ 20:56 · PROBE 41523820005 **PASS** 20:57 (0 competitions; switch off; dry run 0). `photo-retire.yml` **disabled** (cron OFF on live until proven) | 41524138226 ✓ (console lines identical to 41504451476, 0 new) | 100 (switch OFF) |
+| U7 delete old big files | #836 | c6b3f1e3 / (carry pending) | **staging:** PROBE 41524801074 FAIL U1 (expected) · apply 41526828483 ✓ (6 queued: 2 due, 4 kept — still named elsewhere / rungs of a kept photo) · PROBE 41527051932 **PASS** · retire dry-run 41528077071 (2 files, 24,858 bytes) → run 41528159135 ✓ deleted 2 · PROBE 41528334675 **PASS** (deleted 2, 24,858 bytes); posts still show their new copies (200). **production:** Owner item (needs the switch on + swap) | — | 80 (production = Owner) |
+| App bump 1.2.37 | #838 | — | android-build on main after the carry | — | 50 |
 
 **Live check 41504451476 (18:51 UTC, main c723e498, live bundle confirmed to contain the U4 code before the check):** Chromium / Firefox / WebKit — `/`, `/feed`, `/notifications` all 200 with text, same text on both loads; console lines identical to the 2 Nov 14:34 check 41462810560 (9 = 9, **0 new**).
 
@@ -27,13 +27,28 @@ Last update: 2026-11-02 18:56 UTC (local runner, third run — stopped after the
 
 **U0 result (true saving, measured on live, 40 public photos):** stored per photo 1,028 KB → 537 KB (−47.7 %); full-screen open 735 → 357 KB (−51.4 %); grid tile 37 → 12 KB (−66.8 %). Evidence: `docs/evidence/photo-plan/U0/`.
 
-**U5 — design chosen (not started).** The new display code reaches a photo's copies only through the `-l4` URL marker; the S3 backfill tool writes a different ladder (`post-images/<owner>/d/<media>/w600|1080|1440`, only for posts with `post_media` rows). So U5 = (a): a worker writes a `-l4` set (credited 2048 / 1080 / 600 / 320, never overwriting) beside each old photo through a Pages route that accepts only those sibling keys, then an audited, reversible SQL RPC swaps `posts.image_urls` / `thumbnail_urls` to the new URLs only when every sibling exists. Covers legacy posts too, and is what U7 needs ("the live site reads only new copies"). Old apps keep working (the new URL is a normal WebP). Dry-run + census PROBE per lane, staging first.
+**What U5–U7 do:**
+- **U5 backfill** (`docs/evidence/photo-plan/U5/`): a worker (`s3-media-backfill.yml`, job `photo-set`) writes the v2 set (credited 2048 / 1080 / 600 / 320, `-l4` names; the whole old name is kept, so no two photos can collide) BESIDE every old post photo, through Pages routes that derive every key, never overwrite, never delete, and record a photo only after one HEAD per copy. The census PROBE counts old photos still without their set. The **swap** (0102) moves posts to the new URLs one post at a time, keeps the full before/after, rolls back byte for byte, and **refuses on production while `photo_set_v2` is off** (it changes what every member sees, old apps included). The credit was drawn by the Linux runner and checked on a real staging copy.
+- **Production sign-in (fixed, not an Owner item):** production Auth has CAPTCHA on password sign-in (`captcha_failed`), so the worker now gets its session server-side the way the live converter does (#837). It signs nobody out, and CAPTCHA stays on.
+- **U6 competition full size** (`docs/evidence/photo-plan/U6/`): "results final" was measured from the live schema as round 4 published (`competition_round_publish`; the live trigger sets phase/status to `result` from exactly that row). A daily database job (04:10 UTC) runs only while the new switch **`competition_fullsize_purge`** is set to All members. It moves a v2 entry (`-l4f`) to its credited 2048 copy 30 days after final results and queues the full-size file. Anything still named elsewhere is kept. `photo-retire.yml` deletes the queue through `/api/media/retire`, which refuses any copy and any full-size file whose 2048 copy is missing. Old pre-v2 entries are never touched. Production has 0 competitions; staging has 2, none final.
+- **Found and fixed in U6:** Admin → Features dropped unknown switches, so **`photo_set_v2` had no card and could not be clicked.** It now appears under Admin → **Photos** → *New Photos* and *Competition Full Size*.
+- **U7 old big files** (`docs/evidence/photo-plan/U7/`): 0104 queues each swapped photo's old file, its old thumbnail and its `-l3` rungs. It runs only when no post still shows an old file and, on production, only while `photo_set_v2` is set to All members. Anything still named elsewhere (and the rungs of a kept photo) is kept. Nothing is deleted until `photo-retire.yml` with kind `post_old` is run by hand, dry run first (count + bytes). Every step is reversible until that run, and the swap rollback never points a post back at a queued or deleted file. Proven end to end on staging.
+- **App 1.2.37** (#838): the one app version for the plan. Every new behaviour is behind switches that are OFF on live.
 
-**U6 — open question for the build:** "results final" must be read from the live schema (rounds publish results per round; `round_results_published`); to be measured before writing the SQL.
+**Production U7 dry-run estimate (read-only, 2 Nov 20:34 UTC, public posts):** 597 old photos → 1,899 candidate files, 1,844 present, **556,702,446 bytes ≈ 531 MB** to free.
 
-**Not verified, and why:** no phone test with the switch on (the Owner switches); real-network blur/size behaviour measured only in jsdom.
+**Known limits (recorded):** iPhone and desktop browsers cannot tell Wi-Fi from mobile data, so videos start at 480p there and "Save mobile data" always saves. Photos past slot 50 of a post are not backfilled (no post has more than 10). Old photos outside the photo bucket stay as they are and are never deleted: on production, 37 avatars-bucket files and 20 Supabase-storage photos. `photo-retire.yml` is disabled until the Owner turns on competition deletion (item 3).
+
+**Not verified, and why:**
+- No phone test with the switch on, because the Owner switches it.
+- Production copies are not made yet; they need #837 on main.
+- No competition is final on either lane, so U6 has run only in the fixture and as a dry run.
+- Blur and size behaviour on a real network was measured only in jsdom.
 
 Every new behaviour ships behind a switch that is OFF on live. I never switch anything on.
 
-**Owner list (plain words)**
-_Nothing needed yet._ The switch-on steps come at the end, after the old photos are converted (U5). U7 (deleting the old big files) will wait until you have switched the new photos on yourself.
+**Owner list (plain words)** — nothing to do until a session reports "production copies: census PASS" (the next session runs that; no click from you).
+1. **Switch the new photos on:** open www.50mmretina.com → Admin → **Photos** → **New Photos** → choose **All members** (or first **Selected members** and add yourself to try it). Look at the feed, a full-screen photo (the small "© name, 50mm Retina World" bottom-right), the camera line under a photo, and Edit profile → "Save mobile data". Then type **"swap OK"** in the Claude chat — a session then moves the OLD photos to their new copies (20261110_0102; it refuses until you have switched on).
+2. **Delete the old big files (≈ 531 MB on live):** after the swap, look at a few old posts; if they look right type **"delete old files go"**. A session then queues them (20261110_0104), shows you the exact count + size (dry run), and deletes. You already said "delete originals yes"; this is only the go after you have seen the new photos live.
+3. **Competition full size after 30 days:** when you want it, Admin → **Photos** → **Competition Full Size** → **All members**, and type "competition delete on" (a session re-enables the daily delete job). Today no competition on live has final results, so nothing would be deleted yet.
+4. **App 1.2.37:** the supervisor saves and scans the .aab after the build; you upload it to Play as usual.
