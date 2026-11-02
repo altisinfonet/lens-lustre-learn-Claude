@@ -122,6 +122,7 @@ jobs:
           # it masks the token before writing it (0600) and prints it nowhere. It never signs
           # other sessions out (the live video converter uses the same account).
           node tools/media-derivatives/worker-session.mjs --out "$RUNNER_TEMP/worker.jwt"
+          [ -s "$RUNNER_TEMP/worker.jwt" ] || { echo "::error::the sign-in tool wrote no token"; exit 1; }
           echo "MEDIA_WORKER_JWT_FILE=$RUNNER_TEMP/worker.jwt" >> "$GITHUB_ENV"
 
       - name: Run the deleter

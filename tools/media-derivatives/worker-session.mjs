@@ -70,12 +70,15 @@ export async function workerSession({ supabaseUrl, anonKey, email, password, acc
 
   const list = await json(f, `${origin}/auth/v1/admin/users?filter=${encodeURIComponent(wanted)}&per_page=50`, { headers: admin });
   const users = (Array.isArray(list.body?.users) ? list.body.users : []).filter((u) => String(u?.email ?? "").toLowerCase() === wanted);
-  if (!list.ok || users.length !== 1) throw new Refused(`the worker e-mail is not exactly one account on this lane (${users.length})`);
+  if (!list.ok) throw new Refused(`the admin user list answered ${list.status} (service key refused?)`);
+  if (users.length !== 1) throw new Refused(`the worker e-mail is not exactly one account on this lane (${users.length})`);
   const id = users[0].id;
 
   const link = await json(f, `${origin}/auth/v1/admin/generate_link`, { method: "POST", headers: admin, body: JSON.stringify({ type: "magiclink", email: wanted }) });
   const linkUser = link.body?.user ?? link.body;
-  if (!link.ok || linkUser?.id !== id) throw new Refused("generate_link answered for another user — stopped");
+  if (!link.ok || linkUser?.id !== id || String(linkUser?.email ?? "").toLowerCase() !== wanted) throw new Refused("generate_link answered for another user — stopped");
+  const vt = link.body?.verification_type ?? link.body?.properties?.verification_type;
+  if (vt !== undefined && vt !== "magiclink") throw new Refused("generate_link answered another link type — stopped");
   const tokenHash = link.body?.hashed_token ?? link.body?.properties?.hashed_token;
   if (typeof tokenHash !== "string" || !/^[0-9a-f]{20,128}$/i.test(tokenHash)) throw new Refused("generate_link answered without a hashed_token");
 
