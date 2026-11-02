@@ -248,6 +248,19 @@
     touch-action: pan-x pan-y;
   }
 
+  /* ── PHOTO PLAN U3 · app long-press "save image" off ──────────────────
+   * Added at runtime ONLY inside the installed app AND only while
+   * photo_set_v2 is on, by src/lib/native/photoSaveGuard.ts (which also
+   * cancels the long-press context menu on photos). Never on the web.
+   * Photos only — text keeps selection and copy.
+   */
+  html.app-photo-save-off img {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
   h1 {
     font-family: var(--font-display);
     font-weight: 700;

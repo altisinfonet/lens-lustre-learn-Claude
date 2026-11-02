@@ -6,7 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
 import { fetchProfileMap } from "@/lib/profileMapCache";
 import { ArrowLeft, Trophy, Share2, Copy, MessageCircle, Globe, Heart, Scale } from "lucide-react";
-import { useDownloadImage } from "@/hooks/core/useDownloadImage";
+import { usePhotoDownload } from "@/hooks/core/usePhotoDownload";
+import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
+import { inlinePhotoUrl } from "@/lib/photoProtection";
 import DownloadButton from "@/components/DownloadButton";
 import { toast } from "@/hooks/core/use-toast";
 import CommentsSection from "@/components/CommentsSection";
@@ -73,7 +75,11 @@ const EntryDetail = () => {
   const [entry, setEntry] = useState<EntryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const { downloading, download: downloadImg } = useDownloadImage();
+  // U3 (photo_set_v2): a competition entry — only admins and judges keep
+  // download, and the page shows the 1080 copy of a new entry photo, never its
+  // full-size file. Switch off: today's button and today's photo for everyone.
+  const { canDownload, downloading, download: downloadImg } = usePhotoDownload(true);
+  const photoSetV2 = usePhotoSetV2();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const { toggleVoteAsync, isVoting } = useCompetitionVoting({
@@ -294,21 +300,23 @@ const EntryDetail = () => {
             <div>
               {entry.photos.length === 1 ? (
                 <div className="relative group/img">
-                  <img src={entry.photos[0]} alt={entry.title} className="w-full" loading="lazy" onContextMenu={(e) => e.preventDefault()} draggable={false} />
+                  <img src={inlinePhotoUrl(entry.photos[0], photoSetV2)} alt={entry.title} className="w-full" loading="lazy" onContextMenu={(e) => e.preventDefault()} draggable={false} />
                   <PhaseWatermark
                     phase={entry.competitionPhase}
                     currentRound={entry.competitionCurrentRound}
                     surface="card"
                   />
-                  <DownloadButton
-                    downloading={downloading === entry.photos[0]}
-                    onClick={(e) => { e.stopPropagation(); downloadImg(entry.photos[0]); }}
-                    className="absolute bottom-3 right-3 p-2 rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-card shadow-sm disabled:opacity-60"
-                  />
+                  {canDownload && (
+                    <DownloadButton
+                      downloading={downloading === entry.photos[0]}
+                      onClick={(e) => { e.stopPropagation(); downloadImg(entry.photos[0]); }}
+                      className="absolute bottom-3 right-3 p-2 rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-card shadow-sm disabled:opacity-60"
+                    />
+                  )}
                 </div>
               ) : (
                 <div className="relative">
-                  <FacebookPhotoGrid urls={entry.photos} author={{ userId: entry.user_id, name: entry.author_name ?? null, handle: entry.author_handle ?? null }} />
+                  <FacebookPhotoGrid urls={entry.photos} competitionEntry author={{ userId: entry.user_id, name: entry.author_name ?? null, handle: entry.author_handle ?? null }} />
                   <PhaseWatermark
                     phase={entry.competitionPhase}
                     currentRound={entry.competitionCurrentRound}
