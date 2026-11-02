@@ -22,7 +22,7 @@ $lane_guard$;
 SET LOCAL lock_timeout = '5s';
 
 DO $rb$
-DECLARE _w record; _back int := 0; _kept int := 0;
+DECLARE _w record; _back int := 0; _kept int := 0; _n bigint;
 BEGIN
   IF to_regclass('public.photo_set_swap') IS NULL THEN
     RAISE EXCEPTION 'U5-0102-RB-PRE-001: 20261110_0101 is not applied on this lane — nothing to roll back';
@@ -31,6 +31,26 @@ BEGIN
     RAISE EXCEPTION 'U5-0102-RB-PRE-002: no post is swapped on this lane — nothing to roll back';
   END IF;
   FOR _w IN SELECT * FROM public.photo_set_swap ORDER BY post_id LOOP
+    -- U7 (20261110_0104): a post is never pointed back at an old file (or an
+    -- -l3 rung of it) that is queued or deleted — matched by the FILE, so a file
+    -- queued under another post that shares it counts too. Kept files are safe.
+    -- Roll 0104 back first (it frees what is not deleted).
+    IF to_regclass('public.photo_retire') IS NOT NULL THEN
+      EXECUTE $q$
+        SELECT count(*) FROM public.photo_retire r
+         WHERE r.kind = 'post_old' AND r.state IN ('due', 'deleted')
+           AND EXISTS (SELECT 1 FROM unnest($1) u(url)
+                        WHERE u.url IS NOT NULL
+                          AND (split_part(u.url, '?', 1) = r.object_url
+                               OR r.object_url LIKE regexp_replace(split_part(u.url, '?', 1), '\.webp$', '') || '-r%'))
+      $q$ INTO _n
+      USING _w.old_image_urls || coalesce(_w.old_thumbnail_urls, '{}'::text[]) || ARRAY[_w.old_image_url, _w.old_thumbnail_url];
+      IF _n > 0 THEN
+        _kept := _kept + 1;
+        RAISE NOTICE 'U5-0102 rollback: post % has old files queued or deleted (U7) — not touched', _w.post_id;
+        CONTINUE;
+      END IF;
+    END IF;
     BEGIN
       UPDATE public.posts p
          SET image_urls = _w.old_image_urls, thumbnail_urls = _w.old_thumbnail_urls,
