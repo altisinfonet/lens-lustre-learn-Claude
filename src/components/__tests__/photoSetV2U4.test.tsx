@@ -153,7 +153,7 @@ describe("Save mobile data (decision 6)", () => {
     wrap(<PostMedia urls={[L4]} thumbUrls={[L4_THUMB]} />);
     await settle();
     const viewer = await openViewer();
-    expect(viewer.querySelector("img")!.getAttribute("src")).toBe(L4);
+    expect(viewer.querySelector("img")!.getAttribute("src")).toBe(`${L4}?cv=3`);
   });
 
   it("full screen: the 600 copy is painted when saving (Unit A: the clean copy is painted, one size down)", async () => {
