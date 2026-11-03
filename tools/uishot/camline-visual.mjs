@@ -84,6 +84,15 @@ const SCENES = [
   ["app-phone-admin-closed", "post=a&admin=1&w=phone&app=1", PHONE, false],
   ["app-phone-admin-opened", "post=a&admin=1&w=phone&app=1", PHONE, true],
   ["app-phone-no-camera-details", "post=b&w=phone&app=1", PHONE, false],
+  // Owner report 3 Nov: the slider dots close together, and NO empty band under
+  // the photo when there is no camera line (switch OFF as on live, or no details).
+  ["web-desktop-album", "post=c", DESKTOP, false],
+  ["web-phone-album", "post=c&w=phone", PHONE, false],
+  ["app-phone-album", "post=c&w=phone&app=1", PHONE, false],
+  ["web-desktop-switch-off", "post=a&off=1", DESKTOP, false],
+  ["web-phone-switch-off", "post=a&off=1&w=phone", PHONE, false],
+  ["app-phone-switch-off", "post=a&off=1&w=phone&app=1", PHONE, false],
+  ["web-phone-album-switch-off", "post=c&off=1&w=phone", PHONE, false],
 ].map(([name, query, viewport, open]) => ({ name, query, viewport, open }));
 
 /**
@@ -147,7 +156,7 @@ async function shoot(browser, s) {
   });
   await page.goto(`${BASE}/camlineharness.html?${s.query}`);
   await page.waitForSelector("#cardwrap img", { timeout: 60_000 });
-  const withCamera = s.query.includes("post=a");
+  const withCamera = /post=[ac]/.test(s.query) && !s.query.includes("off=1");
   if (withCamera) await page.waitForSelector("[data-camera-line]", { timeout: 30_000 });
   // The admin answer waits for the dashboard bootstrap (≤ 3.5 s): wait it out
   // for EVERY scene, so a member scene is photographed after it too.
@@ -167,6 +176,12 @@ async function shoot(browser, s) {
       location: /Location removed|owner can hide this|Location is always removed/.test(document.body.textContent ?? ""),
       afterPhoto: l ? !!l.previousElementSibling?.querySelector(".cursor-zoom-in") : null,
       gaps: [...new Set(window.__camGaps ?? [])],
+      lastGap: (window.__camGaps ?? []).at(-1) ?? null,
+      // centre-to-centre distances of the slider dots, px
+      dotSteps: (() => {
+        const d = [...document.querySelectorAll("#cardwrap [data-slider-dots] > *")].map((e) => { const b = e.getBoundingClientRect(); return b.left + b.width / 2; });
+        return d.slice(1).map((x, i) => Math.round(x - d[i]));
+      })(),
     };
   });
   const card = await (await page.$("#cardwrap")).screenshot();
@@ -194,7 +209,8 @@ for (const s of SCENES) {
   delete row.gaps;
   row.shift = `gaps under the photo, in order seen: ${r.dom.gaps.join(" → ")} px`;
   // What every picture must show, whatever the baseline says.
-  const hasLine = s.query.includes("post=a");
+  const hasLine = /post=[ac]/.test(s.query) && !s.query.includes("off=1");
+  const isAlbum = s.query.includes("post=c");
   const admin = s.query.includes("admin=1");
   const checks = [
     [!r.dom.location, "no 'Location removed' text"],
@@ -210,6 +226,10 @@ for (const s of SCENES) {
     // judged — it needs the details delivered with the feed page.) Admins grow
     // once, to their 44 px tap row.
     [admin || !hasLine || r.dom.gaps.filter((g) => g !== 0).length === 1, `no layout shift under the photo once the switch is known (gaps seen: ${r.dom.gaps.join(", ")} px)`],
+    // Owner, 3 Nov: no camera line → NO empty space between the photo and Like / Comment / Share.
+    [hasLine || r.dom.lastGap === 0, `no empty band under the photo without a camera line (last gap ${r.dom.lastGap} px)`],
+    // Owner, 3 Nov: the slider dots close together (≤ 14 px apart, centre to centre).
+    [!isAlbum || (r.dom.dotSteps.length === 2 && r.dom.dotSteps.every((x) => x > 0 && x <= 14)), `slider dots close together (steps ${r.dom.dotSteps.join(", ")} px)`],
   ];
   row.failed = checks.filter(([ok]) => !ok).map(([, what]) => what);
   if (UPDATE) {
