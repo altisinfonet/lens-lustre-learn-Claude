@@ -135,6 +135,36 @@ describe("photo plan U1b · photo_set_v2 on the resumable path", () => {
     ]);
   });
 
+  describe("Unit A/B · the private clean 2048 never holds up a post", () => {
+    const encV3 = async (f: File): Promise<EncodedPhoto> => ({
+      full: { blob: new Blob([new Uint8Array(f.size)], { type: "image/webp" }), width: 1080, height: 810 },
+      thumb: new Blob([new Uint8Array(10)], { type: "image/webp" }),
+      rungs: [{ rung: 2048, suffix: "-r2048c", blob: new Blob([new Uint8Array(40)], { type: "image/webp" }) }, { rung: 320, suffix: "-r320", blob: new Blob([new Uint8Array(5)], { type: "image/webp" }) }],
+      clean: new Blob([new Uint8Array(50)], { type: "image/webp" }),
+      marker: "-l5",
+    });
+
+    it("stored once per photo, after the public copies, with the photo's public key", async () => {
+      const s = fakeServer();
+      const sent: string[] = [];
+      await createPhotoJob({ id: "c1", userId: U, files: files(), post }, encV3);
+      await runPhotoJob("c1", { ...s.d, putClean: async (k) => { sent.push(k); return "stored"; } });
+      expect(s.posts.size).toBe(1);
+      expect(sent).toEqual(["post-images/u1/posts/c1-0-w1080h810-l5.webp", "post-images/u1/posts/c1-1-w1080h810-l5.webp"]);
+      expect(s.presigned.some((p) => p.endsWith("-r2048.webp"))).toBe(false); // never presigned into the public bucket
+    });
+
+    it("a clean-copy route that keeps failing (network / 5xx) is given up after 3 tries — the post is still published", async () => {
+      const s = fakeServer();
+      let calls = 0;
+      await createPhotoJob({ id: "c2", userId: U, files: [new File([new Uint8Array(100)], "a.jpg")], post }, encV3);
+      const d = { ...s.d, putClean: async () => { calls++; throw new TypeError("Failed to fetch"); } };
+      for (let i = 0; i < 6 && s.posts.size === 0; i++) await runPhotoJob("c2", { ...d, now: () => 10 ** 12 + i * 10 ** 9 });
+      expect(s.posts.size).toBe(1);
+      expect(calls).toBe(3);
+    });
+  });
+
   it("camera details travel on the job record (read before the encode), and old jobs have none", async () => {
     const camera = [{ ord: 1, camera: "Canon EOS R5", iso: 400 }];
     const j = await createPhotoJob({ id: "v2", userId: U, files: files(), post, camera }, encV2);
