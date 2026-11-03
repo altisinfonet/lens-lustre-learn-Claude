@@ -20,7 +20,7 @@
  */
 export const CREDIT_GEOMETRY = Object.freeze({
   version: 3,
-  urlVersion: 0,
+  urlVersion: 3, // raised 3 Nov 2026 after PROBE_20261110_0108 PASS on production (every credited file redrawn at v3)
   /** font = SAMPLE_FONT_PX × (width / SAMPLE_WIDTH) / SIZE_DIVISOR */
   sampleFontPx: 13,
   sampleWidth: 400,

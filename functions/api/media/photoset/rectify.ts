@@ -69,7 +69,7 @@ const IMMUTABLE = { contentType: "image/webp", cacheControl: "public, max-age=31
  *   · the body must be a WebP of exactly the credited copy's CURRENT size;
  *   · `version` must be the current geometry version (src/lib/creditGeometry.mjs).
  * The credited copy is a derived file (the clean copy is untouched), and the
- * web loads it as `?cv=<version>`, so no cache keeps the old one.
+ * web loads credited copies as `?cv=<urlVersion>` (raised only after the redraw ran on the lane), so no cache keeps the old one.
  */
 const L5_KEY_RE = /^post-images\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/posts\/[A-Za-z0-9_.-]+-w\d{1,4}h\d{1,4}-l5\.webp$/;
 async function redrawTarget(env: MediaEnv, jwt: string, postId: string, ord: number, fetchImpl: typeof fetch): Promise<{ urlKey: string; credKey: string; w: number; h: number; version: number }> {
