@@ -18,7 +18,9 @@ function webp(w: number, h: number, pad = 0): Uint8Array {
   return b;
 }
 
-function setup(uid = ME, store = new Map<string, Uint8Array>()) {
+/** The public credited sibling both upload paths store BEFORE sending the clean copy. */
+const CREDITED = POST.replace(/\.webp$/, "-r2048c.webp");
+function setup(uid = ME, store = new Map<string, Uint8Array>([[CREDITED, webp(2048, 1365)]])) {
   const writes: string[] = [];
   const bucket = {
     head: async (k: string) => (store.has(k) ? { size: store.get(k)!.length } : null),
@@ -88,8 +90,15 @@ describe("POST /api/media/clean-copy", () => {
     expect(s.writes).toHaveLength(1);
   });
   it("409 when a different object sits at the key", async () => {
-    const s = setup(ME, new Map([[`photo-clean/${key}`, webp(1620, 1080)]]));
+    const s = setup(ME, new Map([[CREDITED, webp(2048, 1365)], [`photo-clean/${key}`, webp(1620, 1080)]]));
     expect((await s.send(key, webp(2048, 1365))).status).toBe(409);
+    expect(s.writes).toHaveLength(0);
+  });
+  it("Unit B: 409 PHOTO-CLEAN-006 when the photo's public credited copy is not stored (no parking files under made-up names)", async () => {
+    const s = setup(ME, new Map());
+    const r = await s.send(key, webp(2048, 1365));
+    expect(r.status).toBe(409);
+    expect(((await r.json()) as { error?: string }).error).toBe("PHOTO-CLEAN-006");
     expect(s.writes).toHaveLength(0);
   });
   it("403 for somebody else's photo, 400 for a bad key, 415 / 422 for bad bytes, 405 for GET", async () => {
