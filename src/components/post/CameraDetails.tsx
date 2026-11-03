@@ -45,7 +45,7 @@ import { Camera, ChevronDown, EyeOff } from "lucide-react";
 import { cameraLine, cameraLineParts, cameraRows, cameraStateFor, cameraText, type CameraState } from "@/lib/photoCameraDisplay";
 import { photoSetMarker } from "@/lib/imageLadder";
 import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
-import { usePostPhotoCamera } from "@/hooks/feed/usePostPhotoCamera";
+import { usePostPhotoCameraRead } from "@/hooks/feed/usePostPhotoCamera";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 
 const HiddenHint = () => (
@@ -222,6 +222,6 @@ export function PostCameraDetails({ postId, imageUrls }: { postId: string; image
 }
 
 function PostCameraDetailsOn({ postId, url }: { postId: string; url: string }) {
-  const rows = usePostPhotoCamera(postId, true);
-  return <PostCameraLine state={cameraStateFor(rows, 0, url)} focusKey={`${postId}:${url}`} reserve={rows === undefined && !!photoSetMarker(url)} />;
+  const { rows, pending } = usePostPhotoCameraRead(postId, true);
+  return <PostCameraLine state={cameraStateFor(rows, 0, url)} focusKey={`${postId}:${url}`} reserve={pending && !!photoSetMarker(url)} />;
 }

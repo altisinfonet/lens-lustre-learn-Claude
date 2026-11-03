@@ -25,9 +25,13 @@ type Row = { post_id: string; ord: number; info: Record<string, unknown>; hidden
 let cameraRows: Row[] = [];
 /** Site admin (user_roles role = admin)? Only admins get the arrow + 2nd line (Owner v2). */
 let admin = false;
+/** How the camera read answers: normally, never (still reading), or with an error. */
+let cameraRead: "ok" | "hang" | "fail" = "ok";
 const rpc = vi.fn(async (fn: string, args?: Record<string, unknown>) => {
   if (fn === "feature_allowed_me") return { data: args?._feature === "photo_set_v2", error: null };
   if (fn === "post_photo_camera_for") {
+    if (cameraRead === "hang") return new Promise<never>(() => {});
+    if (cameraRead === "fail") return { data: null, error: { message: "network down" } };
     const ids = (args?.p_post_ids as string[]) ?? [];
     return { data: cameraRows.filter((r) => ids.includes(r.post_id)), error: null };
   }
@@ -94,8 +98,35 @@ const before = (a: Node, b: Node) => Boolean(a.compareDocumentPosition(b) & Node
 
 beforeEach(() => {
   rpc.mockClear();
+  cameraRead = "ok";
   cameraRows = [{ post_id: "p1", ord: 0, info: NIKON, hidden: false }];
   setApp(false);
+});
+
+describe("no layout shift: the line's height is held only while a NEW photo's details are being read (audit M5)", () => {
+  const OLD = "https://cdn-staging.50mmretina.com/post-images/u1/posts/1750000000000-old-w1920h1280-l3.webp";
+  it("still reading → the held box sits where the line will be (after the photo, before the actions)", async () => {
+    cameraRead = "hang";
+    const { container } = wrap(card());
+    await settle();
+    const held = container.querySelector("[data-camera-line-reserve]") as HTMLElement;
+    expect(held).not.toBeNull();
+    expect((held.previousElementSibling as HTMLElement).querySelector(".cursor-zoom-in")).not.toBeNull();
+    expect(container.querySelector("[data-camera-line]")).toBeNull();
+  });
+  it("the read FAILED → no held gap left behind", async () => {
+    cameraRead = "fail";
+    const { container } = wrap(card());
+    await settle();
+    expect(container.querySelector("[data-camera-line-reserve]")).toBeNull();
+    expect(container.querySelector("[data-camera-line]")).toBeNull();
+  });
+  it("an OLD photo (never read at upload) → nothing held", async () => {
+    cameraRead = "hang";
+    const { container } = wrap(<PostCard post={{ ...post(), image_url: OLD, image_urls: [OLD], thumbnail_urls: [] } as UnifiedPost} currentUserId="viewer-1" onReact={() => {}} onUnreact={() => {}} />);
+    await settle();
+    expect(container.querySelector("[data-camera-line-reserve]")).toBeNull();
+  });
 });
 afterEach(() => setApp(false));
 

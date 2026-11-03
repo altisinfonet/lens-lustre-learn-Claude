@@ -5,7 +5,7 @@
  * nothing expands. SITE ADMINS: an arrow that opens Lens + Taken in place
  * (max-height + opacity, 0.25 s, not sticky). The line comes into focus once
  * per photo ("lens focus", option A; none with reduced motion). Type is 12 px,
- * the site's readability floor. The app full-screen ⓘ → sheet; no camera
+ * the site's readability floor. No full-screen ⓘ or sheet (one design); no camera
  * information → nothing in the feed; no "Location removed" text anywhere; the
  * author's "hidden" hint. Where the line sits in a card:
  * cameraLineApproved.test.tsx.

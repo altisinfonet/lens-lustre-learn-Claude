@@ -38,7 +38,7 @@ import { avatarInitial } from "@/lib/displayName";
 import BlockUserDialog from "@/components/moderation/BlockUserDialog";
 import { PostCameraLine } from "@/components/post/CameraDetails";
 import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
-import { postPhotoCameraKey, usePostPhotoCamera } from "@/hooks/feed/usePostPhotoCamera";
+import { postPhotoCameraKey, usePostPhotoCameraRead } from "@/hooks/feed/usePostPhotoCamera";
 import { cameraStateFor } from "@/lib/photoCameraDisplay";
 import { setPostPhotoCameraHidden } from "@/lib/photoCameraRead";
 import { photoSetMarker } from "@/lib/imageLadder";
@@ -212,10 +212,10 @@ const PostCard = ({
    * line's height is held (`reserve`) so the card does not jump when it lands.
    */
   const photoSetOn = usePhotoSetV2();
-  const cameraRows = usePostPhotoCamera(post.id, photoSetOn && imageUrls.length > 0);
+  const { rows: cameraRows, pending: cameraReading } = usePostPhotoCameraRead(post.id, photoSetOn && imageUrls.length > 0);
   const [cameraSlide, setCameraSlide] = useState(0);
   const cameraState = photoSetOn ? cameraStateFor(cameraRows, cameraSlide, imageUrls[cameraSlide]) : null;
-  const cameraPending = photoSetOn && cameraRows === undefined && !!imageUrls[cameraSlide] && !!photoSetMarker(imageUrls[cameraSlide]);
+  const cameraPending = cameraReading && !!imageUrls[cameraSlide] && !!photoSetMarker(imageUrls[cameraSlide]);
   const cameraHidden = !!cameraRows?.some((r) => r.hidden);
   const toggleCameraHidden = async () => {
     setActionLoading(true);
