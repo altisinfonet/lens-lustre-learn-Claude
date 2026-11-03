@@ -1,0 +1,142 @@
+/**
+ * THE WEB "SAVE IMAGE" FILE IS ALWAYS THE CREDITED COPY — AND THE SCREEN NEVER
+ * SHOWS IT (Owner, 3 Nov 2026: requirement 3 + fault 2 of his web check).
+ *
+ * One mechanism for every photo surface (ZoomableImage for full screen, the
+ * feed photo, the post-page grid):
+ *   · the PIXELS are the clean copy, painted as the element's CSS background
+ *     (contain + centre = exactly what `object-contain` paints);
+ *   · the <img>'s own SOURCE is the credited copy, its picture moved outside
+ *     its box (replaced content is clipped to the box in every engine) — so the
+ *     browser's context menu ("save image as", "copy image address", a phone
+ *     browser's long-press "download image") acts on the credited file.
+ *
+ * Full screen is layered from the start (it is one photo, opened on purpose).
+ * A FEED photo is layered only at a sign of intent — a right-button press, a
+ * touch held still for LONG_PRESS_MS (the long-press menu opens later), and in
+ * Firefox only (its menu needs the credited copy LOADED) a mouse that really
+ * moves on the photo and rests HOVER_ARM_MS — so a feed scrolled past, even
+ * under a parked cursor, never downloads a credited file.
+ * The clean picture already on screen (`currentSrc`) becomes the background:
+ * it is in the cache, nothing flickers, layout is untouched (the feed <img> is
+ * sized by its box, not by its file).
+ *
+ * In the installed app long-press save is off (AppPhotoSaveGuard: the class on
+ * <html>), so nothing is armed there.
+ */
+import { PHOTO_SAVE_GUARD_CLASS } from "@/lib/native/photoSaveGuard";
+
+/** Moves the <img>'s own picture (the credited file) completely outside its box. */
+export const CREDIT_HIDDEN_POSITION = "-100000px -100000px";
+/** A touch held this long without moving is a long-press (the browser menu opens at ~500 ms). */
+export const LONG_PRESS_MS = 350;
+/**
+ * MEASURED (3 engines, 3 Nov): Chromium and WebKit act on the new source at
+ * once when it is set at the right-button press. Firefox's menu acts on the
+ * image that has already LOADED, so in Firefox only, a mouse that really
+ * MOVES on a photo and then rests this long arms it in advance. Synthetic
+ * boundary events after a scroll carry no movement and never arm (review of
+ * #854: a cursor parked over a scrolling feed must not download credited files).
+ */
+export const HOVER_ARM_MS = 300;
+
+/** Firefox (Gecko) — the one engine whose menu needs the credited copy LOADED first. Read at event time. */
+export function menuNeedsLoadedImage(): boolean {
+  try { return /\bFirefox\//.test(navigator.userAgent); } catch { return false; }
+}
+
+/** A URL as a CSS `url("…")` value (quotes, backslashes and newlines escaped). */
+export function cssUrl(u: string): string {
+  return `url("${u.replace(/["\\\n\r]/g, (c) => `\\${c === "\n" ? "a " : c === "\r" ? "d " : c}`)}")`;
+}
+
+/**
+ * The style that paints `shown` exactly as the element's `object-fit` would
+ * (contain / cover / fill; centred like the default object-position) and hides
+ * the element's own (credited) picture.
+ */
+export function layeredStyle(shown: string, fit: string = "contain"): { backgroundImage: string; backgroundSize: string; backgroundPosition: string; backgroundRepeat: string; objectPosition: string } {
+  const size = fit === "cover" ? "cover" : fit === "fill" ? "100% 100%" : "contain";
+  return { backgroundImage: cssUrl(shown), backgroundSize: size, backgroundPosition: "center", backgroundRepeat: "no-repeat", objectPosition: CREDIT_HIDDEN_POSITION };
+}
+
+function saveGuardOn(): boolean {
+  try { return document.documentElement.classList.contains(PHOTO_SAVE_GUARD_CLASS); } catch { return false; }
+}
+
+/**
+ * Make `img` hand the browser `credited` as its file while still PAINTING the
+ * clean picture it shows now. Idempotent; a no-op in the app, without a
+ * credited copy, or before the clean picture is on screen.
+ */
+export function armCreditedSave(img: HTMLImageElement | null, credited: string | null | undefined): void {
+  if (!img || !credited || saveGuardOn() || !img.isConnected) return;
+  // Already armed — unless React has since written the clean source back (a
+  // rung / data-saver change): then arm again.
+  if (img.dataset.saveAs === credited && img.getAttribute("src") === credited && !img.hasAttribute("srcset")) return;
+  const shown = img.currentSrc || img.getAttribute("src") || "";
+  if (!shown || !(img.complete && img.naturalWidth > 0)) return;
+  let fit = "contain";
+  try { fit = getComputedStyle(img).objectFit || "contain"; } catch { /* keep contain */ }
+  const st = layeredStyle(shown, fit);
+  img.style.backgroundImage = st.backgroundImage;
+  img.style.backgroundSize = st.backgroundSize;
+  img.style.backgroundPosition = st.backgroundPosition;
+  img.style.backgroundRepeat = st.backgroundRepeat;
+  img.style.objectPosition = st.objectPosition;
+  img.dataset.photoShown = shown;
+  img.dataset.saveAs = credited;
+  img.removeAttribute("srcset");
+  img.removeAttribute("sizes");
+  img.setAttribute("src", credited);
+}
+
+/**
+ * Event props for a feed / grid <img>: arm on a right-button press (it comes
+ * before `contextmenu` in every engine) or a still touch of LONG_PRESS_MS.
+ * `credited` null (an old photo, or no credited copy) → no props at all.
+ */
+export function creditedSaveProps(credited: string | null | undefined): {
+  onPointerDown?: (e: React.PointerEvent<HTMLImageElement>) => void;
+  onPointerUp?: () => void;
+  onPointerCancel?: () => void;
+  onPointerMove?: (e: React.PointerEvent<HTMLImageElement>) => void;
+  onPointerLeave?: () => void;
+  onContextMenu?: (e: React.MouseEvent<HTMLImageElement>) => void;
+} {
+  if (!credited) return {};
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let start: { x: number; y: number } | null = null;
+  let hover: ReturnType<typeof setTimeout> | null = null;
+  const clear = () => { if (timer) clearTimeout(timer); timer = null; start = null; };
+  const clearHover = () => { if (hover) clearTimeout(hover); hover = null; };
+  return {
+    onPointerLeave: () => { clearHover(); clear(); },
+    onPointerDown: (e) => {
+      const img = e.currentTarget;
+      if (e.pointerType === "mouse" || e.pointerType === "pen") {
+        if (e.button === 2) armCreditedSave(img, credited);
+        return;
+      }
+      clear();
+      start = { x: e.clientX, y: e.clientY };
+      timer = setTimeout(() => { timer = null; armCreditedSave(img, credited); }, LONG_PRESS_MS);
+    },
+    onPointerMove: (e) => {
+      if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 10) clear(); // a scroll, not a long-press
+      // Firefox only: a REAL mouse movement on the photo, then a rest → load the
+      // credited copy before a right-click (see HOVER_ARM_MS). No movement = a
+      // synthetic event after a scroll → nothing.
+      if ((e.pointerType === "mouse" || e.pointerType === "pen") && (e.movementX || e.movementY) && menuNeedsLoadedImage()) {
+        const img = e.currentTarget;
+        clearHover();
+        hover = setTimeout(() => { hover = null; armCreditedSave(img, credited); }, HOVER_ARM_MS);
+      }
+    },
+    onPointerUp: clear,
+    onPointerCancel: clear,
+    // Keyboard menu key / Shift+F10, or a browser without pointer events: arm now
+    // (the menu is already opening; the next one gets the credited file).
+    onContextMenu: (e) => armCreditedSave(e.currentTarget, credited),
+  };
+}
