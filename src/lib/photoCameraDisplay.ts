@@ -17,6 +17,7 @@
  */
 import type { CameraInfo } from "@/lib/photoCamera";
 import { photoSetMarker } from "@/lib/imageLadder";
+import { cameraDisplayName } from "@/lib/cameraName";
 
 /** One photo's row from post_photo_camera_for (`hidden` reaches the author only). */
 export interface PhotoCameraRow {
@@ -37,6 +38,8 @@ export const focalText = (info: CameraInfo) => (has(info.focal_length) ? `${num(
 export const apertureText = (info: CameraInfo) => (has(info.aperture) ? `f/${num(info.aperture)}` : undefined);
 export const shutterDisplay = (info: CameraInfo) => (info.shutter ? `${info.shutter} s` : undefined);
 export const isoText = (info: CameraInfo) => (has(info.iso) ? String(Math.round(info.iso)) : undefined);
+/** The camera as a member reads it ("NIKON CORPORATION NIKON Z 6_2" → "Nikon Z 6II"; src/lib/cameraName.ts). */
+export const cameraText = (info: CameraInfo) => cameraDisplayName(info.camera);
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -53,7 +56,7 @@ export function takenText(takenAt: string | undefined): string | undefined {
 /** The one-line summary: camera · focal · aperture · shutter · ISO (missing parts skipped). */
 export function cameraLineParts(info: CameraInfo): string[] {
   const iso = isoText(info);
-  return [info.camera, focalText(info), apertureText(info), shutterDisplay(info), iso ? `ISO ${iso}` : undefined].filter(
+  return [cameraText(info), focalText(info), apertureText(info), shutterDisplay(info), iso ? `ISO ${iso}` : undefined].filter(
     (p): p is string => typeof p === "string" && p.length > 0,
   );
 }
@@ -71,7 +74,8 @@ export function cameraChips(info: CameraInfo): { value: string; label: string }[
 
 export function cameraRows(info: CameraInfo): { label: string; value: string }[] {
   const out: { label: string; value: string }[] = [];
-  if (info.camera) out.push({ label: "Camera", value: info.camera });
+  const camera = cameraText(info);
+  if (camera) out.push({ label: "Camera", value: camera });
   if (info.lens) out.push({ label: "Lens", value: info.lens });
   const taken = takenText(info.taken_at);
   if (taken) out.push({ label: "Taken", value: taken });

@@ -106,33 +106,31 @@ beforeEach(() => {
 afterEach(() => setApp(false));
 
 describe("WEB feed card / post page (PostCard is both)", () => {
-  it("the compact strip sits under the caption and slides open", async () => {
+  it("the camera line sits under the photo, above the caption; a member's line is not clickable (admin arrow: cameraLineApproved.test.tsx)", async () => {
     const { container } = wrap(card(post()));
     await settle();
-    const strip = screen.getByRole("button", { name: /camera details/i });
-    expect(strip.textContent).toContain(LINE);
-    // Under the caption: the caption text comes before the strip in the card.
+    const line = container.querySelector("[data-camera-line]") as HTMLElement;
+    expect(line.textContent).toContain(LINE);
     const caption = screen.getByText(/Last light over the Teesta valley/);
-    expect(caption.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    fireEvent.click(strip);
-    expect(strip.getAttribute("aria-expanded")).toBe("true");
-    // No app-only pieces on the web.
-    expect(container.querySelector("[data-camera-line]")).toBeNull();
+    expect(line.compareDocumentPosition(caption) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(line.querySelector("button")).toBeNull();
+    // The old bordered web strip is gone.
+    expect(container.querySelector("[data-camera-strip]")).toBeNull();
   });
 
-  it("a new photo with no camera details → one quiet grey line", async () => {
+  it("a new photo with no camera details → nothing at all", async () => {
     cameraRows = [];
-    wrap(card(post()));
+    const { container } = wrap(card(post()));
     await settle();
-    expect(screen.getByText("No camera details for this photo")).toBeTruthy();
+    expect(container.querySelector("[data-camera-line]")).toBeNull();
+    expect(screen.queryByText(/camera/i)).toBeNull();
   });
 
   it("an OLD photo with no camera details → nothing (its file was never read)", async () => {
     cameraRows = [];
-    wrap(card(post({ image_url: OLD, image_urls: [OLD], thumbnail_urls: [OLD_THUMB] } as Partial<UnifiedPost>)));
+    const { container } = wrap(card(post({ image_url: OLD, image_urls: [OLD], thumbnail_urls: [OLD_THUMB] } as Partial<UnifiedPost>)));
     await settle();
-    expect(screen.queryByText("No camera details for this photo")).toBeNull();
-    expect(screen.queryByRole("button", { name: /camera details/i })).toBeNull();
+    expect(container.querySelector("[data-camera-line]")).toBeNull();
   });
 
   it("a page of cards costs ONE camera read, not one per post", async () => {
@@ -169,7 +167,7 @@ describe("WEB feed card / post page (PostCard is both)", () => {
 });
 
 describe("APP (Android shell)", () => {
-  it("feed: one small line under the photo, above the action row; tap → sheet", async () => {
+  it("feed: one small line under the photo, above the action row; a member's line opens nothing", async () => {
     setApp(true);
     const { container } = wrap(card(post()));
     await settle();
@@ -178,10 +176,11 @@ describe("APP (Android shell)", () => {
     expect(line.textContent).toContain(LINE);
     const caption = screen.getByText(/Last light over the Teesta valley/);
     expect(line.compareDocumentPosition(caption) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // No web strip in the app.
     expect(container.querySelector("[data-camera-strip]")).toBeNull();
+    expect(within(line).queryByRole("button")).toBeNull();
     fireEvent.click(line);
-    expect(screen.getByRole("dialog", { name: "Camera details" })).toBeTruthy();
+    expect(within(line).queryByText("FE 85 mm F1.8")).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("feed, no camera details → nothing at all", async () => {
@@ -193,7 +192,7 @@ describe("APP (Android shell)", () => {
     expect(screen.queryByText(/camera/i)).toBeNull();
   });
 
-  it("full screen: ⓘ → bottom sheet with chips and rows", async () => {
+  it("full screen: no camera ⓘ and no sheet — one design, the line under the photo (audit H1)", async () => {
     setApp(true);
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
@@ -207,10 +206,8 @@ describe("APP (Android shell)", () => {
         await act(async () => { vi.advanceTimersByTime(400); });
       }
       const viewer = await screen.findByRole("dialog", { name: /full size/ });
-      fireEvent.click(within(viewer).getByRole("button", { name: "Camera details" }));
-      const sheet = screen.getByRole("dialog", { name: "Camera details" });
-      expect(within(sheet).getByText("Aperture")).toBeTruthy();
-      expect(within(sheet).getByText("FE 85 mm F1.8")).toBeTruthy();
+      expect(within(viewer).queryByRole("button", { name: "Camera details" })).toBeNull();
+      expect(screen.queryByRole("dialog", { name: "Camera details" })).toBeNull();
     } finally {
       vi.useRealTimers();
     }
@@ -221,19 +218,18 @@ describe("hashtag page card (its own markup, not PostCard)", () => {
   const both = (urls: string[]) => (
     <>
       <p>caption</p>
-      <PostCameraDetails postId="p1" imageUrls={urls} place="caption" />
       <span>photo</span>
-      <PostCameraDetails postId="p1" imageUrls={urls} place="photo" />
+      <PostCameraDetails postId="p1" imageUrls={urls} />
     </>
   );
-  it("web: the strip under the caption only", async () => {
+  it("web: the line under the photo", async () => {
     const { container } = wrap(both([L4]));
     await settle();
-    expect(container.querySelectorAll("[data-camera-strip]")).toHaveLength(1);
-    expect(container.querySelector("[data-camera-line]")).toBeNull();
-    expect(screen.getByRole("button", { name: /camera details/i }).textContent).toContain(LINE);
+    expect(container.querySelector("[data-camera-strip]")).toBeNull();
+    expect(container.querySelectorAll("[data-camera-line]")).toHaveLength(1);
+    expect(container.querySelector("[data-camera-line]")!.textContent).toContain(LINE);
   });
-  it("app: the line under the photo only", async () => {
+  it("app: the same line under the photo", async () => {
     setApp(true);
     const { container } = wrap(both([L4]));
     await settle();
