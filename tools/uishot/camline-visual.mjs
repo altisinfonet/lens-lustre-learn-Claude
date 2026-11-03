@@ -279,6 +279,9 @@ for (const s of SCENES) {
     ...inkChecks(r.ink, { hasLine, opened: s.open }),
     // Review of #867: no two tap areas overlap; every point hits the control whose band holds it.
     [r.hits.points > 200 && r.hits.mismatches.length === 0, `every tap lands on its own control (${r.hits.points} points every 2 px)${r.hits.mismatches.length ? `: ${r.hits.mismatches.join("; ")}` : ""}`],
+    // Re-review of #867: every row control (and the admins' camera toggle) is >= 44 px tall TO A FINGER,
+    // measured by elementFromPoint alone (no band), with and without a camera line.
+    [r.hits.short.length === 0 && !!r.hits.runs, `every control >= 44 px tall to a finger (${r.hits.runs})${r.hits.short.length ? `: ${r.hits.short.join("; ")}` : ""}`],
   ];
   row.ink = { ...r.ink.gaps, lefts: r.ink.lefts };
   row.failed = checks.filter(([ok]) => !ok).map(([, what]) => what);
