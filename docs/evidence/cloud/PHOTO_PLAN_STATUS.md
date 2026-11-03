@@ -1,3 +1,17 @@
+LIVE credit middle (v4) + LIVE animation repeat (3 Nov 2026, 18:25 UTC, local fix runner). Main is at **ad926360**. New Photos = All members (the Owner's choice); nothing else is switched.
+
+| Item | PR (staging / main) | Merged sha (staging / main) | SQL / workflow runs (UTC) | Live check | State |
+|---|---|---|---|---|---|
+| v3 credit (1/3 size, half opacity, Owner 12:45Z), now superseded by v4 | #856 / #857 | 8c3081b4 / e6065855 | 0108 applied on both lanes; production redraw to v3 ran 16:02Z (before the HOLD reached the runner) | — | superseded |
+| **v4 credit "middle size"** (Owner 16:05Z): `sizeDivisor 6`, alpha 0.32 | #861 / #862 | c4459434 / **8b2c657b** | **staging:** PROBE v4 FAIL 41682437708 → redraw 41682893943 (1) → PASS 41683083959 · **production:** PROBE v4 FAIL 41687024604 → dry-run 41687386582 (5) → redraw **41687546855** (5 recorded, 0 failed, 0 new files) → **PASS 41687841787** | 41692220620 PASS | **LIVE** |
+| URL version `?cv=4` (only after the production PROBE PASS) | #863 / #864 (**#859 closed, superseded**) | 8ee8606e / **ad926360** | byte census at `?cv=4` on www: 5/5 credited files = v4, 0 BIG / v2 / v3 | 41692220620 PASS | **LIVE** |
+| **Camera line repeats every 5 s** on screen; first play on viewport entry; one shared timer (P10) | #860 / #865 | 4d92b303 / **fbc5c11d** | none | 41692220620 PASS | **LIVE** |
+
+**Real screens:** `_control\out\OWNER\credit-REAL-v4-1..4.png` (+ index), `camline-REAL-repeat-1..2.png`.
+
+**Not started (next, in order):** (3) the alignment + action-row gap unit (Owner 16:20Z / 16:25Z); (4) the old-photo credit for every pre-plan photo (Owner 15:35Z, v4 geometry). Still a supervisor item: the production deploy of the edge function `detect-orphan-files`.
+
+---
 READY v2 (3 Nov 2026, 12:45 UTC). The faults from the Owner's web check are handled and LIVE on main 5dc3fcd4. New Photos = All members (the Owner's choice); nothing else is switched.
 
 | Fault (Owner web check ~11:20Z) | Measured cause | PR (staging / main) | Merged sha (staging / main) | Live check | State |
