@@ -221,7 +221,7 @@ const PostCard = ({
   const { rows: cameraRows, pending: cameraReading } = usePostPhotoCameraRead(post.id, imageUrls.length > 0 && (photoSetOn || hasSetPhoto));
   const [cameraSlide, setCameraSlide] = useState(0);
   const cameraState = photoSetOn ? cameraStateFor(cameraRows, cameraSlide, imageUrls[cameraSlide]) : null;
-  const cameraPending = cameraReading && !!imageUrls[cameraSlide] && !!photoSetMarker(imageUrls[cameraSlide]);
+  const cameraPending = photoSetOn && cameraReading && !!imageUrls[cameraSlide] && !!photoSetMarker(imageUrls[cameraSlide]);
   const cameraHidden = !!cameraRows?.some((r) => r.hidden);
   const toggleCameraHidden = async () => {
     setActionLoading(true);
