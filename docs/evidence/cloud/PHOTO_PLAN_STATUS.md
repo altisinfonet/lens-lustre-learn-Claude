@@ -1,18 +1,20 @@
-PHOTO PLAN — FIX RUN IN PROGRESS (3 Nov 2026, local fix runner). The Owner's confirmed sheet (gap, dots, credit never on screen, download icon, one design) is being put live. New Photos (`photo_set_v2`) stays OFF; nothing is switched on.
+PHOTO PLAN — FIX RUN IN PROGRESS (3 Nov 2026, local fix runner). Three of the Owner's confirmed items are LIVE on main (gap, dots, credit never on screen, download icon). The 5-photo rectify is proven on staging; its production run follows the carry #853. New Photos (`photo_set_v2`) stays OFF; nothing is switched on.
 
-**Fix run, 3 Nov 2026** (last update 09:25 UTC)
+**Fix run, 3 Nov 2026** (last update 10:30 UTC)
 
 | Item | PR (staging / main) | Merged sha (staging / main) | SQL / workflow runs (UTC) | Live check | State |
 |---|---|---|---|---|---|
-| 1 Gap + slider dots (+ offline camera-line band) | #846 / #847 | cf27807e / **fa3cfa3b** (08:27Z) | none | **41604547547 PASS** (Chromium, Firefox, WebKit 200; console lines identical to 41588562867) | **LIVE** |
-| 2 Unit A: the credit is never on screen | #848 / — | — | — | — | CI running; review: nothing blocking |
-| 3 Unit B: one switch reader, download + app save by policy | (after #848) | — | — | — | built, fail-first 12 tests |
-| 4 Rectify the 5 big-credit photos (3 posts) | (after A+B) | — | production census **41607495064** 09:00Z: 3 posts / 5 photos still there (95717e96 incl.) | — | migration 0106/0107 + route + worker written |
+| 1 Gap + slider dots (+ offline camera-line band) | #846 / #847 | cf27807e / **fa3cfa3b** (08:27Z) | none | **41604547547 PASS** | **LIVE** |
+| 2 Unit A: the credit is never on screen | #848 / #851 | 4d680648 / **fb818f97** (10:10Z) | `detect-orphan-files` staging v7 41611342667 ✓; production deploy **refused by the session's permission system** (Owner/supervisor item) | **41617507140 PASS** (0 new console lines) | **LIVE** |
+| 3 Unit B: one switch reader; download + app save by policy | #849 / #851 | d72556a5 / **fb818f97** | none | 41617507140 PASS | **LIVE** |
+| 3b Follow-up: an archive copy never holds up a post | #852 / #853 | e6730ef0 / — | none | — | carry CI running |
+| 4 Rectify the 5 big-credit photos (3 posts) | #850 / #853 | c582b94c / — | **staging:** 0106 PROBE 41616293894 FAIL (expected) → apply 41616486235 → PROBE 41616642066 **PASS** · worker dry-run 41616752306, run 41616870328 (1 recorded, 0 failed) · 0107 PROBE 41617056021 FAIL (expected) → apply 41617313820 → PROBE 41617400035 **PASS** · rollback 41617511510 → PROBE 41617607214 FAIL (rollback proven) → re-apply 41617704174 → PROBE 41617789711 **PASS**. **production:** census 41607495064: 3 posts / 5 photos (95717e96 included, still there) — runs after #853 | — | staging DONE |
 
-**Unit A in one line:** a post's URL is now a CLEAN copy. The credited copy (credit one third of the first size, half its opacity) is only the file the web right-click "save image" / "copy image address" gets on the full-screen photo. The screen always paints the clean copy. This is proven by pixels in Chromium, Firefox and WebKit, and the app shell is pixel-identical to the web. Real screens: `_control\out\OWNER\credit-REAL-1..10.png`.
+**Real screens:** `_control\out\OWNER\credit-REAL-1..10.png` (index + right-click target log), `gapdots-REAL-1..10.png` (the approved CI baselines).
 
 **Owner list (plain words)**
-1. Nothing to do yet. When items 2–4 are live, you will get one line: "READY for New Photos switch-on".
+1. Nothing to click yet. When the 5-photo fix is live, you will get "READY for New Photos switch-on".
+2. Good to know: full screen now shows a clean copy at 1080 px, so zoom is a little softer than before. That is the price of "credit never on screen" with the large clean copy kept private.
 
 ---
 **Earlier record (2 Nov, runner U0–U7)** — kept below unchanged.
