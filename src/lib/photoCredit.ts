@@ -27,6 +27,7 @@
  * (Owner, 3 Nov): one third of that size, half the opacity, shadow halved —
  * see creditLayout. The same proportions are applied to the real width.
  */
+import { CREDIT_GEOMETRY, creditGeometryFor } from "./creditGeometry.mjs";
 /** Same text as adminBrand.BRAND_NAME (not imported: that module loads the database client). */
 const BRAND_NAME = "50mm Retina World";
 
@@ -81,32 +82,19 @@ export interface CreditLayout {
   font: string;
 }
 
-/**
- * Smallest credit, in pixels of the 2048 copy. Only a photo narrower than
- * ~740 px reaches it (its credited copy is its own size); 8 px stays readable
- * at full screen, which is the only place this file is shown.
- */
-export const CREDIT_MIN_PX = 8;
+/** Smallest credit a renderer draws (see src/lib/creditGeometry.mjs — no floor that undoes the Owner's size). */
+export const CREDIT_MIN_PX = CREDIT_GEOMETRY.minFontPx;
 
 /**
- * The credit's geometry for a `width × height` image. PHOTO PLAN UNIT A (the
- * Owner, 3 Nov 2026, after seeing it live: "too big"): ONE THIRD of the first
- * size (13 px on a 400 px-wide sample → 13/3), HALF its opacity (0.82 → 0.41)
- * and the shadow halved (0.65 → 0.325, offset and blur scaled with the text).
- * Still bottom-right with the sample's margins; the name rule is unchanged.
+ * The credit's geometry for a `width × height` image — from the ONE shared
+ * geometry (src/lib/creditGeometry.mjs, also used by the workers' credit-svg).
+ * v3 (Owner, 3 Nov 12:45Z): one third of v2's size, half of v2's opacity.
  */
 export function creditLayout(width: number, height: number): CreditLayout {
-  const k = width / 400;
-  const fontPx = Math.max(CREDIT_MIN_PX, Math.round((13 * k) / 3));
+  const g = creditGeometryFor(width, height);
   return {
-    fontPx,
-    x: width - Math.round(width * 0.022),
-    y: height - Math.round(height * 0.026),
-    fill: "rgba(255,255,255,0.41)",
-    shadow: "rgba(0,0,0,0.325)",
-    shadowOffsetY: Math.max(1, Math.round(k / 3)),
-    shadowBlur: Math.max(1, Math.round((2 * k) / 3)),
-    font: `600 ${fontPx}px system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif`,
+    ...g,
+    font: `${CREDIT_GEOMETRY.weight} ${g.fontPx}px system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif`,
   };
 }
 
@@ -120,9 +108,9 @@ export function drawCredit(ctx: CanvasRenderingContext2D, width: number, height:
   ctx.save();
   ctx.font = l.font;
   const measured = ctx.measureText(text).width;
-  const maxW = width * 0.9;
+  const maxW = width * CREDIT_GEOMETRY.maxLinePct;
   if (measured > maxW && measured > 0) {
-    const px = Math.max(8, Math.floor((l.fontPx * maxW) / measured));
+    const px = Math.max(CREDIT_MIN_PX, Math.floor((l.fontPx * maxW) / measured));
     ctx.font = l.font.replace(`${l.fontPx}px`, `${px}px`);
   }
   ctx.textAlign = "right";

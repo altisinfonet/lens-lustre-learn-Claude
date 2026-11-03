@@ -5,6 +5,7 @@
  * of PostMedia live in src/components/post/__tests__/photoSetV2Off.test.tsx).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { withCreditVersion } from "@/lib/photoProtection";
 import { render, act, screen, fireEvent, createEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -65,7 +66,7 @@ const L4_1080 = `${CDN}-w2048h1365-l4-r1080.webp`;
 const L4B = `${CDN}-w1600h1200-l4.webp`;
 const ENTRY = "https://cdn-staging.50mmretina.com/competition-photos/u1/1762000000000-e1";
 const L4F = `${ENTRY}-w4000h3000-l4f.webp`;
-const L4F_2048 = `${ENTRY}-w4000h3000-l4f-r2048.webp`;
+const L4F_2048 = withCreditVersion(`${ENTRY}-w4000h3000-l4f-r2048.webp`); // as the web loads the credited copy
 const L4F_1080 = `${ENTRY}-w4000h3000-l4f-r1080.webp`;
 const L4F2 = `${ENTRY}-w3000h4000-l4f.webp`;
 const OLD = "https://cdn-staging.50mmretina.com/post-images/u1/posts/1750000000000-old-w1920h1280-l3.webp";
@@ -188,7 +189,7 @@ describe("web full screen shows the 2048 copy (switch ON); old photos unchanged"
     await settle();
     await openFeedViewer();
     await settle();
-    expect(fullScreenImg()?.getAttribute("src")).toBe(L4);
+    expect(fullScreenImg()?.getAttribute("src")).toBe(withCreditVersion(`${L4}`));
   });
 
   it("entry grid opened full screen → -r2048; inline grid photo → -r1080 (inline keeps 1080)", async () => {

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   SAVE_MOBILE_DATA_KEY, getLinkKind, getSaveMobileData, linkKindOf, resetDataSaver, savingDataNow, setSaveMobileData, subscribeDataSaver,
 } from "@/lib/dataSaver";
-import { feedPhotoSet, fullScreenPhoto, inlinePhotoUrl } from "@/lib/photoProtection";
+import { feedPhotoSet, fullScreenPhoto, inlinePhotoUrl, withCreditVersion } from "@/lib/photoProtection";
 import { videoStartPlan } from "@/lib/video/playback";
 
 const CDN = "https://cdn-staging.50mmretina.com/post-images/u1/posts/1762000000000-abc";
@@ -75,14 +75,14 @@ describe("dataSaver setting (per device)", () => {
 describe("one size down (switch on + saving)", () => {
   it("full screen paints 1080 → 600; inline 1080 → 600; old photos unchanged; the context-menu file stays the credited 2048", () => {
     // Unit A: full screen PAINTS the clean copy (one size down when saving)
-    expect(fullScreenPhoto(L4, true)).toEqual({ shown: `${CDN}-w2048h1365-l4-thumb.webp`, saveAs: L4 });
-    expect(fullScreenPhoto(L4F, true)).toEqual({ shown: `${CDN}-w4000h3000-l4f-thumb.webp`, saveAs: `${CDN}-w4000h3000-l4f-r2048.webp` });
+    expect(fullScreenPhoto(L4, true)).toEqual({ shown: `${CDN}-w2048h1365-l4-thumb.webp`, saveAs: withCreditVersion(`${L4}`) });
+    expect(fullScreenPhoto(L4F, true)).toEqual({ shown: `${CDN}-w4000h3000-l4f-thumb.webp`, saveAs: withCreditVersion(`${CDN}-w4000h3000-l4f-r2048.webp`) });
     expect(inlinePhotoUrl(L4, true, true)).toBe(`${CDN}-w2048h1365-l4-thumb.webp`);
     for (const u of [OLD, PLAIN]) { expect(fullScreenPhoto(u, true)).toEqual({ shown: u, saveAs: null }); expect(inlinePhotoUrl(u, true, true)).toBe(u); }
     // switch off: no saving; a set photo still never shows a credited file
     expect(inlinePhotoUrl(L4, false, true)).toBe(`${CDN}-w2048h1365-l4-r1080.webp`);
     // not saving
-    expect(fullScreenPhoto(L4, false)).toEqual({ shown: `${CDN}-w2048h1365-l4-r1080.webp`, saveAs: L4 });
+    expect(fullScreenPhoto(L4, false)).toEqual({ shown: `${CDN}-w2048h1365-l4-r1080.webp`, saveAs: withCreditVersion(`${L4}`) });
     expect(inlinePhotoUrl(L4, true, false)).toBe(`${CDN}-w2048h1365-l4-r1080.webp`);
   });
 });

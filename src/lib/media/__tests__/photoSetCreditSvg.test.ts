@@ -26,8 +26,8 @@ describe("U5 backfill credit = the uploader's credit (geometry parity)", () => {
     const longest = "© Subhadeep K. Chattopadhy, 50mm Retina World";
     expect(px(creditSvg(2048, 1365, longest))).toBe(creditLayout(2048, 1365).fontPx);
     expect(px(creditSvg(320, 480, longest))).toBe(creditLayout(320, 480).fontPx);
-    // anything longer is scaled down to fit (Unit A: the font is a third of the first size, so it takes a far longer line)
-    const tooLong = `© ${"W".repeat(200)}, 50mm Retina World`;
+    // anything longer is scaled down to fit (v3: the font is a ninth of the first size, so it takes a far longer line)
+    const tooLong = `© ${"W".repeat(700)}, 50mm Retina World`;
     expect(px(creditSvg(2048, 1365, tooLong))).toBeLessThan(creditLayout(2048, 1365).fontPx);
   });
 });

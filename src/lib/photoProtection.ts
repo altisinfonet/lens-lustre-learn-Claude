@@ -21,6 +21,20 @@
  * except admins and judges on competition entries, on the web.
  */
 import { isCreditedPhotoUrl, photoSetCleanUrl, photoSetMarker, photoSetUrl, photoSetWidth } from "@/lib/imageLadder";
+import { CREDIT_GEOMETRY } from "@/lib/creditGeometry.mjs";
+
+/**
+ * A credited URL as the web loads it: `?cv=<urlVersion>` once the URL version
+ * is raised (src/lib/creditGeometry.mjs — only AFTER every credited file on
+ * the lane is redrawn, so no cache can hold old bytes under the new URL).
+ * Credited files are cached as immutable for a year; R2 ignores the query.
+ * urlVersion 0 → the URL as it is.
+ */
+export function withCreditVersion(u: string): string {
+  const v = CREDIT_GEOMETRY.urlVersion;
+  if (!v) return u;
+  return `${u}${u.includes("?") ? "&" : "?"}cv=${v}`;
+}
 
 export interface PhotoDownloadInputs {
   /** Running inside the installed Capacitor app. */
@@ -77,7 +91,7 @@ export function fullScreenPhoto(url: string, saving = false): { shown: string; s
   // never names a credited file); if a naming rule ever broke that, show the
   // 600 thumb rather than paint a credit.
   const safeShown = isCreditedPhotoUrl(shown) ? photoSetUrl(url, 600) : shown;
-  return { shown: safeShown, saveAs: isCreditedPhotoUrl(credited) ? credited : null };
+  return { shown: safeShown, saveAs: isCreditedPhotoUrl(credited) ? withCreditVersion(credited) : null };
 }
 
 /** The copy an INLINE surface (post page grid, entry page) shows: the clean 1080 of a set photo (U4 saving: 600). */
