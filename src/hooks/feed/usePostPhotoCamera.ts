@@ -27,5 +27,10 @@ export function usePostPhotoCameraRead(postId: string, enabled: boolean): { rows
     retry: false,
     queryFn: () => loadPostPhotoCamera(postId),
   });
-  return { rows: enabled ? q.data : undefined, pending: enabled && !!postId && q.status === "pending" };
+  // `isLoading` = pending AND actually fetching. Offline, react-query PAUSES the
+  // read (networkMode "online"): status stays "pending" but nothing is coming,
+  // so the line's height must not be held — an empty 28 px band under the photo
+  // for as long as the phone is offline (Owner report, 3 Nov). Back online the
+  // read resumes and the line appears if the photo has details.
+  return { rows: enabled ? q.data : undefined, pending: enabled && !!postId && q.isLoading };
 }
