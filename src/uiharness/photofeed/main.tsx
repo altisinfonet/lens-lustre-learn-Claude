@@ -27,6 +27,8 @@
  *                 (the URL IS the credited 2048; siblings -r1080 clean when the
  *                 long edge > 1080, -thumb, -r320) — the shape of the 3 live
  *                 posts the rectify unit repoints
+ *   ?old=1        an OLD photo (unmarked URL) whose credited copy is found by
+ *                 post_photo_credit_for (20261110_0109)
  *   ?admin=1      the viewer is a site admin (user_roles role = admin)
  *   ?app=1        the Android shell (window.Capacitor, set before the app loads)
  *   ?viewer=err   signed out, and the first feed copy requested fails (404):
@@ -55,13 +57,28 @@ if (q.get("app") === "1") {
   (globalThis as { Capacitor?: unknown }).Capacitor = { isNativePlatform: () => true, getPlatform: () => "android" };
 }
 const legacy = q.get("legacy") === "1";
+/**
+ * ?old=1 — an OLD photo (posted before the New Photos plan): an UNMARKED clean
+ * URL, and its credited copy (v4 small credit) at the derived
+ * `posts/credit/<post>-<ord>-<hash>.webp` name, which post_photo_credit_for
+ * returns (20261110_0109). Nothing about the post names that copy.
+ */
+const old = q.get("old") === "1";
+let oldCredit: { src: string; credited: string } | null = null;
+const oldCreditRoute: FakeRoute = ({ method, path, body }) => {
+  if (method !== "POST" || path !== "/rest/v1/rpc/post_photo_credit_for") return undefined;
+  const g = globalThis as { __oldCreditCalls?: number };
+  g.__oldCreditCalls = (g.__oldCreditCalls ?? 0) + 1;
+  const ids = (body as { p_post_ids?: string[] } | null)?.p_post_ids ?? [];
+  return { body: oldCredit && ids.includes(POST_ID) ? [{ post_id: POST_ID, ord: 0, src_url: oldCredit.src, credited_url: oldCredit.credited }] : [] };
+};
 const born = Date.now();
 const lateSwitch: FakeRoute = ({ method, path }) => {
   if (viewer !== "late" || method !== "POST" || path !== "/rest/v1/rpc/feature_allowed_me") return undefined;
   // Answer OFF until 6 s after the page started: the card paints first (cold start).
   return Date.now() - born < 6000 ? { body: false } : undefined;
 };
-installFakeBackend({ routes: [lateSwitch, ...fixtureRoutes], signedIn: viewer !== "out" && viewer !== "err" });
+installFakeBackend({ routes: [lateSwitch, oldCreditRoute, ...fixtureRoutes], signedIn: viewer !== "out" && viewer !== "err" });
 
 /** A detailed, file-free scene (sky, hills, a lit window) — JPEG, as a phone hands it over. */
 async function generatedPhoto(small: boolean): Promise<File> {
@@ -121,7 +138,18 @@ async function main() {
   type Rung = { rung: number; blob: Blob; suffix?: string };
   let full: string;
   let pairs: Array<[string, Blob, Blob]>;
-  if (!legacy) {
+  let thumbPath: string | null = null;
+  if (old) {
+    // The old original: a clean WebP at an unmarked name. Its credited copy: the
+    // same pixels with the small credit (the uploader's own 2048 pair).
+    const c2048 = (credited.rungs as Rung[]).find((r) => r.suffix === "-r2048c")!;
+    const k2048 = (clean.rungs as Rung[]).find((r) => r.suffix === "-r2048c")!;
+    full = `post-images/${AUTHOR}/posts/1700000000000-IMG_0001.webp`;
+    const copy = `post-images/${AUTHOR}/posts/credit/${POST_ID}-0-0123456789ab.webp`;
+    pairs = [[full, k2048.blob, k2048.blob], [copy, c2048.blob, k2048.blob]];
+    thumbPath = full;
+    oldCredit = { src: `${CDN}${full}`, credited: `${CDN}${copy}` };
+  } else if (!legacy) {
     full = photoObjectPath(AUTHOR, "1762160000000-job", 0, credited.full.width, credited.full.height, true, credited.marker);
     const pathOf = (r: Rung) => (r.suffix ? full.replace(/\.webp$/, `${r.suffix}.webp`) : rungPath(full, r.rung));
     pairs = [
@@ -158,7 +186,7 @@ async function main() {
 
   const post = {
     id: POST_ID, user_id: AUTHOR, content: "Evening over the hills", image_url: url, image_urls: [url],
-    thumbnail_urls: [`${CDN}${full.replace(/\.webp$/, "-thumb.webp")}`],
+    thumbnail_urls: [`${CDN}${thumbPath ?? full.replace(/\.webp$/, "-thumb.webp")}`],
     created_at: new Date(Date.now() - 21 * 60_000).toISOString(), privacy: "public", like_count: 12, comment_count: 3, share_count: 0,
     author_name: "Dipannita Sen", author_handle: "dipannita", author_avatar: null, user_reaction: null, reaction_counts: { like: 12 }, tagged_people: [],
   } as unknown as UnifiedPost;

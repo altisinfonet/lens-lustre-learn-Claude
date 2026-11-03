@@ -26,6 +26,7 @@ import { hasLadderMarker, photoSetBlurUrl, photoSetCleanUrl, photoSetMarker, run
 import { useNetworkQuality } from "@/hooks/core/useNetworkQuality";
 import { useDataSaver } from "@/hooks/core/useDataSaver";
 import { feedPhotoSet, saveAsPhotoUrl } from "@/lib/photoProtection";
+import { useOldPhotoCreditVersion } from "@/lib/photoOldCredit";
 import { creditedSaveProps } from "@/lib/photoSaveTarget";
 
 interface PostMediaProps {
@@ -519,8 +520,12 @@ const ProgressiveImage = ({
   // feed photo gets the CREDITED copy; the screen keeps the clean one. Armed
   // only at that moment (src/lib/photoSaveTarget.ts), so scrolling never
   // downloads a credited file. Stable per photo (a long-press timer must
-  // survive a re-render).
-  const saveProps = useMemo(() => creditedSaveProps(setPhoto ? saveAsPhotoUrl(src) : null), [src, setPhoto]);
+  // survive a re-render). An OLD photo (no set marker) gets its credited copy
+  // once the lookup answers (20261110_0109, photoOldCredit.ts) — the version
+  // makes this photo re-render then.
+  useOldPhotoCreditVersion();
+  const saveTarget = saveAsPhotoUrl(src);
+  const saveProps = useMemo(() => creditedSaveProps(saveTarget), [saveTarget]);
 
   return (
     <>

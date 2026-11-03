@@ -210,6 +210,7 @@ const HashtagFeed = () => {
                 ) : media.imageUrls.length > 0 ? (
                   <>
                     <FacebookPhotoGrid
+                      postId={post.id}
                       urls={media.imageUrls}
                       author={{ userId: post.user_id, name: post.author_name ?? null, handle: post.author_handle ?? null }}
                     />

@@ -42,6 +42,7 @@ import { postPhotoCameraKey, usePostPhotoCameraRead } from "@/hooks/feed/usePost
 import { cameraStateFor } from "@/lib/photoCameraDisplay";
 import { setPostPhotoCameraHidden } from "@/lib/photoCameraRead";
 import { photoSetMarker } from "@/lib/imageLadder";
+import { useOldPhotoCreditRead } from "@/lib/photoOldCredit";
 
 const displayFont = { fontFamily: "var(--font-display)" };
 const headingFont = { fontFamily: "var(--font-heading)" };
@@ -213,6 +214,10 @@ const PostCard = ({
    */
   const photoSetOn = usePhotoSetV2();
   const { rows: cameraRows, pending: cameraReading } = usePostPhotoCameraRead(post.id, photoSetOn && imageUrls.length > 0);
+  // Old photos (no set marker): their credited copy for the web's "save image as"
+  // (20261110_0109). Like a new photo's credited copy, decided by the FILE, not
+  // the viewer's switch answer: a signed-out visitor saves the credited copy too.
+  useOldPhotoCreditRead(post.id, imageUrls, true);
   const [cameraSlide, setCameraSlide] = useState(0);
   const cameraState = photoSetOn ? cameraStateFor(cameraRows, cameraSlide, imageUrls[cameraSlide]) : null;
   const cameraPending = cameraReading && !!imageUrls[cameraSlide] && !!photoSetMarker(imageUrls[cameraSlide]);

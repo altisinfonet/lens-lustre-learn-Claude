@@ -181,6 +181,13 @@ const EMPTY_BY_DESIGN: Record<string, string> = {
  */
 const RPCS: Record<string, (body: Record<string, unknown>, params: URLSearchParams) => unknown> = {
   /**
+   * Photo plan 20261110_0109: the OLD photos' credited copies (the web's save
+   * target). EMPTY IS A REAL STATE: no copy recorded yet (every lane before
+   * the worker runs) — the save then gets the original, as before. The
+   * photofeed harness answers it with a real copy (?old=1).
+   */
+  post_photo_credit_for: () => [],
+  /**
    * THE FEED ITSELF. Every post a member sees comes through here — which is
    * why the harness answering it with `[]` produced a perfectly tidy
    * "No posts yet" screen and reported no problem at all.
