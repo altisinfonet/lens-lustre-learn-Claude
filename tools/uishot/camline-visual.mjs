@@ -29,11 +29,15 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { measureCardInk } from "./card-ink.mjs";
+import { checkCardHits } from "./card-hits.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BASELINE = join(here, "camline-baseline");
 const arg = (n, d) => { const i = process.argv.indexOf(n); return i > -1 ? process.argv[i + 1] : d; };
 const UPDATE = process.argv.includes("--update");
+/** Local runs only (another OS renders fonts differently): skip the picture comparison, keep every other check. */
+const NO_BASELINE = process.argv.includes("--no-baseline");
 const OUT = arg("--out", null);
 const JSON_OUT = arg("--json", null);
 /** 5194: 5195–5199 belong to the other harnesses. */
@@ -184,11 +188,52 @@ async function shoot(browser, s) {
       })(),
     };
   });
+  // What the EYE sees under the photo (Owner, 3 Nov ~16:20Z): ink, not boxes.
+  const ink = await measureCardInk(page, await page.$("#cardwrap [data-post-id]"));
   const card = await (await page.$("#cardwrap")).screenshot();
   const lineEl = await page.$("[data-camera-line]");
   const line = lineEl ? await lineEl.screenshot() : null;
+  // What a FINGER gets (review of #867): elementFromPoint every 2 px under the photo.
+  const hits = await checkCardHits(page);
   await ctx.close();
-  return { card, line, dom, errors };
+  return { card, line, dom, ink, hits, errors };
+}
+
+/**
+ * THE VISIBLE GAPS AND THE ONE LEFT EDGE (Owner report 3 Nov 2026 ~16:20Z).
+ *
+ * "Not done": the eye saw 13 px of empty card between the photo and the Like
+ * icon and 17 px between the icons and the caption (measured on live, ink, 1280
+ * and 390 px) — #846 had only measured the BOXES (0 px). And with the camera
+ * line open, the camera icon (x 16), its 2nd line (x 36), the Like icon (x 17)
+ * and the caption (x 12) started at four different places.
+ *
+ * Ink only — what the eye sees, never a box:
+ *   photo → icons (no camera line)        4–7 px
+ *   photo → camera line, line → icons     4–9 px each
+ *   icons → caption                       6–11 px
+ *   camera icon, its 2nd line, the Like icon: within 1.5 px of the caption's left edge
+ */
+function inkChecks(ink, { hasLine, opened }) {
+  const g = ink.gaps;
+  const L = ink.lefts;
+  const within = (v, lo, hi) => typeof v === "number" && v >= lo && v <= hi;
+  const lined = (v) => typeof v === "number" && typeof L.caption === "number" && Math.abs(v - L.caption) <= 1.5;
+  const out = [
+    [within(g.iconsToCaption, 6, 11), `icons → caption, visible: ${g.iconsToCaption} px (6–11)`],
+    [lined(L.like), `the Like icon starts at the caption's left edge (Like ${L.like}, caption ${L.caption})`],
+  ];
+  if (hasLine) {
+    out.push(
+      [within(g.photoToCamera, 4, 9), `photo → camera line, visible: ${g.photoToCamera} px (4–9)`],
+      [within(g.cameraToIcons, 4, 9), `camera line → icons, visible: ${g.cameraToIcons} px (4–9)`],
+      [lined(L.cameraIcon), `the camera icon starts at the caption's left edge (camera ${L.cameraIcon}, caption ${L.caption})`],
+    );
+    if (opened) out.push([lined(L.cameraLine2), `the 2nd line starts under the camera icon, at the caption's left edge (2nd line ${L.cameraLine2}, caption ${L.caption})`]);
+  } else {
+    out.push([within(g.photoToIcons, 4, 7), `photo → icons, visible: ${g.photoToIcons} px (4–7)`]);
+  }
+  return out;
 }
 
 await waitUp();
@@ -230,11 +275,21 @@ for (const s of SCENES) {
     [hasLine || r.dom.lastGap === 0, `no empty band under the photo without a camera line (last gap ${r.dom.lastGap} px)`],
     // Owner, 3 Nov: the slider dots close together (≤ 14 px apart, centre to centre).
     [!isAlbum || (r.dom.dotSteps.length === 2 && r.dom.dotSteps.every((x) => x > 0 && x <= 14)), `slider dots close together (steps ${r.dom.dotSteps.join(", ")} px)`],
+    // Owner, 3 Nov ~16:20Z (screenshots 3 + 4): measured on VISIBLE pixels.
+    ...inkChecks(r.ink, { hasLine, opened: s.open }),
+    // Review of #867: no two tap areas overlap; every point hits the control whose band holds it.
+    [r.hits.points > 200 && r.hits.mismatches.length === 0, `every tap lands on its own control (${r.hits.points} points every 2 px)${r.hits.mismatches.length ? `: ${r.hits.mismatches.join("; ")}` : ""}`],
+    // Re-review of #867: every row control (and the admins' camera toggle) is >= 44 px tall TO A FINGER,
+    // measured by elementFromPoint alone (no band), with and without a camera line.
+    [r.hits.short.length === 0 && !!r.hits.runs, `every control >= 44 px tall to a finger (${r.hits.runs})${r.hits.short.length ? `: ${r.hits.short.join("; ")}` : ""}`],
   ];
+  row.ink = { ...r.ink.gaps, lefts: r.ink.lefts };
   row.failed = checks.filter(([ok]) => !ok).map(([, what]) => what);
   if (UPDATE) {
     writeFileSync(file, r.card);
     row.baseline = "written";
+  } else if (NO_BASELINE) {
+    row.baseline = "not compared (--no-baseline)";
   } else if (!existsSync(file)) {
     row.failed.push("no approved baseline — run with --update on the CI runner and commit it");
   } else {
@@ -257,7 +312,7 @@ for (const v of ["member", "admin-closed", "admin-opened"]) {
 await browser.close();
 stop();
 
-for (const r of rows) console.log(`${r.failed.length ? "FAIL" : "PASS"}  ${r.scene}${r.baseline ? `  [${r.baseline}]` : ""}${r.failed.length ? `\n      ✗ ${r.failed.join("\n      ✗ ")}` : ""}`);
+for (const r of rows) console.log(`${r.failed.length ? "FAIL" : "PASS"}  ${r.scene}${r.baseline ? `  [${r.baseline}]` : ""}${r.ink ? `\n      ink ${JSON.stringify(r.ink)}` : ""}${r.failed.length ? `\n      ✗ ${r.failed.join("\n      ✗ ")}` : ""}`);
 console.log(pass ? "\nCAMERA LINE VISUAL: PASS" : "\nCAMERA LINE VISUAL: FAIL");
 if (JSON_OUT) writeFileSync(JSON_OUT, JSON.stringify({ pass, rows }, null, 2));
 process.exit(pass ? 0 : 1);

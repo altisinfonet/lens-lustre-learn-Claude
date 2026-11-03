@@ -22,7 +22,9 @@
  *    icon size instagram". So the squares became 44 wide × 48 TALL — height is
  *    what a thumb needs in a horizontal row, and it is unchanged. The width is
  *    the icon plus px-2.5, which is what Instagram looks like. **Anything that
- *    reduces the 48px height puts back the bug he reported at 36px.**
+ *    reduces the FINGER TARGET under 44px puts back the bug he reported at 36px.**
+ *    (3 Nov 2026: the 48px BOX itself was the "too much space" the Owner
+ *    reported; the box is 32px now and the target 44px — `.tap-44-under`.)
  *
  * 4. "I told No border anything to anywhere, example like Instagram, didnt do
  *    it it." `md:border` and `md:mb-4` are therefore gone: phone and desktop
@@ -130,7 +132,8 @@ describe("a post reaches both edges of the phone", () => {
     expect(postCardRoot, "a second source of spacing is how it drifted before").not.toContain("mb-0");
     expect(postCardRoot).not.toContain("md:mb-4");
     const caption = read("src/components/post/Caption.tsx");
-    expect(caption, "the caption must not add its own bottom padding").toContain('<div className="px-3">');
+    // `relative z-[2]` (review of #867: the caption is the top tap layer) adds no space.
+    expect(caption, "the caption must not add its own bottom padding").toContain('<div className="relative z-[2] px-3">');
     expect(wall).toContain('className="space-y-0"');
     expect(wall, "list spacing on top of the card margin doubles the gap").not.toContain("md:space-y-4");
     expect(postCard, "the header's top padding is the other half of the gap").toContain("flex items-center gap-2.5 p-3 pb-2");
@@ -188,13 +191,23 @@ const actionSlot = (() => {
 })();
 
 describe("react, comment and share are thumb-sized", () => {
-  it("keeps the 48px height that fixed 'too small / hard to tap'", () => {
-    // h-12 IS 48px. It replaced min-h-[48px] when the square became a
-    // rectangle; the height is the same number and must stay that way.
-    const targets = actionButtons.match(/h-12 px-2\.5/g) ?? [];
+  it("keeps a 44px finger target that fixed 'too small / hard to tap' — without the visible space (Owner, 3 Nov 2026)", () => {
+    // Was h-12 (48px box). Owner report 3 Nov 2026 ~16:20Z: the 48px box left
+    // 13px of empty card above the icons and 18px below them ("not done").
+    // The BOX is now 32px (h-8); the FINGER target is `.tap-44-under`'s
+    // ::after, 8px up + 4px down = 44px. What must never come back is a
+    // target under 44 — the 36px bug.
+    const targets = actionButtons.match(/tap-44-under h-8 px-2\.5/g) ?? [];
     // comment + share here; the react button lives in ReactionPicker.
     expect(targets.length).toBe(2);
-    expect(picker).toContain("h-12 px-2.5");
+    expect(picker).toContain("tap-44-under h-8 px-2.5");
+    const css = read("src/index.css");
+    const rule = css.match(/\.tap-44-under::after\s*\{([^}]*)\}/)?.[1] ?? "";
+    const px = (k: string) => Number(rule.match(new RegExp(`(?:^|[\\s;])${k}:\\s*(-?\\d+)(?:px)?\\s*;`))?.[1] ?? NaN);
+    expect(32 - px("top") - px("bottom"), "box 32px + the ::after's reach up and down").toBeGreaterThanOrEqual(44);
+    // Review of #867: it reaches UP only — never down into the caption's name.
+    expect(px("bottom")).toBe(0);
+    expect(px("min-width")).toBeGreaterThanOrEqual(44);
   });
 
   it("groups the icons on the LEFT, Instagram-style", () => {
