@@ -11,15 +11,17 @@
  *   · signed in (401), and the key's folder must be the CALLER's own (403);
  *   · the key must be exactly a v3 clean-copy key (400);
  *   · the body must be a WebP, ≤ 4 MB, of exactly this photo's 2048 size (415 / 413 / 422);
+ *   · the photo's public credited copy (-r2048c) must already be stored (409 PHOTO-CLEAN-006);
  *   · NEVER OVERWRITE: a WebP of the same size already there = this copy
  *     (a retry after a lost answer) → 200 "exists"; anything else there → 409.
- * At most 2 R2 operations and 1 auth call. No service key, no database write.
+ * At most 3 R2 operations and 1 auth call. No service key, no database write.
  * POST (not PUT) because the app's cross-origin preflight allows GET/POST only.
  */
 import { handleError, json, member, withCors, HttpError } from "../video/_lib";
 import { bucketFor, type MediaEnv } from "./derivatives/_lib";
 import { MAX_DERIVATIVE_BYTES, webpSize } from "../../../src/lib/media/derivativeRules";
 import { cleanCopySizeOk, cleanCopyTarget } from "../../../src/lib/media/cleanCopy";
+import { CLEAN_PREFIX } from "../../../src/lib/imageLadder";
 
 export function handleCleanCopy(request: Request, env: MediaEnv, fetchImpl: typeof fetch = fetch): Promise<Response> {
   return withCors(request, env, () => store(request, env, fetchImpl));
@@ -41,6 +43,15 @@ async function store(request: Request, env: MediaEnv, fetchImpl: typeof fetch): 
     if (!dims) throw new HttpError(415, "PHOTO-CLEAN-004", "body is not a WebP");
     if (!cleanCopySizeOk(t, dims.width, dims.height)) {
       throw new HttpError(422, "PHOTO-CLEAN-005", `a ${dims.width}x${dims.height} copy is not this photo's 2048`);
+    }
+
+    // Unit B review follow-up: a clean copy is kept only for a REAL photo — its
+    // public credited sibling (uploaded before this call by both upload paths)
+    // must already be in the photo bucket. Without this a member could park
+    // any 4 MB file under a made-up name in their own private folder.
+    const creditedKey = t.privateKey.slice(CLEAN_PREFIX.length).replace(/-r2048\.webp$/, "-r2048c.webp");
+    if (!(await bucketFor(env, "public").head(creditedKey))) {
+      throw new HttpError(409, "PHOTO-CLEAN-006", "this photo's public copies are not in the store — a clean copy is kept only for a stored photo");
     }
 
     const bucket = bucketFor(env, "private");

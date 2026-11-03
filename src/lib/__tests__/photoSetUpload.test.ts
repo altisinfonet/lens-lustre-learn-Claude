@@ -196,11 +196,14 @@ describe("switch ON — competition entries", () => {
 describe("callers: the switch decides, and OFF adds nothing", () => {
   const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
   it("posts and both competition paths spread photoSetOption(<switch>, <own profile>) into the upload call", () => {
-    expect(read("src/components/WallPosts.tsx")).toMatch(/useFeatureAllowed\("photo_set_v2"\)/);
+    // Unit B: ONE reader of the switch everywhere, uploads included (usePhotoSetV2, never frozen)
+    expect(read("src/components/WallPosts.tsx")).toMatch(/const photoSetV2 = usePhotoSetV2\(\);/);
+    expect(read("src/components/WallPosts.tsx")).not.toMatch(/useFeatureAllowed\("photo_set_v2"\)/);
     expect(read("src/components/WallPosts.tsx")).toMatch(/cacheControl: "3600",[\s\S]{0,120}\.\.\.photoSetOption\(photoSetV2, currentProfile\),\s*\}\);/);
     for (const f of ["src/pages/CompetitionSubmit.tsx", "src/components/competition/EditEntryDialog.tsx"]) {
       const s = read(f);
-      expect(s, f).toMatch(/useFeatureAllowed\("photo_set_v2"\)/);
+      expect(s, f).toMatch(/const photoSetV2 = usePhotoSetV2\(\);/);
+      expect(s, f).not.toMatch(/useFeatureAllowed\("photo_set_v2"\)/);
       expect(s, f).toMatch(/\.\.\.photoSetOption\(photoSetV2, entrantProfile\),/);
     }
   });

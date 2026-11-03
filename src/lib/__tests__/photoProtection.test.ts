@@ -7,14 +7,12 @@ const L4F = `${CDN}-w4000h3000-l4f.webp`;
 const OLD = `${CDN}-w1920h1280-l3.webp`;
 const PLAIN = `${CDN}-w1920h1280.webp`;
 
-describe("photoDownloadAllowed (U3, decision 3)", () => {
-  const base = { v2: true, inApp: false, competitionEntry: false, adminOrJudge: false };
-  it("switch off → always today's answer (the caller's own rules decide)", () => {
-    for (const inApp of [false, true]) for (const competitionEntry of [false, true]) for (const adminOrJudge of [false, true]) {
-      expect(photoDownloadAllowed({ v2: false, inApp, competitionEntry, adminOrJudge })).toBe(true);
-    }
+describe("photoDownloadAllowed (decision 3; Unit B: policy, no switch input at all)", () => {
+  const base = { inApp: false, competitionEntry: false, adminOrJudge: false };
+  it("takes no switch: the answer depends only on app / entry / role", () => {
+    expect(Object.keys(base).sort()).toEqual(["adminOrJudge", "competitionEntry", "inApp"]);
   });
-  it("switch on: members never; admin/judge only on competition entries; never in the app", () => {
+  it("members never; admin/judge only on competition entries; never in the app", () => {
     expect(photoDownloadAllowed(base)).toBe(false);
     expect(photoDownloadAllowed({ ...base, adminOrJudge: true })).toBe(false); // a post, even for an admin
     expect(photoDownloadAllowed({ ...base, competitionEntry: true })).toBe(false); // a member on an entry

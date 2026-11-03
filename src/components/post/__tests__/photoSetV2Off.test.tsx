@@ -16,6 +16,11 @@
  * credited `-l4` 2048 → the clean `-l4-r1080` (feed) and the 600 thumb → the
  * clean `-l4-r320` (grid tiles). A set photo's copy is now chosen by its file
  * for every viewer; the rest of the markup is still today's.
+ *
+ * PHOTO PLAN UNIT B (3 Nov 2026, Owner requirement 4; audit H2/M4): re-recorded
+ * again; the only bytes that moved: the member download button is gone (policy,
+ * not the switch) and a set photo's blur placeholder is its clean 320 for every
+ * viewer (decided by the file, no longer frozen from the switch answer).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, act } from "@testing-library/react";
