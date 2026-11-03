@@ -36,7 +36,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { avatarInitial } from "@/lib/displayName";
 import BlockUserDialog from "@/components/moderation/BlockUserDialog";
-import { CameraInfoButton, CameraLine, CameraStrip } from "@/components/post/CameraDetails";
+import { CameraInfoButton, PostCameraLine } from "@/components/post/CameraDetails";
 import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
 import { postPhotoCameraKey, usePostPhotoCamera } from "@/hooks/feed/usePostPhotoCamera";
 import { cameraStateFor } from "@/lib/photoCameraDisplay";
@@ -684,8 +684,11 @@ const PostCard = ({
           )}
         </div>
       )}
-      {/* U2 · APP: one small camera line under the photo; nothing when it has none. */}
-      {photoSetOn && inApp && <CameraLine state={cameraState} />}
+      {/* Camera line (switch photo_set_v2), WEB and APP alike: directly under the
+          photo, above Like / Comment / Share. One line for everyone; only site
+          admins get the arrow that opens Lens + Taken. Owner-approved 2026-11-03
+          (50mm-camera-line-FIX.html v2). No camera details → nothing. */}
+      {photoSetOn && <PostCameraLine state={cameraState} stacked={inApp} focusKey={`${post.id}:${imageUrls[cameraSlide] ?? ""}`} />}
 
       {/* ── ACTION ROW — ICONS WITH THEIR COUNTS BESIDE THEM ──
 
@@ -844,8 +847,6 @@ const PostCard = ({
           }
         />
       )}
-      {/* U2 · WEB: the compact camera strip under the caption (not sticky). */}
-      {photoSetOn && !inApp && !isEditing && <CameraStrip state={cameraState} />}
     </div>
   );
 };

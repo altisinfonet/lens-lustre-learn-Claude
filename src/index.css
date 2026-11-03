@@ -914,3 +914,36 @@
     background: transparent;
   }
 }
+
+/*
+ * CAMERA LINE ENTRY — "LENS FOCUS" (photo plan, switch photo_set_v2;
+ * Owner-approved option A, 2026-11-03, _control/out/OWNER/50mm-camera-line-ANIMATION.html).
+ * src/components/post/CameraDetails.tsx. Kept here, apart from the component,
+ * so it can be swapped. Each item of the line (`.camW`: icon, camera, focal,
+ * f/, shutter, ISO) starts soft-blurred and transparent and comes into focus,
+ * 0.09 s after the one before; NOTHING MOVES (no shift, no slide). The component
+ * sets `.camLineWait` until the line is on screen, then `.camLinePlay` once per
+ * photo. Everything that hides or animates sits inside
+ * `prefers-reduced-motion: no-preference`, so with reduced motion the line is
+ * simply there.
+ */
+.camLineEnter .camW {
+  display: inline-block;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .camLineWait .camW {
+    opacity: 0;
+    filter: blur(5px);
+  }
+  .camLinePlay .camW {
+    opacity: 0;
+    filter: blur(5px);
+    animation: camFocusIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: calc(var(--cam-i, 0) * 0.09s);
+  }
+}
+@keyframes camFocusIn {
+  0% { opacity: 0; filter: blur(5px); }
+  60% { opacity: 0.85; filter: blur(1px); }
+  100% { opacity: 1; filter: blur(0); }
+}

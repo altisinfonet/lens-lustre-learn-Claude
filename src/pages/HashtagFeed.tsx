@@ -209,14 +209,13 @@ const HashtagFeed = () => {
                   </div>
                 ) : media.imageUrls.length > 0 ? (
                   <>
-                    {/* U2 (switch photo_set_v2): web strip under the caption, app line under the photo. */}
-                    <PostCameraDetails postId={post.id} imageUrls={media.imageUrls} place="caption" />
                     <FacebookPhotoGrid
                       urls={media.imageUrls}
                       author={{ userId: post.user_id, name: post.author_name ?? null, handle: post.author_handle ?? null }}
                       viewerAction={(i) => <PostCameraInfoButton postId={post.id} imageUrls={media.imageUrls} index={i} />}
                     />
-                    <PostCameraDetails postId={post.id} imageUrls={media.imageUrls} place="photo" />
+                    {/* Camera line (switch photo_set_v2), web and app: directly under the photo. */}
+                    <PostCameraDetails postId={post.id} imageUrls={media.imageUrls} />
                   </>
                 ) : null;
               })()}
