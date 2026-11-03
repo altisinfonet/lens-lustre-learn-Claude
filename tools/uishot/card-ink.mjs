@@ -57,8 +57,12 @@ export async function measureCardInk(page, card) {
   });
   const dpr = await page.evaluate(() => window.devicePixelRatio || 1);
   const png = await card.screenshot({ animations: "disabled" });
+  // Below the photo only: a box may reach into the photo (a finger target set a
+  // little into it); the photo's own pixels are not the line's ink.
+  const fb = boxes.frame ? boxes.frame.y + boxes.frame.h : null;
+  const below = (b) => (!b || fb == null || b.y >= fb ? b : { ...b, y: fb, h: Math.max(0, b.y + b.h - fb) });
   const regions = {
-    line: boxes.line, camIcon: boxes.camIcon, firstWord: boxes.firstWord, panel: boxes.panel,
+    line: below(boxes.line), camIcon: boxes.camIcon, firstWord: boxes.firstWord, panel: boxes.panel,
     like: boxes.like, caption: boxes.caption,
     ...Object.fromEntries(boxes.icons.map((b, i) => [`icon${i}`, b])),
   };

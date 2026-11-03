@@ -112,11 +112,13 @@ const ShareSummaryTooltip = ({ shareCount, postId, children }: ShareSummaryToolt
 
                  The rule (tools/uishot/capture.mjs) is LONG >= 44 AND SHORT >= 32,
                  measured with getBoundingClientRect, which INCLUDES padding.
-                 h-12 gives 48 on the long axis; px-2.5 lifts the narrowest
-                 content (16px) to 36 on the short axis. The row is already 48px
-                 tall because of its h-12 siblings, so the height costs no layout.
+                 h-11 gives 44 on the long axis; px-2.5 lifts the narrowest
+                 content (16px) to 36 on the short axis. `-my-1.5` takes the
+                 height back out of the flow: the row under the photo is 32px
+                 (Owner report 3 Nov 2026, "too much space" — PostActionRow), so
+                 the box reaches 6px past it and adds no visible space.
               */
-              className="cursor-pointer inline-flex items-center justify-center h-12 px-2.5 touch-manipulation"
+              className="cursor-pointer inline-flex items-center justify-center h-11 -my-1.5 px-2.5 touch-manipulation"
             >
               {children}
             </button>

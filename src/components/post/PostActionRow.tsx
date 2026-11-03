@@ -13,8 +13,16 @@
  *
  * A promise a person has to keep by hand is not a design. This file is the row,
  * once, and both surfaces render it. Geometry lives here and nowhere else:
- * 24px icons in a 48px tall tap target, pushed left, no divider, no text
- * labels, and a count that disappears at zero.
+ * 24px icons in a 32px box with a 44px finger target (`.tap-44-under`), pushed
+ * left, no divider, no text labels, and a count that disappears at zero.
+ *
+ * THE VISIBLE GAPS AND THE LEFT EDGE (Owner report 3 Nov 2026 ~16:20Z, "not
+ * done"): the 48px boxes from 10 Aug (ea8f2256) left 13px of empty card above
+ * the icons and 18px below them, and the Like icon started 5px right of the
+ * caption. Now the box is 32px (5px of card above the icon ink, 10px down to the
+ * caption's ink) and the row starts 1px in, so the Like icon's ink (1px inside
+ * its 24px box) starts at x 12 — the caption's left edge. Measured on visible
+ * pixels by tools/uishot/camline-visual.mjs (card-ink.mjs).
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * THE REACTIONS BELONG TO THE ROW, NOT TO THE CALLER
@@ -138,7 +146,7 @@ const PostActionRow = ({
   );
 
   return (
-  <div className="select-none px-1.5">
+  <div className="select-none pl-px pr-1.5">
     <div className="flex items-center">
       {/* Like — the picker owns the button, the count sits beside it */}
       <div className="flex items-center">
@@ -174,7 +182,7 @@ const PostActionRow = ({
         onClick={onCommentClick}
         aria-label={commentLabel}
         title={commentLabel}
-        className="h-12 px-2.5 flex items-center gap-1.5 rounded-md text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
+        className="tap-44-under h-8 px-2.5 flex items-center gap-1.5 rounded-md text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
         <MessageCircle className="h-6 w-6" strokeWidth={1.75} />
         {commentCount > 0 && (
           <span className="text-sm font-semibold text-foreground">{formatNumber(commentCount)}</span>
@@ -188,7 +196,7 @@ const PostActionRow = ({
             <button
               aria-label={shareLabel}
               title={shareLabel}
-              className="h-12 px-2.5 flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
+              className="tap-44-under h-8 px-2.5 flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
               <Send className="h-6 w-6" strokeWidth={1.75} />
             </button>
           </DropdownMenuTrigger>

@@ -293,12 +293,13 @@ describe("no layout shift while the details are read (audit M5)", () => {
     expect(box.textContent).toBe("");
     const line = render(<CameraLine state={info} />);
     const real = line.container.querySelector("[data-camera-line]") as HTMLElement;
-    // Same box model: wrapper padding / font / line height, and the paragraph's pt-2 pb-1 around one 16 px line.
-    for (const c of ["px-4", "text-xs", "leading-4"]) {
+    // Same box model: wrapper padding / font / line height, and the paragraph's pt-1.5 above one 16 px line
+    // (Owner report 3 Nov ~16:20Z: tight under the photo, the caption's left edge — px-3).
+    for (const c of ["px-3", "text-xs", "leading-4"]) {
       expect(box.classList.contains(c)).toBe(true);
       expect(real.classList.contains(c)).toBe(true);
     }
-    for (const c of ["pt-2", "pb-1"]) {
+    for (const c of ["pt-1.5"]) {
       expect(box.querySelector("p")!.classList.contains(c)).toBe(true);
       expect(real.querySelector("p")!.classList.contains(c)).toBe(true);
     }

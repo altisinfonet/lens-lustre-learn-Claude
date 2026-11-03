@@ -913,6 +913,30 @@
        accidentally make this visible. */
     background: transparent;
   }
+
+  /*
+   * THE ROW UNDER THE PHOTO (Like / Comment / Share) — Owner report 3 Nov 2026
+   * ~16:20Z: "too much space photo → icons and icons → caption". The 48 px
+   * buttons (ea8f2256, 10 Aug) centred a 24 px icon, so the eye saw 13 px of
+   * empty card above the icons and 18 px below them (measured on live, ink).
+   * The box is now 32 px (the icon + 4 px); the FINGER target stays 44 px:
+   * 8 px up into the photo / camera line, only 4 px down — F-109: the caption's
+   * name sits right under the row, and a hit region that grows into it takes
+   * the name's own target (4 px reaches 1.3 px of its 15.7 px line box).
+   */
+  .tap-44-under {
+    position: relative;
+  }
+  .tap-44-under::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -8px;
+    bottom: -4px;
+    min-width: 44px;
+    background: transparent;
+  }
 }
 
 /*

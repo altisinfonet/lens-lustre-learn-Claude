@@ -187,7 +187,7 @@ const ReactionPicker = ({ currentReaction, onReact, onUnreact, disabled }: React
            the picker, whose emoji buttons are named by their title. */
         aria-label={currentReaction && activeReaction ? `Remove your ${activeReaction.label} reaction` : "Like"}
         aria-pressed={!!currentReaction}
-        className={`h-12 px-2.5 flex items-center justify-center rounded-md select-none touch-manipulation transition-colors ${
+        className={`tap-44-under h-8 px-2.5 flex items-center justify-center rounded-md select-none touch-manipulation transition-colors ${
           currentReaction
             ? `${activeReaction?.color || "text-primary"} hover:bg-primary/5`
             : "text-muted-foreground hover:bg-muted/50"

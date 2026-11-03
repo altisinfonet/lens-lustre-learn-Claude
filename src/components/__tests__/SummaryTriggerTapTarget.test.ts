@@ -31,14 +31,13 @@
  * that a 32x44 control (full height, deliberately narrow) passes. The rect is
  * getBoundingClientRect, which INCLUDES padding.
  *
- * `h-12 px-2.5` is therefore not decoration and not arbitrary:
- *   • h-12 = 48px  -> long axis 48, clears 44
+ * `h-11 -my-1.5 px-2.5` is therefore not decoration and not arbitrary:
+ *   • h-11 = 44px  -> long axis 44, clears 44
  *   • px-2.5 = 20px total -> the narrowest content (16px) reaches 36, clears 32
- *   • it is the SAME box the Comment and Share buttons in PostActionRow already
- *     use, so the row keeps one shape rather than three.
- *
- * The row is already 48px tall because of those siblings, so the height costs
- * no layout at all.
+ *   • -my-1.5 takes 12px back out of the flow: since 3 Nov 2026 (Owner, "too
+ *     much space" under the photo) the row is 32px, its Like / Comment / Share
+ *     boxes h-8 with a 44px finger target (`.tap-44-under`). Before that this
+ *     was h-12, the same box as those buttons.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * BOTH FILES, NOT ONE. ShareSummaryTooltip carried the identical trigger and
@@ -87,8 +86,9 @@ describe("summary triggers clear the gate's 44/32 tap floor", () => {
         expect(src).toMatch(/aria-label=\{`See who (reacted|shared) \(\$\{\w+\}\)`\}/);
       });
 
-      it("sets h-12, so the long axis clears 44", () => {
-        expect(src).toMatch(/className="cursor-pointer inline-flex[^"]*\bh-12\b/);
+      it("sets h-11, so the long axis clears 44 — and -my-1.5, so the 32px row under the photo stays 32px (Owner, 3 Nov 2026)", () => {
+        expect(src).toMatch(/className="cursor-pointer inline-flex[^"]*\bh-11\b/);
+        expect(src).toMatch(/className="cursor-pointer inline-flex[^"]*\s-my-1\.5\b/);
       });
 
       it("sets px-2.5, so the short axis clears 32", () => {
