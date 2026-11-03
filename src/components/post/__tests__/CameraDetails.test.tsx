@@ -146,7 +146,7 @@ describe("'lens focus' entry (Owner-approved option A)", () => {
       act(() => { document.dispatchEvent(new Event("visibilitychange")); });
       const before = lines.map(firstOf);
       act(() => { vi.advanceTimersByTime(20000); });
-      expect(lines.map(firstOf)).toEqual(before);
+      lines.forEach((l, i) => expect(firstOf(l)).toBe(before[i])); // same nodes: toEqual would pass on a fresh identical remount
       Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
       Object.defineProperty(document, "hidden", { configurable: true, get: () => false });
       act(() => { document.dispatchEvent(new Event("visibilitychange")); });

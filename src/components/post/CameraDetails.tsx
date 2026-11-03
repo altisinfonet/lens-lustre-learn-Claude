@@ -123,7 +123,7 @@ function useLensFocus(present: boolean) {
     const replay = () => setCycle((c) => c + 1);
     const io = new IntersectionObserver(
       (entries) => {
-        const visible = entries.some((e) => e.isIntersecting);
+        const visible = entries[entries.length - 1].isIntersecting; // one target per observer: the LAST entry is its current state
         if (visible) {
           setPhase("play");
           onScreen.add(replay);
