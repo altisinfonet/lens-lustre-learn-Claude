@@ -102,7 +102,7 @@ function diff(aBuf, bBuf) {
  * (≈ 0.30) — ≈ 9–12 % of the width. The bounds below fail v1, v2 AND v3.
  */
 // alpha (p90) reads low on 6 px text (anti-aliased edges), so WIDTH separates v3 from v4; alpha guards "too opaque / invisible"
-const CREDIT_LIMITS = { minWidthPct: 7.5, maxWidthPct: 14, maxHeightPct: 2.5, minAlpha: 0.14, maxAlpha: 0.36 };
+const CREDIT_LIMITS = { minWidthPct: 8, maxWidthPct: 14, maxHeightPct: 2.5, minAlpha: 0.14, maxAlpha: 0.36 };
 async function measureCredit(credB64, cleanB64) {
   const a0 = Buffer.from(credB64, "base64");
   const m = await sharp(a0).metadata();

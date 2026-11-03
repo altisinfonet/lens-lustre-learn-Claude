@@ -28,7 +28,7 @@ export const CREDIT_GEOMETRY = Object.freeze({
   sampleFontPx: 13,
   sampleWidth: 400,
   sizeDivisor: 6,
-  /** No floor that would undo the Owner's "one third": 3 px is the smallest a renderer draws. */
+  /** No floor that would undo the Owner's chosen size: 3 px is the smallest a renderer draws. */
   minFontPx: 3,
   fillAlpha: 0.32,
   shadowAlpha: 0.25,
