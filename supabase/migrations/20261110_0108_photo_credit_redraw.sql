@@ -55,7 +55,10 @@ BEGIN
 END
 $pre$;
 
+-- existing rows were drawn with v2; a photo rectified after this file is drawn with
+-- the shared geometry (v3), so new rows default to 3 (review of #856)
 ALTER TABLE public.photo_l4_rectify ADD COLUMN credit_version integer NOT NULL DEFAULT 2 CHECK (credit_version BETWEEN 1 AND 99);
+ALTER TABLE public.photo_l4_rectify ALTER COLUMN credit_version SET DEFAULT 3;
 
 CREATE FUNCTION public.photo_credit_redraw_queue(_version integer)
 RETURNS TABLE(post_id uuid, ord integer, owner_full_name text, owner_handle text, owner_is_admin boolean)

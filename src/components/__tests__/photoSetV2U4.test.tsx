@@ -7,6 +7,7 @@
  * last test here.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { withCreditVersion } from "@/lib/photoProtection";
 import { render, act, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -153,7 +154,7 @@ describe("Save mobile data (decision 6)", () => {
     wrap(<PostMedia urls={[L4]} thumbUrls={[L4_THUMB]} />);
     await settle();
     const viewer = await openViewer();
-    expect(viewer.querySelector("img")!.getAttribute("src")).toBe(`${L4}?cv=3`);
+    expect(viewer.querySelector("img")!.getAttribute("src")).toBe(withCreditVersion(`${L4}`));
   });
 
   it("full screen: the 600 copy is painted when saving (Unit A: the clean copy is painted, one size down)", async () => {

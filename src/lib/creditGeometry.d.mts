@@ -1,5 +1,6 @@
 export declare const CREDIT_GEOMETRY: Readonly<{
   version: number;
+  urlVersion: number;
   sampleFontPx: number;
   sampleWidth: number;
   sizeDivisor: number;

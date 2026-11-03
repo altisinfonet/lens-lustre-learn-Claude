@@ -10,11 +10,17 @@
  *   v2  "too big": one third of v1 (13/3), opacity halved (0.41, shadow 0.325)
  *   v3  after his web test, 12:45Z: "1/3 text font small and 50% opacity down" —
  *       one third of v2 (13/9), half of v2's opacity (0.205, shadow 0.1625)
- * `version` goes into the credited URLs as `?cv=` (src/lib/imageLadder.ts), so a
- * re-drawn credited file is never served from an old cache entry.
+ * `version` is the geometry new credited files are drawn with (and what the
+ * redraw records). `urlVersion` is what the web puts on credited URLs as
+ * `?cv=` (src/lib/photoProtection.ts withCreditVersion) — SEPARATE ON PURPOSE
+ * (review of #856): credited files are cached as immutable for a year, so the
+ * URL may only change AFTER every existing credited file on the lane has been
+ * redrawn (PROBE_20261110_0108 PASS on production); otherwise a view in between
+ * would cache the old bytes under the new URL. 0 = no query (today's URLs).
  */
 export const CREDIT_GEOMETRY = Object.freeze({
   version: 3,
+  urlVersion: 0,
   /** font = SAMPLE_FONT_PX × (width / SAMPLE_WIDTH) / SIZE_DIVISOR */
   sampleFontPx: 13,
   sampleWidth: 400,

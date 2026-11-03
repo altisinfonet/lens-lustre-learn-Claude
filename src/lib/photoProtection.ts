@@ -24,13 +24,16 @@ import { isCreditedPhotoUrl, photoSetCleanUrl, photoSetMarker, photoSetUrl, phot
 import { CREDIT_GEOMETRY } from "@/lib/creditGeometry.mjs";
 
 /**
- * A credited URL as the web loads it: `?cv=<geometry version>` (v3, 3 Nov 2026).
- * Credited files are cached as immutable for a year; when the credit is redrawn
- * (same key, new geometry) the version makes every browser and the CDN fetch
- * the new file instead of an old cache entry. R2 ignores the query.
+ * A credited URL as the web loads it: `?cv=<urlVersion>` once the URL version
+ * is raised (src/lib/creditGeometry.mjs — only AFTER every credited file on
+ * the lane is redrawn, so no cache can hold old bytes under the new URL).
+ * Credited files are cached as immutable for a year; R2 ignores the query.
+ * urlVersion 0 → the URL as it is.
  */
 export function withCreditVersion(u: string): string {
-  return `${u}${u.includes("?") ? "&" : "?"}cv=${CREDIT_GEOMETRY.version}`;
+  const v = CREDIT_GEOMETRY.urlVersion;
+  if (!v) return u;
+  return `${u}${u.includes("?") ? "&" : "?"}cv=${v}`;
 }
 
 export interface PhotoDownloadInputs {
