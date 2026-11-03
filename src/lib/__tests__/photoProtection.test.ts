@@ -37,8 +37,8 @@ describe("fullScreenPhoto / inlinePhotoUrl (Unit A: the copy is chosen by the fi
       expect(inlinePhotoUrl(L5, v2)).toBe(L5);
     }
   });
-  it("v3 URL version (raised after the production redraw): every credited URL the web loads carries ?cv=3, so no browser or CDN cache serves the old credit", () => {
-    for (const u of [L4, L4F, L5, L5F]) expect(fullScreenPhoto(u).saveAs).toMatch(/\.webp\?cv=3$/);
+  it("v4 URL version (raised after the v4 production redraw): every credited URL the web loads carries ?cv=4, so no browser or CDN cache serves the v3 credit", () => {
+    for (const u of [L4, L4F, L5, L5F]) expect(fullScreenPhoto(u).saveAs).toMatch(/\.webp\?cv=4$/);
     // the copy painted on screen never carries it (it is not a credited file)
     for (const u of [L4, L4F, L5, L5F]) expect(fullScreenPhoto(u).shown).not.toMatch(/cv=/);
   });
