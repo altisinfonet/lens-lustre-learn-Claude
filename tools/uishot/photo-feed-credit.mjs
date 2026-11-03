@@ -242,6 +242,34 @@ if (!process.argv.includes("--skip-feed") && !ONLY_CREDIT) {
 const engines = { chromium, firefox, webkit };
 for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
   const browser = await type.launch();
+  // A CURSOR PARKED over the feed while it wheel-scrolls (review of #854): the
+  // photo passes under the still cursor and the reader pauses on it — zero
+  // credited requests (feed weight unchanged).
+  {
+    const pr = { part: "parked cursor, feed scrolls under it", engine, ok: true };
+    try {
+      const r2 = await open(browser, { vp: "desktop", dpr: 1, viewer: "out", size: "large", shape: "v3" });
+      await r2.page.evaluate(() => { const s = document.createElement("div"); s.style.height = "1400px"; document.getElementById("cardwrap").before(s); });
+      await r2.page.mouse.move(640, 450, { steps: 3 }); // over the spacer, not a photo
+      const from = r2.requested.length;
+      let under = false;
+      for (let i = 0; i < 8; i++) {
+        await r2.page.mouse.wheel(0, 220);
+        await r2.page.waitForTimeout(1200);
+        under = under || (await r2.page.evaluate(() => { const e = document.elementFromPoint(640, 450); return !!e && e.tagName === "IMG" && !!e.closest("#cardwrap"); }));
+      }
+      const got = [...new Set(r2.requested.slice(from).filter((u) => r2.credited.includes(u)))];
+      pr.photoPassedUnderCursor = under;
+      pr.creditedRequests = got.map(name);
+      if (!under) fail(pr, "the photo never passed under the cursor — the check would be vacuous");
+      if (got.length) fail(pr, `credited file requested while only scrolling: ${got.map(name).join(", ")}`);
+      await r2.ctx.close();
+    } catch (e) {
+      fail(pr, `threw: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    rows.push(pr);
+    console.log(`${pr.ok ? "PASS" : "FAIL"} parked cursor + scroll ${engine} — photo under cursor ${pr.photoPassedUnderCursor}, credited requests ${JSON.stringify(pr.creditedRequests ?? [])}${pr.failed ? ` — ${pr.failed.join("; ")}` : ""}`);
+  }
   for (const shape of ["v3", "legacy"]) {
     const row = { part: "full screen", engine, shape, ok: true };
     try {

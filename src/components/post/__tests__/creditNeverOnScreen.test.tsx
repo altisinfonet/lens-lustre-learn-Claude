@@ -246,7 +246,12 @@ describe("Fault 2 · a web save of the FEED photo gets the credited copy; the sc
   if (typeof window.PointerEvent === "undefined") {
     class PE extends MouseEvent {
       pointerType: string;
-      constructor(type: string, init: PointerEventInit = {}) { super(type, init); this.pointerType = init.pointerType ?? "mouse"; }
+      constructor(type: string, init: PointerEventInit = {}) {
+        super(type, init);
+        this.pointerType = init.pointerType ?? "mouse";
+        Object.defineProperty(this, "movementX", { value: init.movementX ?? 0 });
+        Object.defineProperty(this, "movementY", { value: init.movementY ?? 0 });
+      }
     }
     (window as unknown as { PointerEvent: unknown }).PointerEvent = PE;
   }
@@ -299,24 +304,49 @@ describe("Fault 2 · a web save of the FEED photo gets the credited copy; the sc
     }
   });
 
-  it("desktop: a mouse resting on the photo arms it (Firefox's menu needs the credited copy loaded); passing over does not", async () => {
+  it("a cursor parked over a scrolling feed (synthetic, zero-movement events) never arms — feed weight unchanged; Chromium/WebKit never arm on a rest", async () => {
     vi.useFakeTimers();
     try {
       const a = mount(L5);
       const img = sharp(a.container);
       loadedAs(img, L5);
       fireEvent.pointerEnter(img, { pointerType: "mouse" });
+      fireEvent.pointerMove(img, { pointerType: "mouse", movementX: 0, movementY: 0 });
+      act(() => { vi.advanceTimersByTime(1500); });
+      expect(credited(img.getAttribute("src") ?? "")).toBe(false);
+      // a real movement + rest, but not Firefox: nothing (the right-button press is enough there)
+      fireEvent.pointerMove(img, { pointerType: "mouse", movementX: 4, movementY: 2 });
+      act(() => { vi.advanceTimersByTime(1500); });
+      expect(credited(img.getAttribute("src") ?? "")).toBe(false);
+      a.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("Firefox: a real mouse movement on the photo + a rest loads the credited copy before the right-click; a scroll does not", async () => {
+    const ua = vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0");
+    vi.useFakeTimers();
+    try {
+      const a = mount(L5);
+      const img = sharp(a.container);
+      loadedAs(img, L5);
+      fireEvent.pointerMove(img, { pointerType: "mouse", movementX: 0, movementY: 0 }); // synthetic after a scroll
+      act(() => { vi.advanceTimersByTime(1500); });
+      expect(credited(img.getAttribute("src") ?? "")).toBe(false);
+      fireEvent.pointerMove(img, { pointerType: "mouse", movementX: 3, movementY: 1 });
       act(() => { vi.advanceTimersByTime(100); });
       fireEvent.pointerLeave(img, { pointerType: "mouse" });
       act(() => { vi.advanceTimersByTime(1000); });
-      expect(credited(img.getAttribute("src") ?? "")).toBe(false);
-      fireEvent.pointerEnter(img, { pointerType: "mouse" });
+      expect(credited(img.getAttribute("src") ?? "")).toBe(false); // passed over
+      fireEvent.pointerMove(img, { pointerType: "mouse", movementX: 3, movementY: 1 });
       act(() => { vi.advanceTimersByTime(350); });
       expect(img.getAttribute("src")).toBe(L5_CRED);
       expect(painted(img)).toBe(L5);
       a.unmount();
     } finally {
       vi.useRealTimers();
+      ua.mockRestore();
     }
   });
 
