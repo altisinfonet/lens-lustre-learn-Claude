@@ -212,16 +212,10 @@ const PostCard = ({
    * line's height is held (`reserve`) so the card does not jump when it lands.
    */
   const photoSetOn = usePhotoSetV2();
-  // MEASURED (3 Nov, Owner: "the lens focus started only after ~5 s"): the line
-  // waited for the switch answer, THEN for this read — two round trips in a row
-  // (live ≈0.3–0.6 s each, after the session restore). A set photo's details are
-  // read at once, in parallel with the switch answer; DISPLAY still needs the
-  // switch on. Other photos: as before (read only with the switch on).
-  const hasSetPhoto = imageUrls.some((u) => !!photoSetMarker(u));
-  const { rows: cameraRows, pending: cameraReading } = usePostPhotoCameraRead(post.id, imageUrls.length > 0 && (photoSetOn || hasSetPhoto));
+  const { rows: cameraRows, pending: cameraReading } = usePostPhotoCameraRead(post.id, photoSetOn && imageUrls.length > 0);
   const [cameraSlide, setCameraSlide] = useState(0);
   const cameraState = photoSetOn ? cameraStateFor(cameraRows, cameraSlide, imageUrls[cameraSlide]) : null;
-  const cameraPending = photoSetOn && cameraReading && !!imageUrls[cameraSlide] && !!photoSetMarker(imageUrls[cameraSlide]);
+  const cameraPending = cameraReading && !!imageUrls[cameraSlide] && !!photoSetMarker(imageUrls[cameraSlide]);
   const cameraHidden = !!cameraRows?.some((r) => r.hidden);
   const toggleCameraHidden = async () => {
     setActionLoading(true);

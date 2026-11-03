@@ -47,6 +47,7 @@ import { photoSetMarker } from "@/lib/imageLadder";
 import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
 import { usePostPhotoCameraRead } from "@/hooks/feed/usePostPhotoCamera";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
+import { startVisibilityInterval } from "@/lib/timers/visibilityInterval";
 
 const HiddenHint = () => (
   <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
@@ -84,26 +85,18 @@ function SummaryText({ state }: { state: Extract<CameraState, { kind: "info" }> 
  * THE REPEAT (Owner, 3 Nov 2026 ~15:50Z: "repeat every 5 seconds while the
  * line is on screen"; until then it played once per photo). ONE shared timer
  * for every line on screen — not one per card: a Set of the lines currently in
- * view; a single setInterval runs only while that Set is non-empty AND the tab
+ * view; a single interval (startVisibilityInterval) runs only while that Set is non-empty AND the tab
  * is visible, and each tick replays every line in it. Off-screen cards and a
  * hidden tab cost nothing.
  */
 export const LENS_FOCUS_REPEAT_MS = 5000;
 const onScreen = new Set<() => void>();
-let ticker: ReturnType<typeof setInterval> | null = null;
-function tabVisible(): boolean {
-  return typeof document === "undefined" || document.visibilityState !== "hidden";
-}
+/** Teardown of the ONE shared timer (P10: startVisibilityInterval stops it while the tab / app is hidden). */
+let stopTicker: (() => void) | null = null;
 function syncTicker() {
-  const want = onScreen.size > 0 && tabVisible();
-  if (want && !ticker) ticker = setInterval(() => { for (const replay of [...onScreen]) replay(); }, LENS_FOCUS_REPEAT_MS);
-  if (!want && ticker) { clearInterval(ticker); ticker = null; }
-}
-let visibilityHooked = false;
-function hookVisibility() {
-  if (visibilityHooked || typeof document === "undefined") return;
-  visibilityHooked = true;
-  document.addEventListener("visibilitychange", syncTicker);
+  const want = onScreen.size > 0;
+  if (want && !stopTicker) stopTicker = startVisibilityInterval(() => { for (const replay of [...onScreen]) replay(); }, LENS_FOCUS_REPEAT_MS);
+  if (!want && stopTicker) { stopTicker(); stopTicker = null; }
 }
 
 /**
@@ -112,8 +105,8 @@ function hookVisibility() {
  * LENS_FOCUS_REPEAT_MS while it stays on screen (`cycle` remounts the items so
  * the CSS animation restarts). MEASURED (3 Nov): the observer fires 4–9 ms
  * after the line appears or scrolls in; a late first play is the line's DATA
- * arriving late (PostCard reads a set photo's details in parallel with the
- * switch answer now). Reduced motion or no IntersectionObserver → `none`
+ * arriving late (session → switch answer → camera-details read, one after the
+ * other). Reduced motion or no IntersectionObserver → `none`
  * (shown at once, never animated) — the approved rule, unchanged.
  */
 function useLensFocus(present: boolean) {
@@ -127,7 +120,6 @@ function useLensFocus(present: boolean) {
   useEffect(() => {
     const el = ref.current;
     if (phase === "none" || !present || !el) return;
-    hookVisibility();
     const replay = () => setCycle((c) => c + 1);
     const io = new IntersectionObserver(
       (entries) => {
@@ -155,7 +147,7 @@ export function __resetCameraLineFocus() {
 }
 /** For tests: how many lines the shared timer is replaying, and whether it runs. */
 export function __lensFocusTicker() {
-  return { lines: onScreen.size, running: ticker !== null };
+  return { lines: onScreen.size, running: stopTicker !== null };
 }
 
 /* ── THE camera line (web and app) ── */

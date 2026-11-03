@@ -138,12 +138,20 @@ describe("'lens focus' entry (Owner-approved option A)", () => {
       for (const o of observers) act(() => o.cb([{ isIntersecting: true, intersectionRatio: 1 }]));
       expect(__lensFocusTicker()).toEqual({ lines: 3, running: true });
       expect(spy.mock.calls.filter((c) => c[1] === 5000)).toHaveLength(1); // one timer, not three
+      // hidden tab → no replays at all (P10's visibility interval stops the timer)
+      const lines = [...document.querySelectorAll("[data-camera-line]")] as HTMLElement[];
+      const firstOf = (l: HTMLElement) => l.querySelector(".camW");
       Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
+      Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
       act(() => { document.dispatchEvent(new Event("visibilitychange")); });
-      expect(__lensFocusTicker().running).toBe(false);
+      const before = lines.map(firstOf);
+      act(() => { vi.advanceTimersByTime(20000); });
+      expect(lines.map(firstOf)).toEqual(before);
       Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
+      Object.defineProperty(document, "hidden", { configurable: true, get: () => false });
       act(() => { document.dispatchEvent(new Event("visibilitychange")); });
-      expect(__lensFocusTicker().running).toBe(true);
+      act(() => { vi.advanceTimersByTime(5000); });
+      expect(lines.map(firstOf).every((n, i) => n !== before[i])).toBe(true); // replays again
     } finally {
       spy.mockRestore();
       vi.useRealTimers();
