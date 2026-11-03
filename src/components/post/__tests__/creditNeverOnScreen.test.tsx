@@ -20,6 +20,7 @@
  *      is the credited file.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { withCreditVersion } from "@/lib/photoProtection";
 import { render, act, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -236,7 +237,7 @@ describe("Unit A · full screen paints a clean copy; the context menu gets the c
  */
 describe("Fault 2 · a web save of the FEED photo gets the credited copy; the screen stays clean", () => {
   const L5 = `${CDN}-w1080h720-l5.webp`;
-  const L5_CRED = `${CDN}-w1080h720-l5-r2048c.webp`;
+  const L5_CRED = withCreditVersion(`${CDN}-w1080h720-l5-r2048c.webp`); // the credited copy as the web loads it (geometry version)
   const loadedAs = (img: HTMLImageElement, current: string) => {
     Object.defineProperty(img, "complete", { configurable: true, get: () => true });
     Object.defineProperty(img, "naturalWidth", { configurable: true, get: () => 1080 });

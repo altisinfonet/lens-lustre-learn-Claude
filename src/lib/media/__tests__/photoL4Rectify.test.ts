@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import { fit1080, rectifyCleanKey, rectifyKeys, rectifySource } from "@/lib/media/photoL4Rectify";
 import { handleRectify } from "../../../../functions/api/media/photoset/rectify";
 import { photoSetUrl, isCreditedPhotoUrl } from "@/lib/imageLadder";
+import { CREDIT_GEOMETRY } from "@/lib/creditGeometry.mjs";
 
 const O = "11111111-1111-4111-8111-111111111111";
 const P = "22222222-2222-4222-8222-222222222222";
@@ -52,7 +53,7 @@ describe("rectify key rules", () => {
   });
 });
 
-interface Opts { source?: string | null; done?: boolean; store?: Map<string, Uint8Array> }
+interface Opts { source?: string | null; done?: boolean; store?: Map<string, Uint8Array>; redrawKey?: string | null; redrawVersion?: number }
 function setup(opts: Opts = {}) {
   const calls: string[] = [];
   const puts: string[] = [];
@@ -71,6 +72,14 @@ function setup(opts: Opts = {}) {
       return new Response(JSON.stringify([{ post_id: P, ord: 0, owner_full_name: "Dipannita Sen", owner_handle: "dipannita", owner_is_admin: false }]), { status: 200 });
     }
     if (u.endsWith("/rpc/photo_l4_rectify_record")) { calls.push(`record ${String(init?.body)}`); return new Response(JSON.stringify("ok"), { status: 200 }); }
+    if (u.endsWith("/rpc/photo_credit_redraw_target")) {
+      return new Response(JSON.stringify(opts.redrawKey === null ? [] : [{ url_key: opts.redrawKey ?? NEW, credit_version: opts.redrawVersion ?? 2 }]), { status: 200 });
+    }
+    if (u.endsWith("/rpc/photo_credit_redraw_queue")) {
+      calls.push(`redraw-queue ${String(init?.body)}`);
+      return new Response(JSON.stringify([{ post_id: P, ord: 0, owner_full_name: "Dipannita Sen", owner_handle: "dipannita", owner_is_admin: false }]), { status: 200 });
+    }
+    if (u.endsWith("/rpc/photo_credit_redraw_record")) { calls.push(`redraw-record ${String(init?.body)}`); return new Response("1", { status: 200 }); }
     return new Response("{}", { status: 404 });
   }) as unknown as typeof fetch;
   const bucket = {
@@ -96,8 +105,53 @@ function setup(opts: Opts = {}) {
     source: (q = `?op=source&post_id=${P}&ord=0`) => req("GET", q),
     credited: (b: Uint8Array, q = `?op=credited&post_id=${P}&ord=0`) => req("PUT", q, b),
     done: (body: unknown = { op: "done", post_id: P, ord: 0 }) => req("POST", "", JSON.stringify(body), true),
+    redrawClaim: () => req("POST", "", JSON.stringify({ op: "redraw-claim" }), true),
+    redrawSource: () => req("GET", `?op=redraw-source&post_id=${P}&ord=0`),
+    redraw: (b: Uint8Array, version: number = CREDIT_GEOMETRY.version) => req("PUT", `?op=redraw&post_id=${P}&ord=0&version=${version}`, b),
   };
 }
+
+describe("redraw (v3 credit, 20261110_0108)", () => {
+  const CRED = `${STEM}-w1080h810-l5-r2048c.webp`;
+  const rectified = () => new Map<string, Uint8Array>([[NEW, webp(1080, 810, 40)], [CRED, webp(1080, 810, 5)]]);
+
+  it("claims with the CURRENT geometry version and hands out the credit line", async () => {
+    const s = setup({ store: rectified() });
+    const r = await s.redrawClaim();
+    expect(await r.json()).toEqual({ version: CREDIT_GEOMETRY.version, jobs: [{ post_id: P, ord: 0, credit: "© Dipannita Sen, 50mm Retina World" }] });
+    expect(s.calls).toEqual([`redraw-queue ${JSON.stringify({ _version: CREDIT_GEOMETRY.version })}`]);
+  });
+
+  it("source = the photo's clean copy, sized as its credited copy is now", async () => {
+    const r = await setup({ store: rectified() }).redrawSource();
+    expect(r.status).toBe(200);
+    expect(r.headers.get("x-rectify-size")).toBe("1080x810");
+    expect(new Uint8Array(await r.arrayBuffer()).length).toBe(webp(1080, 810, 40).length);
+  });
+
+  it("overwrites ONLY the recorded photo's credited key, at its exact size, and records the version; the clean copy is untouched", async () => {
+    const s = setup({ store: rectified() });
+    const clean = s.store.get(NEW);
+    const r = await s.redraw(webp(1080, 810, 77));
+    expect(r.status).toBe(201);
+    expect(s.puts).toEqual([CRED]);
+    expect(s.store.get(CRED)!.length).toBe(webp(1080, 810, 77).length);
+    expect(s.store.get(NEW)).toBe(clean);
+    expect(s.calls).toEqual([`redraw-record ${JSON.stringify({ _post_id: P, _ord: 0, _version: CREDIT_GEOMETRY.version })}`]);
+  });
+
+  it("refuses: another version, another size, not a WebP, not a recorded photo, a bad database key, no credited copy; already at v3 → nothing", async () => {
+    expect((await setup({ store: rectified() }).redraw(webp(1080, 810), 2)).status).toBe(409);
+    expect((await setup({ store: rectified() }).redraw(webp(1080, 809))).status).toBe(422);
+    expect((await setup({ store: rectified() }).redraw(new Uint8Array(64))).status).toBe(415);
+    expect((await setup({ store: rectified(), redrawKey: null }).redraw(webp(1080, 810))).status).toBe(404);
+    expect((await setup({ store: rectified(), redrawKey: `avatars/${O}/x-w1080h810-l5.webp` }).redraw(webp(1080, 810))).status).toBe(500);
+    expect((await setup({ store: new Map([[NEW, webp(1080, 810)]]) }).redraw(webp(1080, 810))).status).toBe(404);
+    const done = setup({ store: rectified(), redrawVersion: CREDIT_GEOMETRY.version });
+    expect((await done.redraw(webp(1080, 810))).status).toBe(200);
+    expect(done.puts).toEqual([]);
+  });
+});
 
 describe("rectify route", () => {
   it("claim hands out the credit line only (no member data beyond it)", async () => {
