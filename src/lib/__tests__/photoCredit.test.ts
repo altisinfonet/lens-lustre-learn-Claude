@@ -67,23 +67,23 @@ describe("creditOwnerName — whose name, from the profile WallPosts already has
 });
 
 describe("creditLayout — small, bottom-right, scaled to the image width (approved sample geometry)", () => {
-  it("v3 (Owner, 3 Nov 12:45Z): one third of v2 — 22 px → 7 px on 2048, 12 px → 4 px on 1080 (portrait: width decides)", () => {
-    expect(creditLayout(2048, 1365).fontPx).toBe(7);
-    expect(creditLayout(1152, 2048).fontPx).toBe(4);
-    expect(creditLayout(1080, 720).fontPx).toBe(4);
+  it("v4 'middle size' (Owner, 3 Nov 16:05Z): HALF of v2 — 22 px → 11 px on 2048, 12 px → 6 px on 1080 (portrait: width decides)", () => {
+    expect(creditLayout(2048, 1365).fontPx).toBe(11);
+    expect(creditLayout(1152, 2048).fontPx).toBe(6);
+    expect(creditLayout(1080, 720).fontPx).toBe(6);
   });
-  it("anchors bottom-right with the sample's margins; half of v2's opacity (0.41 → 0.205), shadow halved again", () => {
+  it("anchors bottom-right with the sample's margins; slightly fainter than v2 (white 0.41 → 0.32, shadow 0.325 → 0.25)", () => {
     const l = creditLayout(2048, 1365);
     expect(l.x).toBe(2048 - Math.round(2048 * 0.022));
     expect(l.y).toBe(1365 - Math.round(1365 * 0.026));
-    expect(l.fill).toBe("rgba(255,255,255,0.205)");
-    expect(l.shadow).toBe("rgba(0,0,0,0.1625)");
+    expect(l.fill).toBe("rgba(255,255,255,0.32)");
+    expect(l.shadow).toBe("rgba(0,0,0,0.25)");
     expect(l.shadowOffsetY).toBe(1);
-    expect(l.shadowBlur).toBe(1);
+    expect(l.shadowBlur).toBe(2);
   });
   it("no floor that undoes the Owner's size: 3 px is the smallest drawn", () => {
     expect(creditLayout(100, 80).fontPx).toBe(3);
-    expect(creditLayout(400, 266).fontPx).toBe(3);
+    expect(creditLayout(300, 200).fontPx).toBe(3);
   });
   it("ONE geometry for both renderers (audit M3): the canvas and the worker svg read the same module", async () => {
     const svg = await import("../../../tools/media-derivatives/credit-svg.mjs");
