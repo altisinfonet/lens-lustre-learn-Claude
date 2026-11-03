@@ -7,13 +7,18 @@
  *   · Admins and judges keep download on COMPETITION ENTRIES only.
  *   · The installed app: no download at all (and long-press save is off —
  *     src/lib/native/photoSaveGuard.ts).
- *   · Web full screen shows (and right-click saves) the credited 2048 copy of
- *     a new photo; inline surfaces show its 1080 copy. Old photos: unchanged.
+ *   · THE CREDIT IS NEVER ON SCREEN (Owner, 3 Nov 2026, confirmed sheet
+ *     "50mm-what-I-understood", point 3): no surface — feed, full screen, post
+ *     page, grids, web or app — ever PAINTS a credited file. The credited copy
+ *     is only the file a web visitor gets from right-click "save image" /
+ *     "copy image address" on the full-screen photo (fullScreenPhoto below).
+ *     Old photos: unchanged.
  *
- * Switch OFF → every function here answers "today's behaviour" and the callers
- * keep their own existing conditions exactly as they were.
+ * Which COPY a surface uses is decided by the file name, for every viewer
+ * (Unit A); the download rules above are still behind the switch here (Unit B
+ * moves them to policy).
  */
-import { photoSetMarker, photoSetUrl, photoSetWidth } from "@/lib/imageLadder";
+import { isCreditedPhotoUrl,photoSetCleanUrl, photoSetMarker, photoSetUrl, photoSetWidth } from "@/lib/imageLadder";
 
 export interface PhotoDownloadInputs {
   /** `photo_set_v2` is on for this viewer (unknown / error / signed out = false). */
@@ -42,12 +47,29 @@ export function photoDownloadAllowed(p: PhotoDownloadInputs): boolean {
  * "Save mobile data" (U4), which is a viewer setting.
  */
 
+/** ZoomableImage: moves the <img>'s own picture (the credited file) completely outside its box. */
+export const CREDIT_HIDDEN_POSITION = "-100000px -100000px";
+
 /**
- * The copy a FULL-SCREEN viewer shows: the credited 2048 of a set photo (never a
- * competition full size). U4 `saving` (switch on): one size down, the clean 1080.
+ * FULL SCREEN of one photo — two files, never confused:
+ *   `shown`   what the member SEES: the set's largest public CLEAN copy (U4
+ *             "Save mobile data" on mobile data: the 600). Never credited.
+ *   `saveAs`  the file the web context menu ("save image as", "copy image
+ *             address") gets: the credited 2048. Null when the photo has no
+ *             credited copy (old and unmarked photos — today's behaviour: the
+ *             URL itself is both).
+ * ZoomableImage paints `shown` and puts `saveAs` under the pointer (see there).
+ * Never a competition full size.
  */
-export function fullScreenPhotoUrl(url: string, v2: boolean, saving = false): string {
-  return url && photoSetMarker(url) ? photoSetUrl(url, v2 && saving ? 1080 : 2048) : url;
+export function fullScreenPhoto(url: string, saving = false): { shown: string; saveAs: string | null } {
+  if (!url || !photoSetMarker(url)) return { shown: url, saveAs: null };
+  const credited = photoSetUrl(url, 2048);
+  const shown = saving ? photoSetUrl(url, 600) : photoSetCleanUrl(url);
+  // Belt and braces: the shown copy is clean by construction (photoSetCleanUrl
+  // never names a credited file); if a naming rule ever broke that, show the
+  // 600 thumb rather than paint a credit.
+  const safeShown = isCreditedPhotoUrl(shown) ? photoSetUrl(url, 600) : shown;
+  return { shown: safeShown, saveAs: isCreditedPhotoUrl(credited) ? credited : null };
 }
 
 /** The copy an INLINE surface (post page grid, entry page) shows: the clean 1080 of a set photo (U4 saving: 600). */
