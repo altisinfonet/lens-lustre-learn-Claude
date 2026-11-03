@@ -510,6 +510,13 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     resolution:
       "The member's upload SUCCEEDS with today's copies (no credit, no 320). One photo is usually an unusual file; many on one platform mean its canvas or WebP encoder refuses the new path — compare with FILE-5004 on the same device. U5's backfill can make the new set for these photos later.",
   },
+  {
+    code: "FILE-5015",
+    severity: "warn",
+    description: "The PRIVATE clean 2048 copy of a new photo (kept only so the credit can be redrawn later, photo plan Unit A) was not stored. The post itself is fine.",
+    resolution:
+      "Nothing a member sees changes. One-off: a lost connection. Many: check the lane's Pages MEDIA R2 binding (a 503 MEDIA-ENV-001 from /api/media/clean-copy) or the route's refusal code in `reason`.",
+  },
 
   // ── STORY ─────────────────────────────────────────────────────────────────
   {

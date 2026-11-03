@@ -120,10 +120,10 @@ describe("the browser is given both copies, with honest widths", () => {
 describe("a dead thumbnail still degrades instead of breaking", () => {
   it("drops the srcset and shows the original when the sharp image errors", () => {
     expect(CODE).toMatch(/srcSet=\{failed \? undefined : srcSet\}/);
-    // Photo plan U4: `failSrc` is `src` for every photo except a v2 (-l4/-l4f)
-    // one with switch photo_set_v2 on, which falls back to its credited 2048.
+    // Photo plan Unit A: `failSrc` is `src` for every photo except a set photo
+    // (-l4/-l4f/-l5/-l5f), which falls back to its largest CLEAN copy — never a credited file.
     expect(CODE).toMatch(/src=\{failed \? failSrc : sharpSrc\}/);
-    expect(CODE).toMatch(/const failSrc = v2Set \? fullScreenPhotoUrl\(src, true\) : src;/);
+    expect(CODE).toMatch(/const failSrc = v2Set \? photoSetCleanUrl\(src\) : src;/);
   });
 
   it("never guesses a thumbnail address — it only reads a stored one", () => {

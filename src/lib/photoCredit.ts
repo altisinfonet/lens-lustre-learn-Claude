@@ -21,10 +21,11 @@
  * is just "© 50mm Retina World" — never "© , 50mm Retina World" and never the
  * brand twice.
  *
- * GEOMETRY: the approved sample (50mm-photo-samples-2.html, section 3) draws
+ * GEOMETRY: the approved sample (50mm-photo-samples-2.html, section 3) drew
  * 13px weight-600 text on a 400px-wide photo at right 2.2% / bottom 2.6%,
- * colour rgba(255,255,255,.82), shadow 0 1px 2px rgba(0,0,0,.65). The same
- * proportions are applied to the real width.
+ * colour rgba(255,255,255,.82), shadow 0 1px 2px rgba(0,0,0,.65). Unit A
+ * (Owner, 3 Nov): one third of that size, half the opacity, shadow halved —
+ * see creditLayout. The same proportions are applied to the real width.
  */
 /** Same text as adminBrand.BRAND_NAME (not imported: that module loads the database client). */
 const BRAND_NAME = "50mm Retina World";
@@ -80,18 +81,31 @@ export interface CreditLayout {
   font: string;
 }
 
-/** The sample's proportions applied to a `width × height` image. */
+/**
+ * Smallest credit, in pixels of the 2048 copy. Only a photo narrower than
+ * ~740 px reaches it (its credited copy is its own size); 8 px stays readable
+ * at full screen, which is the only place this file is shown.
+ */
+export const CREDIT_MIN_PX = 8;
+
+/**
+ * The credit's geometry for a `width × height` image. PHOTO PLAN UNIT A (the
+ * Owner, 3 Nov 2026, after seeing it live: "too big"): ONE THIRD of the first
+ * size (13 px on a 400 px-wide sample → 13/3), HALF its opacity (0.82 → 0.41)
+ * and the shadow halved (0.65 → 0.325, offset and blur scaled with the text).
+ * Still bottom-right with the sample's margins; the name rule is unchanged.
+ */
 export function creditLayout(width: number, height: number): CreditLayout {
   const k = width / 400;
-  const fontPx = Math.max(10, Math.round(13 * k));
+  const fontPx = Math.max(CREDIT_MIN_PX, Math.round((13 * k) / 3));
   return {
     fontPx,
     x: width - Math.round(width * 0.022),
     y: height - Math.round(height * 0.026),
-    fill: "rgba(255,255,255,0.82)",
-    shadow: "rgba(0,0,0,0.65)",
-    shadowOffsetY: Math.max(1, Math.round(1 * k)),
-    shadowBlur: Math.max(1, Math.round(2 * k)),
+    fill: "rgba(255,255,255,0.41)",
+    shadow: "rgba(0,0,0,0.325)",
+    shadowOffsetY: Math.max(1, Math.round(k / 3)),
+    shadowBlur: Math.max(1, Math.round((2 * k) / 3)),
     font: `600 ${fontPx}px system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif`,
   };
 }

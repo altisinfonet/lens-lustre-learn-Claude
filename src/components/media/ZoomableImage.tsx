@@ -3,9 +3,13 @@ import { motion, useMotionValue, animate } from "framer-motion";
 import { useGesture } from "@use-gesture/react";
 import { logger } from "@/lib/logger";
 import { deviceContext } from "@/lib/deviceContext";
-import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
 import { useDataSaver } from "@/hooks/core/useDataSaver";
-import { fullScreenPhotoUrl } from "@/lib/photoProtection";
+import { CREDIT_HIDDEN_POSITION, fullScreenPhoto } from "@/lib/photoProtection";
+
+/** A URL as a CSS `url("…")` value (quotes and backslashes escaped). */
+function cssUrl(u: string): string {
+  return `url("${u.replace(/["\\\n\r]/g, (c) => `\\${c === "\n" ? "a " : c === "\r" ? "d " : c}`)}")`;
+}
 
 /**
  * THE ONE ZOOMABLE PHOTOGRAPH. Build 1055.
@@ -109,16 +113,31 @@ export interface ZoomableImageProps {
 
 const ZoomableImage = ({ src: given, alt = "", className, wrapperClassName = "w-full h-full", onZoomChange, imgProps }: ZoomableImageProps) => {
   /**
-   * PHOTO PLAN U3 (switch `photo_set_v2`): every full-screen viewer goes
-   * through this component, so this is the ONE place that decides which copy
-   * full screen shows. A new photo (`-l4` / `-l4f`) → its credited 2048 copy —
-   * what right-click "save image" then gets on the web — and never a
-   * competition entry's full-size file. Old photos and switch off: the URL
-   * the caller gave, exactly as today.
+   * THE CREDIT IS NEVER ON SCREEN (photo plan Unit A; Owner, 3 Nov 2026).
+   * Every full-screen viewer goes through this component, so this is the ONE
+   * place that decides it. For a set photo (fullScreenPhoto):
+   *   · the PIXELS the member sees are the set's clean copy, painted as this
+   *     element's CSS background (contain + centre = exactly what
+   *     `object-contain` would paint);
+   *   · the <img>'s own SOURCE is the credited 2048, and its picture is moved
+   *     out of its box (object-position far outside; replaced content is
+   *     clipped to the box in every engine), so it is never painted. It is
+   *     what the browser's context menu acts on: on the web, right-click
+   *     "save image as" / "copy image address" (and a phone browser's
+   *     long-press "download image") get the credited file — the only place
+   *     the credit exists. In the installed app long-press save is off
+   *     (AppPhotoSaveGuard), so nobody there can save a photo at all.
+   * ONE element, so layout, the zoom transform and the gesture target are
+   * exactly as before. If the credited file fails to load, the clean copy is
+   * shown as a plain image instead (never an empty viewer). Old and unmarked
+   * photos: the URL the caller gave, exactly as today.
    */
-  // U4: "Save mobile data" on mobile data → one size down (the 1080 copy).
+  // U4: "Save mobile data" on mobile data → the 600 copy is shown.
   const saving = useDataSaver().saving;
-  const src = fullScreenPhotoUrl(given, usePhotoSetV2(), saving);
+  const { shown, saveAs } = fullScreenPhoto(given, saving);
+  const [saveAsFailed, setSaveAsFailed] = useState<string | null>(null);
+  const layered = !!saveAs && saveAsFailed !== saveAs;
+  const src = layered ? (saveAs as string) : shown;
   const wrapperRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
@@ -405,9 +424,22 @@ const ZoomableImage = ({ src: given, alt = "", className, wrapperClassName = "w-
           // on the web. When gestures have failed we hand touch handling back
           // to the browser rather than keep events we no longer process.
           touchAction: gesturesFailed ? "auto" : "none",
+          // Unit A: see the note at the top — clean pixels painted, credited file under the pointer.
+          ...(layered
+            ? {
+                backgroundImage: cssUrl(shown),
+                backgroundSize: "contain",
+                backgroundPosition: "center",
+                backgroundRepeat: "no-repeat",
+                objectPosition: CREDIT_HIDDEN_POSITION,
+              }
+            : {}),
         }}
+        data-photo-shown={layered ? shown : undefined}
         draggable={false}
         onError={() => {
+          // The credited file failed: show the clean copy as a plain image.
+          if (layered) { setSaveAsFailed(saveAs); return; }
           try {
             logger.warn({
               code: "UI-8007",

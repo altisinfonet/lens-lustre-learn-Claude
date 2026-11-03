@@ -2,10 +2,12 @@
  * PHOTO PLAN U5 · the credit on a backfilled 2048 copy, as an SVG overlay for
  * sharp (libvips/librsvg). Same geometry as the uploader's canvas drawing
  * (src/lib/photoCredit.ts creditLayout — parity locked in
- * src/lib/media/__tests__/photoSetCreditSvg.test.ts): 13 px weight-600 text on
- * a 400 px-wide photo, right 2.2 % / bottom 2.6 %, rgba(255,255,255,.82), shadow
- * 0 1px 2px rgba(0,0,0,.65), scaled to the real width. A line wider than 90 %
- * of the photo (narrow portrait) gets a smaller font instead of running off.
+ * src/lib/media/__tests__/photoSetCreditSvg.test.ts): Unit A (Owner, 3 Nov) —
+ * one third of the sample's 13 px on a 400 px-wide photo (min 8 px), weight 600,
+ * right 2.2 % / bottom 2.6 %, rgba(255,255,255,.41), shadow halved
+ * (rgba(0,0,0,.325), offset and blur scaled with the text), scaled to the real
+ * width. A line wider than 90 % of the photo gets a smaller font instead of
+ * running off.
  *
  * The SVG has no width measurement, so the line width is ESTIMATED at 0.58 em
  * per character (DejaVu Sans / Liberation Sans semibold average, the fonts a
@@ -13,15 +15,15 @@
  */
 export function creditLayout(width, height) {
   const k = width / 400;
-  const fontPx = Math.max(10, Math.round(13 * k));
+  const fontPx = Math.max(8, Math.round((13 * k) / 3));
   return {
     fontPx,
     x: width - Math.round(width * 0.022),
     y: height - Math.round(height * 0.026),
-    fill: "rgba(255,255,255,0.82)",
-    shadow: "rgba(0,0,0,0.65)",
-    shadowOffsetY: Math.max(1, Math.round(1 * k)),
-    shadowBlur: Math.max(1, Math.round(2 * k)),
+    fill: "rgba(255,255,255,0.41)",
+    shadow: "rgba(0,0,0,0.325)",
+    shadowOffsetY: Math.max(1, Math.round(k / 3)),
+    shadowBlur: Math.max(1, Math.round((2 * k) / 3)),
   };
 }
 

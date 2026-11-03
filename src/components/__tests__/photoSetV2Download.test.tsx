@@ -265,21 +265,23 @@ describe("app long-press save is off (app shell AND switch ON only)", () => {
 describe("switch OFF ⇒ today's behaviour exactly", () => {
   beforeEach(() => { switchOn = false; });
 
-  it("feed single photo + full screen: today's download buttons; full screen shows today's source", async () => {
+  it("feed single photo + full screen: today's download buttons; full screen paints the CLEAN copy (Unit A)", async () => {
     wrap(<PostMedia urls={[L4F]} />);
     await settle();
     expect(downloadButtons()).toHaveLength(1);
     await openFeedViewer();
     await settle();
     expect(within(screen.getByRole("dialog")).queryAllByRole("button", { name: /download photo/i })).toHaveLength(1);
-    expect(fullScreenImg()?.getAttribute("src")).toBe(L4F);
+    // Unit A: the copy is chosen by the file for every viewer — painted clean, credited only under the context menu.
+    expect(fullScreenImg()?.getAttribute("src")).toBe(L4F_2048);
+    expect(fullScreenImg()?.style.backgroundImage).toContain(L4F_1080);
   });
 
-  it("photo grid (post): today's buttons and today's inline source, for a member", async () => {
+  it("photo grid (post): today's buttons; the inline copy is the clean 1080 (Unit A), for a member", async () => {
     wrap(<FacebookPhotoGrid urls={[L4F, L4F2]} />);
     await settle();
     expect(downloadButtons()).toHaveLength(2);
-    expect(Array.from(document.querySelectorAll("img")).map((i) => i.getAttribute("src"))).toEqual([L4F, L4F2]);
+    expect(Array.from(document.querySelectorAll("img")).map((i) => i.getAttribute("src"))).toEqual([L4F_1080, L4F2.replace(/\.webp$/, "-r1080.webp")]);
   });
 
   it("photo grid (competition entry): a member still gets today's buttons", async () => {
@@ -305,9 +307,11 @@ describe("switch OFF ⇒ today's behaviour exactly", () => {
     expect(document.documentElement.classList.contains(PHOTO_SAVE_GUARD_CLASS)).toBe(false);
   });
 
-  it("ZoomableImage keeps the given source", async () => {
+  it("ZoomableImage: a set photo paints its clean copy whatever the switch says (Unit A)", async () => {
     wrap(<ZoomableImage src={L4F} />);
     await settle();
-    expect((document.querySelector("img") as HTMLImageElement).getAttribute("src")).toBe(L4F);
+    const img = document.querySelector("img") as HTMLImageElement;
+    expect(img.getAttribute("src")).toBe(L4F_2048);
+    expect(img.style.backgroundImage).toContain(L4F_1080);
   });
 });

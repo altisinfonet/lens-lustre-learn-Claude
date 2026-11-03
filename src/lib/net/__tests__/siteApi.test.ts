@@ -37,7 +37,7 @@ const VIDEO_ROUTES = [
   "/api/video/source-cancel",
   "/api/video/takedown",
 ] as const;
-const ALL_ROUTES = [...VIDEO_ROUTES, "/api/media/photo-token", "/config/site-settings"] as const;
+const ALL_ROUTES = [...VIDEO_ROUTES, "/api/media/photo-token", "/api/media/clean-copy", "/config/site-settings"] as const;
 /** Imported per test, so each case below fails on its own on a tree without the helper. */
 const HELPER = "@/lib/net/siteApi";
 const helper = (): Promise<typeof import("@/lib/net/siteApi")> => import(/* @vite-ignore */ HELPER);
