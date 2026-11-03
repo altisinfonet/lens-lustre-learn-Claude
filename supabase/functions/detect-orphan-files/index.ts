@@ -404,6 +404,18 @@ Deno.serve(async (req) => {
         referencedPaths.add(`${m4[1]}-l4${m4[2]}-r320${m4[3]}`);
         referencedPaths.add(`${m4[1]}-l4${m4[2]}-thumb${m4[3]}`);
       }
+      // Photo plan Unit A: the v3 set (`-l5` posts — the URL is the clean 1080;
+      // `-l5f` competition full-size keeps). Siblings: the credited 2048
+      // `-r2048c`, `-r1080` (competition), `-r320`, `-thumb`. The private clean
+      // 2048 lives in the MEDIA bucket (photo-clean/), which this scan does not
+      // list. Mirrors src/lib/imageLadder.ts photoSetSiblingKeys.
+      const m5 = key.match(/^(.*)-l5(f?)(\.[a-z0-9]+)$/i);
+      if (m5) {
+        referencedPaths.add(`${m5[1]}-l5${m5[2]}-r2048c${m5[3]}`);
+        referencedPaths.add(`${m5[1]}-l5${m5[2]}-r1080${m5[3]}`);
+        referencedPaths.add(`${m5[1]}-l5${m5[2]}-r320${m5[3]}`);
+        referencedPaths.add(`${m5[1]}-l5${m5[2]}-thumb${m5[3]}`);
+      }
     }
 
     // Step 2: List all files in each bucket

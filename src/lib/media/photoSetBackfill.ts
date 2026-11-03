@@ -21,7 +21,7 @@
  * The SQL (`photo_set_backfill_*`, 20261110_0101) spells the same names; the
  * fixture checks the same examples on both lane shapes.
  */
-import { photoSetPlan, type PhotoSetSlot } from "../imageLadder";
+import { PHOTO_SET_QUALITY } from "../imageLadder";
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 /** post-images/<owner uuid>/[folders/]<name>.webp — nothing else is a backfill source. */
@@ -38,7 +38,7 @@ export function isBackfillSlot(s: unknown): s is BackfillSlot {
 export function isBackfillSource(key: string): boolean {
   if (!SOURCE_RE.test(key) || key.includes("..")) return false;
   if (key.split("/")[2] === "d") return false; // the S3 derivative folder
-  if (/-l4f?(?:-thumb|-r\d{3,4})?\.webp$/i.test(key)) return false; // already a v2 set
+  if (/-l[45]f?(?:-thumb|-r\d{3,4}c?)?\.webp$/i.test(key)) return false; // already a set (v2, or v3 from Unit A)
   if (/-thumb\.webp$/i.test(key) || /-l3-r\d{3,4}\.webp$/i.test(key)) return false; // a copy, not a photo
   return true;
 }
@@ -76,14 +76,26 @@ export interface BackfillCopy {
   height: number;
 }
 
-/** The copies a source of `width × height` gets — the uploader's plan (imageLadder.photoSetPlan). */
+/**
+ * The v2 (`-l4`) plan this backfill writes, FROZEN here: the uploader moved to
+ * the v3 set in photo plan Unit A (imageLadder.photoSetPlan), and this writer,
+ * its SQL (20261110_0101) and its census still speak `-l4`. Its replacement
+ * (v3 copies from the originals, the l4 rectification) is Unit A's second
+ * step; until then this keeps the routes exactly as audited.
+ */
+function v2Plan(width: number, height: number): Array<{ slot: BackfillSlot; maxDimension: number; quality: number; credit: boolean }> {
+  const longEdge = Math.max(width, height);
+  const plan: Array<{ slot: BackfillSlot; maxDimension: number; quality: number; credit: boolean }> = [
+    { slot: "master", maxDimension: 2048, quality: PHOTO_SET_QUALITY[2048], credit: true },
+  ];
+  if (longEdge > 1080) plan.push({ slot: "r1080", maxDimension: 1080, quality: PHOTO_SET_QUALITY[1080], credit: false });
+  plan.push({ slot: "thumb", maxDimension: 600, quality: PHOTO_SET_QUALITY[600], credit: false });
+  if (longEdge > 320) plan.push({ slot: "r320", maxDimension: 320, quality: PHOTO_SET_QUALITY[320], credit: false });
+  return plan;
+}
+
+/** The copies a source of `width × height` gets (the frozen v2 plan above). */
 export function backfillSlots(width: number, height: number): BackfillCopy[] {
   if (!(width > 0 && height > 0)) return [];
-  return photoSetPlan(width, height, false).map((c) => ({
-    slot: c.slot as Exclude<PhotoSetSlot, "r2048">,
-    maxDimension: c.maxDimension,
-    quality: c.quality,
-    credit: c.credit,
-    ...fit(width, height, c.maxDimension),
-  }));
+  return v2Plan(width, height).map((c) => ({ ...c, ...fit(width, height, c.maxDimension) }));
 }

@@ -138,6 +138,7 @@ export const realPhotoJobDeps: PhotoJobDeps = {
   put: (url, data, contentType, represign, onProgress) =>
     putWithRetry(url, data, { label: "Photo", headers: { "Content-Type": contentType }, represign, onProgress: (sent) => onProgress(sent) }),
   publish: publishAndSaveCamera,
+  putClean: async (publicKey, data) => (await import("@/lib/media/cleanCopyClient")).storeCleanCopy(publicKey, data),
   online: () => onlineManager.isOnline(),
   now: () => Date.now(),
 };

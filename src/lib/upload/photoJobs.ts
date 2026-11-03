@@ -24,6 +24,7 @@ import { compressImageToFiles, compressThumbnail } from "@/lib/imageCompression"
 import { describeStoredObject, type StoredObjectFacts } from "@/lib/media/storedObject";
 import { LADDER_MARKER, RUNG_QUALITY, rungPath, rungPlan } from "@/lib/imageLadder";
 import { dimsSuffix } from "@/lib/imageFrame";
+import { cleanCopyUploadKey } from "@/lib/media/cleanCopy";
 import { backoffMs } from "@/lib/offline/outbox";
 import { idbUploadStore, memoryUploadStore, type UploadJobStore } from "./jobStore";
 import type { CameraItem } from "@/lib/photoCamera";
@@ -40,6 +41,8 @@ export interface PhotoObject {
   /** Public URL, set once this object's PUT succeeded. */
   url?: string;
   done: boolean;
+  /** Unit A: the private clean 2048 — sent through PhotoJobDeps.putClean, never presigned. */
+  clean?: boolean;
 }
 export interface PhotoSlot {
   /** [full, thumb, ...rungs] — the first two are what the post references. */
@@ -77,6 +80,13 @@ export interface PhotoJobDeps {
   put(url: string, data: Blob, contentType: string, represign: () => Promise<string>, onProgress: (sent: number) => void): Promise<void>;
   /** Publish with the job id as the idempotency key; returns the post id. Throws PhotoRefused on a refusal. */
   publish(job: PhotoJob): Promise<string>;
+  /**
+   * Unit A: keep a photo's private clean 2048 (`publicKey` = the slot's full
+   * key). "refused" = the server said no: skipped, never retried, never a
+   * failed post. Throwing = network trouble: retried like any other part.
+   * Absent (older fakes): the copy is skipped.
+   */
+  putClean?(publicKey: string, data: Blob): Promise<"stored" | "exists" | "refused">;
   online(): boolean;
   now(): number;
 }
@@ -104,12 +114,19 @@ function emit(e: PhotoJobEvent) { listeners.forEach((l) => { try { l(e); } catch
 export interface EncodedPhoto {
   full: { blob: Blob; width: number; height: number };
   thumb: Blob;
-  rungs: { rung: number; blob: Blob }[];
+  /** `suffix` (photo sets): the copy's own name suffix, e.g. `-r2048c`; absent = `-r<rung>`. */
+  rungs: { rung: number; blob: Blob; suffix?: string }[];
+  /**
+   * Unit A: the PRIVATE clean 2048 (photo set v3 only). Sent to
+   * /api/media/clean-copy, never presigned into the public bucket; a refusal
+   * never fails the job (it is an archive, nothing shows it).
+   */
+  clean?: Blob;
   /**
    * U1b: the name marker this encode promises. Absent = today's `-l3`
-   * (published only when rungs exist). The photo set v2 encoder sets `-l4`:
-   * its promise is "every copy the plan allows is stored", kept even when a
-   * tiny photo has no rung (imageLadder.ts, PHOTO SET V2).
+   * (published only when rungs exist). The photo set encoder sets `-l5`:
+   * its promise is "every public copy the plan allows is stored", kept even
+   * when a tiny photo has no rung (imageLadder.ts, PHOTO SETS).
    */
   marker?: string;
 }
@@ -154,14 +171,17 @@ export async function createPhotoJob(
     const e = await enc(input.files[i]);
     const ladder = e.marker ? true : e.rungs.length > 0;
     const full = photoObjectPath(input.userId, input.id, i, e.full.width, e.full.height, ladder, e.marker ?? LADDER_MARKER);
-    const parts = [
+    const parts: { path: string; blob: Blob; clean?: true }[] = [
       { path: full, blob: e.full.blob },
       { path: full.replace(/\.webp$/, "-thumb.webp"), blob: e.thumb },
-      ...e.rungs.map((r) => ({ path: rungPath(full, r.rung), blob: r.blob })),
+      ...e.rungs.map((r) => ({ path: r.suffix ? full.replace(/\.webp$/, `${r.suffix}.webp`) : rungPath(full, r.rung), blob: r.blob })),
+      ...(e.clean ? [{ path: cleanCopyUploadKey(full), blob: e.clean, clean: true as const }] : []),
     ];
     blobs.push(...parts);
     slots.push({
-      objects: parts.map((p) => ({ path: p.path, contentType: p.blob.type || "image/webp", size: p.blob.size, done: false })),
+      objects: parts.map((p) => ({
+        path: p.path, contentType: p.blob.type || "image/webp", size: p.blob.size, done: false, ...(p.clean ? { clean: true } : {}),
+      })),
       stored: await describeStoredObject(e.full.blob, { width: e.full.width, height: e.full.height }),
     });
   }
@@ -185,7 +205,7 @@ export async function advancePhotoJob(job: PhotoJob, d: PhotoJobDeps): Promise<P
   const commit = async () => { await s.putJob(j); emit({ type: "changed", job: j }); };
   try {
     if (j.step === "encoded") {
-      const all = j.slots.flatMap((sl) => sl.objects);
+      const all = j.slots.flatMap((sl) => sl.objects.filter((o) => !o.clean));
       const total = all.reduce((n, o) => n + o.size, 0);
       let sent = all.filter((o) => o.done).reduce((n, o) => n + o.size, 0);
       const pending = all.filter((o) => !o.done);
@@ -207,6 +227,16 @@ export async function advancePhotoJob(job: PhotoJob, d: PhotoJobDeps): Promise<P
         }));
         sent += group.reduce((n, o) => n + o.size, 0);
         await commit();
+      }
+      // Unit A: the private clean 2048s, after every public copy is up.
+      for (const sl of j.slots) {
+        for (const o of sl.objects.filter((x) => x.clean && !x.done)) {
+          if (!d.online()) return j;
+          const blob = await s.getFile(j.id, o.path);
+          if (blob && d.putClean) await d.putClean(sl.objects[0].path, blob); // "refused" is final; a throw retries
+          o.done = true;
+          await commit();
+        }
       }
       j = { ...j, step: "uploaded", attempts: 0 };
       await commit();

@@ -1,17 +1,18 @@
 /**
- * PHOTO SET V2 UPLOAD — photo plan U1b, behind switch `photo_set_v2` (OFF on live).
+ * PHOTO SET UPLOAD — photo plan U1b + Unit A, behind switch `photo_set_v2`.
  *
  * Reached only through uploadImageWithThumbnail when the caller passes
  * `photoSet` (switch on for the uploading member). Names and copies are defined
- * in imageLadder.ts (PHOTO SET V2); the canvas work is photoSetEncode.ts.
+ * in imageLadder.ts (PHOTO SETS, v3); the canvas work is photoSetEncode.ts.
  *
- *   POST         encode the ORIGINAL once → credited 2048 master + 1080 / 600 / 320
- *                `<uid>/posts/<seg>-w{W}h{H}-l4.webp` (+ -r1080, -thumb, -r320)
+ *   POST         encode the ORIGINAL once → CLEAN 1080 (the URL the post stores)
+ *                + credited 2048 + 600 / 320, plus a PRIVATE clean 2048
+ *                `<uid>/posts/<seg>-w{W}h{H}-l5.webp` (+ -r2048c, -thumb, -r320)
  *   COMPETITION  the full-size file exactly as today (a caller-encoded WebP that
  *                metadataFreeWebp proves clean is uploaded as is; anything else is
- *                encoded at full size, q0.92, as today) → plus credited -r2048 and
- *                1080 / 600 / 320 at submission
- *                `<uid>/competitions/<seg>-w{W}h{H}-l4f.webp` (+ -r2048, -r1080, -thumb, -r320)
+ *                encoded at full size, q0.92, as today) → plus credited -r2048c,
+ *                clean -r1080 (always), 600 / 320 and the private clean 2048
+ *                `<uid>/competitions/<seg>-w{W}h{H}-l5f.webp`
  *
  * THE MARKER IS A PROMISE (same rule as `-l3`): the siblings go up FIRST; if any
  * fails, the full file and thumb are published under the UNMARKED name, so no
@@ -29,7 +30,7 @@ import { storageUpload } from "@/lib/storageUpload";
 import { isS3Enabled, uploadPairToS3, uploadToS3 } from "@/lib/s3Upload";
 import { compressImageToFiles } from "@/lib/imageCompression";
 import { metadataFreeWebp } from "@/lib/gpsGuard";
-import { PHOTO_SET_FULL_MARKER, PHOTO_SET_MARKER, rungPath } from "@/lib/imageLadder";
+import { PHOTO_SET_V3_FULL_MARKER, PHOTO_SET_V3_MARKER, photoSetSuffix } from "@/lib/imageLadder";
 import { dimsSuffix } from "@/lib/imageFrame";
 import { logger } from "@/lib/logger";
 import { describeStoredObject } from "@/lib/media/storedObject";
@@ -54,8 +55,6 @@ export function photoSetOption(
 ): { photoSet?: { creditText: string } } {
   return allowed ? { photoSet: { creditText: creditText(creditOwnerName(profile)) } } : {};
 }
-
-const rungOf = (c: EncodedSetCopy) => Number(c.slot.slice(1));
 
 /** encodePhotoSet's null (no real WebP encoder, U2) becomes the same "use today's path" throw as any refusal. */
 function needWebp(set: EncodedPhotoSet | null): EncodedPhotoSet {
@@ -107,7 +106,7 @@ export async function uploadPhotoSet(
     } else {
       set = needWebp(await encodePhotoSet(file, false, photoSet.creditText)).copies;
       const master = set.find((c) => c.slot === "master");
-      if (!master) throw new Error("photo set has no 2048 master");
+      if (!master) throw new Error("photo set has no clean 1080 master");
       fullFile = master.file;
       fullDims = { width: master.width, height: master.height };
     }
@@ -118,14 +117,15 @@ export async function uploadPhotoSet(
 
   const stored = await describeStoredObject(fullFile, fullDims);
   const thumbFile = set.find((c) => c.slot === "thumb")!.file;
-  const siblings = set.filter((c) => c.slot !== "master" && c.slot !== "thumb");
+  const clean2048 = set.find((c) => c.slot === "clean2048")?.file ?? null;
+  const siblings = set.filter((c) => c.slot !== "master" && c.slot !== "thumb" && !c.private);
 
-  // ── 2. names: the marker only if every sibling lands ──
+  // ── 2. names: the marker only if every PUBLIC sibling lands ──
   const basePath = generateImagePath({ userId, type, ext: "webp", subPath });
   const dims = dimsSuffix(fullDims.width, fullDims.height);
-  const marked = basePath.replace(/\.webp$/, `${dims}${keepFull ? PHOTO_SET_FULL_MARKER : PHOTO_SET_MARKER}.webp`);
+  const marked = basePath.replace(/\.webp$/, `${dims}${keepFull ? PHOTO_SET_V3_FULL_MARKER : PHOTO_SET_V3_MARKER}.webp`);
   const unmarked = basePath.replace(/\.webp$/, `${dims}.webp`);
-  const siblingParts = siblings.map((c) => ({ path: rungPath(marked, rungOf(c)), file: c.file }));
+  const siblingParts = siblings.map((c) => ({ path: marked.replace(/\.webp$/, `${photoSetSuffix(c.slot)}.webp`), file: c.file }));
 
   const useS3 = await isS3Enabled().catch(() => false);
   const isPrivate = isPrivateBucket(bucket);
@@ -153,7 +153,7 @@ export async function uploadPhotoSet(
       message: "A copy of the new photo set failed to upload; publishing under the unmarked name instead.",
       reason: err instanceof Error ? err.message : String(err),
       expected: "Every planned copy stored beside the photo",
-      actual: "The -l4 / -l4f promise is not published",
+      actual: "The -l5 / -l5f promise is not published",
       nextStep: "The member's upload succeeds without the extra copies (U5 backfill can add them later). Broad recurrence means presign or R2 trouble — check s3-presign-upload logs.",
       detail: { type, copies: siblingParts.length },
     });
@@ -162,7 +162,30 @@ export async function uploadPhotoSet(
   const fullPath = markerKept ? marked : unmarked;
   const thumbPath = fullPath.replace(/\.webp$/, "-thumb.webp");
 
-  // ── 3. the full (or 2048 master) + the 600 thumb: what the row references ──
+  // Unit A: the private clean 2048 (an archive for redrawing the credit; never
+  // public). Only a marked set promises one. Best effort: a refusal or a lost
+  // connection never costs the member the post.
+  if (markerKept && clean2048) {
+    try {
+      const { storeCleanCopy } = await import("@/lib/media/cleanCopyClient");
+      await storeCleanCopy(`${bucket}/${marked}`, clean2048);
+    } catch (err) {
+      logger.warn({
+        code: "FILE-5015",
+        event: "PHOTO_CLEAN_COPY_REFUSED",
+        fn: "uploadPhotoSet",
+        file: FILE,
+        message: "The private clean 2048 of a new photo could not be sent; the post itself is fine.",
+        reason: err instanceof Error ? err.message : String(err),
+        expected: "201 stored from /api/media/clean-copy",
+        actual: "network failure",
+        nextStep: "Nothing a member sees changes. Recurring: check the lane's Pages MEDIA binding and the route.",
+        detail: { type },
+      });
+    }
+  }
+
+  // ── 3. the full (or the clean 1080 master) + the 600 thumb: what the row references ──
   if (useS3) {
     const s3Full = `${bucket}/${fullPath}`;
     const s3Thumb = `${bucket}/${thumbPath}`;
@@ -190,21 +213,26 @@ export async function uploadPhotoSet(
 
 /**
  * The resumable photo job's encoder for the new set (photoJobs.createPhotoJob):
- * full = credited 2048, thumb = 600, rungs = 1080 / 320 (as planned), marker `-l4`.
- * Throws when the new encoder cannot run; the composer then takes the
- * non-resumable path, which falls back to today's set by itself.
+ * full = the CLEAN 1080 (what the post stores), thumb = 600, rungs = the
+ * credited 2048 (`-r2048c`) and 320 (as planned), clean = the private clean
+ * 2048, marker `-l5`. Throws when the new encoder cannot run; the composer then
+ * takes the non-resumable path, which falls back to today's set by itself.
  */
 export function photoSetPhotoEncoder(creditTextLine: string): PhotoEncoder {
   return async (file: File): Promise<EncodedPhoto> => {
     const { copies } = needWebp(await encodePhotoSet(file, false, creditTextLine));
     const master = copies.find((c) => c.slot === "master");
     const thumb = copies.find((c) => c.slot === "thumb");
-    if (!master || !thumb) throw new Error("photo set is incomplete");
+    const clean = copies.find((c) => c.slot === "clean2048");
+    if (!master || !thumb || !clean) throw new Error("photo set is incomplete");
     return {
       full: { blob: master.file, width: master.width, height: master.height },
       thumb: thumb.file,
-      rungs: copies.filter((c) => c.slot === "r1080" || c.slot === "r320").map((c) => ({ rung: rungOf(c), blob: c.file })),
-      marker: PHOTO_SET_MARKER,
+      rungs: copies
+        .filter((c) => c.slot === "r2048c" || c.slot === "r320")
+        .map((c) => ({ rung: c.maxDimension, blob: c.file, suffix: photoSetSuffix(c.slot) })),
+      clean: clean.file,
+      marker: PHOTO_SET_V3_MARKER,
     };
   };
 }
