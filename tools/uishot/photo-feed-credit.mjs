@@ -97,11 +97,12 @@ function diff(aBuf, bBuf) {
  * and height as a share of the image) and its opacity (alpha = lift / headroom
  * on clearly lifted pixels), searched in the bottom-right corner where it is
  * drawn. Measured on live: v1 57 % of the width at alpha ≈ 0.82; v2 (one third,
- * half) 18–23 % at ≈ 0.40. v3 (Owner, 3 Nov 12:45Z: "1/3 text font small and
- * 50% opacity down" — one third of v2, half of v2's opacity) must be ≈ 6–8 %
- * at ≈ 0.2: the bounds below fail v1 AND v2.
+ * half) 18–23 % at ≈ 0.40; v3 (one third of v2) 6–8 % at ≈ 0.15 — "unreadable".
+ * v4 "MIDDLE SIZE" (Owner, 3 Nov 16:05Z): HALF of v2's size, slightly fainter
+ * (≈ 0.30) — ≈ 9–12 % of the width. The bounds below fail v1, v2 AND v3.
  */
-const CREDIT_LIMITS = { maxWidthPct: 12, maxHeightPct: 1.5, minAlpha: 0.08, maxAlpha: 0.3 };
+// alpha (p90) reads low on 6 px text (anti-aliased edges), so WIDTH separates v3 from v4; alpha guards "too opaque / invisible"
+const CREDIT_LIMITS = { minWidthPct: 7.5, maxWidthPct: 14, maxHeightPct: 2.5, minAlpha: 0.14, maxAlpha: 0.36 };
 async function measureCredit(credB64, cleanB64) {
   const a0 = Buffer.from(credB64, "base64");
   const m = await sharp(a0).metadata();
@@ -126,9 +127,9 @@ async function measureCredit(credB64, cleanB64) {
 function creditFail(row, c) {
   const L = CREDIT_LIMITS;
   if (!c || c.px === 0) return fail(row, "the saved file carries no credit at all");
-  if (c.widthPct > L.maxWidthPct) fail(row, `the credit is ${c.widthPct} % of the width (max ${L.maxWidthPct} %: one third of v2)`);
+  if (c.widthPct > L.maxWidthPct || c.widthPct < L.minWidthPct) fail(row, `the credit is ${c.widthPct} % of the width (want ${L.minWidthPct}–${L.maxWidthPct} %: half of v2)`);
   if (c.heightPct > L.maxHeightPct) fail(row, `the credit is ${c.heightPct} % of the height (max ${L.maxHeightPct} %)`);
-  if (c.alphaP90 > L.maxAlpha || c.alphaP90 < L.minAlpha) fail(row, `the credit's opacity is ${c.alphaP90} (want ${L.minAlpha}–${L.maxAlpha}: half of v2 ≈ 0.41)`);
+  if (c.alphaP90 > L.maxAlpha || c.alphaP90 < L.minAlpha) fail(row, `the credit's opacity is ${c.alphaP90} (want ${L.minAlpha}–${L.maxAlpha}: slightly fainter than v2 ≈ 0.38)`);
 }
 /** The saved file's bottom-right corner, zoomed 3× (the Owner's PNGs). */
 async function corner(b64, out) {
