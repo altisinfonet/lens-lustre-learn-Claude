@@ -1,3 +1,19 @@
+READY v2 (3 Nov 2026, 12:45 UTC). The faults from the Owner's web check are handled and LIVE on main 5dc3fcd4. New Photos = All members (the Owner's choice); nothing else is switched.
+
+| Fault (Owner web check ~11:20Z) | Measured cause | PR (staging / main) | Merged sha (staging / main) | Live check | State |
+|---|---|---|---|---|---|
+| 1 Credit size / opacity | The file live serves for right-click (post 95717e96 `…-l5-r2048c`, rectify worker / credit-svg) **already has the small credit**: 23 % of the width, alpha 0.41. The old credit: 57 %, alpha 0.82. Live census before and after: 5 credited files, **0 big**, no new uploads. The CI gap: it never measured the credit inside the saved file. | #854 / #855 (CI measurement; fail-first on the first geometry: 55–58 %, alpha 0.8) | 772b3b84 / **5dc3fcd4** | 41636511256 PASS | measured; CI added |
+| 2 Feed right-click gave a clean file | By design in Unit A (only full screen was layered) | #854 / #855 | 772b3b84 / **5dc3fcd4** | **41636511256 PASS** (0 new console lines) | **LIVE** |
+| 3 Lens focus not seen | No code fault: it plays in Chromium, Firefox and WebKit with motion allowed, and is off under prefers-reduced-motion (Windows "Animation effects" off). Only posts with camera details show the line. | — | — | — | Owner check |
+
+**Real screens:** `_control\out\OWNER\credit-REAL-v2-1..15.png`. The saved files are zoomed at the credit corner, for feed and full screen, in Chromium, Firefox and WebKit, plus the worker path. A log of the right-click target URLs sits beside them.
+
+**Owner list (plain words)**
+1. On a computer, open the feed. Right-click a photo uploaded with New Photos on → "Save image as" → open the saved file: the small, faint "© name, 50mm Retina World" sits bottom right. Do the same in full screen. Nothing on screen shows the credit.
+2. Lens focus: Windows Settings → Accessibility → Visual effects → **Animation effects**. If it is Off, Windows asks websites not to animate, and the camera line then appears without the blur effect (the approved rule). Tell us if you want it to animate anyway.
+3. Still open: the production deploy of the edge function `detect-orphan-files` (supervisor: d1-deploy-functions.yml, target production). Also, photos from before the plan have no small-credit copy, so saving them still gives a clean file (a re-backfill would fix that; it is your decision).
+
+---
 READY for New Photos switch-on. Items 1–4 of the Owner's confirmed sheet are LIVE on main and live-checked (3 Nov 2026, 10:50 UTC, local fix runner). New Photos (`photo_set_v2`) is still OFF; the Owner switches it.
 
 | Item | PR (staging / main) | Merged sha (staging / main) | SQL / workflow runs (UTC) | Live check | State |
