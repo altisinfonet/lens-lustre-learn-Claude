@@ -137,16 +137,18 @@ describe("S3-e backfill workflow — fences", () => {
 
   it("photo plan U5: `job` picks the tool from a fixed list (ladder = today's default, photo-set = the v2 backfill)", () => {
     const on = wf.slice(wf.indexOf("\non:\n"), wf.indexOf("\nconcurrency:"));
-    expect(on).toMatch(/\n {6}job:\n(?: {8}.*\n)*? {8}type: choice\n {8}options: \[ladder, photo-set\]/);
+    expect(on).toMatch(/\n {6}job:\n(?: {8}.*\n)*? {8}type: choice\n {8}options: \[ladder, photo-set, rectify-l4\]/);
     expect(on).toMatch(/\n {6}job:\n(?: {8}.*\n)*? {8}default: ladder/);
     expect(wf).toContain("JOB: ${{ inputs.job }}");
     const run = step("Run the backfill tool").run;
     const pick = (job: string) => bash(`${run.split("\n").filter((l) => /TOOL=|case|esac|;;|\*\)/.test(l)).join("\n")}\necho "$TOOL"`, { JOB: job });
     expect(pick("ladder").stdout.trim()).toBe("tools/media-derivatives/run.mjs");
     expect(pick("photo-set").stdout.trim()).toBe("tools/media-derivatives/photo-set.mjs");
+    expect(pick("rectify-l4").stdout.trim()).toBe("tools/media-derivatives/rectify-l4.mjs");
     expect(pick("../../evil").status).not.toBe(0);
     expect(run).toContain('node "$TOOL" "${ARGS[@]}"');
     expect(fs.existsSync(path.join(ROOT, "tools/media-derivatives/photo-set.mjs"))).toBe(true);
+    expect(fs.existsSync(path.join(ROOT, "tools/media-derivatives/rectify-l4.mjs"))).toBe(true);
     // one queued run per lane, whatever the job (the two tools share the worker account)
     expect(wf).toContain("group: s3-media-backfill-${{ inputs.target }}");
   });

@@ -50,10 +50,10 @@ on:
         type: string
         default: "0"
       job:
-        description: "ladder = S3 600/1080/1440 for media posts · photo-set = photo plan U5, the v2 set (credited 2048/1080/600/320) beside every old post photo"
+        description: "ladder = S3 600/1080/1440 for media posts · photo-set = photo plan U5, the v2 set (credited 2048/1080/600/320) beside every old post photo · rectify-l4 = the -l4 posts get a -l5 set from their clean 1080 (small credit), recorded for 20261110_0107"
         required: false
         type: choice
-        options: [ladder, photo-set]
+        options: [ladder, photo-set, rectify-l4]
         default: ladder
 
 concurrency:
@@ -141,7 +141,8 @@ jobs:
           case "${JOB:-ladder}" in
             ladder)    TOOL=tools/media-derivatives/run.mjs ;;
             photo-set) TOOL=tools/media-derivatives/photo-set.mjs ;;
-            *) echo "::error::job must be ladder or photo-set"; exit 1 ;;
+            rectify-l4) TOOL=tools/media-derivatives/rectify-l4.mjs ;;
+            *) echo "::error::job must be ladder, photo-set or rectify-l4"; exit 1 ;;
           esac
           node "$TOOL" "${ARGS[@]}"
 

@@ -43,7 +43,17 @@ export interface PhotoObject {
   done: boolean;
   /** Unit A: the private clean 2048 — sent through PhotoJobDeps.putClean, never presigned. */
   clean?: boolean;
+  /** How many times sending the private clean 2048 threw (network / 5xx). */
+  cleanTries?: number;
 }
+
+/**
+ * The private clean 2048 is an ARCHIVE (redrawing the credit later), never
+ * part of what a member sees: after this many failed sends it is given up and
+ * the post goes on (photo plan Unit B review follow-up — an archive must never
+ * hold up a member's post).
+ */
+export const CLEAN_COPY_MAX_TRIES = 3;
 export interface PhotoSlot {
   /** [full, thumb, ...rungs] — the first two are what the post references. */
   objects: PhotoObject[];
@@ -233,7 +243,17 @@ export async function advancePhotoJob(job: PhotoJob, d: PhotoJobDeps): Promise<P
         for (const o of sl.objects.filter((x) => x.clean && !x.done)) {
           if (!d.online()) return j;
           const blob = await s.getFile(j.id, o.path);
-          if (blob && d.putClean) await d.putClean(sl.objects[0].path, blob); // "refused" is final; a throw retries
+          if (blob && d.putClean) {
+            try {
+              await d.putClean(sl.objects[0].path, blob); // "refused" is final
+            } catch (err) {
+              // a throw retries with the job — but at most CLEAN_COPY_MAX_TRIES times;
+              // the connection dropping mid-send is not a try (the job resumes online)
+              if (!d.online()) throw err;
+              o.cleanTries = (o.cleanTries ?? 0) + 1;
+              if (o.cleanTries < CLEAN_COPY_MAX_TRIES) { await commit(); throw err; }
+            }
+          }
           o.done = true;
           await commit();
         }
