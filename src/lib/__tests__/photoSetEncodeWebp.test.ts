@@ -32,10 +32,10 @@ afterEach(() => {
 const source = () => new File([new Uint8Array([9])], "photo.jpg", { type: "image/jpeg" });
 
 describe("encodePhotoSet · WebP or nothing", () => {
-  it("returns the four copies when the browser really encodes WebP", async () => {
+  it("returns the v3 copies (private clean 2048, credited 2048, clean 1080 URL, 600, 320) when the browser really encodes WebP", async () => {
     const r = await encodePhotoSet(source(), false, "© A, 50mm Retina World");
     expect(r).not.toBeNull();
-    expect(r!.copies.map((c) => c.slot)).toEqual(["master", "r1080", "thumb", "r320"]);
+    expect(r!.copies.map((c) => c.slot)).toEqual(["clean2048", "r2048c", "master", "thumb", "r320"]);
     expect(r!.copies.every((c) => c.file.type === "image/webp")).toBe(true);
   });
 

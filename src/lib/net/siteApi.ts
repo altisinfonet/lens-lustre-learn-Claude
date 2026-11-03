@@ -38,6 +38,7 @@ export const SITE_API = {
   videoSourceCancel: "/api/video/source-cancel",
   videoTakedown: "/api/video/takedown",
   mediaPhotoToken: "/api/media/photo-token",
+  mediaCleanCopy: "/api/media/clean-copy",
   siteSettings: "/config/site-settings",
 } as const;
 

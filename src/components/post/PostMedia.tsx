@@ -22,11 +22,11 @@ import ZoomableImage from "@/components/media/ZoomableImage";
 import { ladderFor, originalFor } from "@/lib/media/resolvedMedia";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import { frameAspectFor, frameAspectForUrls, parseImageDims } from "@/lib/imageFrame";
-import { hasLadderMarker, photoSetBlurUrl, rungPath, rungPlan, rungWidthFor } from "@/lib/imageLadder";
+import { hasLadderMarker, photoSetBlurUrl, photoSetCleanUrl, rungPath, rungPlan, rungWidthFor } from "@/lib/imageLadder";
 import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
 import { useNetworkQuality } from "@/hooks/core/useNetworkQuality";
 import { useDataSaver } from "@/hooks/core/useDataSaver";
-import { feedPhotoSet, fullScreenPhotoUrl } from "@/lib/photoProtection";
+import { feedPhotoSet } from "@/lib/photoProtection";
 
 interface PostMediaProps {
   urls: string[];
@@ -330,7 +330,7 @@ function intrinsicFromName(url: string): { w: number; h: number } | null {
   // The uploader bakes the size into the filename: `…-w1920h1280.webp`, and
   // `…-w1920h1280-thumb.webp` for its 600px copy. Without those numbers there
   // are no width descriptors and srcset cannot be built at all.
-  const m = url.match(/-w(\d+)h(\d+)(?:-l3|-l4f?)?(?:-thumb)?\.[a-z0-9]+(?:[?#]|$)/i);
+  const m = url.match(/-w(\d+)h(\d+)(?:-l3|-l[45]f?)?(?:-thumb)?\.[a-z0-9]+(?:[?#]|$)/i);
   if (!m) return null;
   const w = Number(m[1]);
   const h = Number(m[2]);
@@ -499,13 +499,18 @@ const ProgressiveImage = ({
    * Switch off: `v2Set` is null and `saving` false — exactly the pre-U4 render.
    */
   const saving = useDataSaver().saving;
-  const v2Set = v2 ? feedPhotoSet(src, saving) : null;
+  // Unit A (audit B1): a SET photo's copies are chosen by its file name for
+  // EVERY viewer — signed out, switch answer not in yet, switch off — because
+  // the name says which file carries the credit (a `-l4` URL is the credited
+  // 2048 itself). Only "Save mobile data" stays behind the switch.
+  const v2Set = feedPhotoSet(src, v2 && saving);
   const sharpSrc = v2Set ? v2Set.src : transformable ? buildRenderUrl(src, 800) : src;
   let srcSet = transformable ? buildSrcSet(src) : buildThumbFirstSrcSet(thumb, src);
   if (ladder) srcSet = ladder.srcSet; // S3-c: 600/1080/1440 derivatives, never the original
   if (v2Set) srcSet = v2Set.srcSet;
-  // A v2 copy that fails falls back to the credited 2048 (never `-l4f`'s full size).
-  const failSrc = v2Set ? fullScreenPhotoUrl(src, true) : src;
+  // A set copy that fails falls back to the set's largest CLEAN copy — never a
+  // credited file, never a competition full size (Unit A).
+  const failSrc = v2Set ? photoSetCleanUrl(src) : src;
 
   return (
     <>
