@@ -23,6 +23,7 @@ import type { MediaEnv } from "../derivatives/_lib";
 import { MAX_DERIVATIVE_BYTES, webpSize } from "../../../../src/lib/media/derivativeRules";
 import { rectifyCleanKey, rectifyKeys, type RectifyKeys } from "../../../../src/lib/media/photoL4Rectify";
 import { creditFor } from "./claim";
+import { CREDIT_GEOMETRY } from "../../../../src/lib/creditGeometry.mjs";
 
 type Bucket = ReturnType<typeof bucketFor>;
 interface QueueRow { post_id: string; ord: number; owner_full_name: string | null; owner_handle: string | null; owner_is_admin: boolean }
@@ -59,10 +60,61 @@ async function alreadyThere(bucket: Bucket, key: string, w: number | null, h: nu
 
 const IMMUTABLE = { contentType: "image/webp", cacheControl: "public, max-age=31536000, immutable" } as { contentType?: string };
 
+/*
+ * REDRAW (photo plan v3, 20261110_0108; Owner 3 Nov 12:45Z "1/3 text font small
+ * and 50% opacity down"): a RECORDED rectified photo's credited copy is redrawn
+ * with the current shared geometry. The ONLY overwrite this route ever does:
+ *   · the key is derived here from the SQL target (the -l5 URL the post shows)
+ *     → `<that>-r2048c.webp`, nothing else;
+ *   · the body must be a WebP of exactly the credited copy's CURRENT size;
+ *   · `version` must be the current geometry version (src/lib/creditGeometry.mjs).
+ * The credited copy is a derived file (the clean copy is untouched), and the
+ * web loads it as `?cv=<version>`, so no cache keeps the old one.
+ */
+const L5_KEY_RE = /^post-images\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/posts\/[A-Za-z0-9_.-]+-w\d{1,4}h\d{1,4}-l5\.webp$/;
+async function redrawTarget(env: MediaEnv, jwt: string, postId: string, ord: number, fetchImpl: typeof fetch): Promise<{ urlKey: string; credKey: string; w: number; h: number; version: number }> {
+  const rows = await asMember<Array<{ url_key: string; credit_version: number }>>(env, jwt, ...rpc("photo_credit_redraw_target", { _post_id: postId, _ord: ord }), fetchImpl);
+  const t = Array.isArray(rows) ? rows[0] : undefined;
+  if (!t) throw new HttpError(404, "PHOTO-RX-404", "not a recorded rectified photo the post still shows");
+  if (!L5_KEY_RE.test(t.url_key) || t.url_key.includes("..")) throw new HttpError(500, "PHOTO-RX-KEY-001", "the database named a key that is not a -l5 post photo — refused");
+  const credKey = t.url_key.replace(/\.webp$/, "-r2048c.webp");
+  const dims = await header(bucketFor(env, "public"), credKey);
+  if (!dims) throw new HttpError(404, "PHOTO-RX-404", "this photo has no credited copy to redraw");
+  return { urlKey: t.url_key, credKey, w: dims.width, h: dims.height, version: t.credit_version };
+}
+
 export async function handleRectify(request: Request, env: MediaEnv, fetchImpl: typeof fetch = fetch): Promise<Response> {
   try {
     const q = new URL(request.url).searchParams;
     const who = await member(request, env, fetchImpl);
+
+    if (request.method === "GET" && q.get("op") === "redraw-source") {
+      const { postId, ord } = parsePhoto(q.get("post_id"), q.get("ord"));
+      const t = await redrawTarget(env, who.jwt, postId, ord, fetchImpl);
+      const obj = await bucketFor(env, "public").get(t.urlKey);
+      if (!obj) throw new HttpError(404, "PHOTO-RX-404", "the photo's clean copy is not in the photo bucket");
+      return new Response(await obj.arrayBuffer(), {
+        status: 200,
+        headers: { "content-type": "application/octet-stream", "cache-control": "no-store", "x-content-type-options": "nosniff", "x-rectify-size": `${t.w}x${t.h}`, "x-credit-version": String(CREDIT_GEOMETRY.version) },
+      });
+    }
+
+    if (request.method === "PUT" && q.get("op") === "redraw") {
+      const { postId, ord } = parsePhoto(q.get("post_id"), q.get("ord"));
+      if (Number(q.get("version")) !== CREDIT_GEOMETRY.version) throw new HttpError(409, "PHOTO-RX-VER-001", `version must be the current credit geometry (${CREDIT_GEOMETRY.version})`);
+      const t = await redrawTarget(env, who.jwt, postId, ord, fetchImpl);
+      if (t.version >= CREDIT_GEOMETRY.version) return json(200, { status: "already" });
+      const declared = Number(request.headers.get("content-length") ?? "0");
+      if (declared > MAX_DERIVATIVE_BYTES) throw new HttpError(413, "PHOTO-RX-REQ-003", "copy too large");
+      const bytes = new Uint8Array(await request.arrayBuffer());
+      if (bytes.length === 0 || bytes.length > MAX_DERIVATIVE_BYTES) throw new HttpError(413, "PHOTO-RX-REQ-003", "copy empty or too large");
+      const dims = webpSize(bytes);
+      if (!dims) throw new HttpError(415, "PHOTO-RX-REQ-004", "body is not a WebP");
+      if (dims.width !== t.w || dims.height !== t.h) throw new HttpError(422, "PHOTO-RX-REQ-005", `expected ${t.w}x${t.h}, got ${dims.width}x${dims.height}`);
+      await bucketFor(env, "public").put(t.credKey, bytes, { httpMetadata: IMMUTABLE });
+      await asMember(env, who.jwt, ...rpc("photo_credit_redraw_record", { _post_id: postId, _ord: ord, _version: CREDIT_GEOMETRY.version }), fetchImpl);
+      return json(201, { status: "redrawn" });
+    }
 
     if (request.method === "GET" && q.get("op") === "source") {
       const { postId, ord } = parsePhoto(q.get("post_id"), q.get("ord"));
@@ -94,6 +146,10 @@ export async function handleRectify(request: Request, env: MediaEnv, fetchImpl: 
 
     if (request.method === "POST") {
       const body = await readJson<{ op?: unknown; post_id?: unknown; ord?: unknown; limit?: unknown }>(request);
+      if (body.op === "redraw-claim") {
+        const rows = await asMember<QueueRow[]>(env, who.jwt, ...rpc("photo_credit_redraw_queue", { _version: CREDIT_GEOMETRY.version }), fetchImpl);
+        return json(200, { version: CREDIT_GEOMETRY.version, jobs: (Array.isArray(rows) ? rows : []).map((r) => ({ post_id: r.post_id, ord: r.ord, credit: creditFor(r) })) });
+      }
       if (body.op === "claim") {
         const rows = await asMember<QueueRow[]>(env, who.jwt, ...rpc("photo_l4_rectify_queue", {}), fetchImpl);
         return json(200, { jobs: (Array.isArray(rows) ? rows : []).map((r) => ({ post_id: r.post_id, ord: r.ord, credit: creditFor(r) })) });
@@ -123,7 +179,7 @@ export async function handleRectify(request: Request, env: MediaEnv, fetchImpl: 
         return json(201, { status: "recorded" });
       }
     }
-    throw new HttpError(400, "PHOTO-RX-REQ-000", "op must be claim / done (POST), source (GET) or credited (PUT)");
+    throw new HttpError(400, "PHOTO-RX-REQ-000", "op must be claim / done / redraw-claim (POST), source / redraw-source (GET) or credited / redraw (PUT)");
   } catch (e) {
     return handleError(e);
   }

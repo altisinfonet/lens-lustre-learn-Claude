@@ -75,6 +75,8 @@ async function waitUp() {
 
 const VIEWPORTS = { desktop: { width: 1280, height: 900 }, phone: { width: 390, height: 844 } };
 const name = (u) => u.split("/").pop();
+/** A URL without its query (the credited copy carries ?cv=<geometry version>). */
+const bare = (u) => (typeof u === "string" ? u.replace(/\?.*$/, "") : u);
 
 /** Pixel comparison of two PNG buffers of the same size. */
 function diff(aBuf, bBuf) {
@@ -93,21 +95,23 @@ function diff(aBuf, bBuf) {
  * THE CREDIT INSIDE THE SAVED FILE (fault 1, Owner web check 3 Nov): measured
  * from the file's own bytes against its clean twin — the credit's box (width
  * and height as a share of the image) and its opacity (alpha = lift / headroom
- * on clearly lifted pixels). The Owner's rule: one third of the first credit's
- * size and half its opacity. The first credit measured 57 % of the width at
- * alpha ≈ 0.82 on live; one third / half is ≈ 19–23 % and ≈ 0.41.
+ * on clearly lifted pixels), searched in the bottom-right corner where it is
+ * drawn. Measured on live: v1 57 % of the width at alpha ≈ 0.82; v2 (one third,
+ * half) 18–23 % at ≈ 0.40. v3 (Owner, 3 Nov 12:45Z: "1/3 text font small and
+ * 50% opacity down" — one third of v2, half of v2's opacity) must be ≈ 6–8 %
+ * at ≈ 0.2: the bounds below fail v1 AND v2.
  */
-const CREDIT_LIMITS = { maxWidthPct: 32, maxHeightPct: 3.5, minAlpha: 0.25, maxAlpha: 0.55 };
+const CREDIT_LIMITS = { maxWidthPct: 12, maxHeightPct: 1.5, minAlpha: 0.08, maxAlpha: 0.3 };
 async function measureCredit(credB64, cleanB64) {
   const a0 = Buffer.from(credB64, "base64");
   const m = await sharp(a0).metadata();
   const A = await sharp(a0).raw().removeAlpha().toBuffer();
   const B = await sharp(Buffer.from(cleanB64, "base64")).resize(m.width, m.height, { fit: "fill" }).raw().removeAlpha().toBuffer();
   const est = []; let minx = 1e9, maxx = -1, miny = 1e9, maxy = -1;
-  for (let y = 0; y < m.height; y++) for (let x = 0; x < m.width; x++) {
+  for (let y = Math.floor(m.height * 0.8); y < m.height; y++) for (let x = Math.floor(m.width * 0.3); x < m.width; x++) {
     const i = (y * m.width + x) * 3;
     const c = (B[i] + B[i + 1] + B[i + 2]) / 3, v = (A[i] + A[i + 1] + A[i + 2]) / 3;
-    if (v - c > 25 && 255 - c > 60) { est.push((v - c) / (255 - c)); minx = Math.min(minx, x); maxx = Math.max(maxx, x); miny = Math.min(miny, y); maxy = Math.max(maxy, y); }
+    if (v - c > 12 && 255 - c > 60) { est.push((v - c) / (255 - c)); minx = Math.min(minx, x); maxx = Math.max(maxx, x); miny = Math.min(miny, y); maxy = Math.max(maxy, y); }
   }
   est.sort((p, q) => p - q);
   if (!est.length) return { size: `${m.width}x${m.height}`, px: 0, widthPct: 0, heightPct: 0, alphaP90: 0 };
@@ -115,15 +119,16 @@ async function measureCredit(credB64, cleanB64) {
     size: `${m.width}x${m.height}`, px: est.length,
     widthPct: +((maxx - minx + 1) / m.width * 100).toFixed(1),
     heightPct: +((maxy - miny + 1) / m.height * 100).toFixed(2),
+    heightPx: maxy - miny + 1,
     alphaP90: +est[Math.floor(est.length * 0.9)].toFixed(2),
   };
 }
 function creditFail(row, c) {
   const L = CREDIT_LIMITS;
   if (!c || c.px === 0) return fail(row, "the saved file carries no credit at all");
-  if (c.widthPct > L.maxWidthPct) fail(row, `the credit is ${c.widthPct} % of the width (max ${L.maxWidthPct} %: one third of the first size)`);
+  if (c.widthPct > L.maxWidthPct) fail(row, `the credit is ${c.widthPct} % of the width (max ${L.maxWidthPct} %: one third of v2)`);
   if (c.heightPct > L.maxHeightPct) fail(row, `the credit is ${c.heightPct} % of the height (max ${L.maxHeightPct} %)`);
-  if (c.alphaP90 > L.maxAlpha || c.alphaP90 < L.minAlpha) fail(row, `the credit's opacity is ${c.alphaP90} (want ${L.minAlpha}–${L.maxAlpha}: half of the first ≈ 0.82)`);
+  if (c.alphaP90 > L.maxAlpha || c.alphaP90 < L.minAlpha) fail(row, `the credit's opacity is ${c.alphaP90} (want ${L.minAlpha}–${L.maxAlpha}: half of v2 ≈ 0.41)`);
 }
 /** The saved file's bottom-right corner, zoomed 3× (the Owner's PNGs). */
 async function corner(b64, out) {
@@ -141,7 +146,7 @@ async function open(browser, { vp, dpr, viewer, size, shape, admin = false, app 
   const requested = [];
   const failedOnce = new Set();
   await page.route("https://cdn.harness.test/**", async (route) => {
-    const url = route.request().url();
+    const url = bare(route.request().url()); // the credited copy is loaded as ?cv=<version>; the store is keyed by the file
     requested.push(url);
     // viewer "err": every copy's FIRST request fails, so every fallback path runs.
     if (viewer === "err" && !failedOnce.has(url)) { failedOnce.add(url); return route.fulfill({ status: 404, body: "" }); }
@@ -297,7 +302,7 @@ for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
         await r.page.mouse.move(5, 5);
         await r.page.waitForTimeout(300);
         const after = await card.screenshot();
-        const ftarget = await r.page.evaluate(() => window.__ctx);
+        const ftarget = bare(await r.page.evaluate(() => window.__ctx));
         fr.contextMenuTarget = ftarget;
         const same = diff(before, after);
         fr.screenBeforeVsAfter = same.why;
@@ -321,13 +326,14 @@ for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
       await r.page.waitForTimeout(1500); // the CSS background (clean copy) paints
       const img = await r.page.$(sel);
       const facts = await img.evaluate((i) => ({ src: i.currentSrc || i.src, shown: i.getAttribute("data-photo-shown") }));
+      facts.src = bare(facts.src); facts.shown = bare(facts.shown);
       row.contextFile = name(facts.src);
       row.shownFile = name(facts.shown);
       const box = await img.boundingBox();
       // a real right-click on the middle of the photo
       await r.page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: "right" });
       await r.page.waitForTimeout(300);
-      const target = await r.page.evaluate(() => window.__ctx);
+      const target = bare(await r.page.evaluate(() => window.__ctx));
       row.contextMenuTarget = target;
       if (!target || !r.credited.includes(target)) fail(row, `right-click target is ${target} — not the credited file`);
       if (target && r.store[target]?.twin) {

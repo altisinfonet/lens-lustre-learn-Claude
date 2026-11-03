@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fullScreenPhoto, inlinePhotoUrl, photoDownloadAllowed } from "@/lib/photoProtection";
+import { fullScreenPhoto, inlinePhotoUrl, photoDownloadAllowed, withCreditVersion } from "@/lib/photoProtection";
 
 const CDN = "https://cdn-staging.50mmretina.com/post-images/u1/posts/1762000000000-abc";
 const L4 = `${CDN}-w2048h1365-l4.webp`;
@@ -25,10 +25,10 @@ describe("fullScreenPhoto / inlinePhotoUrl (Unit A: the copy is chosen by the fi
   const L5 = `${CDN}-w1080h720-l5.webp`;
   const L5F = `${CDN}-w4000h3000-l5f.webp`;
   it("full screen PAINTS a clean copy; the context-menu file is the credited 2048; never a full size", () => {
-    expect(fullScreenPhoto(L4)).toEqual({ shown: `${CDN}-w2048h1365-l4-r1080.webp`, saveAs: L4 });
-    expect(fullScreenPhoto(L4F)).toEqual({ shown: `${CDN}-w4000h3000-l4f-r1080.webp`, saveAs: `${CDN}-w4000h3000-l4f-r2048.webp` });
-    expect(fullScreenPhoto(L5)).toEqual({ shown: L5, saveAs: `${CDN}-w1080h720-l5-r2048c.webp` });
-    expect(fullScreenPhoto(L5F)).toEqual({ shown: `${CDN}-w4000h3000-l5f-r1080.webp`, saveAs: `${CDN}-w4000h3000-l5f-r2048c.webp` });
+    expect(fullScreenPhoto(L4)).toEqual({ shown: `${CDN}-w2048h1365-l4-r1080.webp`, saveAs: withCreditVersion(`${L4}`) });
+    expect(fullScreenPhoto(L4F)).toEqual({ shown: `${CDN}-w4000h3000-l4f-r1080.webp`, saveAs: withCreditVersion(`${CDN}-w4000h3000-l4f-r2048.webp`) });
+    expect(fullScreenPhoto(L5)).toEqual({ shown: L5, saveAs: withCreditVersion(`${CDN}-w1080h720-l5-r2048c.webp`) });
+    expect(fullScreenPhoto(L5F)).toEqual({ shown: `${CDN}-w4000h3000-l5f-r1080.webp`, saveAs: withCreditVersion(`${CDN}-w4000h3000-l5f-r2048c.webp`) });
   });
   it("inline: the clean 1080 for every viewer", () => {
     for (const v2 of [true, false]) {
