@@ -913,6 +913,35 @@
        accidentally make this visible. */
     background: transparent;
   }
+
+  /*
+   * THE ROW UNDER THE PHOTO (Like / Comment / Share) — Owner report 3 Nov 2026
+   * ~16:20Z: "too much space photo → icons and icons → caption". The 48 px
+   * buttons (ea8f2256, 10 Aug) centred a 24 px icon, so the eye saw 13 px of
+   * empty card above the icons and 18 px below them (measured on live, ink).
+   * The box is now 32 px (the icon + 4 px); the FINGER target stays 44 px by
+   * reaching 12 px UP only, NEVER down (review of #867: no two tap areas
+   * overlap). Who owns what is decided by layers, not by luck:
+   *   caption (relative z-2)  >  this row  >  the admins' camera toggle  >  photo
+   * (the camera line itself is pointer-events-none: plain text). So the row's
+   * controls reach 12 px up over the photo's bottom (no camera line) or over
+   * the camera line's lower half, in their own columns only; the photo's zoom
+   * keeps every other pixel, and the caption keeps everything from its top down.
+   * Proven every 2 px by tools/uishot/card-hits.mjs.
+   */
+  .tap-44-under {
+    position: relative;
+  }
+  .tap-44-under::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -12px;
+    bottom: 0;
+    min-width: 44px;
+    background: transparent;
+  }
 }
 
 /*

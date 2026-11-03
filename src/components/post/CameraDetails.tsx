@@ -175,8 +175,8 @@ export function CameraLine({ state, admin = false, focusKey, reserve = false }: 
   const { ref, phase, cycle } = useLensFocus(present);
   if (!state || state.kind !== "info") {
     return reserve ? (
-      <div data-camera-line-reserve="" aria-hidden="true" className="px-4 text-xs leading-4">
-        <p className="pb-1 pt-2"><span className="block h-4" /></p>
+      <div data-camera-line-reserve="" aria-hidden="true" className="pointer-events-none px-3 text-xs leading-4">
+        <p className="pt-1.5"><span className="block h-4" /></p>
       </div>
     ) : null;
   }
@@ -189,21 +189,39 @@ export function CameraLine({ state, admin = false, focusKey, reserve = false }: 
   );
   const enter = phase === "wait" ? "camLineEnter camLineWait" : phase === "play" ? "camLineEnter camLinePlay" : "camLineEnter";
   return (
-    <div ref={ref} data-camera-line="" className={`px-4 text-xs leading-4 text-muted-foreground ${enter}`}>
+    // `pointer-events-none`: the line itself is plain text — nothing to tap — so
+    // Like / Comment / Share and the counts keep their full 44 px finger
+    // target over its lower half (re-review of #867). Only the admins' toggle
+    // button below takes taps (pointer-events-auto).
+    <div ref={ref} data-camera-line="" className={`pointer-events-none px-3 text-xs leading-4 text-muted-foreground ${enter}`}>
       {more.length === 0 ? (
-        <p className="flex items-center gap-1.5 pb-1 pt-2">{summary}</p>
+        <p className="flex items-center gap-1.5 pt-1.5">{summary}</p>
       ) : (
         <>
-          {/* The type is small (the design); the button is still a 44 px finger
-              target (tools/uishot/tap-targets.mjs) — its height is the gap to the
-              photo above and the actions below, so it overlaps neither. */}
+          {/* VISIBLY the same line as the members' (Owner report 3 Nov ~16:20Z:
+              the 44 px button left 16 px of card above the line and 29 px under
+              it). Its box is 32 px — the tap gate's row floor — and the full
+              width of the card (-mx-3 px-3): 10 px of it sit in the photo
+              (-mt-2.5; pt-4 puts the text exactly where the members' line has
+              it, 6 px under the photo).
+              WHERE ADMINS CAN TAP IT (review + re-review of #867: no two tap
+              areas overlap, every control >= 44 px to a finger): the button is
+              one layer UNDER the action row (it comes first in the page; both
+              are `relative`), and its ::after reaches 32 px down from its box.
+              So it owns the line's upper part across the card (10 px of the
+              photo + the line down to 12 px above the row), and, in every
+              column the row's controls do not own — the empty stretch before
+              the reaction break-up, the row's end — the whole line plus the
+              row's height: 64 px. Like / Comment / Share / the counts keep
+              their own 44 px columns, reaching up over the line's lower half.
+              Proven by tools/uishot/card-hits.mjs. */}
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
             aria-controls={panelId}
             aria-label={`Camera details: ${cameraLine(state.info)}`}
-            className="flex min-h-11 w-full items-center gap-1.5 rounded-sm text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="pointer-events-auto relative -mx-3 -mt-2.5 flex h-8 w-[calc(100%+1.5rem)] items-center gap-1.5 rounded-sm px-3 pt-4 text-left after:absolute after:inset-x-0 after:top-full after:h-8 after:content-[''] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             {summary}
             <ChevronDown
@@ -214,7 +232,9 @@ export function CameraLine({ state, admin = false, focusKey, reserve = false }: 
           <div
             id={panelId}
             aria-hidden={!open}
-            className={`overflow-hidden pl-5 transition-[max-height,opacity] duration-[250ms] ease-out motion-reduce:transition-none ${open ? "-mt-2.5 max-h-20 pb-1 opacity-100" : "max-h-0 opacity-0"}`}
+            /* The 2nd line starts where line 1's camera icon starts (Owner, 3 Nov:
+               one left edge), directly under line 1 at its own line height. */
+            className={`overflow-hidden transition-[max-height,opacity] duration-[250ms] ease-out motion-reduce:transition-none ${open ? "max-h-20 opacity-100" : "max-h-0 opacity-0"}`}
           >
             <p>
               {more.map((r, i) => (

@@ -719,7 +719,7 @@ const PostCard = ({
           nobody, and the reasoning was wrong. The share number IS still a slot,
           because ShareSummaryTooltip reads post_shares. */}
       {/* S7b-5: a like made with no network, kept on the phone until sent. */}
-      <PendingMark subject={`post:${post.id}`} className="px-4 pt-1" />
+      <PendingMark subject={`post:${post.id}`} className="px-3 pt-1" />
       <PostActionRow
         currentReaction={post.user_reaction}
         onReact={(type) => onReact(post.id, type)}
