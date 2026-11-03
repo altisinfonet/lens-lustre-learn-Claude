@@ -14,7 +14,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { render, screen, fireEvent, within, act } from "@testing-library/react";
-import { CameraLine, __resetCameraLineFocus } from "@/components/post/CameraDetails";
+import { CameraLine, __resetCameraLineFocus, __lensFocusTicker } from "@/components/post/CameraDetails";
 import type { CameraState } from "@/lib/photoCameraDisplay";
 
 const info: CameraState = {
@@ -80,28 +80,83 @@ describe("'lens focus' entry (Owner-approved option A)", () => {
   });
   const lineOf = (c: HTMLElement) => c.querySelector("[data-camera-line]") as HTMLElement;
 
-  it("waits (soft) until ≥ 30 % on screen, then plays ONCE; a re-render does not re-apply it; the same photo never replays", () => {
-    const { container, rerender, unmount } = render(<CameraLine state={info} focusKey="p1:a" />);
-    expect(observers).toHaveLength(1);
-    expect(observers[0].threshold).toBe(0.3);
-    expect(lineOf(container).classList.contains("camLineWait")).toBe(true);
-    expect(lineOf(container).classList.contains("camLinePlay")).toBe(false);
-    act(() => observers[0].cb([{ isIntersecting: false, intersectionRatio: 0 }]));
-    act(() => observers[0].cb([{ isIntersecting: true, intersectionRatio: 0.1 }]));
-    expect(lineOf(container).classList.contains("camLineWait")).toBe(true);
-    act(() => observers[0].cb([{ isIntersecting: true, intersectionRatio: 0.4 }]));
-    expect(lineOf(container).classList.contains("camLinePlay")).toBe(true);
-    expect(observers[0].disconnected).toBe(true);
-    const node = lineOf(container);
-    rerender(<CameraLine state={{ ...info }} focusKey="p1:a" />);
-    expect(lineOf(container)).toBe(node);
-    expect(lineOf(container).classList.contains("camLinePlay")).toBe(true);
-    expect(observers).toHaveLength(1);
-    unmount();
-    // Scrolled away and back (remounted): shown at once, no animation, nothing observed.
-    const again = render(<CameraLine state={info} focusKey="p1:a" />);
-    expect(lineOf(again.container).className).not.toMatch(/camLineWait|camLinePlay/);
-    expect(observers).toHaveLength(1);
+  /*
+   * REPEAT (Owner, 3 Nov 2026 ~15:50Z: "repeat every 5 seconds while the line is
+   * on screen"). Written to FAIL on main 5dc3fcd4 / staging 8c3081b4, where the
+   * entry waited for 30 % and then played ONCE per photo for the whole session.
+   */
+  const firstItem = (c: HTMLElement) => lineOf(c).querySelector(".camW") as HTMLElement;
+
+  it("plays the moment the line ENTERS the screen, then again every 5 s while it stays there (the items are redrawn so the CSS animation restarts)", () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = render(<CameraLine state={info} focusKey="p1:a" />);
+      expect(observers).toHaveLength(1);
+      expect(observers[0].threshold).toBe(0); // entry, not 30 %
+      expect(lineOf(container).classList.contains("camLineWait")).toBe(true);
+      act(() => observers[0].cb([{ isIntersecting: true, intersectionRatio: 0.01 }]));
+      expect(lineOf(container).classList.contains("camLinePlay")).toBe(true);
+      const first = firstItem(container);
+      act(() => { vi.advanceTimersByTime(4999); });
+      expect(firstItem(container)).toBe(first); // not yet
+      act(() => { vi.advanceTimersByTime(1); });
+      const second = firstItem(container);
+      expect(second).not.toBe(first); // replayed at 5 s
+      act(() => { vi.advanceTimersByTime(5000); });
+      expect(firstItem(container)).not.toBe(second); // and at 10 s
+      expect(__lensFocusTicker()).toEqual({ lines: 1, running: true });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("off screen → no replays and the shared timer stops; back on screen → it plays and repeats again", () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = render(<CameraLine state={info} focusKey="p1:a" />);
+      act(() => observers[0].cb([{ isIntersecting: true, intersectionRatio: 1 }]));
+      act(() => observers[0].cb([{ isIntersecting: false, intersectionRatio: 0 }]));
+      expect(__lensFocusTicker()).toEqual({ lines: 0, running: false });
+      const off = firstItem(container);
+      act(() => { vi.advanceTimersByTime(20000); });
+      expect(firstItem(container)).toBe(off); // nothing happened while away
+      act(() => observers[0].cb([{ isIntersecting: true, intersectionRatio: 1 }]));
+      act(() => { vi.advanceTimersByTime(5000); });
+      expect(firstItem(container)).not.toBe(off);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a hidden tab pauses the shared timer; ONE timer serves every line on screen", () => {
+    vi.useFakeTimers();
+    const spy = vi.spyOn(globalThis, "setInterval");
+    try {
+      render(<CameraLine state={info} focusKey="p1:a" />);
+      render(<CameraLine state={info} focusKey="p2:b" />);
+      render(<CameraLine state={info} focusKey="p3:c" />);
+      for (const o of observers) act(() => o.cb([{ isIntersecting: true, intersectionRatio: 1 }]));
+      expect(__lensFocusTicker()).toEqual({ lines: 3, running: true });
+      expect(spy.mock.calls.filter((c) => c[1] === 5000)).toHaveLength(1); // one timer, not three
+      // hidden tab → no replays at all (P10's visibility interval stops the timer)
+      const lines = [...document.querySelectorAll("[data-camera-line]")] as HTMLElement[];
+      const firstOf = (l: HTMLElement) => l.querySelector(".camW");
+      Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
+      Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
+      act(() => { document.dispatchEvent(new Event("visibilitychange")); });
+      const before = lines.map(firstOf);
+      act(() => { vi.advanceTimersByTime(20000); });
+      lines.forEach((l, i) => expect(firstOf(l)).toBe(before[i])); // same nodes: toEqual would pass on a fresh identical remount
+      Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
+      Object.defineProperty(document, "hidden", { configurable: true, get: () => false });
+      act(() => { document.dispatchEvent(new Event("visibilitychange")); });
+      act(() => { vi.advanceTimersByTime(5000); });
+      expect(lines.map(firstOf).every((n, i) => n !== before[i])).toBe(true); // replays again
+    } finally {
+      spy.mockRestore();
+      vi.useRealTimers();
+      Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
+    }
   });
 
   it("another photo plays its own entry", () => {
