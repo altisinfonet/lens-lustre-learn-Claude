@@ -1,20 +1,23 @@
-PHOTO PLAN — FIX RUN IN PROGRESS (3 Nov 2026, local fix runner). Three of the Owner's confirmed items are LIVE on main (gap, dots, credit never on screen, download icon). The 5-photo rectify is proven on staging; its production run follows the carry #853. New Photos (`photo_set_v2`) stays OFF; nothing is switched on.
-
-**Fix run, 3 Nov 2026** (last update 10:30 UTC)
+READY for New Photos switch-on. Items 1–4 of the Owner's confirmed sheet are LIVE on main and live-checked (3 Nov 2026, 10:50 UTC, local fix runner). New Photos (`photo_set_v2`) is still OFF; the Owner switches it.
 
 | Item | PR (staging / main) | Merged sha (staging / main) | SQL / workflow runs (UTC) | Live check | State |
 |---|---|---|---|---|---|
-| 1 Gap + slider dots (+ offline camera-line band) | #846 / #847 | cf27807e / **fa3cfa3b** (08:27Z) | none | **41604547547 PASS** | **LIVE** |
-| 2 Unit A: the credit is never on screen | #848 / #851 | 4d680648 / **fb818f97** (10:10Z) | `detect-orphan-files` staging v7 41611342667 ✓; production deploy **refused by the session's permission system** (Owner/supervisor item) | **41617507140 PASS** (0 new console lines) | **LIVE** |
-| 3 Unit B: one switch reader; download + app save by policy | #849 / #851 | d72556a5 / **fb818f97** | none | 41617507140 PASS | **LIVE** |
-| 3b Follow-up: an archive copy never holds up a post | #852 / #853 | e6730ef0 / — | none | — | carry CI running |
-| 4 Rectify the 5 big-credit photos (3 posts) | #850 / #853 | c582b94c / — | **staging:** 0106 PROBE 41616293894 FAIL (expected) → apply 41616486235 → PROBE 41616642066 **PASS** · worker dry-run 41616752306, run 41616870328 (1 recorded, 0 failed) · 0107 PROBE 41617056021 FAIL (expected) → apply 41617313820 → PROBE 41617400035 **PASS** · rollback 41617511510 → PROBE 41617607214 FAIL (rollback proven) → re-apply 41617704174 → PROBE 41617789711 **PASS**. **production:** census 41607495064: 3 posts / 5 photos (95717e96 included, still there) — runs after #853 | — | staging DONE |
+| 1 Gap + slider dots (+ offline camera-line band) | #846 / #847 | cf27807e / **fa3cfa3b** | none | **41604547547 PASS** | **LIVE** |
+| 2 Unit A: the credit is never on screen | #848 / #851 | 4d680648 / **fb818f97** | `detect-orphan-files`: staging v7 41611342667 ✓; **production deploy refused by the session's permission system — supervisor item** | **41617507140 PASS** | **LIVE** |
+| 3 Unit B: one switch reader; download icon + app save by policy | #849 / #851 | d72556a5 / **fb818f97** | none | 41617507140 PASS | **LIVE** |
+| 3b Follow-up: an archive copy never holds up a post | #852 / #853 | e6730ef0 / **f66cdf51** | none | 41621769345 PASS | **LIVE** |
+| 4 Rectify the 5 big-credit photos (3 posts) | #850 / #853 | c582b94c / **f66cdf51** | **staging:** 0106 FAIL 41616293894 → apply 41616486235 → PASS 41616642066 · worker 41616752306 (dry) / 41616870328 (1 recorded) · 0107 FAIL 41617056021 → apply 41617313820 → PASS 41617400035 · rollback 41617511510 → FAIL 41617607214 → re-apply 41617704174 → PASS 41617789711. **production:** 0106 FAIL 41620678238 → apply 41620843400 → PASS 41620949533 · worker 41621045367 (dry, 5) / 41621179007 (**5 recorded, 0 failed**) · 0107 FAIL 41621419024 → apply 41621574842 (**3 posts / 5 photos**) → PASS 41621668580 | **41621769345 PASS** | **LIVE** |
 
-**Real screens:** `_control\out\OWNER\credit-REAL-1..10.png` (index + right-click target log), `gapdots-REAL-1..10.png` (the approved CI baselines).
+**Real screens:** `_control\out\OWNER\credit-REAL-1..10.png` (index + right-click target log), `gapdots-REAL-1..10.png`.
 
 **Owner list (plain words)**
-1. Nothing to click yet. When the 5-photo fix is live, you will get "READY for New Photos switch-on".
-2. Good to know: full screen now shows a clean copy at 1080 px, so zoom is a little softer than before. That is the price of "credit never on screen" with the large clean copy kept private.
+1. **Switch New Photos on and look on the web:** open www.50mmretina.com → Admin → **Photos** → **New Photos** → **Selected members** and add yourself (or **All members**). Then check:
+   - (a) the feed: no "© name" on any photo; tight gap; dots close together;
+   - (b) open a photo full screen: no credit visible; on a computer, right-click the photo → "Save image as": the saved file has the small credit, bottom right;
+   - (c) no download icon on posts;
+   - (d) the 3 fixed posts from 2–3 Nov (uploaded while New Photos was on) look clean.
+2. Good to know: full screen shows a clean 1080 px copy, so zoom is a little softer than before.
+3. Tell the chat "web OK" → then the one app version 1.2.38.
 
 ---
 **Earlier record (2 Nov, runner U0–U7)** — kept below unchanged.
