@@ -86,13 +86,14 @@ describe("summary triggers clear the gate's 44/32 tap floor", () => {
         expect(src).toMatch(/aria-label=\{`See who (reacted|shared) \(\$\{\w+\}\)`\}/);
       });
 
-      it("sets h-11, so the long axis clears 44 — and -my-1.5, so the 32px row under the photo stays 32px (Owner, 3 Nov 2026)", () => {
-        expect(src).toMatch(/className="cursor-pointer inline-flex[^"]*\bh-11\b/);
-        expect(src).toMatch(/className="cursor-pointer inline-flex[^"]*\s-my-1\.5\b/);
+      it("sets h-11, so the long axis clears 44 — reaching UP only (-mt-3 pt-3), never down into the caption (Owner 3 Nov 2026; review of #867)", () => {
+        expect(src).toMatch(/className="relative cursor-pointer inline-flex[^"]*\bh-11\b/);
+        expect(src).toMatch(/className="relative cursor-pointer inline-flex[^"]*\s-mt-3 pt-3\b/);
+        expect(src).not.toMatch(/className="[^"]*cursor-pointer inline-flex[^"]*-m[yb]-/);
       });
 
       it("sets px-2.5, so the short axis clears 32", () => {
-        expect(src).toMatch(/className="cursor-pointer inline-flex[^"]*\bpx-2\.5\b/);
+        expect(src).toMatch(/className="relative cursor-pointer inline-flex[^"]*\bpx-2\.5\b/);
       });
 
       it("has NOT been returned to the bare inline-flex box the gate rejected", () => {

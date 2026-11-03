@@ -97,7 +97,10 @@ const Caption = ({ content, maxLines = 2, prefix }: CaptionProps) => {
     // out at 21px, 23px, 34px and once at MINUS 1px on the live feed. Owner,
     // 2026-08-10: "After removing the thin border line between two post gap
     // also maintain exactly like Instagram."
-    <div className="px-3">
+    // `relative z-[2]`: the caption is the top layer of the card's lower half —
+    // no tap area of the row above (Like / Comment / Share / counts) may take
+    // a pixel of the name or the text (review of #867; F-109).
+    <div className="relative z-[2] px-3">
       <div ref={clampRef} className={expanded ? "" : CLAMP[maxLines] || CLAMP[2]}>
         {/**
          * `break-words` IS LOAD-BEARING, not tidiness.

@@ -132,7 +132,8 @@ describe("a post reaches both edges of the phone", () => {
     expect(postCardRoot, "a second source of spacing is how it drifted before").not.toContain("mb-0");
     expect(postCardRoot).not.toContain("md:mb-4");
     const caption = read("src/components/post/Caption.tsx");
-    expect(caption, "the caption must not add its own bottom padding").toContain('<div className="px-3">');
+    // `relative z-[2]` (review of #867: the caption is the top tap layer) adds no space.
+    expect(caption, "the caption must not add its own bottom padding").toContain('<div className="relative z-[2] px-3">');
     expect(wall).toContain('className="space-y-0"');
     expect(wall, "list spacing on top of the card margin doubles the gap").not.toContain("md:space-y-4");
     expect(postCard, "the header's top padding is the other half of the gap").toContain("flex items-center gap-2.5 p-3 pb-2");
@@ -202,8 +203,10 @@ describe("react, comment and share are thumb-sized", () => {
     expect(picker).toContain("tap-44-under h-8 px-2.5");
     const css = read("src/index.css");
     const rule = css.match(/\.tap-44-under::after\s*\{([^}]*)\}/)?.[1] ?? "";
-    const px = (k: string) => Number(rule.match(new RegExp(`\\b${k}:\\s*(-?\\d+)px`))?.[1] ?? NaN);
+    const px = (k: string) => Number(rule.match(new RegExp(`(?:^|[\\s;])${k}:\\s*(-?\\d+)(?:px)?\\s*;`))?.[1] ?? NaN);
     expect(32 - px("top") - px("bottom"), "box 32px + the ::after's reach up and down").toBeGreaterThanOrEqual(44);
+    // Review of #867: it reaches UP only — never down into the caption's name.
+    expect(px("bottom")).toBe(0);
     expect(px("min-width")).toBeGreaterThanOrEqual(44);
   });
 

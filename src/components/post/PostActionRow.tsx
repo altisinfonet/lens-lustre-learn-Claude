@@ -146,7 +146,7 @@ const PostActionRow = ({
   );
 
   return (
-  <div className="select-none pl-px pr-1.5">
+  <div className="select-none ps-px pe-1.5">
     <div className="flex items-center">
       {/* Like — the picker owns the button, the count sits beside it */}
       <div className="flex items-center">

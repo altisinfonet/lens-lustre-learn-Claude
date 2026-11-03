@@ -175,7 +175,7 @@ export function CameraLine({ state, admin = false, focusKey, reserve = false }: 
   const { ref, phase, cycle } = useLensFocus(present);
   if (!state || state.kind !== "info") {
     return reserve ? (
-      <div data-camera-line-reserve="" aria-hidden="true" className="px-3 text-xs leading-4">
+      <div data-camera-line-reserve="" aria-hidden="true" className="relative z-[1] px-3 text-xs leading-4">
         <p className="pt-1.5"><span className="block h-4" /></p>
       </div>
     ) : null;
@@ -189,27 +189,31 @@ export function CameraLine({ state, admin = false, focusKey, reserve = false }: 
   );
   const enter = phase === "wait" ? "camLineEnter camLineWait" : phase === "play" ? "camLineEnter camLinePlay" : "camLineEnter";
   return (
-    <div ref={ref} data-camera-line="" className={`px-3 text-xs leading-4 text-muted-foreground ${enter}`}>
+    // `relative z-[1]`: the line is the layer ABOVE the action row, so no part of
+    // its height ever goes to Like / Comment / Share (review of #867).
+    <div ref={ref} data-camera-line="" className={`relative z-[1] px-3 text-xs leading-4 text-muted-foreground ${enter}`}>
       {more.length === 0 ? (
         <p className="flex items-center gap-1.5 pt-1.5">{summary}</p>
       ) : (
         <>
           {/* VISIBLY the same line as the members' (Owner report 3 Nov ~16:20Z:
               the 44 px button left 16 px of card above the line and 29 px under
-              it). Its box is 32 px — the tap gate's row floor — set 2 px into
-              the photo and pulled 8 px back out of the flow (-mt-0.5 -mb-2), so
-              the text lands exactly where the members' line puts it (6 px under
-              the photo). The ::after makes the finger target 44 px by reaching
-              12 px DOWN, where the Like / Comment / Share buttons (later in the
-              page, so on top) keep their own targets: nothing is taken from
-              the photo. */}
+              it). Its box is 32 px — the tap gate's row floor — and the full
+              width of the card (-mx-3 px-3): 10 px of it sit in the photo
+              (-mt-2.5; pt-4 puts the text exactly where the members' line has
+              it, 6 px under the photo), and it ENDS where the row begins. It
+              never reaches over Like / Comment / Share or the counts, and they
+              never reach over it (review of #867): the line is one layer above
+              the row (`relative z-[1]` on the wrapper) and the row starts at the
+              line's bottom. So admins tap the camera details anywhere from 10 px
+              inside the photo to the row — the photo keeps the rest. */}
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
             aria-controls={panelId}
             aria-label={`Camera details: ${cameraLine(state.info)}`}
-            className="relative -mb-2 -mt-0.5 flex h-8 w-full items-center gap-1.5 rounded-sm text-left after:absolute after:inset-x-0 after:-bottom-3 after:top-0 after:content-[''] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="-mx-3 -mt-2.5 flex h-8 w-[calc(100%+1.5rem)] items-center gap-1.5 rounded-sm px-3 pt-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             {summary}
             <ChevronDown

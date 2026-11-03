@@ -113,12 +113,16 @@ const ShareSummaryTooltip = ({ shareCount, postId, children }: ShareSummaryToolt
                  The rule (tools/uishot/capture.mjs) is LONG >= 44 AND SHORT >= 32,
                  measured with getBoundingClientRect, which INCLUDES padding.
                  h-11 gives 44 on the long axis; px-2.5 lifts the narrowest
-                 content (16px) to 36 on the short axis. `-my-1.5` takes the
-                 height back out of the flow: the row under the photo is 32px
-                 (Owner report 3 Nov 2026, "too much space" — PostActionRow), so
-                 the box reaches 6px past it and adds no visible space.
+                 content (16px) to 36 on the short axis. The row under the
+                 photo is 32px (Owner report 3 Nov 2026, "too much space" —
+                 PostActionRow), so the box reaches 12px UP only (`-mt-3`, its
+                 `pt-3` keeps the number on the row's centre) and never down
+                 into the caption's name — the same band as Like / Comment /
+                 Share (`.tap-44-under`, src/index.css). `relative` puts it in
+                 that layer, under the camera line and the caption (review of
+                 #867, tools/uishot/card-hits.mjs).
               */
-              className="cursor-pointer inline-flex items-center justify-center h-11 -my-1.5 px-2.5 touch-manipulation"
+              className="relative cursor-pointer inline-flex items-center justify-center h-11 -mt-3 pt-3 px-2.5 touch-manipulation"
             >
               {children}
             </button>
