@@ -212,7 +212,7 @@ describe("Unit A · full screen paints a clean copy; the context menu gets the c
     }
   }
 
-  it("an old photo (no set marker) is untouched: the URL itself, no layer", async () => {
+  it("an old photo (no set marker) is untouched: the URL itself, no layer (full screen)", async () => {
     answer = "on";
     signedIn = true;
     const old = "https://cdn.50mmretina.com/post-images/u1/posts/1750000000000-old-w1920h1280-l3.webp";
@@ -222,6 +222,152 @@ describe("Unit A · full screen paints a clean copy; the context menu gets the c
     const img = container.querySelector("img") as HTMLImageElement;
     expect(img.getAttribute("src")).toBe(old);
     expect(img.style.backgroundImage).toBe("");
+    expect(img.style.objectPosition).toBe("");
+  });
+});
+
+/*
+ * FAULT 2 (Owner web check, 3 Nov 2026): "right-click on the FEED photo saves
+ * the small clean copy with NO credit". Written to FAIL on main f66cdf51 (there
+ * the feed <img> only ever holds the clean copy). Now: at a right-button press
+ * (or a still long-press) the feed photo hands the browser the credited copy,
+ * the PIXELS stay the clean picture already on screen, and scrolling (no press)
+ * never asks for a credited file. In the app (save guard on) nothing changes.
+ */
+describe("Fault 2 · a web save of the FEED photo gets the credited copy; the screen stays clean", () => {
+  const L5 = `${CDN}-w1080h720-l5.webp`;
+  const L5_CRED = `${CDN}-w1080h720-l5-r2048c.webp`;
+  const loadedAs = (img: HTMLImageElement, current: string) => {
+    Object.defineProperty(img, "complete", { configurable: true, get: () => true });
+    Object.defineProperty(img, "naturalWidth", { configurable: true, get: () => 1080 });
+    Object.defineProperty(img, "currentSrc", { configurable: true, get: () => current });
+  };
+  // jsdom has no PointerEvent: a MouseEvent that carries pointerType (as browsers do).
+  if (typeof window.PointerEvent === "undefined") {
+    class PE extends MouseEvent {
+      pointerType: string;
+      constructor(type: string, init: PointerEventInit = {}) {
+        super(type, init);
+        this.pointerType = init.pointerType ?? "mouse";
+        Object.defineProperty(this, "movementX", { value: init.movementX ?? 0 });
+        Object.defineProperty(this, "movementY", { value: init.movementY ?? 0 });
+      }
+    }
+    (window as unknown as { PointerEvent: unknown }).PointerEvent = PE;
+  }
+  beforeEach(() => { answer = "on"; signedIn = true; document.documentElement.classList.remove("app-photo-save-off"); });
+
+  it("before any press: no credited file anywhere in the card (feed weight unchanged)", async () => {
+    const { container } = mount(L5);
+    await settle();
+    expect(urlsIn(container).filter(credited)).toEqual([]);
+  });
+
+  it("right-button press → the <img> source is the credited copy; the painted picture is the clean copy it showed", async () => {
+    const { container } = mount(L5);
+    await settle();
+    const img = sharp(container);
+    loadedAs(img, L5);
+    fireEvent.pointerDown(img, { pointerType: "mouse", button: 2 });
+    expect(img.getAttribute("src")).toBe(L5_CRED);
+    expect(img.getAttribute("srcset")).toBeNull();
+    expect(painted(img)).toBe(L5);
+    expect(credited(painted(img))).toBe(false);
+  });
+
+  it("a left click does not arm it (it opens full screen, which has its own)", async () => {
+    const { container } = mount(L5);
+    await settle();
+    const img = sharp(container);
+    loadedAs(img, L5);
+    fireEvent.pointerDown(img, { pointerType: "mouse", button: 0 });
+    expect(credited(img.getAttribute("src") ?? "")).toBe(false);
+  });
+
+  it("phone browser: a still long-press arms it; a scroll (finger moves) does not", async () => {
+    vi.useFakeTimers();
+    try {
+      const a = mount(L5);
+      const img = sharp(a.container);
+      loadedAs(img, L5);
+      fireEvent.pointerDown(img, { pointerType: "touch", clientX: 10, clientY: 10 });
+      fireEvent.pointerMove(img, { pointerType: "touch", clientX: 10, clientY: 60 });
+      act(() => { vi.advanceTimersByTime(600); });
+      expect(credited(img.getAttribute("src") ?? "")).toBe(false);
+      fireEvent.pointerDown(img, { pointerType: "touch", clientX: 10, clientY: 10 });
+      act(() => { vi.advanceTimersByTime(400); });
+      expect(img.getAttribute("src")).toBe(L5_CRED);
+      expect(painted(img)).toBe(L5);
+      a.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a cursor parked over a scrolling feed (synthetic, zero-movement events) never arms — feed weight unchanged; Chromium/WebKit never arm on a rest", async () => {
+    vi.useFakeTimers();
+    try {
+      const a = mount(L5);
+      const img = sharp(a.container);
+      loadedAs(img, L5);
+      fireEvent.pointerEnter(img, { pointerType: "mouse" });
+      fireEvent.pointerMove(img, { pointerType: "mouse", movementX: 0, movementY: 0 });
+      act(() => { vi.advanceTimersByTime(1500); });
+      expect(credited(img.getAttribute("src") ?? "")).toBe(false);
+      // a real movement + rest, but not Firefox: nothing (the right-button press is enough there)
+      fireEvent.pointerMove(img, { pointerType: "mouse", movementX: 4, movementY: 2 });
+      act(() => { vi.advanceTimersByTime(1500); });
+      expect(credited(img.getAttribute("src") ?? "")).toBe(false);
+      a.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("Firefox: a real mouse movement on the photo + a rest loads the credited copy before the right-click; a scroll does not", async () => {
+    const ua = vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0");
+    vi.useFakeTimers();
+    try {
+      const a = mount(L5);
+      const img = sharp(a.container);
+      loadedAs(img, L5);
+      fireEvent.pointerMove(img, { pointerType: "mouse", movementX: 0, movementY: 0 }); // synthetic after a scroll
+      act(() => { vi.advanceTimersByTime(1500); });
+      expect(credited(img.getAttribute("src") ?? "")).toBe(false);
+      fireEvent.pointerMove(img, { pointerType: "mouse", movementX: 3, movementY: 1 });
+      act(() => { vi.advanceTimersByTime(100); });
+      fireEvent.pointerLeave(img, { pointerType: "mouse" });
+      act(() => { vi.advanceTimersByTime(1000); });
+      expect(credited(img.getAttribute("src") ?? "")).toBe(false); // passed over
+      fireEvent.pointerMove(img, { pointerType: "mouse", movementX: 3, movementY: 1 });
+      act(() => { vi.advanceTimersByTime(350); });
+      expect(img.getAttribute("src")).toBe(L5_CRED);
+      expect(painted(img)).toBe(L5);
+      a.unmount();
+    } finally {
+      vi.useRealTimers();
+      ua.mockRestore();
+    }
+  });
+
+  it("the installed app (save guard on): nothing is armed — no save at all there", async () => {
+    document.documentElement.classList.add("app-photo-save-off");
+    const { container } = mount(L5);
+    await settle();
+    const img = sharp(container);
+    loadedAs(img, L5);
+    fireEvent.pointerDown(img, { pointerType: "mouse", button: 2 });
+    expect(credited(img.getAttribute("src") ?? "")).toBe(false);
+    document.documentElement.classList.remove("app-photo-save-off");
+  });
+
+  it("an old photo (no credited copy) is untouched", async () => {
+    const old = "https://cdn.50mmretina.com/post-images/u1/posts/1750000000000-old-w1920h1280-l3.webp";
+    const { container } = mount(old);
+    await settle();
+    const img = sharp(container);
+    loadedAs(img, old);
+    fireEvent.pointerDown(img, { pointerType: "mouse", button: 2 });
     expect(img.style.objectPosition).toBe("");
   });
 });
