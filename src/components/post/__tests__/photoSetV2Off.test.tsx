@@ -8,6 +8,19 @@
  * switch answering FALSE (and once with nobody signed in), using `-l4` photo
  * URLs, the case U2 changes when the switch is on. If any byte of their markup
  * moves, this file fails.
+ *
+ * PHOTO PLAN UNIT A (3 Nov 2026, audit B1/M6): the original snapshots pinned
+ * B1 — with the switch off, a `-l4` photo's srcset offered `-l4.webp 2048w`,
+ * the CREDITED file, and the browser picked it at DPR ≥ 1.5. The snapshots were
+ * re-recorded on Unit A, and the ONLY bytes that moved are photo URLs: the
+ * credited `-l4` 2048 → the clean `-l4-r1080` (feed) and the 600 thumb → the
+ * clean `-l4-r320` (grid tiles). A set photo's copy is now chosen by its file
+ * for every viewer; the rest of the markup is still today's.
+ *
+ * PHOTO PLAN UNIT B (3 Nov 2026, Owner requirement 4; audit H2/M4): re-recorded
+ * again; the only bytes that moved: the member download button is gone (policy,
+ * not the switch) and a set photo's blur placeholder is its clean 320 for every
+ * viewer (decided by the file, no longer frozen from the switch answer).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, act } from "@testing-library/react";

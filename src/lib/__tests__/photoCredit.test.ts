@@ -66,19 +66,22 @@ describe("creditOwnerName — whose name, from the profile WallPosts already has
 });
 
 describe("creditLayout — small, bottom-right, scaled to the image width (approved sample geometry)", () => {
-  it("scales with width: 13px on a 400px-wide sample → ~67px on 2048", () => {
-    expect(creditLayout(400, 266).fontPx).toBe(13);
-    expect(creditLayout(2048, 1365).fontPx).toBe(67);
-    expect(creditLayout(1152, 2048).fontPx).toBe(37); // portrait: width decides
+  it("Unit A: one third of the first size — 67 px → 22 px on 2048 (portrait: width decides)", () => {
+    expect(creditLayout(2048, 1365).fontPx).toBe(22);
+    expect(creditLayout(1152, 2048).fontPx).toBe(12);
+    expect(creditLayout(1080, 720).fontPx).toBe(12);
   });
-  it("anchors bottom-right with the sample's margins (2.2% right, 2.6% bottom)", () => {
+  it("anchors bottom-right with the sample's margins; half the opacity, shadow halved", () => {
     const l = creditLayout(2048, 1365);
     expect(l.x).toBe(2048 - Math.round(2048 * 0.022));
     expect(l.y).toBe(1365 - Math.round(1365 * 0.026));
-    expect(l.fill).toBe("rgba(255,255,255,0.82)");
-    expect(l.shadow).toBe("rgba(0,0,0,0.65)");
+    expect(l.fill).toBe("rgba(255,255,255,0.41)");
+    expect(l.shadow).toBe("rgba(0,0,0,0.325)");
+    expect(l.shadowOffsetY).toBe(2);
+    expect(l.shadowBlur).toBe(3);
   });
-  it("never smaller than readable on a tiny image", () => {
-    expect(creditLayout(100, 80).fontPx).toBeGreaterThanOrEqual(10);
+  it("never smaller than 8 px on a small image", () => {
+    expect(creditLayout(100, 80).fontPx).toBe(8);
+    expect(creditLayout(400, 266).fontPx).toBe(8);
   });
 });

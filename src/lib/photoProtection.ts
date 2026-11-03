@@ -7,17 +7,22 @@
  *   · Admins and judges keep download on COMPETITION ENTRIES only.
  *   · The installed app: no download at all (and long-press save is off —
  *     src/lib/native/photoSaveGuard.ts).
- *   · Web full screen shows (and right-click saves) the credited 2048 copy of
- *     a new photo; inline surfaces show its 1080 copy. Old photos: unchanged.
+ *   · THE CREDIT IS NEVER ON SCREEN (Owner, 3 Nov 2026, confirmed sheet
+ *     "50mm-what-I-understood", point 3): no surface — feed, full screen, post
+ *     page, grids, web or app — ever PAINTS a credited file. The credited copy
+ *     is only the file a web visitor gets from right-click "save image" /
+ *     "copy image address" on the full-screen photo (fullScreenPhoto below).
+ *     Old photos: unchanged.
  *
- * Switch OFF → every function here answers "today's behaviour" and the callers
- * keep their own existing conditions exactly as they were.
+ * Which COPY a surface uses is decided by the file name, for every viewer
+ * (Unit A). WHO MAY DOWNLOAD is POLICY, not a switch (Unit B; Owner-confirmed
+ * requirement 4, 3 Nov 2026): the download icon is hidden for everyone —
+ * members, signed-out visitors, a member whose switch answer has not arrived —
+ * except admins and judges on competition entries, on the web.
  */
-import { photoSetMarker, photoSetUrl } from "@/lib/imageLadder";
+import { isCreditedPhotoUrl, photoSetCleanUrl, photoSetMarker, photoSetUrl, photoSetWidth } from "@/lib/imageLadder";
 
 export interface PhotoDownloadInputs {
-  /** `photo_set_v2` is on for this viewer (unknown / error / signed out = false). */
-  v2: boolean;
   /** Running inside the installed Capacitor app. */
   inApp: boolean;
   /** The photo is a competition entry (not a post / portfolio photo). */
@@ -26,49 +31,68 @@ export interface PhotoDownloadInputs {
   adminOrJudge: boolean;
 }
 
-/** May this viewer be offered a download of this photo? */
+/**
+ * May this viewer be offered a download of this photo? Policy, independent of
+ * any switch (audit H2: "switch unknown" used to mean "today's download").
+ */
 export function photoDownloadAllowed(p: PhotoDownloadInputs): boolean {
-  if (!p.v2) return true; // today: the caller's own conditions decide, unchanged
   if (p.inApp) return false; // decision 3: "App: no download at all"
   return p.competitionEntry && p.adminOrJudge;
 }
 
-/**
- * The copy a FULL-SCREEN viewer shows: the 2048 copy of a v2 photo (never `-l4f`'s full size).
- * U4 `saving` ("Save mobile data" on mobile data): one size down, the 1080 copy.
+/*
+ * PHOTO PLAN UNIT A (audit B1): WHICH COPY a surface shows is decided by the
+ * FILE (its set marker), never by the viewer's switch answer. A set photo's
+ * name says which copies exist and which one carries the credit, and that is
+ * the same for a signed-out visitor, a member whose switch answer has not
+ * arrived yet, and a member with the switch on. The switch (`v2`) still decides
+ * "Save mobile data" (U4), which is a viewer setting.
  */
-export function fullScreenPhotoUrl(url: string, v2: boolean, saving = false): string {
-  return v2 && url && photoSetMarker(url) ? photoSetUrl(url, saving ? 1080 : 2048) : url;
+
+/** ZoomableImage: moves the <img>'s own picture (the credited file) completely outside its box. */
+export const CREDIT_HIDDEN_POSITION = "-100000px -100000px";
+
+/**
+ * FULL SCREEN of one photo — two files, never confused:
+ *   `shown`   what the member SEES: the set's largest public CLEAN copy (U4
+ *             "Save mobile data" on mobile data: the 600). Never credited.
+ *   `saveAs`  the file the web context menu ("save image as", "copy image
+ *             address") gets: the credited 2048. Null when the photo has no
+ *             credited copy (old and unmarked photos — today's behaviour: the
+ *             URL itself is both).
+ * ZoomableImage paints `shown` and puts `saveAs` under the pointer (see there).
+ * Never a competition full size.
+ */
+export function fullScreenPhoto(url: string, saving = false): { shown: string; saveAs: string | null } {
+  if (!url || !photoSetMarker(url)) return { shown: url, saveAs: null };
+  const credited = photoSetUrl(url, 2048);
+  const shown = saving ? photoSetUrl(url, 600) : photoSetCleanUrl(url);
+  // Belt and braces: the shown copy is clean by construction (photoSetCleanUrl
+  // never names a credited file); if a naming rule ever broke that, show the
+  // 600 thumb rather than paint a credit.
+  const safeShown = isCreditedPhotoUrl(shown) ? photoSetUrl(url, 600) : shown;
+  return { shown: safeShown, saveAs: isCreditedPhotoUrl(credited) ? credited : null };
 }
 
-/** The copy an INLINE surface (post page grid, entry page) shows: the 1080 copy of a v2 photo (U4 saving: 600). */
+/** The copy an INLINE surface (post page grid, entry page) shows: the clean 1080 of a set photo (U4 saving: 600). */
 export function inlinePhotoUrl(url: string, v2: boolean, saving = false): string {
-  return v2 && url && photoSetMarker(url) ? photoSetUrl(url, saving ? 600 : 1080) : url;
+  return url && photoSetMarker(url) ? photoSetUrl(url, v2 && saving ? 600 : 1080) : url;
 }
 
 /**
- * U4 · THE FEED's copies of a v2 photo (the U3 review follow-up: "feed keeps
- * 1080 for speed"): the 600 and 1080 copies with their real widths, src = the
- * 1080 — never the credited 2048 (full screen only) and never a full size.
- * `saving` → one size down: the 600 copy alone. Old / unmarked URLs → null
- * (the caller keeps today's srcset). Widths come from the W×H in the name
- * (the file the URL names), scaled by the long edge; a copy is never larger
- * than its source, so a small photo's "1080" is the photo itself.
+ * U4 · THE FEED's copies of a set photo ("feed keeps 1080 for speed"): the 600
+ * and 1080 copies with their real widths, src = the 1080 — never a credited
+ * file (full screen only) and never a full size. `saving` → one size down: the
+ * 600 copy alone. Old / unmarked URLs → null (the caller keeps today's srcset).
  */
 export function feedPhotoSet(url: string, saving: boolean): { src: string; srcSet: string } | null {
   if (!url || !photoSetMarker(url)) return null;
-  const m = /-w(\d{1,6})h(\d{1,6})-l4f?(?:-thumb|-r\d{3,4})?\.[a-z0-9]+(?:[?#]|$)/i.exec(url);
-  if (!m) return null;
-  const w = Number(m[1]);
-  const h = Number(m[2]);
-  if (!(w > 0 && h > 0)) return null;
-  const long = Math.max(w, h);
-  const widthAt = (cap: number) => (long <= cap ? w : Math.max(1, Math.round((cap * w) / long)));
+  const w600 = photoSetWidth(url, 600);
+  const w1080 = photoSetWidth(url, 1080);
+  if (w600 === null || w1080 === null) return null;
   const s600 = photoSetUrl(url, 600);
-  const w600 = widthAt(600);
   if (saving) return { src: s600, srcSet: `${s600} ${w600}w` };
   const s1080 = photoSetUrl(url, 1080);
-  const w1080 = widthAt(1080);
-  if (w1080 <= w600) return { src: s600, srcSet: `${s600} ${w600}w` };
+  if (w1080 <= w600 || s1080 === s600) return { src: s600, srcSet: `${s600} ${w600}w` };
   return { src: s1080, srcSet: `${s600} ${w600}w, ${s1080} ${w1080}w` };
 }

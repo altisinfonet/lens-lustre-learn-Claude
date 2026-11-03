@@ -134,9 +134,9 @@ describe("three-party naming agreement (source-level)", () => {
   it("the frame parser and the renderer's parser both tolerate the marker", () => {
     const frame = read("src/lib/imageFrame.ts");
     const pm = read("src/components/post/PostMedia.tsx");
-    // U1b: the same group also tolerates the photo set v2 marker (-l4 / -l4f).
-    expect(/\(\?:-l3\|-l4f\?\)\?/.test(frame), "imageFrame DIMS_RE breaks on marked names — every new post's frame falls back to 4:5").toBe(true);
-    expect(/\(\?:-l3\|-l4f\?\)\?/.test(pm), "PostMedia intrinsicFromName breaks on marked names — no srcset for exactly the posts that carry rungs").toBe(true);
+    // U1b + Unit A: the same group also tolerates the photo set markers (-l4 / -l4f, v3 -l5 / -l5f).
+    expect(/\(\?:-l3\|-l\[45\]f\?\)\?/.test(frame), "imageFrame DIMS_RE breaks on marked names — every new post's frame falls back to 4:5").toBe(true);
+    expect(/\(\?:-l3\|-l\[45\]f\?\)\?/.test(pm), "PostMedia intrinsicFromName breaks on marked names — no srcset for exactly the posts that carry rungs").toBe(true);
   });
 
   it("ladder constants are the single source of truth", () => {

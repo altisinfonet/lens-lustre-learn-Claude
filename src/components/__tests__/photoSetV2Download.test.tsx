@@ -40,7 +40,8 @@ vi.mock("@/integrations/supabase/client", () => {
     },
   };
 });
-vi.mock("@/hooks/core/useAuth", () => ({ useAuth: () => ({ user: { id: "viewer-1" }, loading: false }) }));
+let signedIn = true;
+vi.mock("@/hooks/core/useAuth", () => ({ useAuth: () => ({ user: signedIn ? { id: "viewer-1" } : null, loading: false }) }));
 vi.mock("@/hooks/core/useDownloadImage", () => ({ useDownloadImage: () => ({ downloading: null, download }) }));
 vi.mock("@/components/ImageEngagement", () => ({ default: () => null }));
 vi.mock("@/components/ads/AdZone", () => ({ default: () => null }));
@@ -93,6 +94,7 @@ const fullScreenImg = () => document.querySelector("[role=dialog] img, .fixed.in
 
 beforeEach(() => {
   switchOn = true;
+  signedIn = true;
   roles = [];
   download.mockClear();
   rpc.mockClear();
@@ -208,7 +210,7 @@ describe("web full screen shows the 2048 copy (switch ON); old photos unchanged"
   });
 });
 
-describe("app long-press save is off (app shell AND switch ON only)", () => {
+describe("app long-press save is off (app shell — whatever the switch says, Unit B)", () => {
   const longPressOnPhoto = () => {
     const img = document.createElement("img");
     document.body.appendChild(img);
@@ -245,13 +247,14 @@ describe("app long-press save is off (app shell AND switch ON only)", () => {
     expect(longPressOnPhoto()).toEqual({ menu: false, drag: false });
   });
 
-  it("in the app with the switch off: nothing is installed", async () => {
+  it("in the app with the switch OFF: the guard is installed too (Owner: 'App: no save at all')", async () => {
     switchOn = false;
     setApp(true);
     wrap(<AppPhotoSaveGuard />);
     await settle();
-    expect(document.documentElement.classList.contains(PHOTO_SAVE_GUARD_CLASS)).toBe(false);
-    expect(longPressOnPhoto()).toEqual({ menu: false, drag: false });
+    expect(document.documentElement.classList.contains(PHOTO_SAVE_GUARD_CLASS)).toBe(true);
+    expect(longPressOnPhoto()).toEqual({ menu: true, drag: true });
+    expect(longPressOnText()).toBe(false);
   });
 
   it("the CSS rule exists for the class, and the guard is mounted in App", () => {
@@ -262,52 +265,103 @@ describe("app long-press save is off (app shell AND switch ON only)", () => {
   });
 });
 
-describe("switch OFF ⇒ today's behaviour exactly", () => {
-  beforeEach(() => { switchOn = false; });
+/*
+ * PHOTO PLAN UNIT B — download and app save are POLICY, not the switch
+ * (Owner-confirmed requirements 3 + 4, 3 Nov 2026; audit H2). Written to FAIL
+ * on Unit A (staging before Unit B): there switch off / unknown / signed out
+ * meant "today's download button", and the app's long-press save stayed on.
+ */
+const viewers = [
+  { name: "switch OFF", on: false, signed: true },
+  { name: "signed out", on: false, signed: false },
+  { name: "switch ON", on: true, signed: true },
+] as const;
+describe("Unit B · no download icon for anyone but admins/judges on competition entries — whatever the switch says", () => {
+  for (const v of viewers) {
+    it(`${v.name}: feed single photo (old and new) + full screen — no download`, async () => {
+      switchOn = v.on; signedIn = v.signed;
+      for (const url of [OLD, L4F]) {
+        const { unmount } = wrap(<PostMedia urls={[url]} />);
+        await settle();
+        expect(downloadButtons(), url).toHaveLength(0);
+        await openFeedViewer();
+        await settle();
+        expect(within(screen.getByRole("dialog")).queryAllByRole("button", { name: /download photo/i }), url).toHaveLength(0);
+        unmount();
+      }
+    });
 
-  it("feed single photo + full screen: today's download buttons; full screen shows today's source", async () => {
-    wrap(<PostMedia urls={[L4F]} />);
-    await settle();
-    expect(downloadButtons()).toHaveLength(1);
-    await openFeedViewer();
-    await settle();
-    expect(within(screen.getByRole("dialog")).queryAllByRole("button", { name: /download photo/i })).toHaveLength(1);
-    expect(fullScreenImg()?.getAttribute("src")).toBe(L4F);
-  });
+    it(`${v.name}: photo grid (post) and portfolio lightbox — no download for a member`, async () => {
+      switchOn = v.on; signedIn = v.signed;
+      const g = wrap(<FacebookPhotoGrid urls={[OLD, L4F2]} />);
+      await settle();
+      expect(downloadButtons()).toHaveLength(0);
+      g.unmount();
+      wrap(<Lightbox images={[{ src: OLD, title: "t", category: "c" }]} currentIndex={0} isOpen onClose={() => {}} onPrev={() => {}} onNext={() => {}} />);
+      await settle();
+      expect(downloadButtons()).toHaveLength(0);
+    });
 
-  it("photo grid (post): today's buttons and today's inline source, for a member", async () => {
-    wrap(<FacebookPhotoGrid urls={[L4F, L4F2]} />);
+    it(`${v.name}: competition entry — a member gets no download`, async () => {
+      switchOn = v.on; signedIn = v.signed;
+      wrap(<FacebookPhotoGrid urls={[L4F, L4F2]} competitionEntry />);
+      await settle();
+      expect(downloadButtons()).toHaveLength(0);
+    });
+
+    it(`${v.name}: the installed app — no download, and long-press save is off`, async () => {
+      switchOn = v.on; signedIn = v.signed;
+      setApp(true);
+      wrap(<><AppPhotoSaveGuard /><PostMedia urls={[OLD]} /></>);
+      await settle();
+      expect(downloadButtons()).toHaveLength(0);
+      expect(document.documentElement.classList.contains(PHOTO_SAVE_GUARD_CLASS)).toBe(true);
+    });
+  }
+
+  it("switch OFF: an ADMIN keeps download on a competition entry (web), and only there", async () => {
+    switchOn = false; roles = ["admin"];
+    const g = wrap(<FacebookPhotoGrid urls={[L4F, L4F2]} competitionEntry />);
+    await settle();
     await settle();
     expect(downloadButtons()).toHaveLength(2);
-    expect(Array.from(document.querySelectorAll("img")).map((i) => i.getAttribute("src"))).toEqual([L4F, L4F2]);
+    g.unmount();
+    wrap(<FacebookPhotoGrid urls={[OLD, L4F2]} />);
+    await settle();
+    expect(downloadButtons()).toHaveLength(0);
   });
 
-  it("photo grid (competition entry): a member still gets today's buttons", async () => {
-    wrap(<FacebookPhotoGrid urls={[L4F, L4F2]} competitionEntry />);
+  it("the web installs no long-press guard (right-click on full screen gives the credited copy)", async () => {
+    switchOn = true;
+    wrap(<AppPhotoSaveGuard />);
     await settle();
-    expect(downloadButtons()).toHaveLength(2);
-    fireEvent.click(downloadButtons()[0]);
-    await settle();
-    expect((download.mock.calls[0] as unknown[])[0]).toBe(L4F);
-  });
-
-  it("portfolio lightbox: today's download button", async () => {
-    wrap(<Lightbox images={[{ src: L4, title: "t", category: "c" }]} currentIndex={0} isOpen onClose={() => {}} onPrev={() => {}} onNext={() => {}} />);
-    await settle();
-    expect(downloadButtons()).toHaveLength(1);
-  });
-
-  it("the app keeps today's buttons too (no guard, no removal)", async () => {
-    setApp(true);
-    wrap(<PostMedia urls={[L4]} />);
-    await settle();
-    expect(downloadButtons()).toHaveLength(1);
     expect(document.documentElement.classList.contains(PHOTO_SAVE_GUARD_CLASS)).toBe(false);
   });
+});
 
-  it("ZoomableImage keeps the given source", async () => {
+describe("switch OFF · which copy is shown (Unit A)", () => {
+  beforeEach(() => { switchOn = false; });
+
+  it("feed full screen paints the CLEAN copy; the credited file is only under the context menu", async () => {
+    wrap(<PostMedia urls={[L4F]} />);
+    await settle();
+    await openFeedViewer();
+    await settle();
+    expect(fullScreenImg()?.getAttribute("src")).toBe(L4F_2048);
+    expect(fullScreenImg()?.style.backgroundImage).toContain(L4F_1080);
+  });
+
+  it("photo grid (post): the inline copy is the clean 1080", async () => {
+    wrap(<FacebookPhotoGrid urls={[L4F, L4F2]} />);
+    await settle();
+    expect(Array.from(document.querySelectorAll("img")).map((i) => i.getAttribute("src"))).toEqual([L4F_1080, L4F2.replace(/\.webp$/, "-r1080.webp")]);
+  });
+
+  it("ZoomableImage: a set photo paints its clean copy whatever the switch says (Unit A)", async () => {
     wrap(<ZoomableImage src={L4F} />);
     await settle();
-    expect((document.querySelector("img") as HTMLImageElement).getAttribute("src")).toBe(L4F);
+    const img = document.querySelector("img") as HTMLImageElement;
+    expect(img.getAttribute("src")).toBe(L4F_2048);
+    expect(img.style.backgroundImage).toContain(L4F_1080);
   });
 });

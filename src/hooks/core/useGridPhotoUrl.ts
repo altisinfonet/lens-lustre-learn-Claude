@@ -1,16 +1,17 @@
 /**
  * Photo plan U2 · the URL a GRID tile loads (profile grid, My Photos,
- * notification thumbnails). With switch `photo_set_v2` on, a new photo
- * (-l4 / -l4f) loads its 320 copy; every other URL — and every URL while the
- * switch is off — comes back exactly as given.
+ * notification thumbnails). A set photo (-l4 / -l4f / -l5 / -l5f) loads its
+ * 320 copy; every other URL comes back exactly as given.
+ *
+ * Unit A (audit B1): chosen by the FILE, for every viewer — the switch answer
+ * no longer decides it (a `-l4` URL is a credited file and must never be a
+ * grid tile, signed out or not).
  */
 import { useCallback, useState } from "react";
-import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
-import { photoSetGridUrl, photoSetUrl } from "@/lib/imageLadder";
+import { photoSetCleanUrl, photoSetGridUrl } from "@/lib/imageLadder";
 
 export function useGridPhotoUrl(): (url: string) => string {
-  const on = usePhotoSetV2();
-  return useCallback((url: string) => (on && url ? photoSetGridUrl(url) : url), [on]);
+  return useCallback((url: string) => (url ? photoSetGridUrl(url) : url), []);
 }
 
 /**
@@ -25,8 +26,8 @@ export function useGridPhotoSrc(url: string | null | undefined): { src: string |
   if (!url) return { src: url ?? undefined, onError: undefined };
   const small = gridUrl(url);
   if (small === url) return { src: url, onError: undefined };
-  // The fallback is the credited 2048 (for `-l4` that IS the given URL; for
-  // `-l4f` it is `-r2048`, never the competition full-size file).
-  if (failedFor === url) return { src: photoSetUrl(url, 2048), onError: undefined };
+  // The fallback is the set's largest CLEAN public copy (Unit A: never a credited
+  // file, never a competition full size).
+  if (failedFor === url) return { src: photoSetCleanUrl(url), onError: undefined };
   return { src: small, onError: () => setFailedFor(url) };
 }

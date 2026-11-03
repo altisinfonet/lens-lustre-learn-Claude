@@ -129,11 +129,12 @@ export const SHOWCASE_ASPECT = 3 / 2;
  * thumbnails live on Supabase storage, and guessing broke many posts on
  * 2026-08-07.
  */
-export function tileSrc(post: UnifiedPost, photoSetV2 = false): string | null {
-  // Photo plan U2 (switch `photo_set_v2`): a NEW photo (-l4 / -l4f) has a 320
-  // copy made for exactly this tile; every other photo keeps the rule below.
+export function tileSrc(post: UnifiedPost, _photoSetV2 = false): string | null {
+  // Photo plan U2: a set photo (-l4 / -l4f / -l5 / -l5f) has a 320 copy made
+  // for exactly this tile; every other photo keeps the rule below. Unit A: by
+  // the FILE, for every viewer — the switch answer no longer decides it.
   const first = post.image_urls?.[0];
-  if (photoSetV2 && typeof first === "string" && photoSetMarker(first)) return photoSetGridUrl(first);
+  if (typeof first === "string" && photoSetMarker(first)) return photoSetGridUrl(first);
   const thumb = post.thumbnail_urls?.[0];
   if (typeof thumb === "string" && thumb.length > 0) return thumb;
   return post.image_urls?.[0] ?? null;

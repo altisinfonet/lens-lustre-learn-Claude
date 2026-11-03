@@ -1,9 +1,9 @@
 /**
  * Photo plan U1b — the upload path behind switch `photo_set_v2`.
  *
- *   switch ON  (caller passes `photoSet`): posts store 2048 (credited) / 1080 / 600 / 320
- *              under the `-l4` marker; competition keeps today's full-size file and adds
- *              the credited `-r2048` + 1080 / 600 / 320 under `-l4f`.
+ *   switch ON  (caller passes `photoSet`), Unit A v3: posts store a CLEAN 1080 (the URL) + credited 2048 (-r2048c) / 600 / 320
+ *              under `-l5` (+ a private clean 2048); competition keeps today's full-size file and adds
+ *              the credited `-r2048c` + clean 1080 / 600 / 320 under `-l5f`.
  *   switch OFF (no `photoSet`): exactly today's calls, names and files.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -37,6 +37,9 @@ vi.mock("@/lib/storageUpload", () => ({ storageUpload }));
 vi.mock("@/lib/gpsGuard", async () => ({ ...(await vi.importActual<object>("@/lib/gpsGuard")), guardOriginalUpload: vi.fn(async (f: File) => f) }));
 vi.mock("@/lib/media/storedObject", () => ({ describeStoredObject: vi.fn(async (_b: Blob, d: unknown) => ({ dims: d })) }));
 
+const storeCleanCopy = vi.fn(async (_key: string, _blob: Blob) => "stored" as const);
+vi.mock("@/lib/media/cleanCopyClient", () => ({ storeCleanCopy }));
+
 const CREDIT = "© Neil Basu, 50mm Retina World";
 const jpeg = () => new File([new Uint8Array(1000)], "IMG_0001.jpg", { type: "image/jpeg" });
 const paths = () => storageUpload.mock.calls.map((c) => c[1] as string);
@@ -47,6 +50,7 @@ beforeEach(() => {
   compressThumbnail.mockClear();
   encodePhotoSet.mockClear();
   storageUpload.mockReset();
+  storeCleanCopy.mockClear();
   storageUpload.mockImplementation(async (_b: string, p: string) => ({ url: `https://cdn/${p}`, path: p }));
 });
 
@@ -79,7 +83,7 @@ describe("switch OFF — today's behaviour, unchanged", () => {
 });
 
 describe("switch ON — posts", () => {
-  it("stores 2048 (credited) / 1080 / 600 / 320 under -l4 and returns the 2048 as the post's URL", async () => {
+  it("Unit A: the post's URL is the CLEAN 1080 (-l5); the credited 2048 is a -r2048c sibling; the clean 2048 goes to the private route", async () => {
     const { uploadImageWithThumbnail } = await import("@/lib/imageUpload");
     const r = await uploadImageWithThumbnail({ bucket: "post-images", file: jpeg(), type: "post", userId: "u1", cacheControl: "3600", photoSet: { creditText: CREDIT } });
     expect(encodePhotoSet).toHaveBeenCalledTimes(1);
@@ -89,30 +93,45 @@ describe("switch ON — posts", () => {
     expect(compressImageToFiles).not.toHaveBeenCalled();
     expect(compressThumbnail).not.toHaveBeenCalled();
     expect(paths().map(seg)).toEqual([
-      // the siblings land FIRST: the -l4 name is only published with its files in the store
-      "<seg>-w2048h1536-l4-r1080.webp",
-      "<seg>-w2048h1536-l4-r320.webp",
-      "<seg>-w2048h1536-l4.webp",
-      "<seg>-w2048h1536-l4-thumb.webp",
+      // the PUBLIC siblings land FIRST: the -l5 name is only published with its files in the store
+      "<seg>-w1080h810-l5-r2048c.webp",
+      "<seg>-w1080h810-l5-r320.webp",
+      "<seg>-w1080h810-l5.webp",
+      "<seg>-w1080h810-l5-thumb.webp",
     ]);
-    expect(r.url).toMatch(/-w2048h1536-l4\.webp$/);
-    expect(r.thumbnailUrl).toMatch(/-w2048h1536-l4-thumb\.webp$/);
-    // the master is the 2048 copy (the credited one), with its own stored facts
-    const master = storageUpload.mock.calls.find((c) => /-l4\.webp$/.test(c[1] as string))![2] as File;
+    expect(r.url).toMatch(/-w1080h810-l5\.webp$/);
+    expect(r.thumbnailUrl).toMatch(/-w1080h810-l5-thumb\.webp$/);
+    // the URL's file is the CLEAN 1080 copy, never the credited one
+    const master = storageUpload.mock.calls.find((c) => /-l5\.webp$/.test(c[1] as string))![2] as File;
     expect(master.name).toBe("master.webp");
-    expect(r.stored).toEqual({ dims: { width: 2048, height: 1536 } });
+    const credited = storageUpload.mock.calls.find((c) => /-l5-r2048c\.webp$/.test(c[1] as string))![2] as File;
+    expect(credited.name).toBe("r2048c.webp");
+    expect(r.stored).toEqual({ dims: { width: 1080, height: 810 } });
+    // the private clean 2048 is never a public upload; it goes to /api/media/clean-copy
+    expect(paths().some((p) => /-r2048\.webp$/.test(p))).toBe(false);
+    expect(storeCleanCopy).toHaveBeenCalledTimes(1);
+    expect(String(storeCleanCopy.mock.calls[0][0])).toMatch(/^post-images\/u1\/posts\/.*-w1080h810-l5\.webp$/);
+    expect((storeCleanCopy.mock.calls[0][1] as File).name).toBe("clean2048.webp");
   });
 
-  it("a sibling that fails to upload: the marker comes off, the post still succeeds with 2048 + thumb", async () => {
+  it("a sibling that fails to upload: the marker comes off, the post still succeeds with the clean 1080 + thumb (no clean copy sent)", async () => {
     storageUpload.mockImplementation(async (_b: string, p: string) => {
       if (/-r320\.webp$/.test(p)) throw new Error("Failed to fetch");
       return { url: `https://cdn/${p}`, path: p };
     });
     const { uploadImageWithThumbnail } = await import("@/lib/imageUpload");
     const r = await uploadImageWithThumbnail({ bucket: "post-images", file: jpeg(), type: "post", userId: "u1", photoSet: { creditText: CREDIT } });
-    expect(r.url).toMatch(/-w2048h1536\.webp$/);
-    expect(r.thumbnailUrl).toMatch(/-w2048h1536-thumb\.webp$/);
-    expect(r.url).not.toMatch(/-l4/);
+    expect(r.url).toMatch(/-w1080h810\.webp$/);
+    expect(r.thumbnailUrl).toMatch(/-w1080h810-thumb\.webp$/);
+    expect(r.url).not.toMatch(/-l[45]/);
+    expect(storeCleanCopy).not.toHaveBeenCalled();
+  });
+
+  it("the private clean copy being refused never costs the post", async () => {
+    storeCleanCopy.mockRejectedValueOnce(new Error("network down"));
+    const { uploadImageWithThumbnail } = await import("@/lib/imageUpload");
+    const r = await uploadImageWithThumbnail({ bucket: "post-images", file: jpeg(), type: "post", userId: "u1", photoSet: { creditText: CREDIT } });
+    expect(r.url).toMatch(/-w1080h810-l5\.webp$/);
   });
 
   it("the new encoder failing falls back to today's set (the post is never lost)", async () => {
@@ -150,7 +169,7 @@ describe("switch ON — competition entries", () => {
   const CLEAN = "UklGRjYAAABXRUJQVlA4ICoAAABQAwCdASpAADAAPm02mUkkIyKhIqgAgA2JaQAAE/GOHwhFgAD+ooAAAAA=";
   const encoded = () => new File([Uint8Array.from(atob(CLEAN), (c) => c.charCodeAt(0))], "abc.webp", { type: "image/webp" });
 
-  it("keeps the full-size file exactly as uploaded today and adds the credited -r2048 + 1080/600/320 under -l4f", async () => {
+  it("keeps the full-size file exactly as uploaded today and adds the credited -r2048c + clean 1080/600/320 under -l5f", async () => {
     const { uploadImageWithThumbnail } = await import("@/lib/imageUpload");
     const full = encoded();
     const r = await uploadImageWithThumbnail({
@@ -160,27 +179,31 @@ describe("switch ON — competition entries", () => {
     expect(compressImageToFiles).not.toHaveBeenCalled(); // the full size is NOT re-encoded
     expect(encodePhotoSet.mock.calls[0][1]).toBe(true);
     expect(paths().map(seg)).toEqual([
-      "<seg>-w64h48-l4f-r2048.webp",
-      "<seg>-w64h48-l4f-r1080.webp",
-      "<seg>-w64h48-l4f-r320.webp",
-      "<seg>-w64h48-l4f.webp",
-      "<seg>-w64h48-l4f-thumb.webp",
+      "<seg>-w64h48-l5f-r2048c.webp",
+      "<seg>-w64h48-l5f-r1080.webp",
+      "<seg>-w64h48-l5f-r320.webp",
+      "<seg>-w64h48-l5f.webp",
+      "<seg>-w64h48-l5f-thumb.webp",
     ]);
-    const sentFull = storageUpload.mock.calls.find((c) => /-l4f\.webp$/.test(c[1] as string))![2];
+    const sentFull = storageUpload.mock.calls.find((c) => /-l5f\.webp$/.test(c[1] as string))![2];
     expect(sentFull).not.toBe(undefined);
     expect((sentFull as File).size).toBe(full.size); // the very bytes the caller encoded
-    expect(r.url).toMatch(/-l4f\.webp$/);
+    expect(r.url).toMatch(/-l5f\.webp$/);
+    expect(String(storeCleanCopy.mock.calls[0][0])).toMatch(/^competition-photos\/u1\/competitions\/.*-w64h48-l5f\.webp$/);
   });
 });
 
 describe("callers: the switch decides, and OFF adds nothing", () => {
   const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
   it("posts and both competition paths spread photoSetOption(<switch>, <own profile>) into the upload call", () => {
-    expect(read("src/components/WallPosts.tsx")).toMatch(/useFeatureAllowed\("photo_set_v2"\)/);
+    // Unit B: ONE reader of the switch everywhere, uploads included (usePhotoSetV2, never frozen)
+    expect(read("src/components/WallPosts.tsx")).toMatch(/const photoSetV2 = usePhotoSetV2\(\);/);
+    expect(read("src/components/WallPosts.tsx")).not.toMatch(/useFeatureAllowed\("photo_set_v2"\)/);
     expect(read("src/components/WallPosts.tsx")).toMatch(/cacheControl: "3600",[\s\S]{0,120}\.\.\.photoSetOption\(photoSetV2, currentProfile\),\s*\}\);/);
     for (const f of ["src/pages/CompetitionSubmit.tsx", "src/components/competition/EditEntryDialog.tsx"]) {
       const s = read(f);
-      expect(s, f).toMatch(/useFeatureAllowed\("photo_set_v2"\)/);
+      expect(s, f).toMatch(/const photoSetV2 = usePhotoSetV2\(\);/);
+      expect(s, f).not.toMatch(/useFeatureAllowed\("photo_set_v2"\)/);
       expect(s, f).toMatch(/\.\.\.photoSetOption\(photoSetV2, entrantProfile\),/);
     }
   });
@@ -198,13 +221,15 @@ describe("callers: the switch decides, and OFF adds nothing", () => {
 });
 
 describe("the photo-job encoder (resumable posts) makes the same set", () => {
-  it("full = credited 2048, thumb = 600, rungs = 1080 + 320, marker -l4", async () => {
+  it("Unit A: full = CLEAN 1080, thumb = 600, rungs = credited 2048 (-r2048c) + 320, clean = private 2048, marker -l5", async () => {
     const { photoSetPhotoEncoder } = await import("@/lib/photoSetUpload");
     const e = await photoSetPhotoEncoder(CREDIT)(jpeg());
     expect(encodePhotoSet.mock.calls[0][2]).toBe(CREDIT);
-    expect(e.marker).toBe("-l4");
-    expect(e.full).toMatchObject({ width: 2048, height: 1536 });
-    expect(e.rungs.map((r) => r.rung)).toEqual([1080, 320]);
+    expect(e.marker).toBe("-l5");
+    expect(e.full).toMatchObject({ width: 1080, height: 810 });
+    expect((e.full.blob as File).name).toBe("master.webp");
+    expect(e.rungs.map((r) => [r.rung, r.suffix])).toEqual([[2048, "-r2048c"], [320, "-r320"]]);
     expect((e.thumb as File).name).toBe("thumb.webp");
+    expect((e.clean as File).name).toBe("clean2048.webp");
   });
 });
