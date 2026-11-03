@@ -80,45 +80,82 @@ function SummaryText({ state }: { state: Extract<CameraState, { kind: "info" }> 
   );
 }
 
-/** Photos whose line has already come into focus this session: it never replays (scroll-back, re-render, remount). */
-const focused = new Set<string>();
+/**
+ * THE REPEAT (Owner, 3 Nov 2026 ~15:50Z: "repeat every 5 seconds while the
+ * line is on screen"; until then it played once per photo). ONE shared timer
+ * for every line on screen — not one per card: a Set of the lines currently in
+ * view; a single setInterval runs only while that Set is non-empty AND the tab
+ * is visible, and each tick replays every line in it. Off-screen cards and a
+ * hidden tab cost nothing.
+ */
+export const LENS_FOCUS_REPEAT_MS = 5000;
+const onScreen = new Set<() => void>();
+let ticker: ReturnType<typeof setInterval> | null = null;
+function tabVisible(): boolean {
+  return typeof document === "undefined" || document.visibilityState !== "hidden";
+}
+function syncTicker() {
+  const want = onScreen.size > 0 && tabVisible();
+  if (want && !ticker) ticker = setInterval(() => { for (const replay of [...onScreen]) replay(); }, LENS_FOCUS_REPEAT_MS);
+  if (!want && ticker) { clearInterval(ticker); ticker = null; }
+}
+let visibilityHooked = false;
+function hookVisibility() {
+  if (visibilityHooked || typeof document === "undefined") return;
+  visibilityHooked = true;
+  document.addEventListener("visibilitychange", syncTicker);
+}
 
 /**
- * "Lens focus" entry, once per photo: `wait` (items soft + transparent) until
- * the line is ≥ 30 % on screen, then `play` (src/index.css). Reduced motion,
- * no IntersectionObserver, or already played → `none` (shown at once). The CSS
- * hides nothing under prefers-reduced-motion either, so a line can never be
- * left invisible by a missed observer callback on such a device.
+ * "Lens focus": `wait` (items soft + transparent) until the line ENTERS the
+ * viewport, then `play` (src/index.css) at once — and again every
+ * LENS_FOCUS_REPEAT_MS while it stays on screen (`cycle` remounts the items so
+ * the CSS animation restarts). MEASURED (3 Nov): the observer fires 4–9 ms
+ * after the line appears or scrolls in; a late first play is the line's DATA
+ * arriving late (PostCard reads a set photo's details in parallel with the
+ * switch answer now). Reduced motion or no IntersectionObserver → `none`
+ * (shown at once, never animated) — the approved rule, unchanged.
  */
-function useLensFocus(key: string | undefined, present: boolean) {
+function useLensFocus(present: boolean) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [phase, setPhase] = useState<"none" | "wait" | "play">(() => {
     if (typeof window === "undefined" || typeof window.IntersectionObserver !== "function") return "none";
-    if (key && focused.has(key)) return "none";
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return "none";
     return "wait";
   });
+  const [cycle, setCycle] = useState(0);
   useEffect(() => {
     const el = ref.current;
-    if (phase !== "wait" || !present || !el) return;
+    if (phase === "none" || !present || !el) return;
+    hookVisibility();
+    const replay = () => setCycle((c) => c + 1);
     const io = new IntersectionObserver(
       (entries) => {
-        if (!entries.some((e) => e.isIntersecting && e.intersectionRatio >= 0.3)) return;
-        if (key) focused.add(key);
-        io.disconnect();
-        setPhase("play");
+        const visible = entries.some((e) => e.isIntersecting);
+        if (visible) {
+          setPhase("play");
+          onScreen.add(replay);
+        } else {
+          onScreen.delete(replay);
+        }
+        syncTicker();
       },
-      { threshold: 0.3 },
+      { threshold: 0 },
     );
     io.observe(el);
-    return () => io.disconnect();
-  }, [phase, present, key]);
-  return { ref, phase };
+    return () => { io.disconnect(); onScreen.delete(replay); syncTicker(); };
+  }, [phase === "none", present]); // eslint-disable-line react-hooks/exhaustive-deps
+  return { ref, phase, cycle };
 }
 
-/** For tests: forget which photos have played. */
+/** For tests: stop the shared timer and forget every line. */
 export function __resetCameraLineFocus() {
-  focused.clear();
+  onScreen.clear();
+  syncTicker();
+}
+/** For tests: how many lines the shared timer is replaying, and whether it runs. */
+export function __lensFocusTicker() {
+  return { lines: onScreen.size, running: ticker !== null };
 }
 
 /* ── THE camera line (web and app) ── */
@@ -132,9 +169,10 @@ export function __resetCameraLineFocus() {
  *
  * ONE markup and ONE CSS for the website and the app (Owner, 2026-11-03: "exact
  * same to same in app and web") — nothing here branches on the platform.
- * `focusKey`: the photo's identity, so its "lens focus" entry plays only once
- * (Owner-approved option A, 2026-11-03; the entry is the swappable CSS class
- * `.camLineEnter` in src/index.css).
+ * `focusKey`: the photo's identity (another photo of an album is a new line).
+ * The "lens focus" entry plays when the line enters the screen and repeats
+ * every 5 s while it stays there (Owner, 3 Nov 2026 ~15:50Z; the entry is the
+ * swappable CSS class `.camLineEnter` in src/index.css).
  * `reserve`: the details are still being read for a photo that may have them —
  * hold the members' line height (the same classes, empty) so nothing jumps.
  */
@@ -142,7 +180,7 @@ export function CameraLine({ state, admin = false, focusKey, reserve = false }: 
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const present = Boolean(state && state.kind === "info");
-  const { ref, phase } = useLensFocus(focusKey, present);
+  const { ref, phase, cycle } = useLensFocus(present);
   if (!state || state.kind !== "info") {
     return reserve ? (
       <div data-camera-line-reserve="" aria-hidden="true" className="px-4 text-xs leading-4">
@@ -153,7 +191,7 @@ export function CameraLine({ state, admin = false, focusKey, reserve = false }: 
   const more = admin ? cameraRows(state.info).filter((r) => r.label !== "Camera") : [];
   const summary = (
     <>
-      <SummaryText state={state} />
+      <SummaryText key={cycle} state={state} />
       {state.hidden && <HiddenHint />}
     </>
   );
