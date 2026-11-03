@@ -255,7 +255,12 @@ for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
     const pr = { part: "parked cursor, feed scrolls under it", engine, ok: true };
     try {
       const r2 = await open(browser, { vp: "desktop", dpr: 1, viewer: "out", size: "large", shape: "v3" });
-      await r2.page.evaluate(() => { const s = document.createElement("div"); s.style.height = "1400px"; document.getElementById("cardwrap").before(s); });
+      // A spacer above AND below: below, so the page can always scroll far enough
+      // for the photo to pass under the cursor. With only the one above, the
+      // last reachable scroll left the cursor ~1 px above the photo once the
+      // card got 16 px shorter (the tight row under the photo, 3 Nov) — the
+      // check went vacuous, not the credit.
+      await r2.page.evaluate(() => { const w = document.getElementById("cardwrap"); for (const where of ["before", "after"]) { const s = document.createElement("div"); s.style.height = "1400px"; w[where](s); } });
       await r2.page.mouse.move(640, 450, { steps: 3 }); // over the spacer, not a photo
       const from = r2.requested.length;
       let under = false;
