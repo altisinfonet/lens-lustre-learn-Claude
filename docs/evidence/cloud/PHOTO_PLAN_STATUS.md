@@ -1,4 +1,22 @@
-PHOTO PLAN COMPLETE — runner side (everything built, on main, proven on staging; production copies made, census PASS 598/598). What is left are the Owner's own steps below.
+PHOTO PLAN — FIX RUN IN PROGRESS (3 Nov 2026, local fix runner). The Owner's confirmed sheet (gap, dots, credit never on screen, download icon, one design) is being put live. New Photos (`photo_set_v2`) stays OFF; nothing is switched on.
+
+**Fix run, 3 Nov 2026** (last update 09:25 UTC)
+
+| Item | PR (staging / main) | Merged sha (staging / main) | SQL / workflow runs (UTC) | Live check | State |
+|---|---|---|---|---|---|
+| 1 Gap + slider dots (+ offline camera-line band) | #846 / #847 | cf27807e / **fa3cfa3b** (08:27Z) | none | **41604547547 PASS** (Chromium, Firefox, WebKit 200; console lines identical to 41588562867) | **LIVE** |
+| 2 Unit A: the credit is never on screen | #848 / — | — | — | — | CI running; review: nothing blocking |
+| 3 Unit B: one switch reader, download + app save by policy | (after #848) | — | — | — | built, fail-first 12 tests |
+| 4 Rectify the 5 big-credit photos (3 posts) | (after A+B) | — | production census **41607495064** 09:00Z: 3 posts / 5 photos still there (95717e96 incl.) | — | migration 0106/0107 + route + worker written |
+
+**Unit A in one line:** a post's URL is now a CLEAN copy. The credited copy (credit one third of the first size, half its opacity) is only the file the web right-click "save image" / "copy image address" gets on the full-screen photo. The screen always paints the clean copy. This is proven by pixels in Chromium, Firefox and WebKit, and the app shell is pixel-identical to the web. Real screens: `_control\out\OWNER\credit-REAL-1..10.png`.
+
+**Owner list (plain words)**
+1. Nothing to do yet. When items 2–4 are live, you will get one line: "READY for New Photos switch-on".
+
+---
+**Earlier record (2 Nov, runner U0–U7)** — kept below unchanged.
+
 
 **Smart photo plan runner: status** (file: `docs/evidence/cloud/PHOTO_PLAN_STATUS.md`; never merge this PR)
 
