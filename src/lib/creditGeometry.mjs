@@ -10,6 +10,9 @@
  *   v2  "too big": one third of v1 (13/3), opacity halved (0.41, shadow 0.325)
  *   v3  after his web test, 12:45Z: "1/3 text font small and 50% opacity down" —
  *       one third of v2 (13/9), half of v2's opacity (0.205, shadow 0.1625)
+ *   v4  16:05Z, after seeing v3 on real files ("unreadable"): "MIDDLE SIZE" —
+ *       HALF of v2's size (13/6), slightly fainter than v2 (white 0.32, shadow 0.25;
+ *       measured ≈ 0.30 in the file, v2 measured ≈ 0.38)
  * `version` is the geometry new credited files are drawn with (and what the
  * redraw records). `urlVersion` is what the web puts on credited URLs as
  * `?cv=` (src/lib/photoProtection.ts withCreditVersion) — SEPARATE ON PURPOSE
@@ -19,16 +22,16 @@
  * would cache the old bytes under the new URL. 0 = no query (today's URLs).
  */
 export const CREDIT_GEOMETRY = Object.freeze({
-  version: 3,
-  urlVersion: 0,
+  version: 4,
+  urlVersion: 0, // raised to 4 in a follow-up, only after the v4 redraw PROBE passes on production
   /** font = SAMPLE_FONT_PX × (width / SAMPLE_WIDTH) / SIZE_DIVISOR */
   sampleFontPx: 13,
   sampleWidth: 400,
-  sizeDivisor: 9,
-  /** No floor that would undo the Owner's "one third": 3 px is the smallest a renderer draws. */
+  sizeDivisor: 6,
+  /** No floor that would undo the Owner's chosen size: 3 px is the smallest a renderer draws. */
   minFontPx: 3,
-  fillAlpha: 0.205,
-  shadowAlpha: 0.1625,
+  fillAlpha: 0.32,
+  shadowAlpha: 0.25,
   /** margins: right / bottom as a share of the photo's width / height */
   rightPct: 0.022,
   bottomPct: 0.026,
