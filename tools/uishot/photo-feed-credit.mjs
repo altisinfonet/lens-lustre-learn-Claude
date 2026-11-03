@@ -75,7 +75,7 @@ async function waitUp() {
 
 const VIEWPORTS = { desktop: { width: 1280, height: 900 }, phone: { width: 390, height: 844 } };
 const name = (u) => u.split("/").pop();
-/** A URL without its query (the credited copy carries ?cv=<geometry version>). */
+/** A URL without its query (the credited copy carries ?cv=<urlVersion>, src/lib/creditGeometry.mjs). */
 const bare = (u) => (typeof u === "string" ? u.replace(/\?.*$/, "") : u);
 
 /** Pixel comparison of two PNG buffers of the same size. */
@@ -147,7 +147,7 @@ async function open(browser, { vp, dpr, viewer, size, shape, admin = false, app 
   const requested = [];
   const failedOnce = new Set();
   await page.route("https://cdn.harness.test/**", async (route) => {
-    const url = bare(route.request().url()); // the credited copy is loaded as ?cv=<version>; the store is keyed by the file
+    const url = bare(route.request().url()); // the credited copy is loaded as ?cv=<urlVersion>; the store is keyed by the file
     requested.push(url);
     // viewer "err": every copy's FIRST request fails, so every fallback path runs.
     if (viewer === "err" && !failedOnce.has(url)) { failedOnce.add(url); return route.fulfill({ status: 404, body: "" }); }
