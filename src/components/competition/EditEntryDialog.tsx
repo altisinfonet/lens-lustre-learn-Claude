@@ -23,7 +23,7 @@ import { uploadImageWithThumbnail } from "@/lib/imageUpload";
 import { compressImageToFiles } from "@/lib/imageCompression";
 import { extractExif } from "@/lib/exifExtract";
 import { useAuth } from "@/hooks/core/useAuth";
-import { useFeatureAllowed } from "@/hooks/core/useFeatureAllowed";
+import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
 import { useProfileCore } from "@/hooks/profile/useProfileData";
 import { photoSetOption } from "@/lib/photoSetUpload";
 import { toast } from "sonner";
@@ -51,7 +51,7 @@ export default function EditEntryDialog({ entryId, open, onOpenChange, onSaved }
   // Photo plan U1b: a replaced photo gets the same new copies as at submission
   // (credited 2048 + 1080 / 600 / 320) when photo_set_v2 is on. The owner name is
   // the signed-in entrant's: the replacement is stored under their own folder.
-  const photoSetV2 = useFeatureAllowed("photo_set_v2");
+  const photoSetV2 = usePhotoSetV2(); // Unit B: the ONE photo_set_v2 reader (never frozen)
   const { data: entrantProfile } = useProfileCore(user?.id);
   const update = useUpdateCompetitionEntry();
   const fileInputRef = useRef<HTMLInputElement>(null);

@@ -1,22 +1,23 @@
 /**
- * PHOTO PLAN U3 · the one download policy every photo surface asks
- * (switch `photo_set_v2`; rules in src/lib/photoProtection.ts).
+ * PHOTO PLAN U3 + UNIT B · the one download policy every photo surface asks
+ * (rules in src/lib/photoProtection.ts).
  *
- * Switch OFF (unknown / error / signed out) → `canDownload` is true and every
- * surface keeps today's download button and today's handler, unchanged.
+ * POLICY, NOT A SWITCH (Owner-confirmed requirement 4, 3 Nov 2026; audit H2):
+ * the download icon is hidden for everyone — members, signed-out visitors, and
+ * while any answer is still loading — except admins and judges on competition
+ * entries, on the web. U3 tied it to `photo_set_v2`, so "switch unknown /
+ * signed out / off" still showed today's download.
  *
  * Admin / judge comes from the SAME source and rule as useCanBypassWatermark
  * (user_roles via useUserRoles' cache entry: `admin` or `judge`). Roles are
- * only asked when they can matter — switch on AND a competition entry — and
- * while they load the answer is "no download" (the safe default).
+ * only asked for a competition entry, and while they load the answer is "no
+ * download" (the safe default).
  *
- * Safe outside a QueryClientProvider (like usePhotoSetV2): leaf components
- * that many tests render bare then simply see the switch OFF.
+ * Safe outside a QueryClientProvider: there roles are never asked, so no download.
  */
 import { useCallback, useContext } from "react";
 import { QueryClient, QueryClientContext, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/core/useAuth";
-import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
 import { useDownloadImage } from "@/hooks/core/useDownloadImage";
 import { fetchUserRoles, userRolesKey } from "@/hooks/profile/useUserRoles";
 import { isNativeApp } from "@/lib/video/playback";
@@ -45,9 +46,9 @@ function useAdminOrJudge(needed: boolean): boolean {
 
 /** May this viewer download this photo? `competitionEntry` = the photo is a competition entry. */
 export function useCanDownloadPhoto(competitionEntry = false): boolean {
-  const v2 = usePhotoSetV2();
-  const adminOrJudge = useAdminOrJudge(v2 && competitionEntry);
-  return photoDownloadAllowed({ v2, inApp: isNativeApp(), competitionEntry, adminOrJudge });
+  const inApp = isNativeApp();
+  const adminOrJudge = useAdminOrJudge(competitionEntry && !inApp);
+  return photoDownloadAllowed({ inApp, competitionEntry, adminOrJudge });
 }
 
 /**

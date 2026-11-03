@@ -193,6 +193,25 @@ describe("Save mobile data (decision 6)", () => {
   });
 });
 
+describe("Unit B · the switch is never frozen on a mounted card (audit M4)", () => {
+  it("the answer arriving AFTER the first paint takes effect on the same card", async () => {
+    localStorage.setItem("50mm.saveMobileData", "on");
+    setConnection("cellular");
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    qc.setQueryData(featureAllowedKey("photo_set_v2", "viewer-1"), false);
+    const { container } = render(
+      <QueryClientProvider client={qc}><MemoryRouter><PostMedia urls={[L4]} thumbUrls={[L4_THUMB]} /></MemoryRouter></QueryClientProvider>,
+    );
+    await settle();
+    expect(sharp(container).getAttribute("src")).toBe(L4_1080); // switch off: no saving
+    await act(async () => { qc.setQueryData(featureAllowedKey("photo_set_v2", "viewer-1"), true); });
+    await settle();
+    // U2/U4 froze the answer per mount (`useState(v2Now)`): the card stayed on 1080.
+    expect(sharp(container).getAttribute("src")).toBe(L4_THUMB);
+    expect(sharp(container).getAttribute("sizes")).toBe("160px");
+  });
+});
+
 describe("grid tiles fall back when their 320 copy fails (U2 review follow-up)", () => {
   it("notification thumbnail: 320 first, then the largest CLEAN copy (never the credited -l4 file), once", async () => {
     const { container } = wrap(<NotificationRowThumb media={postMedia({ image_urls: [L4] } as never)} />);

@@ -9,6 +9,7 @@ import TagPeopleModal, { type PendingTag } from "@/components/post/TagPeopleModa
 import CategoryChips, { canPublishCategories } from "@/components/post/CategoryChips";
 import VideoPostButton from "@/components/video/VideoPostButton";
 import { useFeatureAllowed } from "@/hooks/core/useFeatureAllowed";
+import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
 import { routePickedFiles } from "@/lib/video/pickRouting";
 import DraftsList from "@/components/post/DraftsList";
 import {
@@ -243,7 +244,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   const videoAllowed = useFeatureAllowed("video_posts");
   // Photo plan U1b: the new photo set (2048 credited / 1080 / 600 / 320) and
   // camera details. False while unknown, signed out or on any error — today's path.
-  const photoSetV2 = useFeatureAllowed("photo_set_v2");
+  const photoSetV2 = usePhotoSetV2(); // Unit B: the ONE photo_set_v2 reader (never frozen)
   const [pickedVideo, setPickedVideo] = useState<File | null>(null);
   /**
    * ONE REF FOR BOTH CAPTION BOXES, and that is not a shortcut.

@@ -15,14 +15,14 @@
  *     Old photos: unchanged.
  *
  * Which COPY a surface uses is decided by the file name, for every viewer
- * (Unit A); the download rules above are still behind the switch here (Unit B
- * moves them to policy).
+ * (Unit A). WHO MAY DOWNLOAD is POLICY, not a switch (Unit B; Owner-confirmed
+ * requirement 4, 3 Nov 2026): the download icon is hidden for everyone —
+ * members, signed-out visitors, a member whose switch answer has not arrived —
+ * except admins and judges on competition entries, on the web.
  */
-import { isCreditedPhotoUrl,photoSetCleanUrl, photoSetMarker, photoSetUrl, photoSetWidth } from "@/lib/imageLadder";
+import { isCreditedPhotoUrl, photoSetCleanUrl, photoSetMarker, photoSetUrl, photoSetWidth } from "@/lib/imageLadder";
 
 export interface PhotoDownloadInputs {
-  /** `photo_set_v2` is on for this viewer (unknown / error / signed out = false). */
-  v2: boolean;
   /** Running inside the installed Capacitor app. */
   inApp: boolean;
   /** The photo is a competition entry (not a post / portfolio photo). */
@@ -31,9 +31,11 @@ export interface PhotoDownloadInputs {
   adminOrJudge: boolean;
 }
 
-/** May this viewer be offered a download of this photo? */
+/**
+ * May this viewer be offered a download of this photo? Policy, independent of
+ * any switch (audit H2: "switch unknown" used to mean "today's download").
+ */
 export function photoDownloadAllowed(p: PhotoDownloadInputs): boolean {
-  if (!p.v2) return true; // today: the caller's own conditions decide, unchanged
   if (p.inApp) return false; // decision 3: "App: no download at all"
   return p.competitionEntry && p.adminOrJudge;
 }
