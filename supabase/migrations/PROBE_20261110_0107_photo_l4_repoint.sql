@@ -2,7 +2,8 @@
 -- PROBE · 20261110_0107 repoint of the `-l4` posts (photo plan). READ-ONLY, ENDS IN ROLLBACK.
 -- PASS when
 --   P1 no post names a LARGE `-l4` photo any more (the credited 2048 with the
---      big credit) — a small one (no clean 1080) is reported, not counted;
+--      big credit), in image_urls or in image_url — a small one (no clean
+--      1080) is reported, not counted;
 --   P2 every repointed post still shows exactly what 0107 wrote, and each of
 --      its rectified photos is that photo's recorded `-l5` URL and thumb;
 -- The counts (repointed, recorded, still named, small) are printed with every
@@ -21,7 +22,9 @@ BEGIN
   IF to_regclass('public.photo_l4_rectify_swap') IS NULL THEN
     RAISE EXCEPTION 'PROBE FAIL P0: 20261110_0106 is not applied on this lane';
   END IF;
-  SELECT count(*) INTO _large FROM public.posts p CROSS JOIN LATERAL unnest(p.image_urls) u(url)
+  -- the array AND the single image_url column (share images / old apps read it)
+  SELECT count(*) INTO _large FROM public.posts p
+   CROSS JOIN LATERAL unnest(p.image_urls || ARRAY[p.image_url]) u(url)
    WHERE public.photo_l4_rectify_source_key(u.url) IS NOT NULL;
   SELECT count(*) INTO _small FROM public.posts p CROSS JOIN LATERAL unnest(p.image_urls) u(url)
    WHERE u.url ~ '-w[0-9]{1,4}h[0-9]{1,4}-l4\.webp(\?.*)?$' AND public.photo_l4_rectify_source_key(u.url) IS NULL;

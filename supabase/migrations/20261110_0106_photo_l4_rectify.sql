@@ -66,7 +66,7 @@ $pre$;
 CREATE TABLE public.photo_l4_rectify (
   post_id     uuid        NOT NULL REFERENCES public.posts(id) ON DELETE CASCADE,
   ord         integer     NOT NULL CHECK (ord BETWEEN 0 AND 49),
-  old_url     text        NOT NULL CHECK (old_url ~ '-w[0-9]{1,4}h[0-9]{1,4}-l4\.webp$'),
+  old_url     text        NOT NULL CHECK (old_url ~ '-w[0-9]{1,4}h[0-9]{1,4}-l4\.webp(\?[^#]*)?$'),
   new_url     text        NOT NULL CHECK (new_url ~ '-w[0-9]{1,4}h[0-9]{1,4}-l5\.webp$'),
   new_thumb   text        NOT NULL CHECK (new_thumb ~ '-w[0-9]{1,4}h[0-9]{1,4}-l5-thumb\.webp$'),
   recorded_by uuid,
