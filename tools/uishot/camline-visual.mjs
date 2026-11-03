@@ -30,6 +30,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { measureCardInk } from "./card-ink.mjs";
+import { checkCardHits } from "./card-hits.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BASELINE = join(here, "camline-baseline");
@@ -192,8 +193,10 @@ async function shoot(browser, s) {
   const card = await (await page.$("#cardwrap")).screenshot();
   const lineEl = await page.$("[data-camera-line]");
   const line = lineEl ? await lineEl.screenshot() : null;
+  // What a FINGER gets (review of #867): elementFromPoint every 2 px under the photo.
+  const hits = await checkCardHits(page);
   await ctx.close();
-  return { card, line, dom, ink, errors };
+  return { card, line, dom, ink, hits, errors };
 }
 
 /**
@@ -274,6 +277,8 @@ for (const s of SCENES) {
     [!isAlbum || (r.dom.dotSteps.length === 2 && r.dom.dotSteps.every((x) => x > 0 && x <= 14)), `slider dots close together (steps ${r.dom.dotSteps.join(", ")} px)`],
     // Owner, 3 Nov ~16:20Z (screenshots 3 + 4): measured on VISIBLE pixels.
     ...inkChecks(r.ink, { hasLine, opened: s.open }),
+    // Review of #867: no two tap areas overlap; every point hits the control whose band holds it.
+    [r.hits.points > 200 && r.hits.mismatches.length === 0, `every tap lands on its own control (${r.hits.points} points every 2 px)${r.hits.mismatches.length ? `: ${r.hits.mismatches.join("; ")}` : ""}`],
   ];
   row.ink = { ...r.ink.gaps, lefts: r.ink.lefts };
   row.failed = checks.filter(([ok]) => !ok).map(([, what]) => what);
