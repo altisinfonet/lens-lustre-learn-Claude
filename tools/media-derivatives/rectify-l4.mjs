@@ -68,17 +68,40 @@ async function rectify(sharp, j) {
   return db.status === "already" ? "already" : "recorded";
 }
 
+/**
+ * --redraw (photo plan v3, 20261110_0108): a recorded rectified photo's credited
+ * copy is drawn again with the CURRENT shared geometry, from its clean copy, at
+ * exactly the credited copy's current size. The route overwrites only that key.
+ */
+async function redraw(sharp, j, version) {
+  const q = `post_id=${j.post_id}&ord=${j.ord}`;
+  const src = await call(`?op=redraw-source&${q}`);
+  if (!src.ok) { const b = await src.json().catch(() => ({})); return `redraw-source ${src.status} ${b.error ?? ""}`; }
+  const [w, h] = String(src.headers.get("x-rectify-size") || "").split("x").map(Number);
+  if (!(w > 0 && h > 0)) return "no size from the server";
+  const out = await sharp(Buffer.from(await src.arrayBuffer()))
+    .resize({ width: w, height: h, fit: "fill" })
+    .composite([{ input: Buffer.from(creditSvg(w, h, j.credit)), top: 0, left: 0 }])
+    .webp({ quality: CREDITED_QUALITY })
+    .toBuffer();
+  const put = await call(`?op=redraw&${q}&version=${version}`, { method: "PUT", headers: { "content-type": "image/webp" }, body: out });
+  const pb = await put.json().catch(() => ({}));
+  if (!put.ok) return `redraw ${put.status} ${pb.error ?? ""}`;
+  return pb.status === "already" ? "already" : "recorded";
+}
+
 async function main() {
-  const res = await post({ op: "claim" });
+  const redrawing = flag("redraw");
+  const res = await post({ op: redrawing ? "redraw-claim" : "claim" });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw Object.assign(new Error(`claim ${res.status} ${body.error ?? ""}`), { fatal: true });
   const jobs = body.jobs ?? [];
   const stats = { photos: jobs.length, recorded: 0, already: 0, failed: 0 };
   const sharp = dryRun ? null : (await import("sharp")).default;
   for (const j of jobs) {
-    if (dryRun) { console.log(`would rectify ${j.post_id} #${j.ord}`); continue; }
+    if (dryRun) { console.log(`would ${redrawing ? "redraw" : "rectify"} ${j.post_id} #${j.ord}`); continue; }
     try {
-      const r = await rectify(sharp, j);
+      const r = redrawing ? await redraw(sharp, j, body.version) : await rectify(sharp, j);
       if (r === "recorded") { stats.recorded++; console.log(`recorded ${j.post_id} #${j.ord}`); }
       else if (r === "already") stats.already++;
       else { stats.failed++; console.log(`fail ${j.post_id} #${j.ord} ${r}`); }
