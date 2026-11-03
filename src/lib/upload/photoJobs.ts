@@ -247,7 +247,9 @@ export async function advancePhotoJob(job: PhotoJob, d: PhotoJobDeps): Promise<P
             try {
               await d.putClean(sl.objects[0].path, blob); // "refused" is final
             } catch (err) {
-              // a throw retries with the job — but at most CLEAN_COPY_MAX_TRIES times
+              // a throw retries with the job — but at most CLEAN_COPY_MAX_TRIES times;
+              // the connection dropping mid-send is not a try (the job resumes online)
+              if (!d.online()) throw err;
               o.cleanTries = (o.cleanTries ?? 0) + 1;
               if (o.cleanTries < CLEAN_COPY_MAX_TRIES) { await commit(); throw err; }
             }
