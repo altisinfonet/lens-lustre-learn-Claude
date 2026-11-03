@@ -175,7 +175,7 @@ export function CameraLine({ state, admin = false, focusKey, reserve = false }: 
   const { ref, phase, cycle } = useLensFocus(present);
   if (!state || state.kind !== "info") {
     return reserve ? (
-      <div data-camera-line-reserve="" aria-hidden="true" className="relative z-[1] px-3 text-xs leading-4">
+      <div data-camera-line-reserve="" aria-hidden="true" className="pointer-events-none px-3 text-xs leading-4">
         <p className="pt-1.5"><span className="block h-4" /></p>
       </div>
     ) : null;
@@ -189,9 +189,11 @@ export function CameraLine({ state, admin = false, focusKey, reserve = false }: 
   );
   const enter = phase === "wait" ? "camLineEnter camLineWait" : phase === "play" ? "camLineEnter camLinePlay" : "camLineEnter";
   return (
-    // `relative z-[1]`: the line is the layer ABOVE the action row, so no part of
-    // its height ever goes to Like / Comment / Share (review of #867).
-    <div ref={ref} data-camera-line="" className={`relative z-[1] px-3 text-xs leading-4 text-muted-foreground ${enter}`}>
+    // `pointer-events-none`: the line itself is plain text — nothing to tap — so
+    // Like / Comment / Share and the counts keep their full 44 px finger
+    // target over its lower half (re-review of #867). Only the admins' toggle
+    // button below takes taps (pointer-events-auto).
+    <div ref={ref} data-camera-line="" className={`pointer-events-none px-3 text-xs leading-4 text-muted-foreground ${enter}`}>
       {more.length === 0 ? (
         <p className="flex items-center gap-1.5 pt-1.5">{summary}</p>
       ) : (
@@ -201,19 +203,25 @@ export function CameraLine({ state, admin = false, focusKey, reserve = false }: 
               it). Its box is 32 px — the tap gate's row floor — and the full
               width of the card (-mx-3 px-3): 10 px of it sit in the photo
               (-mt-2.5; pt-4 puts the text exactly where the members' line has
-              it, 6 px under the photo), and it ENDS where the row begins. It
-              never reaches over Like / Comment / Share or the counts, and they
-              never reach over it (review of #867): the line is one layer above
-              the row (`relative z-[1]` on the wrapper) and the row starts at the
-              line's bottom. So admins tap the camera details anywhere from 10 px
-              inside the photo to the row — the photo keeps the rest. */}
+              it, 6 px under the photo).
+              WHERE ADMINS CAN TAP IT (review + re-review of #867: no two tap
+              areas overlap, every control >= 44 px to a finger): the button is
+              one layer UNDER the action row (it comes first in the page; both
+              are `relative`), and its ::after reaches 32 px down from its box.
+              So it owns the line's upper part across the card (10 px of the
+              photo + the line down to 12 px above the row), and, in every
+              column the row's controls do not own — the empty stretch before
+              the reaction break-up, the row's end — the whole line plus the
+              row's height: 64 px. Like / Comment / Share / the counts keep
+              their own 44 px columns, reaching up over the line's lower half.
+              Proven by tools/uishot/card-hits.mjs. */}
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
             aria-controls={panelId}
             aria-label={`Camera details: ${cameraLine(state.info)}`}
-            className="-mx-3 -mt-2.5 flex h-8 w-[calc(100%+1.5rem)] items-center gap-1.5 rounded-sm px-3 pt-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="pointer-events-auto relative -mx-3 -mt-2.5 flex h-8 w-[calc(100%+1.5rem)] items-center gap-1.5 rounded-sm px-3 pt-4 text-left after:absolute after:inset-x-0 after:top-full after:h-8 after:content-[''] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             {summary}
             <ChevronDown
