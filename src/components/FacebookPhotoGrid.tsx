@@ -41,7 +41,7 @@ interface FacebookPhotoGridProps {
   competitionEntry?: boolean;
   /**
    * U4: an extra control in the full-screen toolbar for the photo on screen
-   * (the hashtag page passes the app ⓘ, PostCameraInfoButton). Absent: none.
+   * Absent: none.
    */
   viewerAction?: (index: number) => ReactNode;
 }
