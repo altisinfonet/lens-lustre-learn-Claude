@@ -22,8 +22,7 @@ import ZoomableImage from "@/components/media/ZoomableImage";
 import { ladderFor, originalFor } from "@/lib/media/resolvedMedia";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import { frameAspectFor, frameAspectForUrls, parseImageDims } from "@/lib/imageFrame";
-import { hasLadderMarker, photoSetBlurUrl, photoSetCleanUrl, rungPath, rungPlan, rungWidthFor } from "@/lib/imageLadder";
-import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
+import { hasLadderMarker, photoSetBlurUrl, photoSetCleanUrl, photoSetMarker, rungPath, rungPlan, rungWidthFor } from "@/lib/imageLadder";
 import { useNetworkQuality } from "@/hooks/core/useNetworkQuality";
 import { useDataSaver } from "@/hooks/core/useDataSaver";
 import { feedPhotoSet } from "@/lib/photoProtection";
@@ -464,34 +463,37 @@ const ProgressiveImage = ({
    *     placeholder is requested at all and the photo shows at once (no fade).
    *     The check runs in a layout effect, before the placeholder <img> exists
    *     and before paint, so neither a request nor a flash happens.
-   * Decided ONCE per mount (`useState(initial)`): if the switch answer arrives
-   * after today's backdrop has started loading, that backdrop is kept rather
-   * than swapped — a swap would be the extra request this must not cause.
-   * The frame (aspect-ratio box) and the srcset are untouched: no layout shift.
+   * PHOTO PLAN UNIT B (audit M1/M4): decided by the FILE, never by the
+   * viewer's switch — and so never frozen. U2 decided this once per mount from
+   * the switch answer (`useState(initial)`), which left one card half ON, half
+   * OFF whenever the answer arrived after the first paint (every cold start).
+   * A set photo's name is fixed for the life of the card, so there is nothing
+   * to freeze and no second request: a set photo gets its 320 placeholder and
+   * the "already cached" check for every viewer; any other photo keeps today's
+   * expression exactly. The frame and the srcset are untouched: no layout shift.
    */
-  const v2Now = usePhotoSetV2();
-  const [v2] = useState(v2Now);
+  const setPhoto = !!photoSetMarker(src);
   const sharpRef = useRef<HTMLImageElement | null>(null);
-  // v2 only: null = not checked yet (no placeholder yet), true = sharp photo was already cached.
+  // set photos only: null = not checked yet (no placeholder yet), true = sharp photo was already cached.
   const [cached, setCached] = useState<boolean | null>(null);
   useLayoutEffect(() => {
-    if (!v2) return;
+    if (!setPhoto) return;
     const img = sharpRef.current;
     const ready = !!img && img.complete && img.naturalWidth > 0;
     if (ready) setLoaded(true);
     setCached(ready);
-  }, [v2]);
-  // Switch off: `v2` is false and this is exactly the pre-U2 expression.
-  const lqip = backdropFailed || (v2 && cached !== false)
+  }, [setPhoto]);
+  // Not a set photo: exactly the pre-U2 expression.
+  const lqip = backdropFailed || (setPhoto && cached !== false)
     ? null
     : transformable
       ? buildLqipUrl(src)
-      : (v2 ? photoSetBlurUrl(src) : null) ?? thumb ?? null;
+      : (setPhoto ? photoSetBlurUrl(src) : null) ?? thumb ?? null;
   // The sharp layer is the ORIGINAL again. The thumbnail has not been dropped —
   // it still paints the backdrop instantly, and it is the small end of the
   // srcset below, so a slot that only needs 600px still downloads only 600px.
   /**
-   * PHOTO PLAN U4 (switch `photo_set_v2`, decided once per mount like `v2`):
+   * PHOTO PLAN U4 (switch `photo_set_v2`; Unit B: read live, never frozen):
    *   · a new photo (-l4 / -l4f) → its 600 + 1080 copies, src = 1080 — the
    *     feed keeps 1080; the credited 2048 is for full screen only;
    *   · "Save mobile data" on mobile data → one size down: the 600 copy alone,
@@ -502,8 +504,9 @@ const ProgressiveImage = ({
   // Unit A (audit B1): a SET photo's copies are chosen by its file name for
   // EVERY viewer — signed out, switch answer not in yet, switch off — because
   // the name says which file carries the credit (a `-l4` URL is the credited
-  // 2048 itself). Only "Save mobile data" stays behind the switch.
-  const v2Set = feedPhotoSet(src, v2 && saving);
+  // 2048 itself). Only "Save mobile data" stays behind the switch (useDataSaver
+  // answers false while the switch is off or unknown).
+  const v2Set = feedPhotoSet(src, saving);
   const sharpSrc = v2Set ? v2Set.src : transformable ? buildRenderUrl(src, 800) : src;
   let srcSet = transformable ? buildSrcSet(src) : buildThumbFirstSrcSet(thumb, src);
   if (ladder) srcSet = ladder.srcSet; // S3-c: 600/1080/1440 derivatives, never the original
