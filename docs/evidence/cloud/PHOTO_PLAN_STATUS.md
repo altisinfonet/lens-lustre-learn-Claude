@@ -9,7 +9,13 @@ LIVE credit middle (v4) + LIVE animation repeat (3 Nov 2026, 18:25 UTC, local fi
 
 **Real screens:** `_control\out\OWNER\credit-REAL-v4-1..4.png` (+ index), `camline-REAL-repeat-1..2.png`.
 
-**Not started (next, in order):** (3) the alignment + action-row gap unit (Owner 16:20Z / 16:25Z); (4) the old-photo credit for every pre-plan photo (Owner 15:35Z, v4 geometry). Still a supervisor item: the production deploy of the edge function `detect-orphan-files`.
+**Alignment + action-row gap (Owner 16:20Z, screenshots 3 + 4) — PR #867 to staging, CI green except where noted, NOT MERGED (the independent diff-only reviewer could not be started in this session; merge waits for it):**
+- Measured on live (www, signed out, ink = visible pixels, 1280 + 390 px): photo → icons **13 px**, icons → caption **17–18 px**, Like icon x **17**, caption x **12**. Harness (same code as live): camera line member photo → line 10.5 / line → icons 19.5; admin closed 16.5 / 29.5; camera icon x 16.5, its 2nd line x 36.5.
+- Cause: **ea8f2256 (10 Aug)** made the Like/Comment/Share row 48 px with a 24 px icon (count buttons h-12 since e7dbf51e, 29 Aug); the camera line (3 Nov) added its own padding (members) and a 44 px button (admins), at x 16 / 36. Pre-plan main (90d9c4fa) has the identical row and caption code (no diff) — it was never tighter since 10 Aug; before 10 Aug the row was 48 px + 8 px margins under a counts row.
+- Fix: boxes 32 px, finger targets kept at 44 px (pseudo-element / negative margin), everything starts at the caption's x 12. After (harness, all 19 scenes, web + app): photo → icons **5**, icons → caption **10**, photo → line 8, line → icons 7; camera icon / 2nd line / Like / caption = 12.5 / 12.5 / 12 / 12.5. Fail-first CI run 41696247020 (FAIL on the old card); after: run 41697953832 geometry all PASS (only the pictures changed → new baselines from that run).
+- Real screens: `_control\out\OWNER\gapalign-REAL-1..6.png` + `gapalign-REAL-index.txt`.
+
+**Not started:** (4) the old-photo credit for every pre-plan photo (Owner 15:35Z, v4 geometry). Still a supervisor item: the production deploy of the edge function `detect-orphan-files`.
 
 ---
 READY v2 (3 Nov 2026, 12:45 UTC). The faults from the Owner's web check are handled and LIVE on main 5dc3fcd4. New Photos = All members (the Owner's choice); nothing else is switched.
