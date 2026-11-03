@@ -192,7 +192,7 @@ describe("APP (Android shell)", () => {
     expect(screen.queryByText(/camera/i)).toBeNull();
   });
 
-  it("full screen: ⓘ → bottom sheet with chips and rows", async () => {
+  it("full screen: no camera ⓘ and no sheet — one design, the line under the photo (audit H1)", async () => {
     setApp(true);
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
@@ -206,10 +206,8 @@ describe("APP (Android shell)", () => {
         await act(async () => { vi.advanceTimersByTime(400); });
       }
       const viewer = await screen.findByRole("dialog", { name: /full size/ });
-      fireEvent.click(within(viewer).getByRole("button", { name: "Camera details" }));
-      const sheet = screen.getByRole("dialog", { name: "Camera details" });
-      expect(within(sheet).getByText("Aperture")).toBeTruthy();
-      expect(within(sheet).getByText("FE 85 mm F1.8")).toBeTruthy();
+      expect(within(viewer).queryByRole("button", { name: "Camera details" })).toBeNull();
+      expect(screen.queryByRole("dialog", { name: "Camera details" })).toBeNull();
     } finally {
       vi.useRealTimers();
     }

@@ -14,7 +14,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { render, screen, fireEvent, within, act } from "@testing-library/react";
-import { CameraInfoButton, CameraLine, __resetCameraLineFocus } from "@/components/post/CameraDetails";
+import { CameraLine, __resetCameraLineFocus } from "@/components/post/CameraDetails";
 import type { CameraState } from "@/lib/photoCameraDisplay";
 
 const info: CameraState = {
@@ -230,41 +230,28 @@ describe("ADMIN camera line (web and app): arrow → 2nd line", () => {
   });
 });
 
-describe("APP full screen ⓘ → bottom sheet", () => {
-  it("the ⓘ opens chips + rows; no location line", () => {
-    render(<CameraInfoButton state={info} />);
-    fireEvent.click(screen.getByRole("button", { name: "Camera details" }));
-    const sheet = screen.getByRole("dialog", { name: "Camera details" });
-    for (const [v, l] of [["f/1.8", "Aperture"], ["1/250 s", "Shutter"], ["200", "ISO"], ["85 mm", "Focal"]]) {
-      expect(within(sheet).getByText(v)).toBeTruthy();
-      expect(within(sheet).getByText(l)).toBeTruthy();
+describe("no layout shift while the details are read (audit M5)", () => {
+  it("reserve: an empty block with exactly the members' line box (same wrapper + paragraph classes), hidden from readers", () => {
+    const held = render(<CameraLine state={null} reserve />);
+    const box = held.container.querySelector("[data-camera-line-reserve]") as HTMLElement;
+    expect(box.getAttribute("aria-hidden")).toBe("true");
+    expect(box.textContent).toBe("");
+    const line = render(<CameraLine state={info} />);
+    const real = line.container.querySelector("[data-camera-line]") as HTMLElement;
+    // Same box model: wrapper padding / font / line height, and the paragraph's pt-2 pb-1 around one 16 px line.
+    for (const c of ["px-4", "text-xs", "leading-4"]) {
+      expect(box.classList.contains(c)).toBe(true);
+      expect(real.classList.contains(c)).toBe(true);
     }
-    expect(within(sheet).getByText("Sony α7 IV")).toBeTruthy();
-    expect(within(sheet).getByText("FE 85 mm F1.8")).toBeTruthy();
-    expect(within(sheet).getByText("12 Oct 2026")).toBeTruthy();
-    expect(sheet.textContent).not.toMatch(LOCATION);
-    // Focus moves INTO the sheet.
-    expect(sheet.contains(document.activeElement)).toBe(true);
+    for (const c of ["pt-2", "pb-1"]) {
+      expect(box.querySelector("p")!.classList.contains(c)).toBe(true);
+      expect(real.querySelector("p")!.classList.contains(c)).toBe(true);
+    }
+    expect(box.querySelector("p > span.block.h-4")).not.toBeNull();
   });
 
-  it("no camera information → the sheet says so, with the reason line", () => {
-    render(<CameraInfoButton state={none} />);
-    fireEvent.click(screen.getByRole("button", { name: "Camera details" }));
-    const sheet = screen.getByRole("dialog", { name: "Camera details" });
-    expect(within(sheet).getByText("This photo has no camera information.")).toBeTruthy();
-    expect(within(sheet).getByText("Edited photos, screenshots and photos sent by chat apps often lose it.")).toBeTruthy();
-  });
-
-  it("an old photo (state unknown) shows no ⓘ at all", () => {
-    const { container } = render(<CameraInfoButton state={null} />);
+  it("no reserve (an old photo, or the switch off) → nothing at all", () => {
+    const { container } = render(<CameraLine state={null} />);
     expect(container.innerHTML).toBe("");
-  });
-
-  it("clicks inside the sheet never reach the viewer behind it (it would close)", () => {
-    let outer = 0;
-    render(<div onClick={() => { outer += 1; }}><CameraInfoButton state={info} /></div>);
-    fireEvent.click(screen.getByRole("button", { name: "Camera details" }));
-    fireEvent.click(screen.getByText("Sony α7 IV"));
-    expect(outer).toBe(0);
   });
 });

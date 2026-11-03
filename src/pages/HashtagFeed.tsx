@@ -15,7 +15,7 @@ import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import PresenceAvatar from "@/components/PresenceAvatar";
 import PageSEO from "@/components/PageSEO";
-import { PostCameraDetails, PostCameraInfoButton } from "@/components/post/CameraDetails";
+import { PostCameraDetails } from "@/components/post/CameraDetails";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -212,7 +212,6 @@ const HashtagFeed = () => {
                     <FacebookPhotoGrid
                       urls={media.imageUrls}
                       author={{ userId: post.user_id, name: post.author_name ?? null, handle: post.author_handle ?? null }}
-                      viewerAction={(i) => <PostCameraInfoButton postId={post.id} imageUrls={media.imageUrls} index={i} />}
                     />
                     {/* Camera line (switch photo_set_v2), web and app: directly under the photo. */}
                     <PostCameraDetails postId={post.id} imageUrls={media.imageUrls} />

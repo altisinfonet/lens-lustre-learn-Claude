@@ -113,11 +113,38 @@ async function diff(aBuf, bBuf) {
   }, { a: aBuf.toString("base64"), b: bBuf.toString("base64"), channel: CHANNEL, share: SHARE });
 }
 
+/** A fixed, file-free "photo": a grey wall and a red floor, as in the approved mockup. */
+const photoSvg = (hue, floorHue) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800"><defs><linearGradient id="g" x1="0" y1="0" x2="0.6" y2="1">`
+  + `<stop offset="0%" stop-color="hsl(${hue} 8% 38%)"/><stop offset="35%" stop-color="hsl(${hue} 6% 64%)"/>`
+  + `<stop offset="70%" stop-color="hsl(${hue} 6% 42%)"/><stop offset="100%" stop-color="hsl(${hue} 6% 26%)"/></linearGradient></defs>`
+  + `<rect width="1200" height="800" fill="url(#g)"/><rect y="610" width="1200" height="190" fill="hsl(${floorHue} 60% 26%)"/></svg>`;
+
 async function shoot(browser, s) {
   const ctx = await browser.newContext({ viewport: s.viewport, deviceScaleFactor: 2, colorScheme: "dark", reducedMotion: "reduce" });
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
+  // The harness photo host: every copy of a post's photo is the same fixed picture.
+  await page.route("https://cdn.harness.test/**", (route) => {
+    const river = route.request().url().includes("-river-");
+    route.fulfill({ status: 200, contentType: "image/svg+xml", body: photoSvg(river ? 200 : 30, river ? 220 : 0) });
+  });
+  // Audit M5 (no layout shift): from the moment the photo frame and the action
+  // row both exist, the gap between them is sampled every frame. The camera
+  // details arrive AFTER the card paints; the gap must never change for a
+  // member (the line's height is reserved while they are read).
+  await page.addInitScript(() => {
+    const gaps = [];
+    window.__camGaps = gaps;
+    const tick = () => {
+      const frame = document.querySelector("#cardwrap .cursor-zoom-in");
+      const act = document.querySelector("#cardwrap [data-post-id] button[aria-label*='omment' i]");
+      if (frame && act) gaps.push(Math.round(act.getBoundingClientRect().top - frame.getBoundingClientRect().bottom));
+      if (gaps.length < 400) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
   await page.goto(`${BASE}/camlineharness.html?${s.query}`);
   await page.waitForSelector("#cardwrap img", { timeout: 60_000 });
   const withCamera = s.query.includes("post=a");
@@ -139,6 +166,7 @@ async function shoot(browser, s) {
       expanded: l?.querySelector("button")?.getAttribute("aria-expanded") ?? null,
       location: /Location removed|owner can hide this|Location is always removed/.test(document.body.textContent ?? ""),
       afterPhoto: l ? !!l.previousElementSibling?.querySelector(".cursor-zoom-in") : null,
+      gaps: [...new Set(window.__camGaps ?? [])],
     };
   });
   const card = await (await page.$("#cardwrap")).screenshot();
@@ -163,6 +191,8 @@ for (const s of SCENES) {
   const file = join(BASELINE, `${s.name}.png`);
   if (OUT) writeFileSync(join(OUT, `${s.name}.png`), r.card);
   const row = { scene: s.name, ...r.dom, errors: r.errors };
+  delete row.gaps;
+  row.shift = `gaps under the photo, in order seen: ${r.dom.gaps.join(" → ")} px`;
   // What every picture must show, whatever the baseline says.
   const hasLine = s.query.includes("post=a");
   const admin = s.query.includes("admin=1");
@@ -173,6 +203,13 @@ for (const s of SCENES) {
     [!hasLine || r.dom.button === admin, admin ? "admins get the arrow" : "members: not clickable"],
     [!s.open || r.dom.expanded === "true", "opened"],
     [r.errors.length === 0, "no page errors"],
+    // Members: once the switch answer is in (the first non-zero gap), the card
+    // never jumps while the camera details are read — the line's height is
+    // held. (Before the switch answer the line is absent: audit Unit B. A NEW
+    // photo WITHOUT details gives its held height back once: reported, not
+    // judged — it needs the details delivered with the feed page.) Admins grow
+    // once, to their 44 px tap row.
+    [admin || !hasLine || r.dom.gaps.filter((g) => g !== 0).length === 1, `no layout shift under the photo once the switch is known (gaps seen: ${r.dom.gaps.join(", ")} px)`],
   ];
   row.failed = checks.filter(([ok]) => !ok).map(([, what]) => what);
   if (UPDATE) {

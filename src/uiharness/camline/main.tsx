@@ -30,15 +30,13 @@ if (q.get("app") === "1") {
   (globalThis as { Capacitor?: unknown }).Capacitor = { isNativePlatform: () => true, getPlatform: () => "android" };
 }
 
-/** A fixed, file-free "photo" (a grey wall and a red floor, as in the approved mockup). */
-const photo = (hue: number, floorHue: number) =>
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800"><defs><linearGradient id="g" x1="0" y1="0" x2="0.6" y2="1">` +
-      `<stop offset="0%" stop-color="hsl(${hue} 8% 38%)"/><stop offset="35%" stop-color="hsl(${hue} 6% 64%)"/>` +
-      `<stop offset="70%" stop-color="hsl(${hue} 6% 42%)"/><stop offset="100%" stop-color="hsl(${hue} 6% 26%)"/></linearGradient></defs>` +
-      `<rect width="1200" height="800" fill="url(#g)"/><rect y="610" width="1200" height="190" fill="hsl(${floorHue} 60% 26%)"/></svg>`,
-  );
+/**
+ * A NEW (v2, `-l4`) photo, so the card takes the real v2 path: its 600 / 1080
+ * copies in the feed, and the line's height held while its camera details are
+ * read. The host is not real — tools/uishot/camline-visual.mjs answers every
+ * copy with a fixed picture (a grey wall and a red floor, as in the mockup).
+ */
+const photo = (seg: string) => `https://cdn.harness.test/post-images/u1/posts/${seg}-w1200h800-l4.webp`;
 
 /** What live stores for a Nikon today (EXIF Make + Model joined at upload). */
 const NIKON = { camera: "NIKON CORPORATION NIKON Z 6_2", lens: "NIKKOR Z 24-70mm f/4 S", focal_length: 24, aperture: 7.1, shutter: "1/125", iso: 5000, taken_at: "2023-04-08T10:00:00" };
@@ -64,8 +62,8 @@ const post = (id: string, content: string, img: string) =>
   }) as unknown as UnifiedPost;
 
 const p = q.get("post") === "b"
-  ? post(WITHOUT, "Evening by the river", photo(200, 220))
-  : post(WITH, "After the Prayer", photo(30, 0));
+  ? post(WITHOUT, "Evening by the river", photo("1762000000000-river"))
+  : post(WITH, "After the Prayer", photo("1762000000000-prayer"));
 const phone = q.get("w") === "phone";
 
 const AppShell = lazy(() => import("../AppShell"));

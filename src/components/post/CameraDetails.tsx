@@ -1,32 +1,35 @@
 /**
- * CAMERA DETAILS — ONE COMPONENT FAMILY FOR WEB AND APP (photo plan U2,
- * switch `photo_set_v2`).
+ * CAMERA DETAILS — ONE COMPONENT, ONE CSS, WEB AND APP (photo plan U2, switch
+ * `photo_set_v2`).
  *
  * THE DESIGN: the Owner-approved fix of 2026-11-03,
- * _control/out/OWNER/50mm-camera-line-FIX.html / .png. It replaces what U2
- * (#825) first built: U2 reused the web PHOTO-PAGE sample's "Camera details"
- * box (50mm-camera-details-WEB.png, a side-panel box under the caption, with a
- * "Location removed" line) as a bordered strip under the caption in the web
- * FEED. The approved feed design is the app sample's single line, everywhere.
+ * _control/out/OWNER/50mm-camera-line-FIX.html (v2) + 50mm-camera-line-ANIMATION.html
+ * (option A), photographed from this code in tools/uishot/camline-baseline/.
+ * It replaces what U2 (#825) first built: U2 reused the web PHOTO-PAGE
+ * sample's "Camera details" box (50mm-camera-details-WEB.png, a side-panel box
+ * under the caption, with a "Location removed" line) as a bordered strip under
+ * the caption in the web FEED, and gave the app a different line, a bottom
+ * sheet and a full-screen ⓘ (audit H1).
  *
- *   CameraLine        WEB and APP, every PostCard (feed, My Wall, post page)
- *                     and the hashtag page: ONE small line directly under the
- *                     photo, above Like / Comment / Share — camera icon,
- *                     "Camera · focal · f/ · shutter · ISO". No border, no box,
- *                     no panel. Entry: "lens focus" (Owner-approved option A,
- *                     2026-11-03) — each item comes from blur into focus, one
- *                     after another, once per photo when it first scrolls into
- *                     view; nothing moves; none with reduced motion. All of it
- *                     is the swappable `.camLineEnter` CSS in src/index.css.
- *                     EVERYONE (members and the post's owner): that line only —
- *                     no arrow, not clickable, nothing expands (Owner v2,
- *                     2026-11-03). SITE ADMINS only: a small arrow; tap / click
- *                     → Lens and Taken slide open BELOW the line (max-height +
- *                     opacity, 0.25 s), still above the actions; tap again
- *                     closes. Never sticky. No camera information → nothing.
- *   CameraInfoButton  APP full screen — ⓘ → CameraSheet (chips + rows).
- *   CameraSheet       the bottom sheet the ⓘ opens (Radix dialog: focus moves
- *                     in and is trapped, Escape closes, focus returns).
+ *   CameraLine   every PostCard (feed, My Wall, post page) and the hashtag
+ *                page: ONE small line directly under the photo, above Like /
+ *                Comment / Share — camera icon, "Camera · focal · f/ · shutter ·
+ *                ISO". No border, no box, no panel, no full-screen ⓘ.
+ *                EVERYONE (members and the post's owner): that line only — no
+ *                arrow, not clickable, nothing expands. SITE ADMINS only: a
+ *                small arrow; tap / click → "Lens X · Taken Y" slides open BELOW
+ *                the line (max-height + opacity, 0.25 s), still above the
+ *                actions; tap again closes. Never sticky. No camera information
+ *                → nothing. While a new photo's details are being read the
+ *                line's height is held (`reserve`), so the card never jumps
+ *                when they land (audit M5).
+ *                Entry: "lens focus" — each item comes from blur into focus,
+ *                one after another, once per photo when it first scrolls into
+ *                view; nothing moves; none with reduced motion. All of it is
+ *                the swappable `.camLineEnter` CSS in src/index.css.
+ *
+ * NOTHING HERE BRANCHES ON THE PLATFORM (Owner: "exact same to same in app and
+ * web"); CI pixel-compares the app shell's line with the web's.
  *
  * No "Location removed" text anywhere (Owner, 2026-11-03). Location is still
  * never stored (the table cannot hold one); the author's hide control stays in
@@ -36,30 +39,14 @@
  * src/lib/cameraName.ts). A `null` state means "unknown / nothing to say" and
  * renders nothing. `hidden` (only ever delivered to the author) adds a small
  * "Hidden from others" hint.
- *
- * Motion respects prefers-reduced-motion (`motion-reduce:` variants). The
- * sheet sits above the full-screen viewer (z-[120] > z-[100]) and swallows its
- * own clicks and Escape so the viewer behind it does not close with it.
  */
-import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
-import * as Dialog from "@radix-ui/react-dialog";
-import { Camera, ChevronDown, EyeOff, Info } from "lucide-react";
-import { cameraChips, cameraLine, cameraLineParts, cameraRows, cameraStateFor, cameraText, type CameraState } from "@/lib/photoCameraDisplay";
+import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
+import { Camera, ChevronDown, EyeOff } from "lucide-react";
+import { cameraLine, cameraLineParts, cameraRows, cameraStateFor, cameraText, type CameraState } from "@/lib/photoCameraDisplay";
+import { photoSetMarker } from "@/lib/imageLadder";
 import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
 import { usePostPhotoCamera } from "@/hooks/feed/usePostPhotoCamera";
-import { isNativeApp } from "@/lib/video/playback";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
-
-/**
- * Also keeps ← / → typed in the sheet from the full-screen viewer behind it:
- * React's stopPropagation stops the native event at the portal's container, so
- * the viewer's `window` listener never sees it (U4 checked the U2 review's
- * worry; locked by photoSetV2U4.test.tsx "the ⓘ sheet owns the arrow keys").
- */
-const stop = (e: ReactMouseEvent | ReactKeyboardEvent) => e.stopPropagation();
-
-export const NO_CAMERA_SHEET = "This photo has no camera information.";
-export const NO_CAMERA_REASON = "Edited photos, screenshots and photos sent by chat apps often lose it.";
 
 const HiddenHint = () => (
   <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
@@ -134,80 +121,6 @@ export function __resetCameraLineFocus() {
   focused.clear();
 }
 
-/* ── The bottom sheet (app full screen) ── */
-
-export function CameraSheet({ open, onOpenChange, state }: { open: boolean; onOpenChange: (o: boolean) => void; state: CameraState }) {
-  return (
-    // The wrapper catches React's portal bubbling: a click in the sheet must not
-    // reach the full-screen viewer's "click the backdrop to close".
-    <span onClick={stop} onKeyDown={stop} className="contents">
-      <Dialog.Root open={open} onOpenChange={onOpenChange}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-[120] bg-black/50 data-[state=open]:animate-in data-[state=open]:fade-in-0 motion-reduce:animate-none" />
-          <Dialog.Content
-            aria-describedby={undefined}
-            onEscapeKeyDown={(e) => e.stopPropagation()}
-            className="fixed inset-x-0 bottom-0 z-[120] max-h-[85vh] overflow-y-auto rounded-t-2xl border-t border-border bg-card px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-3 text-card-foreground shadow-2xl focus:outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom data-[state=open]:duration-300 motion-reduce:animate-none"
-          >
-            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted-foreground/40" aria-hidden="true" />
-            <Dialog.Title className="flex items-center gap-2 text-base font-semibold">
-              <Camera className="h-5 w-5 text-primary" aria-hidden="true" />
-              Camera details
-            </Dialog.Title>
-            {state.kind === "info" ? (
-              <>
-                {state.hidden && <p className="mt-2"><HiddenHint /></p>}
-                <CameraFullDetails state={state} />
-              </>
-            ) : (
-              <>
-                <p className="mt-3 flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <Camera className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  {NO_CAMERA_SHEET}
-                </p>
-                <p className="mt-1.5 text-xs text-muted-foreground/80">{NO_CAMERA_REASON}</p>
-              </>
-            )}
-            <Dialog.Close className="mt-4 h-11 w-full rounded-lg border border-border text-sm font-medium hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-              Close
-            </Dialog.Close>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
-    </span>
-  );
-}
-
-/** Chips (aperture, shutter, ISO, focal) + rows (camera, lens, taken) — the sheet's body. */
-function CameraFullDetails({ state }: { state: Extract<CameraState, { kind: "info" }> }) {
-  const chips = cameraChips(state.info);
-  const rows = cameraRows(state.info);
-  return (
-    <>
-      {chips.length > 0 && (
-        <ul className="mt-4 grid grid-cols-4 gap-2" aria-label="Exposure">
-          {chips.map((c) => (
-            <li key={c.label} className="flex flex-col items-center rounded-xl border border-border px-1 py-2.5 text-center">
-              <span className="text-[15px] font-semibold tabular-nums">{c.value}</span>
-              <span className="text-xs text-muted-foreground">{c.label}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {rows.length > 0 && (
-        <dl className="mt-3 divide-y divide-border">
-          {rows.map((r) => (
-            <div key={r.label} className="flex items-baseline justify-between gap-4 py-2.5 text-sm">
-              <dt className="text-muted-foreground">{r.label}</dt>
-              <dd className="min-w-0 truncate text-right font-medium">{r.value}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-    </>
-  );
-}
-
 /* ── THE camera line (web and app) ── */
 
 /**
@@ -222,13 +135,21 @@ function CameraFullDetails({ state }: { state: Extract<CameraState, { kind: "inf
  * `focusKey`: the photo's identity, so its "lens focus" entry plays only once
  * (Owner-approved option A, 2026-11-03; the entry is the swappable CSS class
  * `.camLineEnter` in src/index.css).
+ * `reserve`: the details are still being read for a photo that may have them —
+ * hold the members' line height (the same classes, empty) so nothing jumps.
  */
-export function CameraLine({ state, admin = false, focusKey }: { state: CameraState | null; admin?: boolean; focusKey?: string }) {
+export function CameraLine({ state, admin = false, focusKey, reserve = false }: { state: CameraState | null; admin?: boolean; focusKey?: string; reserve?: boolean }) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const present = Boolean(state && state.kind === "info");
   const { ref, phase } = useLensFocus(focusKey, present);
-  if (!state || state.kind !== "info") return null;
+  if (!state || state.kind !== "info") {
+    return reserve ? (
+      <div data-camera-line-reserve="" aria-hidden="true" className="px-4 text-xs leading-4">
+        <p className="pb-1 pt-2"><span className="block h-4" /></p>
+      </div>
+    ) : null;
+  }
   const more = admin ? cameraRows(state.info).filter((r) => r.label !== "Camera") : [];
   const summary = (
     <>
@@ -281,48 +202,10 @@ export function CameraLine({ state, admin = false, focusKey }: { state: CameraSt
 }
 
 /** The line for a post card: the arrow and 2nd line only for site admins (user_roles role = admin). */
-export function PostCameraLine({ state, focusKey }: { state: CameraState | null; focusKey?: string }) {
+export function PostCameraLine({ state, focusKey, reserve }: { state: CameraState | null; focusKey?: string; reserve?: boolean }) {
   const { isAdmin } = useIsAdmin();
   // Keyed by the photo: another photo of the post (carousel) is a new line with its own once-only entry.
-  return <CameraLine key={focusKey} state={state} admin={isAdmin} focusKey={focusKey} />;
-}
-
-/* ── APP full-screen ⓘ ── */
-
-export function CameraInfoButton({ state, className }: { state: CameraState | null; className?: string }) {
-  const [open, setOpen] = useState(false);
-  if (!state) return null;
-  return (
-    <>
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); setOpen(true); }}
-        aria-label="Camera details"
-        aria-haspopup="dialog"
-        className={className ?? "grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"}
-      >
-        <Info className="h-5 w-5" aria-hidden="true" />
-      </button>
-      <CameraSheet open={open} onOpenChange={setOpen} state={state} />
-    </>
-  );
-}
-
-/**
- * U4 (the U2 review follow-up) · the ⓘ for a full-screen viewer that is not
- * PostCard's own (FacebookPhotoGrid on the hashtag page): the camera details of
- * the photo on screen. App only, like PostCard's; switch off / web ⇒ null and
- * nothing is read.
- */
-export function PostCameraInfoButton({ postId, imageUrls, index }: { postId: string; imageUrls: readonly string[]; index: number }) {
-  const on = usePhotoSetV2();
-  if (!on || !isNativeApp() || !imageUrls[index]) return null;
-  return <PostCameraInfoButtonOn postId={postId} imageUrls={imageUrls} index={index} />;
-}
-
-function PostCameraInfoButtonOn({ postId, imageUrls, index }: { postId: string; imageUrls: readonly string[]; index: number }) {
-  const rows = usePostPhotoCamera(postId, true);
-  return <CameraInfoButton state={cameraStateFor(rows, index, imageUrls[index])} />;
+  return <CameraLine key={focusKey} state={state} admin={isAdmin} focusKey={focusKey} reserve={reserve} />;
 }
 
 /* ── For a post card that is not PostCard (the hashtag page) ── */
@@ -340,5 +223,5 @@ export function PostCameraDetails({ postId, imageUrls }: { postId: string; image
 
 function PostCameraDetailsOn({ postId, url }: { postId: string; url: string }) {
   const rows = usePostPhotoCamera(postId, true);
-  return <PostCameraLine state={cameraStateFor(rows, 0, url)} focusKey={`${postId}:${url}`} />;
+  return <PostCameraLine state={cameraStateFor(rows, 0, url)} focusKey={`${postId}:${url}`} reserve={rows === undefined && !!photoSetMarker(url)} />;
 }
