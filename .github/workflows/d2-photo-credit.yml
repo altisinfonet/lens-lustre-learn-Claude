@@ -1,0 +1,69 @@
+name: D2 · Credit never on screen
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING REAL. HOLDS NO SECRET. Real Chromium, Firefox and WebKit
+# against the Vite dev server and the harness fake backend (synthetic VITE_*
+# values, as ui-gate and the camera line baseline).
+#
+# Owner rule (3 Nov 2026, confirmed sheet point 3): the photo credit is NEVER
+# visible on any screen. It exists only in the file a web visitor gets by
+# right-click "save image" / "copy image address" on the full-screen photo.
+# tools/uishot/photo-feed-credit.mjs proves it on photos made by the REAL
+# uploader encoder (v3 `-l5` and the v2 `-l4` shape of the live posts):
+#   · the feed never requests a credited file (DPR 1 / 1.5 / 2 / 3, desktop and
+#     phone, cold start, signed out, switch on / off, image-error fallback);
+#   · full screen paints the clean copy (pixel-compared in all three engines)
+#     and a real right-click lands on the credited file;
+#   · the app shell's feed card is pixel-identical to the web's at 390 px.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  credit:
+    name: Credit never on screen (feed + full screen, 3 engines, web == app)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Clean install
+        run: npm ci --no-audit --no-fund
+      - name: Cache the Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-3engines-${{ hashFiles('package-lock.json') }}
+      - name: Install the three browsers for Playwright (with their system libraries)
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            if npx playwright install --with-deps chromium firefox webkit; then exit 0; fi
+            sleep $((attempt * 15))
+          done
+          exit 1
+      - name: Feed, full screen and app == web, on real encoded photos
+        env:
+          VITE_SUPABASE_URL: https://testprojectref0000x.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: test-publishable-key-not-real
+          VITE_SUPABASE_PROJECT_ID: testprojectref0000x
+        run: node tools/uishot/photo-feed-credit.mjs --out /tmp/credit-shots --json /tmp/credit-shots/result.json
+      - name: Upload the screenshots and the request log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: photo-credit
+          path: /tmp/credit-shots
+          if-no-files-found: warn

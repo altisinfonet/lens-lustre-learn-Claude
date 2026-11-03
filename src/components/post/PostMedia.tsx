@@ -26,7 +26,7 @@ import { hasLadderMarker, photoSetBlurUrl, photoSetCleanUrl, rungPath, rungPlan,
 import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
 import { useNetworkQuality } from "@/hooks/core/useNetworkQuality";
 import { useDataSaver } from "@/hooks/core/useDataSaver";
-import { feedPhotoSet, fullScreenPhotoUrl } from "@/lib/photoProtection";
+import { feedPhotoSet } from "@/lib/photoProtection";
 
 interface PostMediaProps {
   urls: string[];

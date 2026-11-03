@@ -23,6 +23,14 @@
  *   ?w=phone      a 390 px card (else 560 px, the desktop feed column)
  *   ?src=<url>    the source photo (else a generated 4000×2667 scene)
  *   ?small=1      the generated scene at 1000×667 (the 601–1080 px case)
+ *   ?legacy=1     the photo stored in the v2 `-l4` shape written 2 → 3 Nov 2026
+ *                 (the URL IS the credited 2048; siblings -r1080 clean when the
+ *                 long edge > 1080, -thumb, -r320) — the shape of the 3 live
+ *                 posts the rectify unit repoints
+ *   ?admin=1      the viewer is a site admin (user_roles role = admin)
+ *   ?app=1        the Android shell (window.Capacitor, set before the app loads)
+ *   ?viewer=err   signed out, and the first feed copy requested fails (404):
+ *                 the image-error fallback must be clean too (tools side)
  */
 import { createRoot } from "react-dom/client";
 import { Suspense, lazy } from "react";
@@ -42,13 +50,18 @@ const POST_ID = "bbbbbbbb-0000-4000-8000-000000000001";
 const CDN = "https://cdn.harness.test/";
 
 (globalThis as { __harnessFeatures?: string[] }).__harnessFeatures = viewer === "on" || viewer === "late" ? ["photo_set_v2"] : [];
+if (q.get("admin") === "1") (globalThis as { __harnessRoles?: string[] }).__harnessRoles = ["admin", "member"];
+if (q.get("app") === "1") {
+  (globalThis as { Capacitor?: unknown }).Capacitor = { isNativePlatform: () => true, getPlatform: () => "android" };
+}
+const legacy = q.get("legacy") === "1";
 const born = Date.now();
 const lateSwitch: FakeRoute = ({ method, path }) => {
   if (viewer !== "late" || method !== "POST" || path !== "/rest/v1/rpc/feature_allowed_me") return undefined;
   // Answer OFF until 6 s after the page started: the card paints first (cold start).
   return Date.now() - born < 6000 ? { body: false } : undefined;
 };
-installFakeBackend({ routes: [lateSwitch, ...fixtureRoutes], signedIn: viewer !== "out" });
+installFakeBackend({ routes: [lateSwitch, ...fixtureRoutes], signedIn: viewer !== "out" && viewer !== "err" });
 
 /** A detailed, file-free scene (sky, hills, a lit window) — JPEG, as a phone hands it over. */
 async function generatedPhoto(small: boolean): Promise<File> {
@@ -105,14 +118,35 @@ async function main() {
   const file = await sourcePhoto();
   const credited = await photoSetPhotoEncoder(creditText("Dipannita Sen"))(file);
   const clean = await photoSetPhotoEncoder("")(file);
-  const full = photoObjectPath(AUTHOR, "1762160000000-job", 0, credited.full.width, credited.full.height, true, credited.marker);
   type Rung = { rung: number; blob: Blob; suffix?: string };
-  const pathOf = (r: Rung) => (r.suffix ? full.replace(/\.webp$/, `${r.suffix}.webp`) : rungPath(full, r.rung));
-  const pairs: Array<[string, Blob, Blob]> = [
-    [full, credited.full.blob, clean.full.blob],
-    [full.replace(/\.webp$/, "-thumb.webp"), credited.thumb, clean.thumb],
-    ...(credited.rungs as Rung[]).map((r, i): [string, Blob, Blob] => [pathOf(r), r.blob, (clean.rungs as Rung[])[i].blob]),
-  ];
+  let full: string;
+  let pairs: Array<[string, Blob, Blob]>;
+  if (!legacy) {
+    full = photoObjectPath(AUTHOR, "1762160000000-job", 0, credited.full.width, credited.full.height, true, credited.marker);
+    const pathOf = (r: Rung) => (r.suffix ? full.replace(/\.webp$/, `${r.suffix}.webp`) : rungPath(full, r.rung));
+    pairs = [
+      [full, credited.full.blob, clean.full.blob],
+      [full.replace(/\.webp$/, "-thumb.webp"), credited.thumb, clean.thumb],
+      ...(credited.rungs as Rung[]).map((r, i): [string, Blob, Blob] => [pathOf(r), r.blob, (clean.rungs as Rung[])[i].blob]),
+    ];
+  } else {
+    // The v2 `-l4` shape, built from the same encoded copies: the URL is the
+    // credited 2048 (its W×H in the name), `-r1080` the clean 1080 (only when
+    // the long edge > 1080), `-thumb`, `-r320`.
+    const c2048 = (credited.rungs as Rung[]).find((r) => r.suffix === "-r2048c")!;
+    const k2048 = (clean.rungs as Rung[]).find((r) => r.suffix === "-r2048c")!;
+    const bmp = await createImageBitmap(c2048.blob);
+    const W = bmp.width, H = bmp.height;
+    bmp.close();
+    full = `post-images/${AUTHOR}/posts/1762160000000-job-0-w${W}h${H}-l4.webp`;
+    const at = (s: string) => full.replace(/\.webp$/, `${s}.webp`);
+    pairs = [
+      [full, c2048.blob, k2048.blob],
+      [at("-thumb"), credited.thumb, clean.thumb],
+      ...(Math.max(W, H) > 1080 ? [[at("-r1080"), credited.full.blob, clean.full.blob] as [string, Blob, Blob]] : []),
+      ...(credited.rungs as Rung[]).filter((r) => r.suffix === "-r320").map((r): [string, Blob, Blob] => [at("-r320"), r.blob, (clean.rungs as Rung[]).find((x) => x.suffix === "-r320")!.blob]),
+    ];
+  }
   const store: Record<string, Stored> = {};
   for (const [path, blob, twin] of pairs) {
     const url = `${CDN}${path}`;

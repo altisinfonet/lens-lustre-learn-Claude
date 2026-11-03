@@ -156,13 +156,15 @@ describe("Save mobile data (decision 6)", () => {
     expect(viewer.querySelector("img")!.getAttribute("src")).toBe(L4);
   });
 
-  it("full screen: the 1080 copy when saving", async () => {
+  it("full screen: the 600 copy is painted when saving (Unit A: the clean copy is painted, one size down)", async () => {
     localStorage.setItem("50mm.saveMobileData", "on");
     setConnection("cellular");
     wrap(<PostMedia urls={[L4]} thumbUrls={[L4_THUMB]} />);
     await settle();
     const viewer = await openViewer();
-    expect(viewer.querySelector("img")!.getAttribute("src")).toBe(L4_1080);
+    const img = viewer.querySelector("img")!;
+    expect(img.style.backgroundImage).toContain(L4_THUMB);
+    expect(img.style.backgroundImage).not.toContain(L4_1080);
   });
 
   it("the setting: shown only with the switch on, saved on this device", async () => {
@@ -184,30 +186,32 @@ describe("Save mobile data (decision 6)", () => {
     await settle();
     expect(screen.queryByRole("checkbox", { name: /Save mobile data/ })).toBeNull();
     const img = sharp(container);
-    expect(img.getAttribute("src")).toBe(L4); // today's U2 render
+    // Unit A: a set photo shows its clean 1080 for every viewer; only the
+    // saving (one size down) stays behind the switch.
+    expect(img.getAttribute("src")).toBe(L4_1080);
     expect(img.getAttribute("sizes")).not.toBe("160px");
   });
 });
 
 describe("grid tiles fall back when their 320 copy fails (U2 review follow-up)", () => {
-  it("notification thumbnail: 320 first, then the photo's own URL, once", async () => {
+  it("notification thumbnail: 320 first, then the largest CLEAN copy (never the credited -l4 file), once", async () => {
     const { container } = wrap(<NotificationRowThumb media={postMedia({ image_urls: [L4] } as never)} />);
     await settle();
     const img = container.querySelector("img")!;
     expect(img.getAttribute("src")).toBe(L4_320);
     fireEvent.error(img);
-    expect(container.querySelector("img")!.getAttribute("src")).toBe(L4);
+    expect(container.querySelector("img")!.getAttribute("src")).toBe(L4_1080);
     fireEvent.error(container.querySelector("img")!);
-    expect(container.querySelector("img")!.getAttribute("src")).toBe(L4);
+    expect(container.querySelector("img")!.getAttribute("src")).toBe(L4_1080);
   });
 
-  it("a competition (-l4f) tile falls back to its credited 2048, never the full-size file", async () => {
+  it("a competition (-l4f) tile falls back to its clean 1080 — never the credited 2048, never the full-size file", async () => {
     const L4F = `${CDN}-w4000h3000-l4f.webp`;
     const { container } = wrap(<NotificationRowThumb media={postMedia({ image_urls: [L4F] } as never)} />);
     await settle();
     expect(container.querySelector("img")!.getAttribute("src")).toBe(`${CDN}-w4000h3000-l4f-r320.webp`);
     fireEvent.error(container.querySelector("img")!);
-    expect(container.querySelector("img")!.getAttribute("src")).toBe(`${CDN}-w4000h3000-l4f-r2048.webp`);
+    expect(container.querySelector("img")!.getAttribute("src")).toBe(`${CDN}-w4000h3000-l4f-r1080.webp`);
   });
 });
 

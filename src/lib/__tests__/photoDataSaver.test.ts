@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   SAVE_MOBILE_DATA_KEY, getLinkKind, getSaveMobileData, linkKindOf, resetDataSaver, savingDataNow, setSaveMobileData, subscribeDataSaver,
 } from "@/lib/dataSaver";
-import { feedPhotoSet, fullScreenPhotoUrl, inlinePhotoUrl } from "@/lib/photoProtection";
+import { feedPhotoSet, fullScreenPhoto, inlinePhotoUrl } from "@/lib/photoProtection";
 import { videoStartPlan } from "@/lib/video/playback";
 
 const CDN = "https://cdn-staging.50mmretina.com/post-images/u1/posts/1762000000000-abc";
@@ -73,15 +73,16 @@ describe("dataSaver setting (per device)", () => {
 });
 
 describe("one size down (switch on + saving)", () => {
-  it("full screen 2048 → 1080; inline 1080 → 600; old photos and switch off unchanged", () => {
-    expect(fullScreenPhotoUrl(L4, true, true)).toBe(`${CDN}-w2048h1365-l4-r1080.webp`);
-    expect(fullScreenPhotoUrl(L4F, true, true)).toBe(`${CDN}-w4000h3000-l4f-r1080.webp`);
+  it("full screen paints 1080 → 600; inline 1080 → 600; old photos unchanged; the context-menu file stays the credited 2048", () => {
+    // Unit A: full screen PAINTS the clean copy (one size down when saving)
+    expect(fullScreenPhoto(L4, true)).toEqual({ shown: `${CDN}-w2048h1365-l4-thumb.webp`, saveAs: L4 });
+    expect(fullScreenPhoto(L4F, true)).toEqual({ shown: `${CDN}-w4000h3000-l4f-thumb.webp`, saveAs: `${CDN}-w4000h3000-l4f-r2048.webp` });
     expect(inlinePhotoUrl(L4, true, true)).toBe(`${CDN}-w2048h1365-l4-thumb.webp`);
-    for (const u of [OLD, PLAIN]) { expect(fullScreenPhotoUrl(u, true, true)).toBe(u); expect(inlinePhotoUrl(u, true, true)).toBe(u); }
-    expect(fullScreenPhotoUrl(L4, false, true)).toBe(L4);
-    expect(inlinePhotoUrl(L4, false, true)).toBe(L4);
-    // not saving: U3's answers, unchanged
-    expect(fullScreenPhotoUrl(L4, true, false)).toBe(L4);
+    for (const u of [OLD, PLAIN]) { expect(fullScreenPhoto(u, true)).toEqual({ shown: u, saveAs: null }); expect(inlinePhotoUrl(u, true, true)).toBe(u); }
+    // switch off: no saving; a set photo still never shows a credited file
+    expect(inlinePhotoUrl(L4, false, true)).toBe(`${CDN}-w2048h1365-l4-r1080.webp`);
+    // not saving
+    expect(fullScreenPhoto(L4, false)).toEqual({ shown: `${CDN}-w2048h1365-l4-r1080.webp`, saveAs: L4 });
     expect(inlinePhotoUrl(L4, true, false)).toBe(`${CDN}-w2048h1365-l4-r1080.webp`);
   });
 });
@@ -103,10 +104,10 @@ describe("feedPhotoSet — the feed keeps 1080 (never the 2048 or a full size)",
     const P = `${CDN}-w1365h2048-l4.webp`;
     expect(feedPhotoSet(P, false)!.srcSet).toBe(`${CDN}-w1365h2048-l4-thumb.webp 400w, ${CDN}-w1365h2048-l4-r1080.webp 720w`);
   });
-  it("small photos: no 1080 copy exists → the photo itself; tiny → one entry", () => {
+  it("small -l4 photos: no clean 1080 exists (the URL itself is credited, audit B2) → the 600 only; tiny → one entry", () => {
     expect(feedPhotoSet(L4_SMALL, false)).toEqual({
-      src: L4_SMALL,
-      srcSet: `${CDN}-w900h600-l4-thumb.webp 600w, ${L4_SMALL} 900w`,
+      src: `${CDN}-w900h600-l4-thumb.webp`,
+      srcSet: `${CDN}-w900h600-l4-thumb.webp 600w`,
     });
     expect(feedPhotoSet(L4_TINY, false)).toEqual({ src: `${CDN}-w500h400-l4-thumb.webp`, srcSet: `${CDN}-w500h400-l4-thumb.webp 500w` });
   });
