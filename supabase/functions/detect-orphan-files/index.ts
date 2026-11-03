@@ -158,6 +158,10 @@ const SNAPSHOT_COLUMNS: { table: string; columns: string[] }[] = [
   // back: kept referenced while the swap record exists. U7 deletes old files
   // only through its own audited path, which retires these rows first.
   { table: "photo_set_swap", columns: ["old_image_urls", "old_thumbnail_urls", "old_image_url", "old_thumbnail_url"] },
+  // Photo plan 20261110_0109: an old photo's credited copy (the web's save
+  // target, found through post_photo_credit_for — named by no post column).
+  // Listed here so a lane where 0109 is not applied yet is tolerated.
+  { table: "photo_old_credit", columns: ["credited_url"] },
 ];
 
 Deno.serve(async (req) => {

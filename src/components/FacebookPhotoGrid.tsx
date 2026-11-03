@@ -5,6 +5,7 @@ import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
 import { useDataSaver } from "@/hooks/core/useDataSaver";
 import { inlinePhotoUrl, saveAsPhotoUrl } from "@/lib/photoProtection";
 import { creditedSaveProps } from "@/lib/photoSaveTarget";
+import { useOldPhotoCreditRead, useOldPhotoCreditVersion } from "@/lib/photoOldCredit";
 import DownloadButton from "@/components/DownloadButton";
 import ProfileLink from "@/components/ProfileLink";
 import ZoomableImage from "@/components/media/ZoomableImage";
@@ -45,13 +46,22 @@ interface FacebookPhotoGridProps {
    * Absent: none.
    */
   viewerAction?: (index: number) => ReactNode;
+  /**
+   * The post these photos belong to (absent for a competition entry): its OLD
+   * photos' credited copies are looked up for the web's "save image as"
+   * (20261110_0109, photoOldCredit.ts).
+   */
+  postId?: string;
 }
 
-const FacebookPhotoGrid = ({ urls, onPhotoClick, initialIndex, author, competitionEntry = false, viewerAction }: FacebookPhotoGridProps) => {
+const FacebookPhotoGrid = ({ urls, onPhotoClick, initialIndex, author, competitionEntry = false, viewerAction, postId }: FacebookPhotoGridProps) => {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const { canDownload, downloading, download } = usePhotoDownload(competitionEntry);
   // U3: inline, a new photo shows its 1080 copy (never an entry's full-size file). Off: today's URL.
   const v2 = usePhotoSetV2();
+  // Old photos of a post: their credited copy for "save image as" (re-render when it arrives).
+  useOldPhotoCreditRead(competitionEntry ? null : postId, urls, true);
+  useOldPhotoCreditVersion();
   // U4: "Save mobile data" on mobile data → one size down (the 600 copy).
   const saving = useDataSaver().saving;
   const lastAppliedInitialRef = useRef<number | null>(null);
