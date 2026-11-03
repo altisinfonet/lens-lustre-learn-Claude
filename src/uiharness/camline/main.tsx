@@ -24,7 +24,8 @@ import type { UnifiedPost } from "@/types/post";
 if (!import.meta.env.DEV) throw new Error("camera line harness is development-only");
 
 const q = new URLSearchParams(location.search);
-(globalThis as { __harnessFeatures?: string[] }).__harnessFeatures = ["photo_set_v2"];
+// ?off=1 — the switch photo_set_v2 OFF (as on live since 3 Nov): no camera line at all.
+(globalThis as { __harnessFeatures?: string[] }).__harnessFeatures = q.get("off") === "1" ? [] : ["photo_set_v2"];
 if (q.get("admin") === "1") (globalThis as { __harnessRoles?: string[] }).__harnessRoles = ["admin", "member"];
 if (q.get("app") === "1") {
   (globalThis as { Capacitor?: unknown }).Capacitor = { isNativePlatform: () => true, getPlatform: () => "android" };
@@ -61,7 +62,12 @@ const post = (id: string, content: string, img: string) =>
     author_name: "Dipannita Sen", author_handle: "dipannita", author_avatar: null, user_reaction: null, reaction_counts: { like: 12 }, tagged_people: [],
   }) as unknown as UnifiedPost;
 
-const p = q.get("post") === "b"
+// ?post=c — an ALBUM of three photos (the slider dots), with camera details on photo 1.
+const album = (): UnifiedPost => {
+  const imgs = ["1762000000000-prayer", "1762000000000-river", "1762000000000-prayer2"].map(photo);
+  return { ...post(WITH, "Three frames", imgs[0]), image_urls: imgs, thumbnail_urls: imgs } as UnifiedPost;
+};
+const p = q.get("post") === "c" ? album() : q.get("post") === "b"
   ? post(WITHOUT, "Evening by the river", photo("1762000000000-river"))
   : post(WITH, "After the Prayer", photo("1762000000000-prayer"));
 const phone = q.get("w") === "phone";
