@@ -26,13 +26,16 @@
  *   --json <file>   write the result
  *   --base <url>    use a running server (else starts Vite on 5193)
  *   --quick         feed matrix at DPR 2 only (local runs)
- *   --skip-feed     parts 2 and 3 only (local runs)
+ *   --skip-feed     parts 0, 2 and 3 only (local runs)
+ *   --only-credit   part 0 only: the credit inside every saved file (local runs)
  */
 import { spawn, execSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium, firefox, webkit } from "playwright";
 import { PNG } from "pngjs";
+import sharp from "sharp";
+import { creditSvg } from "../media-derivatives/credit-svg.mjs";
 
 const arg = (n, d) => { const i = process.argv.indexOf(n); return i > -1 ? process.argv[i + 1] : d; };
 const OUT = arg("--out", null);
@@ -86,6 +89,50 @@ function diff(aBuf, bBuf) {
   return { same: share <= SHARE, differing: n, why: `${n} px differ (${(share * 100).toFixed(3)} %)` };
 }
 
+/*
+ * THE CREDIT INSIDE THE SAVED FILE (fault 1, Owner web check 3 Nov): measured
+ * from the file's own bytes against its clean twin — the credit's box (width
+ * and height as a share of the image) and its opacity (alpha = lift / headroom
+ * on clearly lifted pixels). The Owner's rule: one third of the first credit's
+ * size and half its opacity. The first credit measured 57 % of the width at
+ * alpha ≈ 0.82 on live; one third / half is ≈ 19–23 % and ≈ 0.41.
+ */
+const CREDIT_LIMITS = { maxWidthPct: 32, maxHeightPct: 3.5, minAlpha: 0.25, maxAlpha: 0.55 };
+async function measureCredit(credB64, cleanB64) {
+  const a0 = Buffer.from(credB64, "base64");
+  const m = await sharp(a0).metadata();
+  const A = await sharp(a0).raw().removeAlpha().toBuffer();
+  const B = await sharp(Buffer.from(cleanB64, "base64")).resize(m.width, m.height, { fit: "fill" }).raw().removeAlpha().toBuffer();
+  const est = []; let minx = 1e9, maxx = -1, miny = 1e9, maxy = -1;
+  for (let y = 0; y < m.height; y++) for (let x = 0; x < m.width; x++) {
+    const i = (y * m.width + x) * 3;
+    const c = (B[i] + B[i + 1] + B[i + 2]) / 3, v = (A[i] + A[i + 1] + A[i + 2]) / 3;
+    if (v - c > 25 && 255 - c > 60) { est.push((v - c) / (255 - c)); minx = Math.min(minx, x); maxx = Math.max(maxx, x); miny = Math.min(miny, y); maxy = Math.max(maxy, y); }
+  }
+  est.sort((p, q) => p - q);
+  if (!est.length) return { size: `${m.width}x${m.height}`, px: 0, widthPct: 0, heightPct: 0, alphaP90: 0 };
+  return {
+    size: `${m.width}x${m.height}`, px: est.length,
+    widthPct: +((maxx - minx + 1) / m.width * 100).toFixed(1),
+    heightPct: +((maxy - miny + 1) / m.height * 100).toFixed(2),
+    alphaP90: +est[Math.floor(est.length * 0.9)].toFixed(2),
+  };
+}
+function creditFail(row, c) {
+  const L = CREDIT_LIMITS;
+  if (!c || c.px === 0) return fail(row, "the saved file carries no credit at all");
+  if (c.widthPct > L.maxWidthPct) fail(row, `the credit is ${c.widthPct} % of the width (max ${L.maxWidthPct} %: one third of the first size)`);
+  if (c.heightPct > L.maxHeightPct) fail(row, `the credit is ${c.heightPct} % of the height (max ${L.maxHeightPct} %)`);
+  if (c.alphaP90 > L.maxAlpha || c.alphaP90 < L.minAlpha) fail(row, `the credit's opacity is ${c.alphaP90} (want ${L.minAlpha}–${L.maxAlpha}: half of the first ≈ 0.82)`);
+}
+/** The saved file's bottom-right corner, zoomed 3× (the Owner's PNGs). */
+async function corner(b64, out) {
+  const buf = Buffer.from(b64, "base64");
+  const m = await sharp(buf).metadata();
+  const w = Math.round(m.width * 0.5), h = Math.round(m.height * 0.18);
+  await sharp(buf).extract({ left: m.width - w, top: m.height - h, width: w, height: h }).resize({ width: w * 3, kernel: "nearest" }).png().toFile(out);
+}
+
 async function open(browser, { vp, dpr, viewer, size, shape, admin = false, app = false }) {
   const ctx = await browser.newContext({ viewport: VIEWPORTS[vp], deviceScaleFactor: dpr, colorScheme: "dark", reducedMotion: "reduce" });
   const page = await ctx.newPage();
@@ -130,8 +177,44 @@ const rows = [];
 let pass = true;
 const fail = (row, why) => { row.ok = false; (row.failed ??= []).push(why); pass = false; };
 
+// ── 0. THE CREDIT INSIDE EVERY SAVED FILE, for every path that draws it ─────
+//   · new uploads: the browser canvas (photoCredit.drawCredit) — the harness
+//     encodes with the REAL uploader; every credited copy it stored is measured;
+//   · the backfill / rectify workers: sharp + credit-svg.mjs, exactly as
+//     tools/media-derivatives/{photo-set,rectify-l4}.mjs draw it, on the clean
+//     1080 the uploader made (the rectify case) — measured the same way.
+{
+  const browser = await chromium.launch();
+  for (const size of ["large", "small"]) {
+    const r = await open(browser, { vp: "desktop", dpr: 1, viewer: "out", size, shape: "v3" });
+    for (const s of Object.values(r.store).filter((x) => x.credited)) {
+      const row = { part: "credit in the saved file", path: "upload (browser canvas)", size, file: name(s.url), ok: true };
+      row.credit = await measureCredit(s.b64, s.twin);
+      creditFail(row, row.credit);
+      rows.push(row);
+      console.log(`${row.ok ? "PASS" : "FAIL"} credit in saved file · upload canvas · ${size} · ${row.file} ${JSON.stringify(row.credit)}${row.failed ? ` — ${row.failed.join("; ")}` : ""}`);
+    }
+    // the worker path, on the clean 1080 this photo's post names
+    const cleanUrl = Object.keys(r.store).find((u) => /-l5\.webp$/.test(u));
+    if (cleanUrl) {
+      const clean = Buffer.from(r.store[cleanUrl].b64, "base64");
+      const m = await sharp(clean).metadata();
+      const out = await sharp(clean).composite([{ input: Buffer.from(creditSvg(m.width, m.height, "© Dipannita Sen, 50mm Retina World")), top: 0, left: 0 }]).webp({ quality: 85 }).toBuffer();
+      const row = { part: "credit in the saved file", path: "backfill / rectify worker (sharp + credit-svg)", size, file: `${m.width}x${m.height}`, ok: true };
+      row.credit = await measureCredit(out.toString("base64"), r.store[cleanUrl].b64);
+      creditFail(row, row.credit);
+      rows.push(row);
+      console.log(`${row.ok ? "PASS" : "FAIL"} credit in saved file · worker svg · ${size} · ${JSON.stringify(row.credit)}${row.failed ? ` — ${row.failed.join("; ")}` : ""}`);
+      if (OUT) await corner(out.toString("base64"), join(OUT, `saved-worker-${size}.png`));
+    }
+    await r.ctx.close();
+  }
+  await browser.close();
+}
+const ONLY_CREDIT = process.argv.includes("--only-credit");
+
 // ── 1. FEED: never a credited request ──────────────────────────────────────
-if (!process.argv.includes("--skip-feed")) {
+if (!process.argv.includes("--skip-feed") && !ONLY_CREDIT) {
   const browser = await chromium.launch();
   const plan = [];
   for (const shape of ["v3", "legacy"]) {
@@ -157,7 +240,7 @@ if (!process.argv.includes("--skip-feed")) {
 
 // ── 2. FULL SCREEN: clean pixels; the context menu acts on the credited file ──
 const engines = { chromium, firefox, webkit };
-for (const [engine, type] of Object.entries(engines)) {
+for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
   const browser = await type.launch();
   for (const shape of ["v3", "legacy"]) {
     const row = { part: "full screen", engine, shape, ok: true };
@@ -170,6 +253,36 @@ for (const [engine, type] of Object.entries(engines)) {
           window.__ctx = t && t.tagName === "IMG" ? (t.currentSrc || t.src) : (t ? t.tagName : null);
         }, true);
       });
+      // FEED right-click (fault 2, 3 Nov): the file a "save image" gets is the
+      // credited copy, and the card's pixels do not change.
+      {
+        const fr = { part: "feed right-click", engine, shape, ok: true };
+        const card = await r.page.$("#cardwrap .cursor-zoom-in");
+        const fimg = await r.page.$("#cardwrap .cursor-zoom-in img:not([aria-hidden])");
+        const before = await card.screenshot();
+        const fb = await fimg.boundingBox();
+        await r.page.mouse.click(fb.x + fb.width / 2, fb.y + fb.height / 2, { button: "right" });
+        await r.page.waitForTimeout(800);
+        await r.page.mouse.move(5, 5);
+        await r.page.waitForTimeout(300);
+        const after = await card.screenshot();
+        const ftarget = await r.page.evaluate(() => window.__ctx);
+        fr.contextMenuTarget = ftarget;
+        const same = diff(before, after);
+        fr.screenBeforeVsAfter = same.why;
+        if (!ftarget || !r.credited.includes(ftarget)) fail(fr, `feed right-click target is ${ftarget} — not the credited file`);
+        if (!same.same) fail(fr, `the feed card's pixels changed at the right-click: ${same.why}`);
+        if (ftarget && r.store[ftarget]?.twin) {
+          fr.creditInSavedFile = await measureCredit(r.store[ftarget].b64, r.store[ftarget].twin);
+          creditFail(fr, fr.creditInSavedFile);
+          if (OUT) await corner(r.store[ftarget].b64, join(OUT, `saved-feed-${engine}-${shape}.png`));
+        }
+        if (OUT) writeFileSync(join(OUT, `feed-card-after-right-click-${engine}-${shape}.png`), after);
+        rows.push(fr);
+        console.log(`${fr.ok ? "PASS" : "FAIL"} feed right-click ${engine} ${shape} — target ${ftarget ? name(ftarget) : "?"}, screen ${same.why}${fr.creditInSavedFile ? `, credit ${JSON.stringify(fr.creditInSavedFile)}` : ""}${fr.failed ? ` — ${fr.failed.join("; ")}` : ""}`);
+        if (ftarget) console.log(`    context-menu target URL: ${ftarget}`);
+        await r.page.evaluate(() => { window.__ctx = null; });
+      }
       await r.page.click("#cardwrap .cursor-zoom-in");
       const sel = "[role=dialog] img[data-photo-shown]";
       await r.page.waitForSelector(sel, { timeout: 20_000 });
@@ -186,6 +299,11 @@ for (const [engine, type] of Object.entries(engines)) {
       const target = await r.page.evaluate(() => window.__ctx);
       row.contextMenuTarget = target;
       if (!target || !r.credited.includes(target)) fail(row, `right-click target is ${target} — not the credited file`);
+      if (target && r.store[target]?.twin) {
+        row.creditInSavedFile = await measureCredit(r.store[target].b64, r.store[target].twin);
+        creditFail(row, row.creditInSavedFile);
+        if (OUT) await corner(r.store[target].b64, join(OUT, `saved-full-screen-${engine}-${shape}.png`));
+      }
       if (r.credited.includes(facts.shown)) fail(row, `the painted copy ${name(facts.shown)} is a credited file`);
       // (headless browsers show no native menu; Escape would close the viewer itself)
       await r.page.mouse.move(5, 5);
@@ -226,7 +344,7 @@ for (const [engine, type] of Object.entries(engines)) {
 }
 
 // ── 3. REAL SCREENS + web == app (390 px, member and admin) ────────────────
-{
+if (!ONLY_CREDIT) {
   const browser = await chromium.launch();
   const shots = {};
   for (const s of [
