@@ -91,6 +91,12 @@ BEGIN
 END;
 $fn$;
 
+-- Who may run them: exactly as 0109 / 0100 granted (restated, unchanged).
+REVOKE ALL ON FUNCTION public.post_photo_credit_for(uuid[]) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.post_photo_credit_for(uuid[]) TO anon, authenticated;
+REVOKE ALL ON FUNCTION public.post_photo_camera_for(uuid[]) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.post_photo_camera_for(uuid[]) TO anon, authenticated;
+
 DO $done$ BEGIN RAISE NOTICE 'OC-0110 rolled back on %', current_setting('p32.lane'); END $done$;
 
 COMMIT;
