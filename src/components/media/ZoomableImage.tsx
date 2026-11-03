@@ -4,12 +4,8 @@ import { useGesture } from "@use-gesture/react";
 import { logger } from "@/lib/logger";
 import { deviceContext } from "@/lib/deviceContext";
 import { useDataSaver } from "@/hooks/core/useDataSaver";
-import { CREDIT_HIDDEN_POSITION, fullScreenPhoto } from "@/lib/photoProtection";
-
-/** A URL as a CSS `url("…")` value (quotes and backslashes escaped). */
-function cssUrl(u: string): string {
-  return `url("${u.replace(/["\\\n\r]/g, (c) => `\\${c === "\n" ? "a " : c === "\r" ? "d " : c}`)}")`;
-}
+import { fullScreenPhoto } from "@/lib/photoProtection";
+import { layeredStyle } from "@/lib/photoSaveTarget";
 
 /**
  * THE ONE ZOOMABLE PHOTOGRAPH. Build 1055.
@@ -425,15 +421,8 @@ const ZoomableImage = ({ src: given, alt = "", className, wrapperClassName = "w-
           // to the browser rather than keep events we no longer process.
           touchAction: gesturesFailed ? "auto" : "none",
           // Unit A: see the note at the top — clean pixels painted, credited file under the pointer.
-          ...(layered
-            ? {
-                backgroundImage: cssUrl(shown),
-                backgroundSize: "contain",
-                backgroundPosition: "center",
-                backgroundRepeat: "no-repeat",
-                objectPosition: CREDIT_HIDDEN_POSITION,
-              }
-            : {}),
+          // (the shared mechanism: src/lib/photoSaveTarget.ts — the feed uses the same one)
+          ...(layered ? layeredStyle(shown) : {}),
         }}
         data-photo-shown={layered ? shown : undefined}
         draggable={false}

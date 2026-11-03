@@ -11,7 +11,7 @@
  * which is exactly what stopped the notification bell being enlarged in the
  * same pass. The glyphs inside are unchanged.
  */
-import { useState, useCallback, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { CDN_HOST as LANE_CDN_HOST, SITE_ORIGIN } from "@/lib/env";
 import { X, ChevronLeft, ChevronRight, Heart } from "lucide-react";
 import { usePhotoDownload } from "@/hooks/core/usePhotoDownload";
@@ -25,7 +25,8 @@ import { frameAspectFor, frameAspectForUrls, parseImageDims } from "@/lib/imageF
 import { hasLadderMarker, photoSetBlurUrl, photoSetCleanUrl, photoSetMarker, rungPath, rungPlan, rungWidthFor } from "@/lib/imageLadder";
 import { useNetworkQuality } from "@/hooks/core/useNetworkQuality";
 import { useDataSaver } from "@/hooks/core/useDataSaver";
-import { feedPhotoSet } from "@/lib/photoProtection";
+import { feedPhotoSet, saveAsPhotoUrl } from "@/lib/photoProtection";
+import { creditedSaveProps } from "@/lib/photoSaveTarget";
 
 interface PostMediaProps {
   urls: string[];
@@ -514,6 +515,12 @@ const ProgressiveImage = ({
   // A set copy that fails falls back to the set's largest CLEAN copy — never a
   // credited file, never a competition full size (Unit A).
   const failSrc = v2Set ? photoSetCleanUrl(src) : src;
+  // Fault 2 (Owner, 3 Nov): a web right-click / long-press "save image" on the
+  // feed photo gets the CREDITED copy; the screen keeps the clean one. Armed
+  // only at that moment (src/lib/photoSaveTarget.ts), so scrolling never
+  // downloads a credited file. Stable per photo (a long-press timer must
+  // survive a re-render).
+  const saveProps = useMemo(() => creditedSaveProps(setPhoto ? saveAsPhotoUrl(src) : null), [src, setPhoto]);
 
   return (
     <>
@@ -544,6 +551,7 @@ const ProgressiveImage = ({
       )}
       <img
         ref={sharpRef}
+        {...saveProps}
         src={failed ? failSrc : sharpSrc}
         srcSet={failed ? undefined : srcSet}
         sizes={!failed && srcSet ? (slowLink || saving ? SLOW_FEED_SIZES : FEED_SIZES) : undefined}

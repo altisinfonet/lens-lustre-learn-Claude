@@ -105,7 +105,7 @@ const same = async (a: Blob, b: Blob) => {
   return true;
 };
 
-interface Stored { url: string; b64: string; credited: boolean; type: string }
+interface Stored { url: string; b64: string; credited: boolean; type: string; /** the clean twin (credited files only) — the tool measures the credit against it */ twin?: string }
 declare global {
   interface Window { __photoStore?: Record<string, Stored>; __photoUrl?: string; __photoReady?: boolean }
 }
@@ -150,7 +150,7 @@ async function main() {
   const store: Record<string, Stored> = {};
   for (const [path, blob, twin] of pairs) {
     const url = `${CDN}${path}`;
-    store[url] = { url, b64: await b64(blob), credited: !(await same(blob, twin)), type: blob.type || "image/webp" };
+    { const credited = !(await same(blob, twin)); store[url] = { url, b64: await b64(blob), credited, type: blob.type || "image/webp", ...(credited ? { twin: await b64(twin) } : {}) }; }
   }
   window.__photoStore = store;
   const url = `${CDN}${full}`;
