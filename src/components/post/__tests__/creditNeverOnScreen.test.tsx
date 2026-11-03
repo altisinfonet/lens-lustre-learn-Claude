@@ -299,6 +299,27 @@ describe("Fault 2 · a web save of the FEED photo gets the credited copy; the sc
     }
   });
 
+  it("desktop: a mouse resting on the photo arms it (Firefox's menu needs the credited copy loaded); passing over does not", async () => {
+    vi.useFakeTimers();
+    try {
+      const a = mount(L5);
+      const img = sharp(a.container);
+      loadedAs(img, L5);
+      fireEvent.pointerEnter(img, { pointerType: "mouse" });
+      act(() => { vi.advanceTimersByTime(100); });
+      fireEvent.pointerLeave(img, { pointerType: "mouse" });
+      act(() => { vi.advanceTimersByTime(1000); });
+      expect(credited(img.getAttribute("src") ?? "")).toBe(false);
+      fireEvent.pointerEnter(img, { pointerType: "mouse" });
+      act(() => { vi.advanceTimersByTime(350); });
+      expect(img.getAttribute("src")).toBe(L5_CRED);
+      expect(painted(img)).toBe(L5);
+      a.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("the installed app (save guard on): nothing is armed — no save at all there", async () => {
     document.documentElement.classList.add("app-photo-save-off");
     const { container } = mount(L5);

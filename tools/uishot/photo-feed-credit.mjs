@@ -261,6 +261,9 @@ for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
         const fimg = await r.page.$("#cardwrap .cursor-zoom-in img:not([aria-hidden])");
         const before = await card.screenshot();
         const fb = await fimg.boundingBox();
+        // a real user: the mouse comes onto the photo, rests, then right-clicks
+        await r.page.mouse.move(fb.x + fb.width / 2, fb.y + fb.height / 2, { steps: 4 });
+        await r.page.waitForTimeout(1500);
         await r.page.mouse.click(fb.x + fb.width / 2, fb.y + fb.height / 2, { button: "right" });
         await r.page.waitForTimeout(800);
         await r.page.mouse.move(5, 5);
