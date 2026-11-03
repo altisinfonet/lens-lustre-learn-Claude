@@ -49,8 +49,14 @@ export function photoDownloadAllowed(p: PhotoDownloadInputs): boolean {
  * "Save mobile data" (U4), which is a viewer setting.
  */
 
-/** ZoomableImage: moves the <img>'s own picture (the credited file) completely outside its box. */
-export const CREDIT_HIDDEN_POSITION = "-100000px -100000px";
+/**
+ * The credited file a web "save image" of an INLINE / FEED photo gets (fault 2,
+ * 3 Nov): the same credited copy full screen uses. Null for photos that have
+ * none (old and unmarked photos).
+ */
+export function saveAsPhotoUrl(url: string): string | null {
+  return fullScreenPhoto(url).saveAs;
+}
 
 /**
  * FULL SCREEN of one photo — two files, never confused:
