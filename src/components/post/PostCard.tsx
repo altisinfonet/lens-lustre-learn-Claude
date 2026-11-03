@@ -36,12 +36,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { avatarInitial } from "@/lib/displayName";
 import BlockUserDialog from "@/components/moderation/BlockUserDialog";
-import { CameraInfoButton, CameraLine, CameraStrip } from "@/components/post/CameraDetails";
+import { PostCameraLine } from "@/components/post/CameraDetails";
 import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
-import { postPhotoCameraKey, usePostPhotoCamera } from "@/hooks/feed/usePostPhotoCamera";
+import { postPhotoCameraKey, usePostPhotoCameraRead } from "@/hooks/feed/usePostPhotoCamera";
 import { cameraStateFor } from "@/lib/photoCameraDisplay";
 import { setPostPhotoCameraHidden } from "@/lib/photoCameraRead";
-import { isNativeApp } from "@/lib/video/playback";
+import { photoSetMarker } from "@/lib/imageLadder";
 
 const displayFont = { fontFamily: "var(--font-display)" };
 const headingFont = { fontFamily: "var(--font-heading)" };
@@ -206,14 +206,16 @@ const PostCard = ({
   /**
    * PHOTO PLAN U2 · CAMERA DETAILS (switch `photo_set_v2`; OFF ⇒ none of this
    * renders and nothing is read — photoSetV2Off.test.tsx pins today's markup).
-   * App: one line under the photo + ⓘ in the full-screen viewer. Web: the
-   * compact strip under the caption. Batched read: one call per page of cards.
+   * ONE line under the photo, the same on the website and in the app (no
+   * platform branch, no full-screen ⓘ — Owner, 2026-11-03). Batched read: one
+   * call per page of cards. While a NEW photo's details are being read, the
+   * line's height is held (`reserve`) so the card does not jump when it lands.
    */
   const photoSetOn = usePhotoSetV2();
-  const inApp = isNativeApp();
-  const cameraRows = usePostPhotoCamera(post.id, photoSetOn && imageUrls.length > 0);
+  const { rows: cameraRows, pending: cameraReading } = usePostPhotoCameraRead(post.id, photoSetOn && imageUrls.length > 0);
   const [cameraSlide, setCameraSlide] = useState(0);
   const cameraState = photoSetOn ? cameraStateFor(cameraRows, cameraSlide, imageUrls[cameraSlide]) : null;
+  const cameraPending = cameraReading && !!imageUrls[cameraSlide] && !!photoSetMarker(imageUrls[cameraSlide]);
   const cameraHidden = !!cameraRows?.some((r) => r.hidden);
   const toggleCameraHidden = async () => {
     setActionLoading(true);
@@ -647,9 +649,6 @@ const PostCard = ({
                the viewer did not. Same three fields the header link uses. */
             author={{ userId: post.user_id, name: post.author_name ?? null, handle: post.author_handle ?? null }}
             onSlideChange={photoSetOn ? setCameraSlide : undefined}
-            viewerAction={photoSetOn && inApp
-              ? (i) => <CameraInfoButton state={cameraStateFor(cameraRows, i, imageUrls[i])} />
-              : undefined}
             onDoubleTapLike={() => {
               if (currentUserId && !post.user_reaction) onReact(post.id, "like");
             }}
@@ -684,8 +683,11 @@ const PostCard = ({
           )}
         </div>
       )}
-      {/* U2 · APP: one small camera line under the photo; nothing when it has none. */}
-      {photoSetOn && inApp && <CameraLine state={cameraState} />}
+      {/* Camera line (switch photo_set_v2), WEB and APP alike: directly under the
+          photo, above Like / Comment / Share. One line for everyone; only site
+          admins get the arrow that opens Lens + Taken. Owner-approved 2026-11-03
+          (50mm-camera-line-FIX.html v2). No camera details → nothing. */}
+      {photoSetOn && <PostCameraLine state={cameraState} reserve={cameraPending} focusKey={`${post.id}:${imageUrls[cameraSlide] ?? ""}`} />}
 
       {/* ── ACTION ROW — ICONS WITH THEIR COUNTS BESIDE THEM ──
 
@@ -844,8 +846,6 @@ const PostCard = ({
           }
         />
       )}
-      {/* U2 · WEB: the compact camera strip under the caption (not sticky). */}
-      {photoSetOn && !inApp && !isEditing && <CameraStrip state={cameraState} />}
     </div>
   );
 };

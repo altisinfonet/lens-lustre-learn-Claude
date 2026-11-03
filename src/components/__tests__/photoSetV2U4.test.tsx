@@ -66,7 +66,7 @@ vi.mock("hls.js/dist/hls.worker.js?url", () => ({ default: "/assets/hls.worker.j
 import PostMedia from "@/components/post/PostMedia";
 import FacebookPhotoGrid from "@/components/FacebookPhotoGrid";
 import { NotificationRowThumb } from "@/components/notifications/CentreNotificationRow";
-import { CameraInfoButton, PostCameraInfoButton } from "@/components/post/CameraDetails";
+
 import FeedVideoCard from "@/components/video/FeedVideoCard";
 import { SaveMobileDataSetting } from "@/components/settings/SaveMobileDataSetting";
 import { featureAllowedKey } from "@/hooks/core/useFeatureAllowed";
@@ -208,55 +208,6 @@ describe("grid tiles fall back when their 320 copy fails (U2 review follow-up)",
     expect(container.querySelector("img")!.getAttribute("src")).toBe(`${CDN}-w4000h3000-l4f-r320.webp`);
     fireEvent.error(container.querySelector("img")!);
     expect(container.querySelector("img")!.getAttribute("src")).toBe(`${CDN}-w4000h3000-l4f-r2048.webp`);
-  });
-});
-
-describe("the ⓘ sheet owns the arrow keys (U2 review follow-up)", () => {
-  it("with the sheet open, ← / → do not move the viewer behind it", async () => {
-    setApp(true);
-    wrap(
-      <PostMedia
-        urls={[L4, L4B]}
-        thumbUrls={[L4_THUMB, null]}
-        viewerAction={(i) => <CameraInfoButton state={{ kind: "info", info: { camera: i === 0 ? "Sony α7 IV" : "Nikon Z6" }, hidden: false } as never} />}
-      />,
-    );
-    await settle();
-    const viewer = await openViewer();
-    expect(within(viewer).getByText("1 / 2")).toBeTruthy();
-    fireEvent.click(within(viewer).getByRole("button", { name: "Camera details" }));
-    const sheet = screen.getByRole("dialog", { name: "Camera details" });
-    fireEvent.keyDown(sheet, { key: "ArrowRight" });
-    fireEvent.keyDown(sheet, { key: "ArrowLeft" });
-    fireEvent.keyDown(sheet, { key: "ArrowRight" });
-    expect(within(viewer).getByText("1 / 2")).toBeTruthy();
-    // and with the sheet closed the arrows work as before
-    fireEvent.keyDown(sheet, { key: "Escape" });
-    await settle();
-    fireEvent.keyDown(window, { key: "ArrowRight" });
-    expect(within(viewer).getByText("2 / 2")).toBeTruthy();
-  });
-});
-
-describe("hashtag page full screen has the ⓘ too (U2 review follow-up)", () => {
-  it("app: FacebookPhotoGrid's viewer shows Camera details for the photo on screen", async () => {
-    setApp(true);
-    wrap(<FacebookPhotoGrid urls={[L4, L4B]} viewerAction={(i) => <PostCameraInfoButton postId="p1" imageUrls={[L4, L4B]} index={i} />} />);
-    await settle();
-    fireEvent.click(document.querySelector(".cursor-pointer") as HTMLElement);
-    const viewer = await screen.findByRole("dialog", { name: /full size/ });
-    await settle();
-    fireEvent.click(within(viewer).getByRole("button", { name: "Camera details" }));
-    const sheet = screen.getByRole("dialog", { name: "Camera details" });
-    expect(within(sheet).getByText("Sony α7 IV")).toBeTruthy();
-  });
-
-  it("web: no ⓘ (the web has the strip under the caption)", async () => {
-    wrap(<FacebookPhotoGrid urls={[L4]} viewerAction={(i) => <PostCameraInfoButton postId="p1" imageUrls={[L4]} index={i} />} />);
-    await settle();
-    fireEvent.click(document.querySelector(".cursor-pointer") as HTMLElement);
-    const viewer = await screen.findByRole("dialog", { name: /full size/ });
-    expect(within(viewer).queryByRole("button", { name: "Camera details" })).toBeNull();
   });
 });
 
