@@ -50,10 +50,10 @@ on:
         type: string
         default: "0"
       job:
-        description: "ladder = S3 600/1080/1440 for media posts · photo-set = photo plan U5, the v2 set (credited 2048/1080/600/320) beside every old post photo · rectify-l4 = the -l4 posts get a -l5 set from their clean 1080 (small credit), recorded for 20261110_0107 · redraw-credit = the rectified photos' credited copy redrawn with the current credit geometry (20261110_0108)"
+        description: "ladder = S3 600/1080/1440 for media posts · photo-set = photo plan U5, the v2 set (credited 2048/1080/600/320) beside every old post photo · rectify-l4 = the -l4 posts get a -l5 set from their clean 1080 (small credit), recorded for 20261110_0107 · redraw-credit = the rectified photos' credited copy redrawn with the current credit geometry (20261110_0108) · old-credit = every old (unmarked) post photo gets a credited copy (v4) at a new derived key, found by the web through post_photo_credit_for (20261110_0109)"
         required: false
         type: choice
-        options: [ladder, photo-set, rectify-l4, redraw-credit]
+        options: [ladder, photo-set, rectify-l4, redraw-credit, old-credit]
         default: ladder
 
 concurrency:
@@ -143,7 +143,8 @@ jobs:
             photo-set) TOOL=tools/media-derivatives/photo-set.mjs ;;
             rectify-l4) TOOL=tools/media-derivatives/rectify-l4.mjs ;;
             redraw-credit) TOOL=tools/media-derivatives/rectify-l4.mjs; ARGS+=(--redraw) ;;
-            *) echo "::error::job must be ladder, photo-set, rectify-l4 or redraw-credit"; exit 1 ;;
+            old-credit) TOOL=tools/media-derivatives/old-credit.mjs ;;
+            *) echo "::error::job must be ladder, photo-set, rectify-l4, redraw-credit or old-credit"; exit 1 ;;
           esac
           node "$TOOL" "${ARGS[@]}"
 

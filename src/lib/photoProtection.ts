@@ -22,6 +22,7 @@
  */
 import { isCreditedPhotoUrl, photoSetCleanUrl, photoSetMarker, photoSetUrl, photoSetWidth } from "@/lib/imageLadder";
 import { CREDIT_GEOMETRY } from "@/lib/creditGeometry.mjs";
+import { oldPhotoCreditedUrl } from "@/lib/photoOldCredit";
 
 /**
  * A credited URL as the web loads it: `?cv=<urlVersion>` once the URL version
@@ -77,14 +78,19 @@ export function saveAsPhotoUrl(url: string): string | null {
  *   `shown`   what the member SEES: the set's largest public CLEAN copy (U4
  *             "Save mobile data" on mobile data: the 600). Never credited.
  *   `saveAs`  the file the web context menu ("save image as", "copy image
- *             address") gets: the credited 2048. Null when the photo has no
- *             credited copy (old and unmarked photos — today's behaviour: the
- *             URL itself is both).
+ *             address") gets: the credited 2048. An OLD (unmarked) photo:
+ *             its credited copy when the lookup found one (20261110_0109,
+ *             photoOldCredit.ts — the screen still shows the URL itself);
+ *             else null (the URL itself is both).
  * ZoomableImage paints `shown` and puts `saveAs` under the pointer (see there).
  * Never a competition full size.
  */
 export function fullScreenPhoto(url: string, saving = false): { shown: string; saveAs: string | null } {
-  if (!url || !photoSetMarker(url)) return { shown: url, saveAs: null };
+  if (!url) return { shown: url, saveAs: null };
+  if (!photoSetMarker(url)) {
+    const old = oldPhotoCreditedUrl(url);
+    return { shown: url, saveAs: old ? withCreditVersion(old) : null };
+  }
   const credited = photoSetUrl(url, 2048);
   const shown = saving ? photoSetUrl(url, 600) : photoSetCleanUrl(url);
   // Belt and braces: the shown copy is clean by construction (photoSetCleanUrl

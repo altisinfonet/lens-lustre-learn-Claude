@@ -157,7 +157,7 @@ async function open(browser, { vp, dpr, viewer, size, shape, admin = false, app 
   });
   const qs = new URLSearchParams({
     viewer, ...(vp === "phone" ? { w: "phone" } : {}), ...(size === "small" ? { small: "1" } : {}),
-    ...(shape === "legacy" ? { legacy: "1" } : {}), ...(admin ? { admin: "1" } : {}), ...(app ? { app: "1" } : {}),
+    ...(shape === "legacy" ? { legacy: "1" } : {}), ...(shape === "old" ? { old: "1" } : {}), ...(admin ? { admin: "1" } : {}), ...(app ? { app: "1" } : {}),
   });
   await page.goto(`${BASE}/photofeedharness.html?${qs}`, { timeout: 180_000 });
   await page.waitForFunction(() => window.__photoReady === true, null, { timeout: 120_000 });
@@ -231,6 +231,9 @@ if (!process.argv.includes("--skip-feed") && !ONLY_CREDIT) {
       }
     }
   }
+  // An OLD photo (20261110_0109): its credited copy is looked up — showing the
+  // post must still never load it.
+  for (const vp of Object.keys(VIEWPORTS)) for (const viewer of ["out", "on", "err"]) plan.push({ shape: "old", size: "large", vp, dpr: 2, viewer });
   for (const s of plan) {
     const r = await open(browser, s);
     const bad = [...new Set(r.requested.filter((u) => r.credited.includes(u)))];
@@ -281,7 +284,10 @@ for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
     rows.push(pr);
     console.log(`${pr.ok ? "PASS" : "FAIL"} parked cursor + scroll ${engine} — photo under cursor ${pr.photoPassedUnderCursor}, credited requests ${JSON.stringify(pr.creditedRequests ?? [])}${pr.failed ? ` — ${pr.failed.join("; ")}` : ""}`);
   }
-  for (const shape of ["v3", "legacy"]) {
+  // "old": a photo posted before the New Photos plan (unmarked URL) — its save
+  // target is the credited copy the lookup names (20261110_0109), exactly like
+  // a new photo's; the screen shows the original.
+  for (const shape of ["v3", "legacy", "old"]) {
     const row = { part: "full screen", engine, shape, ok: true };
     try {
       const r = await open(browser, { vp: "desktop", dpr: 2, viewer: "out", size: "large", shape });
@@ -401,6 +407,18 @@ if (!ONLY_CREDIT) {
     const r = await open(browser, { ...s, dpr: 2, viewer: "on", size: "large", shape: "v3" });
     shots[s.key] = await (await r.page.$("#cardwrap")).screenshot();
     if (OUT) writeFileSync(join(OUT, `feed-card-${s.key}.png`), shots[s.key]);
+    await r.ctx.close();
+  }
+  // OLD photo (20261110_0109): the web asks for its credited copy; the app —
+  // which has no save at all — never asks.
+  for (const app of [false, true]) {
+    const r = await open(browser, { vp: "phone", app, dpr: 2, viewer: "on", size: "large", shape: "old" });
+    const calls = await r.page.evaluate(() => globalThis.__oldCreditCalls ?? 0);
+    const row = { part: "old photo lookup", app, ok: true, calls };
+    if (app && calls !== 0) fail(row, `the app asked post_photo_credit_for ${calls} time(s) — the app has no save`);
+    if (!app && calls < 1) fail(row, "the web never asked post_photo_credit_for — an old photo's save would stay clean");
+    rows.push(row);
+    console.log(`${row.ok ? "PASS" : "FAIL"} old photo lookup ${app ? "app" : "web"}: ${calls} call(s)${row.failed ? ` — ${row.failed.join("; ")}` : ""}`);
     await r.ctx.close();
   }
   for (const who of ["member", "admin"]) {
