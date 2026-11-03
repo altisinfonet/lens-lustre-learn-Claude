@@ -1,0 +1,68 @@
+name: D2 · Camera line visual baseline
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING REAL. HOLDS NO SECRET. A real Chromium against the Vite
+# dev server and the harness fake backend (synthetic VITE_* values, as ui-gate).
+#
+# Owner rule (2026-11-03): "showing one design and building another" is not
+# accepted. The REAL feed card (PostCard → CameraDetails, real CSS) is
+# photographed in every approved view — web desktop, web 390 px, the Android
+# shell; member, admin closed/opened; with and without camera details — and
+# compared with the Owner-approved pictures in tools/uishot/camline-baseline/.
+# It also requires the app's camera line to be pixel-identical to the web's.
+# A change to these screens fails here until the Owner approves new pictures.
+#
+# The baselines are made on THIS runner (ubuntu fonts). The screenshots of
+# every run are uploaded, so new approved pictures come from here too.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  camline:
+    name: Camera line matches the approved pictures (web == app)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Clean install
+        run: npm ci --no-audit --no-fund
+      - name: Cache the Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('package-lock.json') }}
+      - name: Install the browser for Playwright (with its system libraries)
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            if npx playwright install --with-deps chromium; then exit 0; fi
+            sleep $((attempt * 15))
+          done
+          exit 1
+      - name: Photograph the real feed card and compare
+        env:
+          VITE_SUPABASE_URL: https://testprojectref0000x.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: test-publishable-key-not-real
+          VITE_SUPABASE_PROJECT_ID: testprojectref0000x
+        run: node tools/uishot/camline-visual.mjs --out /tmp/camline-shots --json /tmp/camline-shots/result.json
+      - name: Upload the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: camline-visual
+          path: /tmp/camline-shots
+          if-no-files-found: warn

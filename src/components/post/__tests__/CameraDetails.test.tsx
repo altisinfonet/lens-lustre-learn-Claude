@@ -3,8 +3,9 @@
  * (2026-11-03, _control/out/OWNER/50mm-camera-line-FIX.html v2): ONE small
  * line, web and app. EVERYONE: that line only — no arrow, not clickable,
  * nothing expands. SITE ADMINS: an arrow that opens Lens + Taken in place
- * (max-height + opacity, 0.25 s, not sticky). The line fades in and rises 4 px
- * (0.35 s; none with reduced motion). The app full-screen ⓘ → sheet; no camera
+ * (max-height + opacity, 0.25 s, not sticky). The line comes into focus once
+ * per photo ("lens focus", option A; none with reduced motion). Type is 12 px,
+ * the site's readability floor. The app full-screen ⓘ → sheet; no camera
  * information → nothing in the feed; no "Location removed" text anywhere; the
  * author's "hidden" hint. Where the line sits in a card:
  * cameraLineApproved.test.tsx.
@@ -53,7 +54,7 @@ describe("EVERYONE's camera line (members and the post's owner)", () => {
 });
 
 describe("'lens focus' entry (Owner-approved option A)", () => {
-  type Rec = { cb: (e: { isIntersecting: boolean }[]) => void; threshold?: number; disconnected: boolean };
+  type Rec = { cb: (e: { isIntersecting: boolean; intersectionRatio: number }[]) => void; threshold?: number; disconnected: boolean };
   let observers: Rec[] = [];
   let reduce = false;
   class FakeIO {
@@ -85,9 +86,10 @@ describe("'lens focus' entry (Owner-approved option A)", () => {
     expect(observers[0].threshold).toBe(0.3);
     expect(lineOf(container).classList.contains("camLineWait")).toBe(true);
     expect(lineOf(container).classList.contains("camLinePlay")).toBe(false);
-    act(() => observers[0].cb([{ isIntersecting: false }]));
+    act(() => observers[0].cb([{ isIntersecting: false, intersectionRatio: 0 }]));
+    act(() => observers[0].cb([{ isIntersecting: true, intersectionRatio: 0.1 }]));
     expect(lineOf(container).classList.contains("camLineWait")).toBe(true);
-    act(() => observers[0].cb([{ isIntersecting: true }]));
+    act(() => observers[0].cb([{ isIntersecting: true, intersectionRatio: 0.4 }]));
     expect(lineOf(container).classList.contains("camLinePlay")).toBe(true);
     expect(observers[0].disconnected).toBe(true);
     const node = lineOf(container);
@@ -104,7 +106,7 @@ describe("'lens focus' entry (Owner-approved option A)", () => {
 
   it("another photo plays its own entry", () => {
     render(<CameraLine state={info} focusKey="p1:a" />);
-    act(() => observers[0].cb([{ isIntersecting: true }]));
+    act(() => observers[0].cb([{ isIntersecting: true, intersectionRatio: 0.4 }]));
     const b = render(<CameraLine state={info} focusKey="p2:b" />);
     expect(lineOf(b.container).classList.contains("camLineWait")).toBe(true);
   });
@@ -158,19 +160,38 @@ describe("ADMIN camera line (web and app): arrow → 2nd line", () => {
     expect(container.textContent).not.toMatch(LOCATION);
   });
 
-  it("small muted type (~11.5 px)", () => {
+  it("small muted type (12 px — the site readability floor)", () => {
     const { container } = render(<CameraLine admin state={info} />);
     const line = container.querySelector("[data-camera-line]") as HTMLElement;
-    expect(line.className).toMatch(/text-\[11\.5px\]/);
+    expect(line.className).toMatch(/\btext-xs\b/);
     expect(line.className).toMatch(/text-muted-foreground/);
   });
 
-  it("app: Lens and Taken on their own lines; web: one line", () => {
-    const a = render(<CameraLine admin state={info} stacked />);
-    expect(a.container.querySelector(".flex-col")).not.toBeNull();
-    a.unmount();
-    const b = render(<CameraLine admin state={info} stacked={false} />);
-    expect(b.container.querySelector(".flex-col")).toBeNull();
+  it("the 2nd line is ONE line of text, 'Lens X · Taken Y' (wraps only if it does not fit)", () => {
+    const { container } = render(<CameraLine admin state={info} />);
+    fireEvent.click(screen.getByRole("button", { name: /camera details/i }));
+    const panel = document.getElementById(screen.getByRole("button").getAttribute("aria-controls")!)!;
+    expect(panel.textContent).toBe("Lens FE 85 mm F1.8 · Taken 12 Oct 2026");
+    expect(panel.querySelectorAll("p")).toHaveLength(1);
+    expect(container.querySelector(".flex-col")).toBeNull();
+  });
+
+  it("web and app shell: the SAME markup, member and admin, closed and opened", () => {
+    const html = (app: boolean, admin: boolean, open: boolean) => {
+      (globalThis as { Capacitor?: unknown }).Capacitor = app ? { isNativePlatform: () => true } : undefined;
+      try {
+        const r = render(<CameraLine admin={admin} state={info} />);
+        if (open) fireEvent.click(r.container.querySelector("button")!);
+        const out = r.container.innerHTML.replace(/:r[0-9a-z]+:|«r[0-9a-z]+»|_r_[0-9a-z]+_/g, "ID");
+        r.unmount();
+        return out;
+      } finally {
+        (globalThis as { Capacitor?: unknown }).Capacitor = undefined;
+      }
+    };
+    for (const [admin, open] of [[false, false], [true, false], [true, true]] as const) {
+      expect(html(true, admin, open)).toBe(html(false, admin, open));
+    }
   });
 
   it("respects prefers-reduced-motion (no slide)", () => {

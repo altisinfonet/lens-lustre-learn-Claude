@@ -62,7 +62,7 @@ export const NO_CAMERA_SHEET = "This photo has no camera information.";
 export const NO_CAMERA_REASON = "Edited photos, screenshots and photos sent by chat apps often lose it.";
 
 const HiddenHint = () => (
-  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-[10.5px] font-medium text-muted-foreground">
+  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
     <EyeOff className="h-3 w-3" aria-hidden="true" />
     Hidden from others
   </span>
@@ -116,7 +116,7 @@ function useLensFocus(key: string | undefined, present: boolean) {
     if (phase !== "wait" || !present || !el) return;
     const io = new IntersectionObserver(
       (entries) => {
-        if (!entries.some((e) => e.isIntersecting)) return;
+        if (!entries.some((e) => e.isIntersecting && e.intersectionRatio >= 0.3)) return;
         if (key) focused.add(key);
         io.disconnect();
         setPhase("play");
@@ -214,19 +214,21 @@ function CameraFullDetails({ state }: { state: Extract<CameraState, { kind: "inf
  * EVERYONE (members and the post's owner): ONE line, no arrow, not clickable,
  * nothing expands. `admin` (site admins only): the same line with a small arrow;
  * tap / click → Lens and Taken slide open below (max-height + opacity, 0.25 s),
- * tap again closes. `stacked`: the admin's 2nd line as two lines (the app's
- * narrow card, as in the approved sample); the web puts them on one line.
+ * tap again closes. The 2nd line is "Lens X · Taken Y" as one line of text that
+ * wraps only when it does not fit.
+ *
+ * ONE markup and ONE CSS for the website and the app (Owner, 2026-11-03: "exact
+ * same to same in app and web") — nothing here branches on the platform.
  * `focusKey`: the photo's identity, so its "lens focus" entry plays only once
  * (Owner-approved option A, 2026-11-03; the entry is the swappable CSS class
  * `.camLineEnter` in src/index.css).
  */
-export function CameraLine({ state, admin = false, stacked, focusKey }: { state: CameraState | null; admin?: boolean; stacked?: boolean; focusKey?: string }) {
+export function CameraLine({ state, admin = false, focusKey }: { state: CameraState | null; admin?: boolean; focusKey?: string }) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const present = Boolean(state && state.kind === "info");
   const { ref, phase } = useLensFocus(focusKey, present);
   if (!state || state.kind !== "info") return null;
-  const oneCol = stacked ?? isNativeApp();
   const more = admin ? cameraRows(state.info).filter((r) => r.label !== "Camera") : [];
   const summary = (
     <>
@@ -236,9 +238,9 @@ export function CameraLine({ state, admin = false, stacked, focusKey }: { state:
   );
   const enter = phase === "wait" ? "camLineEnter camLineWait" : phase === "play" ? "camLineEnter camLinePlay" : "camLineEnter";
   return (
-    <div ref={ref} data-camera-line="" className={`px-4 text-[11.5px] leading-4 text-muted-foreground ${enter}`}>
+    <div ref={ref} data-camera-line="" className={`px-4 text-xs leading-4 text-muted-foreground ${enter}`}>
       {more.length === 0 ? (
-        <p className="flex items-center gap-1.5 pb-1 pt-2" aria-label={`Camera: ${cameraLine(state.info)}`}>{summary}</p>
+        <p className="flex items-center gap-1.5 pb-1 pt-2">{summary}</p>
       ) : (
         <>
           {/* The type is small (the design); the button is still a 44 px finger
@@ -261,16 +263,16 @@ export function CameraLine({ state, admin = false, stacked, focusKey }: { state:
           <div
             id={panelId}
             aria-hidden={!open}
-            className={`overflow-hidden pl-5 transition-[max-height,opacity] duration-[250ms] ease-out motion-reduce:transition-none ${open ? "-mt-2.5 max-h-12 pb-1 opacity-100" : "max-h-0 opacity-0"}`}
+            className={`overflow-hidden pl-5 transition-[max-height,opacity] duration-[250ms] ease-out motion-reduce:transition-none ${open ? "-mt-2.5 max-h-20 pb-1 opacity-100" : "max-h-0 opacity-0"}`}
           >
-            <div className={oneCol ? "flex flex-col" : "flex flex-wrap items-center"}>
+            <p>
               {more.map((r, i) => (
                 <span key={r.label}>
-                  {!oneCol && i > 0 && <span className="whitespace-pre text-muted-foreground/50" aria-hidden="true">{" · "}</span>}
+                  {i > 0 && <span className="text-muted-foreground/50" aria-hidden="true">{" · "}</span>}
                   {r.label} <b className="font-semibold text-foreground/85">{r.value}</b>
                 </span>
               ))}
-            </div>
+            </p>
           </div>
         </>
       )}
@@ -279,10 +281,10 @@ export function CameraLine({ state, admin = false, stacked, focusKey }: { state:
 }
 
 /** The line for a post card: the arrow and 2nd line only for site admins (user_roles role = admin). */
-export function PostCameraLine({ state, stacked, focusKey }: { state: CameraState | null; stacked?: boolean; focusKey?: string }) {
+export function PostCameraLine({ state, focusKey }: { state: CameraState | null; focusKey?: string }) {
   const { isAdmin } = useIsAdmin();
   // Keyed by the photo: another photo of the post (carousel) is a new line with its own once-only entry.
-  return <CameraLine key={focusKey} state={state} admin={isAdmin} stacked={stacked} focusKey={focusKey} />;
+  return <CameraLine key={focusKey} state={state} admin={isAdmin} focusKey={focusKey} />;
 }
 
 /* ── APP full-screen ⓘ ── */

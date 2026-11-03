@@ -116,10 +116,31 @@ function expectPlaced(container: HTMLElement): HTMLElement {
   expect(container.querySelector("[data-camera-strip]")).toBeNull();
   expect(line.textContent).toContain("Nikon Z 6II · 24 mm · f/7.1 · 1/125 s · ISO 5000");
   expect(line.textContent).not.toMatch(/NIKON CORPORATION/);
-  // Entry animation: only the swappable hook (none shipped yet).
+  // Entry animation: the swappable "lens focus" hook (src/index.css .camLineEnter).
   expect(line.classList.contains("camLineEnter")).toBe(true);
   return line;
 }
+
+describe("web and app shell: exact same to same", () => {
+  const lineHtml = async (app: boolean, isAdmin: boolean, open: boolean) => {
+    setApp(app);
+    admin = isAdmin;
+    const r = wrap(card());
+    await settle();
+    const line = r.container.querySelector("[data-camera-line]") as HTMLElement;
+    if (open) fireEvent.click(line.querySelector("button")!);
+    const out = line.outerHTML.replace(/:r[0-9a-z]+:|«r[0-9a-z]+»|_r_[0-9a-z]+_/g, "ID");
+    r.unmount();
+    setApp(false);
+    return out;
+  };
+  it.each([["member", false, false], ["admin closed", true, false], ["admin opened", true, true]] as const)(
+    "%s: the feed card's camera line markup is identical in the web and the app",
+    async (_n, isAdmin, open) => {
+      expect(await lineHtml(true, isAdmin, open)).toBe(await lineHtml(false, isAdmin, open));
+    },
+  );
+});
 
 describe.each([["WEB", false], ["APP", true]] as const)("%s card: the approved camera line", (_name, app) => {
   it("EVERYONE: one line directly after the photo, before Like / Comment / Share — no arrow, not clickable, no 2nd line, no location", async () => {

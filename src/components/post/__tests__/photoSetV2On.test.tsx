@@ -128,9 +128,9 @@ describe("WEB feed card / post page (PostCard is both)", () => {
 
   it("an OLD photo with no camera details → nothing (its file was never read)", async () => {
     cameraRows = [];
-    wrap(card(post({ image_url: OLD, image_urls: [OLD], thumbnail_urls: [OLD_THUMB] } as Partial<UnifiedPost>)));
+    const { container } = wrap(card(post({ image_url: OLD, image_urls: [OLD], thumbnail_urls: [OLD_THUMB] } as Partial<UnifiedPost>)));
     await settle();
-    expect(screen.queryByRole("button", { name: /camera details/i })).toBeNull();
+    expect(container.querySelector("[data-camera-line]")).toBeNull();
   });
 
   it("a page of cards costs ONE camera read, not one per post", async () => {

@@ -688,7 +688,7 @@ const PostCard = ({
           photo, above Like / Comment / Share. One line for everyone; only site
           admins get the arrow that opens Lens + Taken. Owner-approved 2026-11-03
           (50mm-camera-line-FIX.html v2). No camera details → nothing. */}
-      {photoSetOn && <PostCameraLine state={cameraState} stacked={inApp} focusKey={`${post.id}:${imageUrls[cameraSlide] ?? ""}`} />}
+      {photoSetOn && <PostCameraLine state={cameraState} focusKey={`${post.id}:${imageUrls[cameraSlide] ?? ""}`} />}
 
       {/* ── ACTION ROW — ICONS WITH THEIR COUNTS BESIDE THEM ──
 

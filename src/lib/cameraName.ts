@@ -106,7 +106,8 @@ function knownMakerAt(text: string): { brand: string; rest: string } | null {
 
 /** A shouting or all-lower maker word in normal case ("ACME" → "Acme"); mixed case is left alone. */
 function normalCase(word: string): string {
-  if (!/^[A-Za-z]{3,}$/.test(word)) return word;
+  // Short capitals are usually initials (HTC, ZTE, NEC, EOS): leave them alone.
+  if (!/^[A-Za-z]{4,}$/.test(word)) return word;
   if (word !== word.toUpperCase() && word !== word.toLowerCase()) return word;
   return word[0].toUpperCase() + word.slice(1).toLowerCase();
 }

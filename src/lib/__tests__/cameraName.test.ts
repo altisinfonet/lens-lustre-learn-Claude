@@ -36,6 +36,10 @@ describe("cleanCameraName(maker, model)", () => {
     expect(cleanCameraName("zorki", "Z-4K")).toBe("Zorki Z-4K");
     expect(cleanCameraName("  ", "  X100  ")).toBe("X100");
     expect(cleanCameraName("DJI", "FC3582")).toBe("DJI FC3582");
+    // Short capitals are initials — never "Htc" / "Zte".
+    expect(cleanCameraName("HTC", "HTC One")).toBe("HTC One");
+    expect(cleanCameraName("ZTE", "Blade A71")).toBe("ZTE Blade A71");
+    expect(cameraDisplayName("EOS R5")).toBe("EOS R5");
   });
 
   it("nothing → undefined", () => {
