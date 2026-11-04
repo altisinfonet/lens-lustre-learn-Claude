@@ -74,4 +74,10 @@ describe("2 · full screen saves a -l6 photo with the drawn credit", () => {
     expect(ev).toBe(false); // default prevented
     await vi.waitFor(() => expect(savePhotoWithCredit).toHaveBeenCalledWith(url));
   });
+
+  it("iPhone Safari's long-press callout (no contextmenu there) is switched off for a -l6 photo in full screen", () => {
+    // jsdom drops -webkit-touch-callout from CSSStyleDeclaration, so this reads the source.
+    const src = read("src/components/media/ZoomableImage.tsx");
+    expect(src).toMatch(/drawnSave \? \{ WebkitTouchCallout: "none"/);
+  });
 });
