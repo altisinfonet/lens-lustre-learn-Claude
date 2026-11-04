@@ -21,6 +21,12 @@
  * again; the only bytes that moved: the member download button is gone (policy,
  * not the switch) and a set photo's blur placeholder is its clean 320 for every
  * viewer (decided by the file, no longer frozen from the switch answer).
+ *
+ * FEED GESTURES (4 Nov 2026, Owner: feed "exactly like Instagram"): re-recorded
+ * again; the only bytes that moved are on the feed photo's frame — the
+ * `cursor-zoom-in` class is gone (a click opens nothing now), the frame carries
+ * `data-feed-photo` + `select-none` + `touch-action: pan-x pan-y`, the
+ * album counter carries `data-pinch-hide`. Not the switch.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, act } from "@testing-library/react";
