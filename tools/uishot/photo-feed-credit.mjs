@@ -35,7 +35,7 @@ import { join } from "node:path";
 import { chromium, firefox, webkit } from "playwright";
 import { PNG } from "pngjs";
 import sharp from "sharp";
-import { renderCredit } from "../media-derivatives/credit-render.mjs";
+import { creditFontPx, measureCredit as measureLine, renderCredit } from "../media-derivatives/credit-render.mjs";
 
 const arg = (n, d) => { const i = process.argv.indexOf(n); return i > -1 ? process.argv[i + 1] : d; };
 const OUT = arg("--out", null);
@@ -105,10 +105,12 @@ function diff(aBuf, bBuf) {
  * drawn. Measured on live: v1 57 % of the width at alpha ≈ 0.82; v2 (one third,
  * half) 18–23 % at ≈ 0.40; v3 (one third of v2) 6–8 % at ≈ 0.15 — "unreadable".
  * v4 "MIDDLE SIZE" (Owner, 3 Nov 16:05Z): HALF of v2's size, slightly fainter
- * (≈ 0.30) — ≈ 9–12 % of the width. The bounds below fail v1, v2 AND v3.
+ * (≈ 0.30). v5 (Owner approved, 4 Nov): the font follows the SHORT side, 11–28 px,
+ * so a share of the width means nothing across sizes. The line's expected width
+ * comes from the renderer's own measurement for THIS file; the ink must be within
+ * the bounds below of it, which fails every older size on a real file.
  */
-// alpha (p90) reads low on 6 px text (anti-aliased edges), so WIDTH separates v3 from v4; alpha guards "too opaque / invisible"
-const CREDIT_LIMITS = { minWidthPct: 8, maxWidthPct: 14, maxHeightPct: 2.5, minAlpha: 0.14, maxAlpha: 0.36 };
+const CREDIT_LIMITS = { minOfExpected: 0.8, maxOfExpected: 1.15, maxHeightPct: 3.5, minAlpha: 0.14, maxAlpha: 0.36 };
 async function measureCredit(credB64, cleanB64) {
   const a0 = Buffer.from(credB64, "base64");
   const m = await sharp(a0).metadata();
@@ -122,9 +124,12 @@ async function measureCredit(credB64, cleanB64) {
   }
   est.sort((p, q) => p - q);
   if (!est.length) return { size: `${m.width}x${m.height}`, px: 0, widthPct: 0, heightPct: 0, alphaP90: 0 };
+  const { px: fontPx } = await creditFontPx(sharp, m.width, m.height, CREDIT_LINE);
+  const expected = (await measureLine(sharp, CREDIT_LINE, fontPx)).w;
   return {
     size: `${m.width}x${m.height}`, px: est.length,
     widthPct: +((maxx - minx + 1) / m.width * 100).toFixed(1),
+    ofExpected: +((maxx - minx + 1) / expected).toFixed(2),
     heightPct: +((maxy - miny + 1) / m.height * 100).toFixed(2),
     heightPx: maxy - miny + 1,
     alphaP90: +est[Math.floor(est.length * 0.9)].toFixed(2),
@@ -133,9 +138,9 @@ async function measureCredit(credB64, cleanB64) {
 function creditFail(row, c) {
   const L = CREDIT_LIMITS;
   if (!c || c.px === 0) return fail(row, "the saved file carries no credit at all");
-  if (c.widthPct > L.maxWidthPct || c.widthPct < L.minWidthPct) fail(row, `the credit is ${c.widthPct} % of the width (want ${L.minWidthPct}–${L.maxWidthPct} %: half of v2)`);
+  if (c.ofExpected > L.maxOfExpected || c.ofExpected < L.minOfExpected) fail(row, `the credit's ink is ${c.ofExpected} × the v5 line for this file (want ${L.minOfExpected}–${L.maxOfExpected})`);
   if (c.heightPct > L.maxHeightPct) fail(row, `the credit is ${c.heightPct} % of the height (max ${L.maxHeightPct} %)`);
-  if (c.alphaP90 > L.maxAlpha || c.alphaP90 < L.minAlpha) fail(row, `the credit's opacity is ${c.alphaP90} (want ${L.minAlpha}–${L.maxAlpha}: slightly fainter than v2 ≈ 0.38)`);
+  if (c.alphaP90 > L.maxAlpha || c.alphaP90 < L.minAlpha) fail(row, `the credit's opacity is ${c.alphaP90} (want ${L.minAlpha}–${L.maxAlpha})`);
 }
 /** The saved file's bottom-right corner, zoomed 3× (the Owner's PNGs). */
 async function corner(b64, out) {
