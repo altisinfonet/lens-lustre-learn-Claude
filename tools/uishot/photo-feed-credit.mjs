@@ -266,7 +266,8 @@ if (!process.argv.includes("--skip-feed") && !ONLY_CREDIT) {
   for (const vp of Object.keys(VIEWPORTS)) {
     const r = await open(browser, { shape: "v3", size: "large", vp, dpr: 2, viewer: "out", noCredited: true });
     const row = { part: "feed before the sweep", vp, ok: true };
-    const photo = r.page.locator('#cardwrap img[src*="-l5"]').first();
+    // [sizes]: the photo, not its blurred backdrop. A handle, because arming removes `sizes`.
+    const photo = await r.page.locator('#cardwrap img[sizes][src*="-l5"]').first().elementHandle();
     const before = await photo.screenshot();
     await photo.click({ button: "right" });
     await r.page.waitForTimeout(2500); // past the retrier's delays

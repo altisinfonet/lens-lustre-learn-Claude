@@ -50,6 +50,8 @@ BEGIN
    LIMIT least(greatest(coalesce(_limit, 50), 1), 200);
 END;
 $fn$;
+REVOKE ALL ON FUNCTION public.photo_old_credit_queue(integer, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.photo_old_credit_queue(integer, uuid) TO authenticated;
 DROP FUNCTION public.photo_old_credit_record(uuid, integer, text, integer);
 DROP FUNCTION public.photo_credit_parked_count();
 DROP FUNCTION public.photo_credit_failed(text, text);

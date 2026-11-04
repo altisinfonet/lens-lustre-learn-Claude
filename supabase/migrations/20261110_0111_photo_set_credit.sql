@@ -280,12 +280,14 @@ REVOKE ALL ON FUNCTION public.photo_set_credit_queue(integer, text) FROM PUBLIC,
 REVOKE ALL ON FUNCTION public.photo_set_credit_target(text) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.photo_set_credit_record(text, integer, boolean, text) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.photo_old_credit_record(uuid, integer, text, integer) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.photo_old_credit_queue(integer, uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.photo_credit_failed(text, text) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.photo_credit_parked_count() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.photo_set_credit_queue(integer, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.photo_set_credit_target(text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.photo_set_credit_record(text, integer, boolean, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.photo_old_credit_record(uuid, integer, text, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.photo_old_credit_queue(integer, uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.photo_credit_failed(text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.photo_credit_parked_count() TO authenticated;
 
