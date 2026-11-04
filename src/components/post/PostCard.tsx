@@ -362,7 +362,7 @@ const PostCard = ({
           caption-less post — every Suggested post, most reshares — had its photo
           jammed against the name. Any change here must keep the header-to-media
           gap identical whether or not a caption exists. */}
-      <div className="flex items-center gap-[11px] p-3 pb-2">
+      <div className="flex items-center gap-2.5 p-3 pb-2">
         {/* THE AVATAR IS 32px BY DESIGN; THE TAP TARGET IS 44px.
             Reported by the sweep at 32x37 on the feed and on post detail. The
             photo itself must stay 32px — it is the Instagram proportion the
