@@ -15,6 +15,7 @@
  *   2. fits it in 2048 px (never enlarged), draws the credit, encodes WebP and
  *      PUTs it. The route derives the key, never overwrites, HEADs and records
  *      credit_version.
+ * A photo that fails is counted, and parked after a few tries (credit-failure.mjs).
  * Changes no post and nothing on screen: only "save image" reads this copy.
  *
  * USAGE
@@ -23,6 +24,7 @@
  */
 import { readFileSync } from "node:fs";
 import { renderCredit } from "./credit-render.mjs";
+import { reportFailure, sweepExitCode, sweepSummary } from "./credit-failure.mjs";
 
 const args = process.argv.slice(2);
 const flag = (n) => args.includes(`--${n}`);
@@ -70,13 +72,15 @@ async function credit(sharp, j, version, stats) {
 
 async function main() {
   const sharp = dryRun ? null : (await import("sharp")).default;
-  const stats = { photos: 0, recorded: 0, existing: 0, already: 0, failed: 0, no_clean_copy: 0, not_drawn: 0, fallback_font: 0 };
+  const stats = { photos: 0, recorded: 0, existing: 0, already: 0, failed: 0, parked_now: 0, no_clean_copy: 0, not_drawn: 0, fallback_font: 0 };
   let after = null;
+  let parked = 0;
   for (;;) {
     const res = await post({ op: "claim", limit: SLICE, after });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw Object.assign(new Error(`claim ${res.status} ${body.error ?? ""}`), { fatal: true });
     const jobs = body.jobs ?? [];
+    parked = body.parked ?? parked;
     for (const j of jobs) {
       if (max && stats.photos >= max) break;
       stats.photos++;
@@ -84,17 +88,19 @@ async function main() {
       try {
         const r = await credit(sharp, j, body.version, stats);
         if (r === "recorded" || r === "existing" || r === "already") stats[r]++;
-        else { stats.failed++; console.log(`fail #${stats.photos} ${r}`); }
+        else { console.log(`fail #${stats.photos} ${r}`); await reportFailure(post, { op: "failed", key: j.key }, r, stats); }
       } catch (e) {
         if (e.fatal) throw e;
-        stats.failed++; console.log(`fail #${stats.photos} ${e.message}`);
+        console.log(`fail #${stats.photos} ${e.message}`);
+        await reportFailure(post, { op: "failed", key: j.key }, e.message, stats);
       }
     }
     if (jobs.length < SLICE || (max && stats.photos >= max)) break;
     after = jobs[jobs.length - 1].key; // keyset: a failed photo waits for the next run
   }
-  console.log(`${dryRun ? "DRY RUN " : ""}done: ${JSON.stringify(stats)}`);
-  if (stats.failed) process.exitCode = 3;
+  console.log(`${dryRun ? "DRY RUN " : ""}done: ${JSON.stringify(stats)}, parked in total: ${parked}`);
+  sweepSummary("new photos", stats, parked);
+  process.exitCode = sweepExitCode(stats);
 }
 
 main().catch((e) => { console.error(`stopped: ${e.message}`); process.exit(1); });

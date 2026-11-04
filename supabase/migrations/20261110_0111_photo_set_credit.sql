@@ -19,6 +19,11 @@
 --   photo_set_credit_queue(limit, after) worker: photos with no record (+ owner name for the line)
 --   photo_set_credit_target(key)         worker: one row when something names the key, with done
 --   photo_set_credit_record(key, version, drawn, origin)  worker: record it
+--   photo_credit_failure                 one row per photo that keeps failing (new or old)
+--   photo_credit_parked(subject)         internal: 5 failures, and tried within the last day
+--   photo_credit_failed(subject, error)  worker: count a failure, answer the attempts
+--   photo_credit_parked_count()          worker: how many are parked, for the run's report
+--   photo_old_credit_queue(limit, after) 0109's queue, leaving parked photos out
 --   photo_old_credit_record(post, ord, key, version)      worker: 0109's record, with the version
 --                                        the file really carries (the 3-argument one wrote 4;
 --                                        it stays for the deployed route until this code is live)
@@ -82,6 +87,29 @@ COMMENT ON TABLE public.photo_set_credit IS
   'Credit U3: which credit the -r2048c copy of a v3 photo carries. Written only by '
   'photo_set_credit_record(). drawn = false: the photo is too small for the line, the copy is clean.';
 
+-- A photo that cannot be drawn must not be retried every 15 minutes for ever:
+-- after 5 failures the queues leave it out, except for one try a day (so a
+-- passing outage heals by itself). A success removes the row.
+CREATE TABLE public.photo_credit_failure (
+  subject    text        PRIMARY KEY
+             CHECK (subject ~ '^(post-images/[0-9a-f-]{36}/posts|competition-photos/[0-9a-f-]{36}/competitions)/[A-Za-z0-9_.-]+-w[0-9]{1,5}h[0-9]{1,5}-l5f?\.webp$'
+                 OR subject ~ '^old/[0-9a-f-]{36}/[0-9]{1,2}$'),
+  attempts   integer     NOT NULL CHECK (attempts >= 1),
+  last_error text        NOT NULL,
+  last_at    timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.photo_credit_failure ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.photo_credit_failure FROM PUBLIC, anon, authenticated;
+COMMENT ON TABLE public.photo_credit_failure IS
+  'Credit U3: photos the sweep could not draw. subject = a v3 photo key, or old/<post>/<ord>. Written only by photo_credit_failed().';
+
+CREATE FUNCTION public.photo_credit_parked(_subject text)
+RETURNS boolean LANGUAGE sql STABLE SET search_path TO '' AS $fn$
+  SELECT EXISTS (SELECT 1 FROM public.photo_credit_failure f
+                  WHERE f.subject = _subject AND f.attempts >= 5 AND f.last_at > now() - interval '1 day')
+$fn$;
+REVOKE ALL ON FUNCTION public.photo_credit_parked(text) FROM PUBLIC, anon, authenticated;
+
 -- ── 2. what is named ────────────────────────────────────────────────────────
 CREATE FUNCTION public.photo_set_credit_named()
 RETURNS TABLE(photo_key text, owner_id uuid)
@@ -116,6 +144,7 @@ BEGIN
     LEFT JOIN public.profiles pr ON pr.id = n.owner_id
    WHERE (_after IS NULL OR n.photo_key > _after)
      AND NOT EXISTS (SELECT 1 FROM public.photo_set_credit c WHERE c.photo_key = n.photo_key)
+     AND NOT public.photo_credit_parked(n.photo_key)
    ORDER BY n.photo_key
    LIMIT least(greatest(coalesce(_limit, 50), 1), 200);
 END;
@@ -151,6 +180,35 @@ BEGIN
      SET credit_version = EXCLUDED.credit_version, drawn = EXCLUDED.drawn, origin = EXCLUDED.origin,
          recorded_by = EXCLUDED.recorded_by, recorded_at = now()
    WHERE public.photo_set_credit.credit_version < EXCLUDED.credit_version;
+  DELETE FROM public.photo_credit_failure f WHERE f.subject = _key;
+END;
+$fn$;
+
+CREATE FUNCTION public.photo_credit_failed(_subject text, _error text)
+RETURNS integer
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path TO '' AS $fn$
+DECLARE _n integer;
+BEGIN
+  IF NOT public.media_derivative_worker_ok() THEN
+    RAISE EXCEPTION 'PHOTO-SC-001 only an admin or the converter may record a failed photo' USING ERRCODE = '42501';
+  END IF;
+  INSERT INTO public.photo_credit_failure AS f (subject, attempts, last_error)
+  VALUES (_subject, 1, left(coalesce(_error, ''), 200))
+  ON CONFLICT (subject) DO UPDATE
+     SET attempts = f.attempts + 1, last_error = EXCLUDED.last_error, last_at = now()
+  RETURNING f.attempts INTO _n;
+  RETURN _n;
+END;
+$fn$;
+
+CREATE FUNCTION public.photo_credit_parked_count()
+RETURNS bigint
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO '' AS $fn$
+BEGIN
+  IF NOT public.media_derivative_worker_ok() THEN
+    RAISE EXCEPTION 'PHOTO-SC-001 only an admin or the converter may read the failed photos' USING ERRCODE = '42501';
+  END IF;
+  RETURN (SELECT count(*) FROM public.photo_credit_failure f WHERE f.attempts >= 5);
 END;
 $fn$;
 
@@ -185,7 +243,33 @@ BEGIN
          recorded_by = EXCLUDED.recorded_by, recorded_at = now()
    WHERE public.photo_old_credit.src_url IS DISTINCT FROM EXCLUDED.src_url
       OR public.photo_old_credit.credit_version < EXCLUDED.credit_version;
+  DELETE FROM public.photo_credit_failure f WHERE f.subject = 'old/' || _post_id::text || '/' || _ord::text;
   RETURN _new;
+END;
+$fn$;
+
+CREATE OR REPLACE FUNCTION public.photo_old_credit_queue(_limit integer, _after uuid)
+RETURNS TABLE(post_id uuid, ord integer, src_url text, owner_full_name text, owner_handle text, owner_is_admin boolean)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO '' AS $fn$
+#variable_conflict use_column
+BEGIN
+  IF NOT public.media_derivative_worker_ok() THEN
+    RAISE EXCEPTION 'PHOTO-OC-001 only an admin or the converter may read the old-credit queue' USING ERRCODE = '42501';
+  END IF;
+  RETURN QUERY
+  SELECT p.id, (u.i - 1)::integer, u.url, pr.full_name, pr.custom_url,
+         public.has_role(p.user_id, 'admin'::public.app_role)
+    FROM public.posts p
+   CROSS JOIN LATERAL unnest(p.image_urls) WITH ORDINALITY AS u(url, i)
+    LEFT JOIN public.profiles pr ON pr.id = p.user_id
+   WHERE u.i <= 50
+     AND (_after IS NULL OR p.id > _after)
+     AND public.photo_old_credit_class(u.url) IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM public.photo_old_credit c
+                      WHERE c.post_id = p.id AND c.ord = u.i - 1 AND c.src_url = u.url AND c.credit_version >= 4)
+     AND NOT public.photo_credit_parked('old/' || p.id::text || '/' || (u.i - 1)::text)
+   ORDER BY p.id, u.i
+   LIMIT least(greatest(coalesce(_limit, 50), 1), 200);
 END;
 $fn$;
 
@@ -196,10 +280,14 @@ REVOKE ALL ON FUNCTION public.photo_set_credit_queue(integer, text) FROM PUBLIC,
 REVOKE ALL ON FUNCTION public.photo_set_credit_target(text) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.photo_set_credit_record(text, integer, boolean, text) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.photo_old_credit_record(uuid, integer, text, integer) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.photo_credit_failed(text, text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.photo_credit_parked_count() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.photo_set_credit_queue(integer, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.photo_set_credit_target(text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.photo_set_credit_record(text, integer, boolean, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.photo_old_credit_record(uuid, integer, text, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.photo_credit_failed(text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.photo_credit_parked_count() TO authenticated;
 
 DO $post$
 DECLARE _n bigint;

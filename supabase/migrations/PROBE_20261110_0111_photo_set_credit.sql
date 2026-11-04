@@ -10,7 +10,10 @@
 --   C3 the helper is not executable by anon / authenticated, and every key it
 --      names is a v3 photo of this lane's shape;
 --   C4 photo_l4_rectify.credit_version defaults to 5, and the 4-argument
---      photo_old_credit_record refuses a version below 5.
+--      photo_old_credit_record refuses a version below 5;
+--   C5 photo_credit_failure has no grant to anon / authenticated; a photo is parked
+--      at 5 failures tried within a day, not at 4, not after a day; both queues
+--      leave parked photos out.
 -- FAIL before the apply (C1: the table does not exist).
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN;
@@ -43,7 +46,8 @@ BEGIN
   IF NOT _ok THEN RAISE EXCEPTION 'PROBE FAIL C1: the key check took a credited sibling'; END IF;
   -- C2
   FOREACH _f IN ARRAY ARRAY['public.photo_set_credit_queue(integer,text)', 'public.photo_set_credit_target(text)',
-                            'public.photo_set_credit_record(text,integer,boolean,text)', 'public.photo_old_credit_record(uuid,integer,text,integer)'] LOOP
+                            'public.photo_set_credit_record(text,integer,boolean,text)', 'public.photo_old_credit_record(uuid,integer,text,integer)',
+                            'public.photo_credit_failed(text,text)', 'public.photo_credit_parked_count()', 'public.photo_old_credit_queue(integer,uuid)'] LOOP
     IF to_regprocedure(_f) IS NULL THEN RAISE EXCEPTION 'PROBE FAIL C2: % is missing', _f; END IF;
     IF NOT (SELECT p.prosecdef FROM pg_proc p WHERE p.oid = to_regprocedure(_f)) THEN RAISE EXCEPTION 'PROBE FAIL C2: % is not SECURITY DEFINER', _f; END IF;
     IF NOT coalesce((SELECT p.proconfig @> ARRAY['search_path=""'] FROM pg_proc p WHERE p.oid = to_regprocedure(_f)), false) THEN
@@ -68,6 +72,26 @@ BEGIN
   END IF;
   IF position('_version < 5' IN pg_get_functiondef('public.photo_old_credit_record(uuid,integer,text,integer)'::regprocedure)) = 0 THEN
     RAISE EXCEPTION 'PROBE FAIL C4: the old-credit record takes a version below 5';
+  END IF;
+  -- C5
+  IF has_table_privilege('anon', 'public.photo_credit_failure', 'SELECT') OR has_table_privilege('authenticated', 'public.photo_credit_failure', 'SELECT') THEN
+    RAISE EXCEPTION 'PROBE FAIL C5: photo_credit_failure is granted to anon or authenticated';
+  END IF;
+  IF has_function_privilege('authenticated', 'public.photo_credit_parked(text)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'PROBE FAIL C5: photo_credit_parked is executable by authenticated';
+  END IF;
+  INSERT INTO public.photo_credit_failure (subject, attempts, last_error, last_at) VALUES
+    ('old/aaaaaaaa-0000-4000-8000-000000000001/0', 4, 'probe', now()),
+    ('old/aaaaaaaa-0000-4000-8000-000000000001/1', 5, 'probe', now()),
+    ('old/aaaaaaaa-0000-4000-8000-000000000001/2', 5, 'probe', now() - interval '2 days');
+  IF public.photo_credit_parked('old/aaaaaaaa-0000-4000-8000-000000000001/0')
+     OR NOT public.photo_credit_parked('old/aaaaaaaa-0000-4000-8000-000000000001/1')
+     OR public.photo_credit_parked('old/aaaaaaaa-0000-4000-8000-000000000001/2') THEN
+    RAISE EXCEPTION 'PROBE FAIL C5: the parking rule is wrong';
+  END IF;
+  IF position('photo_credit_parked' IN pg_get_functiondef('public.photo_old_credit_queue(integer,uuid)'::regprocedure)) = 0
+     OR position('photo_credit_parked' IN pg_get_functiondef('public.photo_set_credit_queue(integer,text)'::regprocedure)) = 0 THEN
+    RAISE EXCEPTION 'PROBE FAIL C5: a queue does not leave parked photos out';
   END IF;
   RAISE NOTICE 'PROBE PASS 20261110_0111 on %: % v3 photo(s) named, % recorded', current_setting('p32.lane'), _n,
     (SELECT count(*) FROM public.photo_set_credit WHERE recorded_at < now() - interval '1 second');

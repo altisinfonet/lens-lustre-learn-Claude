@@ -59,6 +59,8 @@ function setup(o: Opts = {}) {
       calls.push(`queue ${String(init?.body)}`);
       return new Response(JSON.stringify([{ photo_key: KEY, owner_full_name: "Dipannita Sen", owner_handle: "dipannita", owner_is_admin: false }]), { status: 200 });
     }
+    if (u.endsWith("/rpc/photo_credit_parked_count")) return new Response("2", { status: 200 });
+    if (u.endsWith("/rpc/photo_credit_failed")) { calls.push(`failed ${String(init?.body)}`); return new Response("3", { status: 200 }); }
     if (u.endsWith("/rpc/photo_set_credit_record")) { calls.push(`record ${String(init?.body)}`); return new Response("null", { status: 200 }); }
     return new Response("{}", { status: 404 });
   }) as unknown as typeof fetch;
@@ -91,8 +93,16 @@ describe("/api/media/photoset/setcredit", () => {
   it("claim: the queue as the caller, member data only as the finished credit line", async () => {
     const s = setup();
     const r = await s.claim({ op: "claim", limit: 5, after: KEY });
-    expect(await r.json()).toEqual({ version: CREDIT_GEOMETRY.version, jobs: [{ key: KEY, credit: "© Dipannita Sen, 50mm Retina World" }] });
+    expect(await r.json()).toEqual({ version: CREDIT_GEOMETRY.version, parked: 2, jobs: [{ key: KEY, credit: "© Dipannita Sen, 50mm Retina World" }] });
     expect(s.calls).toEqual([`queue ${JSON.stringify({ _limit: 5, _after: KEY })}`]);
+  });
+
+  it("failed: a photo that could not be drawn is counted, and the route answers how many times", async () => {
+    const s = setup();
+    const r = await s.claim({ op: "failed", key: KEY, error: "source 500" });
+    expect(await r.json()).toEqual({ attempts: 3 });
+    expect(s.calls).toEqual([`failed ${JSON.stringify({ _subject: KEY, _error: "source 500" })}`]);
+    expect((await setup().claim({ op: "failed", key: CRED, error: "x" })).status).toBe(400);
   });
 
   it("source: the PRIVATE clean 2048 when kept", async () => {

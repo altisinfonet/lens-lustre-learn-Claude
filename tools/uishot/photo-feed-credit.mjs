@@ -85,13 +85,13 @@ const name = (u) => u.split("/").pop();
 const bare = (u) => (typeof u === "string" ? u.replace(/\?.*$/, "") : u);
 
 /** Pixel comparison of two PNG buffers of the same size. */
-function diff(aBuf, bBuf) {
+function diff(aBuf, bBuf, channel = CHANNEL) {
   const a = PNG.sync.read(aBuf);
   const b = PNG.sync.read(bBuf);
   if (a.width !== b.width || a.height !== b.height) return { same: false, differing: Infinity, why: `size ${a.width}x${a.height} vs ${b.width}x${b.height}` };
   let n = 0;
   for (let i = 0; i < a.data.length; i += 4) {
-    if (Math.abs(a.data[i] - b.data[i]) > CHANNEL || Math.abs(a.data[i + 1] - b.data[i + 1]) > CHANNEL || Math.abs(a.data[i + 2] - b.data[i + 2]) > CHANNEL) n++;
+    if (Math.abs(a.data[i] - b.data[i]) > channel || Math.abs(a.data[i + 1] - b.data[i + 1]) > channel || Math.abs(a.data[i + 2] - b.data[i + 2]) > channel) n++;
   }
   const share = n / (a.width * a.height);
   return { same: share <= SHARE, differing: n, why: `${n} px differ (${(share * 100).toFixed(3)} %)` };
@@ -150,7 +150,7 @@ async function corner(b64, out) {
   await sharp(buf).extract({ left: m.width - w, top: m.height - h, width: w, height: h }).resize({ width: w * 3, kernel: "nearest" }).png().toFile(out);
 }
 
-async function open(browser, { vp, dpr, viewer, size, shape, admin = false, app = false }) {
+async function open(browser, { vp, dpr, viewer, size, shape, admin = false, app = false, noCredited = false }) {
   const ctx = await browser.newContext({ viewport: VIEWPORTS[vp], deviceScaleFactor: dpr, colorScheme: "dark", reducedMotion: "reduce" });
   const page = await ctx.newPage();
   const errors = [];
@@ -161,6 +161,8 @@ async function open(browser, { vp, dpr, viewer, size, shape, admin = false, app 
   await page.route("https://cdn.harness.test/**", async (route) => {
     const url = bare(route.request().url()); // the credited copy is loaded as ?cv=<urlVersion>; the store is keyed by the file
     requested.push(url);
+    // noCredited: the window before the server's sweep has drawn the copy.
+    if (noCredited && /-r2048c\.webp$/.test(url)) return route.fulfill({ status: 404, body: "" });
     // viewer "err": every copy's FIRST request fails, so every fallback path runs.
     if (viewer === "err" && !failedOnce.has(url)) { failedOnce.add(url); return route.fulfill({ status: 404, body: "" }); }
     const hit = await page.evaluate((u) => window.__photoStore?.[u] ?? null, url).catch(() => null);
@@ -252,6 +254,34 @@ if (!process.argv.includes("--skip-feed") && !ONLY_CREDIT) {
     if (bad.length) fail(row, `feed loaded credited ${bad.map(name).join(", ")}`);
     rows.push(row);
     console.log(`${row.ok ? "PASS" : "FAIL"} feed ${s.shape} ${s.size} ${s.vp} dpr ${s.dpr} viewer ${s.viewer}${bad.length ? ` — ${bad.map(name).join(", ")}` : ""}`);
+    await r.ctx.close();
+  }
+  await browser.close();
+}
+
+// ── 1b. BEFORE THE SWEEP: no credited file yet. A right-click must leave the
+//       feed photo exactly as it was, never a broken image or the placeholder. ──
+if (!process.argv.includes("--skip-feed") && !ONLY_CREDIT) {
+  const browser = await chromium.launch();
+  for (const vp of Object.keys(VIEWPORTS)) {
+    const r = await open(browser, { shape: "v3", size: "large", vp, dpr: 2, viewer: "out", noCredited: true });
+    const row = { part: "feed before the sweep", vp, ok: true };
+    const photo = r.page.locator('#cardwrap img[src*="-l5"]').first();
+    const before = await photo.screenshot();
+    await photo.click({ button: "right" });
+    await r.page.waitForTimeout(2500); // past the retrier's delays
+    await r.page.keyboard.press("Escape");
+    const facts = await photo.evaluate((i) => ({ src: i.getAttribute("src"), width: i.naturalWidth, placeholder: i.dataset.fallbackApplied ?? null, armed: i.dataset.saveAs ?? null }));
+    const after = await photo.screenshot();
+    const same = diff(before, after);
+    Object.assign(row, { facts, same: same.why });
+    if (!r.requested.some((u) => /-r2048c\.webp$/.test(u))) fail(row, "the right-click never asked for the credited file: the check would be vacuous");
+    if (/-r2048c/.test(facts.src) || facts.armed) fail(row, `the photo stayed on the missing credited file (${name(facts.src)})`);
+    if (!facts.width) fail(row, "the photo is broken after the right-click");
+    if (facts.placeholder) fail(row, "the global fallback planted the placeholder");
+    if (!same.same) fail(row, `the photo changed on screen: ${same.why}`);
+    rows.push(row);
+    console.log(`${row.ok ? "PASS" : "FAIL"} feed before the sweep ${vp}${row.failed ? ` — ${row.failed.join("; ")}` : ""}`);
     await r.ctx.close();
   }
   await browser.close();
@@ -398,7 +428,8 @@ for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
       if (!vsClean.same) fail(row, `the screen is not the clean copy: ${vsClean.why}`);
       if (!retired) {
         const creditRef = await draw(facts.src);
-        const vsCredit = diff(cleanRef, creditRef);
+        // v5 is faint and small on a scaled-down photo: any real change counts here.
+        const vsCredit = diff(cleanRef, creditRef, 12);
         row.cleanVsCredited = vsCredit.why;
         if (vsCredit.differing < CREDIT_MIN_PIXELS) fail(row, `the credited file looks like the clean one here (${vsCredit.why}) — the check would be vacuous`);
       }

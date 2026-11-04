@@ -22,7 +22,7 @@ import ZoomableImage from "@/components/media/ZoomableImage";
 import { ladderFor, originalFor } from "@/lib/media/resolvedMedia";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import { frameAspectFor, frameAspectForUrls, parseImageDims } from "@/lib/imageFrame";
-import { hasLadderMarker, photoSetBlurUrl, photoSetCleanUrl, photoSetMarker, rungPath, rungPlan, rungWidthFor } from "@/lib/imageLadder";
+import { hasLadderMarker, isSaveTargetCreditedUrl, photoSetBlurUrl, photoSetCleanUrl, photoSetMarker, rungPath, rungPlan, rungWidthFor } from "@/lib/imageLadder";
 import { useNetworkQuality } from "@/hooks/core/useNetworkQuality";
 import { useDataSaver } from "@/hooks/core/useDataSaver";
 import { feedPhotoSet, memberPhotoSrc, saveAsPhotoUrl } from "@/lib/photoProtection";
@@ -587,7 +587,9 @@ const ProgressiveImage = ({
           const img = e.currentTarget;
           onNaturalSize?.(img.naturalWidth, img.naturalHeight);
         }}
-        onError={() => {
+        onError={(e) => {
+          // A missing credited save file: armCreditedSave puts the clean copy back.
+          if (isSaveTargetCreditedUrl(e.currentTarget.getAttribute("src") ?? "")) return;
           // On the free Cloudflare plan, exceeding 5,000 unique transformations
           // in a month makes the transform endpoint return an error instead of
           // degrading — which would show a BROKEN image, not a heavy one. Fall

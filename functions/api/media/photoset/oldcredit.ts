@@ -6,6 +6,8 @@
  *   POST {op:"claim", limit?, after?}   → old photos still without a credited copy:
  *                                         post_id, ord, src_url (the CLEAN original the
  *                                         post shows) and the finished credit line
+ *   POST {op:"failed", post_id, ord, error}  → counts a photo that could not be drawn;
+ *                                         after a few the queue parks it (20261110_0111)
  *   PUT  ?op=credited&post_id=&ord=&version=  body: that photo with the credit (WebP,
  *                                         long edge 1–2048, ≤ 4 MB) → stored at the DERIVED
  *                                         key, one HEAD, then recorded with the version (SQL)
@@ -74,12 +76,18 @@ export async function handleOldCredit(request: Request, env: MediaEnv, fetchImpl
     }
 
     if (request.method === "POST") {
-      const body = await readJson<{ op?: unknown; limit?: unknown; after?: unknown }>(request);
+      const body = await readJson<{ op?: unknown; limit?: unknown; after?: unknown; post_id?: unknown; ord?: unknown; error?: unknown }>(request);
       if (body.op === "claim") {
         const limit = typeof body.limit === "number" && Number.isInteger(body.limit) ? Math.min(Math.max(body.limit, 1), 200) : 50;
         const after = typeof body.after === "string" && UUID_RE.test(body.after) ? body.after : null;
         const rows = await asMember<QueueRow[]>(env, who.jwt, ...rpc("photo_old_credit_queue", { _limit: limit, _after: after }), fetchImpl);
-        return json(200, { jobs: (Array.isArray(rows) ? rows : []).map((r) => ({ post_id: r.post_id, ord: r.ord, src_url: r.src_url, credit: creditFor(r) })) });
+        const parked = await asMember<number>(env, who.jwt, ...rpc("photo_credit_parked_count", {}), fetchImpl);
+        return json(200, { parked, jobs: (Array.isArray(rows) ? rows : []).map((r) => ({ post_id: r.post_id, ord: r.ord, src_url: r.src_url, credit: creditFor(r) })) });
+      }
+      if (body.op === "failed") {
+        const { postId, ord } = parsePhoto(body.post_id, body.ord);
+        const attempts = await asMember<number>(env, who.jwt, ...rpc("photo_credit_failed", { _subject: `old/${postId}/${ord}`, _error: String(body.error ?? "") }), fetchImpl);
+        return json(200, { attempts });
       }
     }
     throw new HttpError(400, "PHOTO-OC-REQ-000", "op must be claim (POST) or credited (PUT)");

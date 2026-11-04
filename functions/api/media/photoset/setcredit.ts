@@ -12,6 +12,8 @@
  *                                        {status:"existing"} a credited file is already
  *                                        stored (an older client's canvas, a rectified
  *                                        photo): recorded as older, never drawn over
+ *   POST {op:"failed", key, error}     → counts a photo that could not be drawn; after a
+ *                                        few the queue parks it (20261110_0111)
  *   PUT  ?op=credited&key=&version=&drawn=  body: the credited copy → stored at the
  *                                        derived key, one HEAD, then recorded (SQL)
  *
@@ -81,12 +83,19 @@ export async function handleSetCredit(request: Request, env: MediaEnv, fetchImpl
     }
 
     if (request.method === "POST") {
-      const body = await readJson<{ op?: unknown; limit?: unknown; after?: unknown; key?: unknown }>(request);
+      const body = await readJson<{ op?: unknown; limit?: unknown; after?: unknown; key?: unknown; error?: unknown }>(request);
       if (body.op === "claim") {
         const limit = typeof body.limit === "number" && Number.isInteger(body.limit) ? Math.min(Math.max(body.limit, 1), 200) : 50;
         const after = typeof body.after === "string" && photoSetCreditTarget(body.after) ? body.after : null;
         const rows = await asMember<QueueRow[]>(env, who.jwt, ...rpc("photo_set_credit_queue", { _limit: limit, _after: after }), fetchImpl);
-        return json(200, { version: CREDIT_GEOMETRY.version, jobs: (Array.isArray(rows) ? rows : []).map((r) => ({ key: r.photo_key, credit: creditFor(r) })) });
+        const parked = await asMember<number>(env, who.jwt, ...rpc("photo_credit_parked_count", {}), fetchImpl);
+        return json(200, { version: CREDIT_GEOMETRY.version, parked, jobs: (Array.isArray(rows) ? rows : []).map((r) => ({ key: r.photo_key, credit: creditFor(r) })) });
+      }
+      if (body.op === "failed") {
+        const t = photoSetCreditTarget(body.key);
+        if (!t) throw new HttpError(400, "PHOTO-SC-REQ-001", "key must be a v3 photo (…-l5.webp / …-l5f.webp)");
+        const attempts = await asMember<number>(env, who.jwt, ...rpc("photo_credit_failed", { _subject: t.photoKey, _error: String(body.error ?? "") }), fetchImpl);
+        return json(200, { attempts });
       }
       if (body.op === "source") {
         const { t, done } = await target(env, who.jwt, body.key, fetchImpl);

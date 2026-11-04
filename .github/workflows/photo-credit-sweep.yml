@@ -7,6 +7,9 @@ name: Photo credit sweep (every 15 minutes, once enabled)
 #   old-credit.mjs   an upload that fell back to the old path gets its credited
 #                    copy the way an old photo does (20261110_0109)
 # The queue IS the missing work: an empty queue costs one sign-in and one call.
+# A photo that keeps failing is parked after 5 tries (one try a day after that).
+# The run goes red once, when that happens; the run's summary shows the counts.
+# old-credit runs whatever set-credit did.
 # Until a run succeeds a new photo has no credited file: full screen shows the
 # clean copy and "save image" waits.
 #
@@ -83,6 +86,7 @@ jobs:
         run: sudo apt-get install -y --no-install-recommends fonts-noto-core
 
       - name: Sign in as the worker account (token masked, 0600 file)
+        id: signin
         env:
           WORKER_EMAIL: ${{ secrets.MEDIA_WORKER_EMAIL }}
           WORKER_PASSWORD: ${{ secrets.MEDIA_WORKER_PASSWORD }}
@@ -98,7 +102,8 @@ jobs:
         run: node tools/media-derivatives/set-credit.mjs --site "$SITE"
 
       - name: Uploads that fell back to the old path
-        run: node tools/media-derivatives/old-credit.mjs --site "$SITE"
+        if: ${{ !cancelled() && steps.signin.outcome == 'success' }}
+        run: node tools/media-derivatives/old-credit.mjs --site "$SITE" --sweep
 
       - name: Forget the token
         if: always()
