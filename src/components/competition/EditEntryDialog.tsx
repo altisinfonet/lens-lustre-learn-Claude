@@ -24,7 +24,6 @@ import { compressImageToFiles } from "@/lib/imageCompression";
 import { extractExif } from "@/lib/exifExtract";
 import { useAuth } from "@/hooks/core/useAuth";
 import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
-import { useProfileCore } from "@/hooks/profile/useProfileData";
 import { photoSetOption } from "@/lib/photoSetUpload";
 import { toast } from "sonner";
 import { safeRandomUUID } from "@/lib/safeUuid";
@@ -52,7 +51,6 @@ export default function EditEntryDialog({ entryId, open, onOpenChange, onSaved }
   // (credited 2048 + 1080 / 600 / 320) when photo_set_v2 is on. The owner name is
   // the signed-in entrant's: the replacement is stored under their own folder.
   const photoSetV2 = usePhotoSetV2(); // Unit B: the ONE photo_set_v2 reader (never frozen)
-  const { data: entrantProfile } = useProfileCore(user?.id);
   const update = useUpdateCompetitionEntry();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -172,7 +170,7 @@ export default function EditEntryDialog({ entryId, open, onOpenChange, onSaved }
         userId: user.id,
         cacheControl: "3600",
         // U1b: adds no key at all when photo_set_v2 is off (today's call exactly).
-        ...photoSetOption(photoSetV2, entrantProfile),
+        ...photoSetOption(photoSetV2),
       });
       setPhotos((prev) => {
         const next = [...prev];

@@ -52,6 +52,8 @@
 
 // Neutral dark, brand-tinted 3:2 placeholder (aperture ring + wordmark).
 // Encoded as a data URI so it has ZERO network dependency and always renders.
+import { isSaveTargetCreditedUrl } from "@/lib/imageLadder";
+
 const PLACEHOLDER_SVG = `
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
   <defs>
@@ -225,6 +227,12 @@ export function installImageFallback(): void {
       const el = event.target as HTMLElement | null;
       if (!el || el.tagName !== "IMG") return;
       const img = el as HTMLImageElement;
+
+      // A credited save file that is not there yet (credit U3: the server draws
+      // it after the post exists) is not a broken photo. Its owner falls back to
+      // the clean copy (armCreditedSave, ZoomableImage); a retry or the placeholder
+      // would turn a good photo into a grey box.
+      if (isSaveTargetCreditedUrl(img.currentSrc || img.src)) return;
 
       // Never override an image that already resolved to the placeholder.
       if (img.currentSrc === IMAGE_PLACEHOLDER || img.src === IMAGE_PLACEHOLDER) return;

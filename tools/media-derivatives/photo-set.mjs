@@ -27,7 +27,7 @@
  * Prints counts and post ids only (no member data, no token, no credit line).
  */
 import { readFileSync } from "node:fs";
-import { creditSvg } from "./credit-svg.mjs";
+import { renderCredit } from "./credit-render.mjs";
 
 const args = process.argv.slice(2);
 const flag = (n) => args.includes(`--${n}`);
@@ -73,8 +73,8 @@ async function backfillPhoto(sharp, j) {
   if (!Array.isArray(plan) || plan.length === 0) return "no plan from the server";
   const input = Buffer.from(await src.arrayBuffer());
   for (const c of plan) {
-    let img = sharp(input).resize({ width: c.width, height: c.height, fit: "fill" });
-    if (c.credit) img = img.composite([{ input: Buffer.from(creditSvg(c.width, c.height, j.credit)), top: 0, left: 0 }]);
+    const sized = sharp(input).resize({ width: c.width, height: c.height, fit: "fill" });
+    const img = c.credit ? (await renderCredit(sharp, await sized.png({ compressionLevel: 1 }).toBuffer(), j.credit)).image : sized;
     const out = await img.webp({ quality: Math.round(c.quality * 100) }).toBuffer();
     const put = await call(`/api/media/photoset/put?${q}&slot=${c.slot}`, { method: "PUT", headers: { "content-type": "image/webp" }, body: out });
     const b = await put.json().catch(() => ({}));

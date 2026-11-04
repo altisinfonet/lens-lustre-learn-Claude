@@ -28,7 +28,6 @@ import { storageRemove } from "@/lib/storageUpload";
 import { uploadImageWithThumbnail } from "@/lib/imageUpload";
 import { useAuth } from "@/hooks/core/useAuth";
 import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
-import { useProfileCore } from "@/hooks/profile/useProfileData";
 import { photoSetOption } from "@/lib/photoSetUpload";
 import { photoSetSiblingKeys } from "@/lib/imageLadder";
 import { useUserRoles } from "@/hooks/profile/useUserRoles";
@@ -70,7 +69,6 @@ const CompetitionSubmit = () => {
   // Photo plan U1b: with photo_set_v2 on, an entry also gets the credited 2048
   // (owner = the entrant, the signed-in member) + 1080 / 600 / 320 copies.
   const photoSetV2 = usePhotoSetV2(); // Unit B: the ONE photo_set_v2 reader (never frozen)
-  const { data: entrantProfile } = useProfileCore(user?.id);
   const { loading: rolesLoading } = useUserRoles();
   const { balance, deductFunds, loading: walletLoading } = useWallet();
   const navigate = useNavigate();
@@ -170,7 +168,7 @@ const CompetitionSubmit = () => {
           userId: user.id,
           cacheControl: "3600",
           // U1b: adds no key at all when photo_set_v2 is off (today's call exactly).
-          ...photoSetOption(photoSetV2, entrantProfile),
+          ...photoSetOption(photoSetV2),
         });
 
         // Default per-photo title: filename without extension (user can edit)

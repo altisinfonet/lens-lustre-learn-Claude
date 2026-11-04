@@ -11,19 +11,22 @@
  *   1. reads the CLEAN original the post shows (its public URL — this lane's
  *      photo CDN, its avatars bucket or Supabase storage; never a `-l4` copy);
  *   2. turns it upright (EXIF), fits it in 2048 px (never enlarged), draws the
- *      v4 small credit (credit-svg.mjs, the uploader's shared geometry) and
- *      PUTs it (op=credited) — the route stores it at the derived NEW key
- *      (never overwrites), HEADs it and records it.
+ *      credit (credit-render.mjs, the one renderer) and PUTs it (op=credited) —
+ *      the route stores it at the derived NEW key (never overwrites), HEADs it
+ *      and records it with the credit version.
  * CHANGES NO POST and nothing on screen: the web finds the copy through
  * post_photo_credit_for and offers it only to "save image as".
  *
  * USAGE
  *   MEDIA_WORKER_JWT_FILE=~/.worker-jwt node tools/media-derivatives/old-credit.mjs --site https://<lane site origin> [--dry-run] [--max N]
  * --dry-run: the count and the total bytes of the originals (HEAD), nothing written.
+ * --sweep (photo-credit-sweep.yml): a photo that fails is counted and parked after
+ * a few tries, and the run goes red only when one is parked (credit-failure.mjs).
  * Prints post ids and counts only (no member data, no token, no credit line).
  */
 import { readFileSync } from "node:fs";
-import { creditSvg } from "./credit-svg.mjs";
+import { renderCredit } from "./credit-render.mjs";
+import { reportFailure, sweepExitCode, sweepSummary } from "./credit-failure.mjs";
 import { OLD_CREDIT_MAX_SOURCE_BYTES, laneSources, readCapped, sourceAllowed } from "./old-credit-source.mjs";
 
 const args = process.argv.slice(2);
@@ -31,6 +34,7 @@ const flag = (n) => args.includes(`--${n}`);
 const opt = (n, d) => { const i = args.indexOf(`--${n}`); return i >= 0 && args[i + 1] ? args[i + 1] : d; };
 const site = String(opt("site", "")).replace(/\/+$/, "");
 const dryRun = flag("dry-run");
+const sweep = flag("sweep");
 const max = Number(opt("max", "0")) || 0;
 /** Same quality as the uploader's credited 2048 copy (imageLadder.PHOTO_SET_QUALITY[2048]). */
 const CREDITED_QUALITY = 85;
@@ -58,15 +62,13 @@ async function credit(sharp, j) {
   const read = await readCapped(src, OLD_CREDIT_MAX_SOURCE_BYTES);
   if (!read.ok) return `source skipped: ${read.reason}`;
   const input = Buffer.from(read.bytes);
-  const upright = await sharp(input).rotate()
+  const fitted = await sharp(input).rotate()
     .resize({ width: LONG_EDGE, height: LONG_EDGE, fit: "inside", withoutEnlargement: true })
-    .toBuffer({ resolveWithObject: true });
-  const { width: w, height: h } = upright.info;
-  const out = await sharp(upright.data)
-    .composite([{ input: Buffer.from(creditSvg(w, h, j.credit)), top: 0, left: 0 }])
-    .webp({ quality: CREDITED_QUALITY })
+    .png({ compressionLevel: 1 })
     .toBuffer();
-  const put = await call(`?op=credited&post_id=${j.post_id}&ord=${j.ord}`, { method: "PUT", headers: { "content-type": "image/webp" }, body: out });
+  const { image, credit: c } = await renderCredit(sharp, fitted, j.credit);
+  const out = await image.webp({ quality: CREDITED_QUALITY }).toBuffer();
+  const put = await call(`?op=credited&post_id=${j.post_id}&ord=${j.ord}&version=${c.version}`, { method: "PUT", headers: { "content-type": "image/webp" }, body: out });
   const pb = await put.json().catch(() => ({}));
   if (!put.ok) return `credited ${put.status} ${pb.error ?? ""}`;
   return pb.status === "already" ? "already" : "recorded";
@@ -74,7 +76,13 @@ async function credit(sharp, j) {
 
 async function main() {
   const sharp = dryRun ? null : (await import("sharp")).default;
-  const stats = { photos: 0, recorded: 0, already: 0, failed: 0, source_bytes: 0, unknown_size: 0 };
+  const stats = { photos: 0, recorded: 0, already: 0, failed: 0, parked_now: 0, source_bytes: 0, unknown_size: 0 };
+  const failedPhoto = async (j, why) => {
+    console.log(`fail ${j.post_id} #${j.ord} ${why}`);
+    if (sweep) await reportFailure(post, { op: "failed", post_id: j.post_id, ord: j.ord }, why, stats);
+    else stats.failed++;
+  };
+  let parked = 0;
   let after = null;
   const seen = new Set();
   for (;;) {
@@ -82,6 +90,7 @@ async function main() {
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw Object.assign(new Error(`claim ${res.status} ${body.error ?? ""}`), { fatal: true });
     const jobs = body.jobs ?? [];
+    parked = body.parked ?? parked;
     if (jobs.length === 0) break;
     // The queue is the missing work. Each photo is handled once per run (`seen`):
     // a failure or a dry run leaves it in the queue, a recorded one leaves it.
@@ -102,10 +111,10 @@ async function main() {
         const r = await credit(sharp, j);
         if (r === "recorded") { stats.recorded++; console.log(`recorded ${j.post_id} #${j.ord}`); }
         else if (r === "already") stats.already++;
-        else { stats.failed++; console.log(`fail ${j.post_id} #${j.ord} ${r}`); }
+        else await failedPhoto(j, r);
       } catch (e) {
         if (e.fatal) throw e;
-        stats.failed++; console.log(`fail ${j.post_id} #${j.ord} ${e.message}`);
+        await failedPhoto(j, e.message);
       }
     }
     if (max && stats.photos >= max) break;
@@ -119,7 +128,8 @@ async function main() {
     after = prev ? prev.post_id : lastId;
   }
   console.log(`${dryRun ? "DRY RUN " : ""}done: ${JSON.stringify(stats)}`);
-  if (stats.failed) process.exitCode = 3;
+  if (sweep) { sweepSummary("fallen-back uploads", stats, parked); process.exitCode = sweepExitCode(stats); }
+  else if (stats.failed) process.exitCode = 3;
 }
 
 main().catch((e) => { console.error(`stopped: ${e.message}`); process.exit(1); });
