@@ -1,0 +1,64 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# COMMENTS · INSTAGRAM-COMPACT GEOMETRY (Owner report 4 Nov 2026).
+#
+# "this comment section has huge gap from each comment / reply — follow
+# Instagram style, more compact". tools/uishot/comments-compact.mjs photographs
+# the REAL comments surfaces (desktop side panel, phone sheet, the Android
+# shell, a competition entry's thread) and measures the gaps and what a finger
+# really gets (elementFromPoint), in Chromium, Firefox and WebKit. See its
+# header for every limit.
+# ─────────────────────────────────────────────────────────────────────────────
+name: D2 · Comments compact
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compact:
+    name: Comment list is Instagram-compact (${{ matrix.browser }}, web + app)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Clean install
+        run: npm ci --no-audit --no-fund
+      - name: Cache the Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ matrix.browser }}-${{ hashFiles('package-lock.json') }}
+      - name: Install the browser for Playwright (with its system libraries)
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            if npx playwright install --with-deps ${{ matrix.browser }}; then exit 0; fi
+            sleep $((attempt * 15))
+          done
+          exit 1
+      - name: Measure the real comment list
+        env:
+          VITE_SUPABASE_URL: https://testprojectref0000x.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: test-publishable-key-not-real
+          VITE_SUPABASE_PROJECT_ID: testprojectref0000x
+        run: node tools/uishot/comments-compact.mjs --browsers ${{ matrix.browser }} --annotate --out /tmp/comments-shots --json /tmp/comments-shots/result.json
+      - name: Upload the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: comments-compact-${{ matrix.browser }}
+          path: /tmp/comments-shots
+          if-no-files-found: warn
