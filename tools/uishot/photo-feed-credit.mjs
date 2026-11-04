@@ -104,7 +104,7 @@ function diff(aBuf, bBuf) {
  * drawn. Measured on live: v1 57 % of the width at alpha ≈ 0.82; v2 (one third,
  * half) 18–23 % at ≈ 0.40; v3 (one third of v2) 6–8 % at ≈ 0.15 — "unreadable".
  * v4 "MIDDLE SIZE" (Owner, 3 Nov 16:05Z): HALF of v2's size, slightly fainter
- * (≈ 0.30). v5 (Owner approved, 4 Nov): the font follows the SHORT side, 11–28 px,
+ * (≈ 0.30). v5 (Owner approved, 4 Nov): the font follows the SHORT side, 22–56 px,
  * so a share of the width means nothing across sizes. The line's expected width
  * comes from the renderer's own measurement for THIS file; the ink must be within
  * the bounds below of it, which fails every older size on a real file.
