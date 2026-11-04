@@ -77,7 +77,10 @@ async function openCard(browser, { phone }) {
   });
   // A cold Vite dev server transforms the whole app on the first load.
   await page.goto(`${BASE}/photofeedharness.html?viewer=on${phone ? "&w=phone" : ""}`, { timeout: 420_000, waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => window.__photoReady === true, null, { timeout: 300_000 });
+  await page.waitForFunction(() => window.__photoReady === true, null, { timeout: 300_000 }).catch(async (e) => {
+    const body = await page.evaluate(() => document.body.innerText.slice(0, 400)).catch(() => "?");
+    throw new Error(`harness not ready: ${e.message}\nbody: ${body}\npage errors: ${errors.join(" | ").slice(0, 800)}`);
+  });
   await page.waitForSelector("#cardwrap [data-feed-photo]", { timeout: 60_000 });
   await page.waitForFunction(() => {
     const i = document.querySelector("#cardwrap [data-feed-photo] img:not([aria-hidden])");
@@ -132,7 +135,8 @@ try {
     ];
     await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: pts(50, 0, 0) });
     for (let i = 1; i <= 12; i++) {
-      await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: pts(50 + i * 10, i * 1, i * 2.5) });
+      // 100 px → ~200 px apart: about 2×, so the dimmed feed still shows around the photo.
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: pts(50 + i * 4, i * 1, i * 2.5) });
       await page.waitForTimeout(16);
     }
     await page.waitForTimeout(120);
