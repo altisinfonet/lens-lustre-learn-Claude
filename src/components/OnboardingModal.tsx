@@ -8,7 +8,9 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { format, differenceInYears } from "date-fns";
+import { format } from "date-fns";
+import { UNDER_18_MESSAGE, isOldEnough, newestBirthMonth } from "@/lib/ageRule";
+import { AgeRuleError, AgeRuleNotice } from "@/components/AgeRuleNotice";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import { motion } from "framer-motion";
@@ -55,8 +57,6 @@ const USER_TYPES = [
   { value: "photographer", label: "Photographer", description: "I'm a professional / aspiring pro", icon: Aperture },
 ];
 
-/** Shown to anyone under 18, who cannot finish sign-up. */
-const UNDER_18_MESSAGE = "Under 18 is not eligible to register.";
 
 interface OnboardingModalProps {
   open: boolean;
@@ -298,7 +298,7 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
     }
   };
 
-  const ageOk = !!dateOfBirth && differenceInYears(new Date(), dateOfBirth) >= 18;
+  const ageOk = !!dateOfBirth && isOldEnough(dateOfBirth);
   const usernameOk = alreadyClaimed || usernameStatus === "available";
   /**
    * REGISTRATION DOES NOT WAIT FOR A PHOTOGRAPH.
@@ -582,7 +582,7 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
               <span className="text-[10px] tracking-[0.2em] uppercase text-foreground font-medium block" style={{ fontFamily: "var(--font-heading)" }}>
                 Date of Birth <span className="text-destructive">*</span>
               </span>
-              <p className="text-sm font-semibold text-foreground" data-testid="age-18-notice">18+ only. Under 18 not accepted.</p>
+              <AgeRuleNotice />
               {/* modal: inside the sign-up dialog two focus traps fought in WebKit and the calendar closed at once (found 4 Nov 2026, tools/uishot/age-check-shots.mjs). */}
               <Popover modal>
                 <PopoverTrigger asChild>
@@ -605,7 +605,7 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
                     selected={dateOfBirth}
                     onSelect={(d) => {
                       setDateOfBirth(d);
-                      if (d) setDobError(differenceInYears(new Date(), d) < 18 ? UNDER_18_MESSAGE : "");
+                      if (d) setDobError(isOldEnough(d) ? "" : UNDER_18_MESSAGE);
                     }}
                     disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
                     // react-day-picker v10: `dropdown-buttons` is gone —
@@ -616,15 +616,13 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
                     // 18-year floor below is still the only age rule.
                     captionLayout="dropdown"
                     startMonth={new Date(1940, 0)}
-                    endMonth={new Date(new Date().getFullYear() - 18, 11)}
+                    endMonth={newestBirthMonth()}
                     autoFocus
                     className={cn("p-3 pointer-events-auto")}
                   />
                 </PopoverContent>
               </Popover>
-              {dobError && (
-                <p className="text-sm font-semibold text-destructive" role="alert" data-testid="age-18-error">{dobError}</p>
-              )}
+              <AgeRuleError message={dobError} />
             </div>
 
             {/* He / She — owner's wording, 2026-08-05. See GENDER_OPTIONS. */}
