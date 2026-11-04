@@ -241,14 +241,14 @@ export interface UploadWithThumbnailOptions {
   encoded?: { width: number; height: number };
   /**
    * Photo plan U1b — switch `photo_set_v2`. Present ONLY when the switch is on
-   * for the uploading member (callers spread `photoSetOption(allowed, profile)`,
-   * which adds no key at all when it is off). Posts then store the new
-   * 2048 (credited) / 1080 / 600 / 320 set under `-l4`; competition entries keep
-   * today's full-size file and add the credited `-r2048` + 1080 / 600 / 320
-   * under `-l4f` (imageLadder.ts). Ignored for every other type. Absent: this
+   * for the uploading member (callers spread `photoSetOption(allowed)`,
+   * which adds no key at all when it is off). Posts then store the clean
+   * 1080 / 600 / 320 set under `-l5`; competition entries keep
+   * today's full-size file and add 1080 / 600 / 320
+   * under `-l5f` (imageLadder.ts); the server draws the credited copy. Ignored for every other type. Absent: this
    * function is exactly what it was.
    */
-  photoSet?: { creditText: string };
+  photoSet?: true;
 }
 
 export interface UploadWithThumbnailResult {
@@ -292,7 +292,7 @@ export async function uploadImageWithThumbnail(
   // encoder could not run on this photo/device: today's path below, unchanged.
   if (opts.photoSet && (opts.type === "post" || opts.type === "competition")) {
     const { uploadPhotoSet } = await import("@/lib/photoSetUpload");
-    const v2 = await uploadPhotoSet(opts as UploadWithThumbnailOptions & { photoSet: { creditText: string } });
+    const v2 = await uploadPhotoSet(opts);
     if (v2) return v2;
   }
   const { bucket, file, type, userId, subPath, cacheControl, encoded } = opts;

@@ -1003,7 +1003,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       userId: user.id,
       cacheControl: "3600",
       // U1b: adds no key at all when photo_set_v2 is off (today's call exactly).
-      ...photoSetOption(photoSetV2, currentProfile),
+      ...photoSetOption(photoSetV2),
     });
     logger.info({
       code: "FILE-5003",
@@ -1195,7 +1195,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     try {
       // U1b (photo_set_v2 on): camera details from the ORIGINAL files before the
       // encode, kept on the job; the new set's encoder. Off: today's call exactly.
-      const v2 = photoSetOption(photoSetV2, currentProfile).photoSet;
+      const v2 = photoSetOption(photoSetV2).photoSet;
       const camera = v2 ? cameraItems(await readCameraInfos(selectedImages)) : [];
       await createPhotoJob({
         id, userId: user.id, files: selectedImages,
@@ -1204,7 +1204,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           categories: postCategories, indexingDisabled: excludeFromSearch,
         },
         ...(camera.length > 0 ? { camera } : {}),
-      }, v2 ? photoSetPhotoEncoder(v2.creditText) : undefined);
+      }, v2 ? photoSetPhotoEncoder() : undefined);
     } catch {
       return false;
     }

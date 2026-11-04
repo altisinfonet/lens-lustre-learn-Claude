@@ -6,11 +6,11 @@
  * in imageLadder.ts (PHOTO SETS, v3); the canvas work is photoSetEncode.ts.
  *
  *   POST         encode the ORIGINAL once → CLEAN 1080 (the URL the post stores)
- *                + credited 2048 + 600 / 320, plus a PRIVATE clean 2048
- *                `<uid>/posts/<seg>-w{W}h{H}-l5.webp` (+ -r2048c, -thumb, -r320)
+ *                + 600 / 320, plus a PRIVATE clean 2048
+ *                `<uid>/posts/<seg>-w{W}h{H}-l5.webp` (+ -thumb, -r320)
  *   COMPETITION  the full-size file exactly as today (a caller-encoded WebP that
  *                metadataFreeWebp proves clean is uploaded as is; anything else is
- *                encoded at full size, q0.92, as today) → plus credited -r2048c,
+ *                encoded at full size, q0.92, as today) → plus
  *                clean -r1080 (always), 600 / 320 and the private clean 2048
  *                `<uid>/competitions/<seg>-w{W}h{H}-l5f.webp`
  *
@@ -35,7 +35,6 @@ import { dimsSuffix } from "@/lib/imageFrame";
 import { logger } from "@/lib/logger";
 import { describeStoredObject } from "@/lib/media/storedObject";
 import { encodePhotoSet, type EncodedPhotoSet, type EncodedSetCopy } from "@/lib/photoSetEncode";
-import { creditOwnerName, creditText } from "@/lib/photoCredit";
 import {
   generateImagePath, isPrivateBucket, shouldUpsert,
   type UploadWithThumbnailOptions, type UploadWithThumbnailResult,
@@ -46,14 +45,11 @@ const FILE = "src/lib/photoSetUpload.ts";
 
 /**
  * The ONE way a caller turns the switch answer into upload options:
- * `{ ...photoSetOption(allowed, profile) }` adds NO key when the switch is off,
+ * `{ ...photoSetOption(allowed) }` adds NO key when the switch is off,
  * so the switch-off call is literally today's call.
  */
-export function photoSetOption(
-  allowed: boolean,
-  profile: { full_name?: string | null; custom_url?: string | null } | null | undefined,
-): { photoSet?: { creditText: string } } {
-  return allowed ? { photoSet: { creditText: creditText(creditOwnerName(profile)) } } : {};
+export function photoSetOption(allowed: boolean): { photoSet?: true } {
+  return allowed ? { photoSet: true } : {};
 }
 
 /** encodePhotoSet's null (no real WebP encoder, U2) becomes the same "use today's path" throw as any refusal. */
@@ -79,9 +75,9 @@ function fellBack(err: unknown, type: string, file: File): null {
 }
 
 export async function uploadPhotoSet(
-  opts: UploadWithThumbnailOptions & { photoSet: { creditText: string } },
+  opts: UploadWithThumbnailOptions,
 ): Promise<UploadWithThumbnailResult | null> {
-  const { bucket, file, type, userId, subPath, cacheControl, encoded, photoSet } = opts;
+  const { bucket, file, type, userId, subPath, cacheControl, encoded } = opts;
   const keepFull = type === "competition";
   const upsert = shouldUpsert(type);
   const baseName = file.name.replace(/\.[^.]+$/, "");
@@ -102,9 +98,9 @@ export async function uploadPhotoSet(
         fullFile = r.webpFile;
         fullDims = { width: r.width, height: r.height };
       }
-      set = needWebp(await encodePhotoSet(fullFile, true, photoSet.creditText)).copies;
+      set = needWebp(await encodePhotoSet(fullFile, true)).copies;
     } else {
-      set = needWebp(await encodePhotoSet(file, false, photoSet.creditText)).copies;
+      set = needWebp(await encodePhotoSet(file, false)).copies;
       const master = set.find((c) => c.slot === "master");
       if (!master) throw new Error("photo set has no clean 1080 master");
       fullFile = master.file;
@@ -162,10 +158,13 @@ export async function uploadPhotoSet(
   const fullPath = markerKept ? marked : unmarked;
   const thumbPath = fullPath.replace(/\.webp$/, "-thumb.webp");
 
-  // Unit A: the private clean 2048 (an archive for redrawing the credit; never
-  // public). Only a marked set promises one. Best effort: a refusal or a lost
-  // connection never costs the member the post.
-  if (markerKept && clean2048) {
+  // Unit A: the private clean 2048 (the source of the server's credit, and of any
+  // later redraw; never public). Only a marked set promises one. It goes AFTER
+  // the public files: the route keeps a clean copy only for a stored photo. Best
+  // effort: a refusal or a lost connection never costs the member the post (the
+  // server then draws the credit on the public clean file).
+  const keepCleanCopy = async () => {
+    if (!markerKept || !clean2048) return;
     try {
       const { storeCleanCopy } = await import("@/lib/media/cleanCopyClient");
       await storeCleanCopy(`${bucket}/${marked}`, clean2048);
@@ -183,13 +182,14 @@ export async function uploadPhotoSet(
         detail: { type },
       });
     }
-  }
+  };
 
   // ── 3. the full (or the clean 1080 master) + the 600 thumb: what the row references ──
   if (useS3) {
     const s3Full = `${bucket}/${fullPath}`;
     const s3Thumb = `${bucket}/${thumbPath}`;
     const { full, thumb } = await uploadPairToS3(fullFile, thumbFile, s3Full, s3Thumb, isPrivate);
+    await keepCleanCopy();
     return {
       url: isPrivate ? s3Full : full.url,
       path: full.key,
@@ -202,6 +202,7 @@ export async function uploadPhotoSet(
     storageUpload(bucket, fullPath, fullFile, { upsert, cacheControl, fileName: fullFile.name }),
     storageUpload(bucket, thumbPath, thumbFile, { upsert, cacheControl, fileName: thumbFile.name }),
   ]);
+  await keepCleanCopy();
   return {
     url: fullResult.url,
     path: fullResult.path,
@@ -213,14 +214,13 @@ export async function uploadPhotoSet(
 
 /**
  * The resumable photo job's encoder for the new set (photoJobs.createPhotoJob):
- * full = the CLEAN 1080 (what the post stores), thumb = 600, rungs = the
- * credited 2048 (`-r2048c`) and 320 (as planned), clean = the private clean
- * 2048, marker `-l5`. Throws when the new encoder cannot run; the composer then
+ * full = the CLEAN 1080 (what the post stores), thumb = 600, rungs = the 320
+ * (as planned), clean = the private clean 2048, marker `-l5`. Throws when the new encoder cannot run; the composer then
  * takes the non-resumable path, which falls back to today's set by itself.
  */
-export function photoSetPhotoEncoder(creditTextLine: string): PhotoEncoder {
+export function photoSetPhotoEncoder(): PhotoEncoder {
   return async (file: File): Promise<EncodedPhoto> => {
-    const { copies } = needWebp(await encodePhotoSet(file, false, creditTextLine));
+    const { copies } = needWebp(await encodePhotoSet(file, false));
     const master = copies.find((c) => c.slot === "master");
     const thumb = copies.find((c) => c.slot === "thumb");
     const clean = copies.find((c) => c.slot === "clean2048");
@@ -229,7 +229,7 @@ export function photoSetPhotoEncoder(creditTextLine: string): PhotoEncoder {
       full: { blob: master.file, width: master.width, height: master.height },
       thumb: thumb.file,
       rungs: copies
-        .filter((c) => c.slot === "r2048c" || c.slot === "r320")
+        .filter((c) => c.slot === "r320")
         .map((c) => ({ rung: c.maxDimension, blob: c.file, suffix: photoSetSuffix(c.slot) })),
       clean: clean.file,
       marker: PHOTO_SET_V3_MARKER,

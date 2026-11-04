@@ -25,6 +25,19 @@ import { CREDIT_FONT_FILE, measureCredit, renderCredit } from "../../../../tools
 const LINE = "© Dipannita Sen, 50mm Retina World";
 const LONG = "© Venkataraghavan C., 50mm Retina World";
 
+describe("the photo's own pixels (credit U3: the workers now feed it WebP)", () => {
+  it("are decoded once: outside the credit's box the output equals the input, no lossy step in between", async () => {
+    const noise = Buffer.alloc(800 * 600 * 3);
+    for (let i = 0; i < noise.length; i++) noise[i] = (i * 2654435761) >>> 24;
+    const input = await sharp(noise, { raw: { width: 800, height: 600, channels: 3 } }).webp({ quality: 85 }).toBuffer();
+    const r = await renderCredit(sharp, input, LINE);
+    const out = await r.image.removeAlpha().raw().toBuffer();
+    const was = await sharp(input).removeAlpha().raw().toBuffer();
+    const top = (r.credit.top - 20) * 800 * 3; // every row above the credit
+    expect(Buffer.compare(out.subarray(0, top), was.subarray(0, top))).toBe(0);
+  });
+});
+
 describe("v5 geometry — from the SHORT side, visible floor and ceiling", () => {
   it("the approved look: 11 px on a 2048×1365 landscape; a portrait of the same photo gets the same", () => {
     expect(creditGeometryV5For(2048, 1365).fontPx).toBe(11);

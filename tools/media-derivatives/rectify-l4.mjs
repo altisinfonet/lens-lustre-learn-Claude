@@ -8,9 +8,8 @@
  *
  * For each large `-l4` photo a post still names:
  *   1. GET op=source   → the photo's CLEAN 1080 (+ its exact size);
- *   2. draws the small credit on it (credit-svg.mjs, the uploader's geometry:
- *      one third of the first size, half its opacity) and PUTs it (op=credited)
- *      — the only bytes this worker sends;
+ *   2. draws the credit on it (credit-render.mjs, the one renderer) and PUTs it
+ *      (op=credited) — the only bytes this worker sends;
  *   3. POST op=done    → the route copies the clean 1080 / 600 / 320 to their
  *      `-l5` names itself, HEADs every copy and records the photo.
  * CHANGES NOTHING A MEMBER SEES: posts are repointed only by the SQL step
@@ -21,7 +20,7 @@
  * Prints post ids and counts only (no member data, no token, no credit line).
  */
 import { readFileSync } from "node:fs";
-import { creditSvg } from "./credit-svg.mjs";
+import { renderCredit } from "./credit-render.mjs";
 
 const args = process.argv.slice(2);
 const flag = (n) => args.includes(`--${n}`);
@@ -46,6 +45,13 @@ async function call(query, init = {}) {
 }
 const post = (body) => call("", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
+/** The clean bytes at exactly w × h with the credit, as the WebP the routes take. */
+async function credited(sharp, input, w, h, text) {
+  const sized = await sharp(input).resize({ width: w, height: h, fit: "fill" }).png({ compressionLevel: 1 }).toBuffer();
+  const { image } = await renderCredit(sharp, sized, text);
+  return image.webp({ quality: CREDITED_QUALITY }).toBuffer();
+}
+
 async function rectify(sharp, j) {
   const q = `post_id=${j.post_id}&ord=${j.ord}`;
   const src = await call(`?op=source&${q}`);
@@ -53,11 +59,7 @@ async function rectify(sharp, j) {
   const [w, h] = String(src.headers.get("x-rectify-size") || "").split("x").map(Number);
   if (!(w > 0 && h > 0)) return "no size from the server";
   const input = Buffer.from(await src.arrayBuffer());
-  const out = await sharp(input)
-    .resize({ width: w, height: h, fit: "fill" })
-    .composite([{ input: Buffer.from(creditSvg(w, h, j.credit)), top: 0, left: 0 }])
-    .webp({ quality: CREDITED_QUALITY })
-    .toBuffer();
+  const out = await credited(sharp, input, w, h, j.credit);
   const put = await call(`?op=credited&${q}`, { method: "PUT", headers: { "content-type": "image/webp" }, body: out });
   const pb = await put.json().catch(() => ({}));
   if (!put.ok) return `credited ${put.status} ${pb.error ?? ""}`;
@@ -79,11 +81,7 @@ async function redraw(sharp, j, version) {
   if (!src.ok) { const b = await src.json().catch(() => ({})); return `redraw-source ${src.status} ${b.error ?? ""}`; }
   const [w, h] = String(src.headers.get("x-rectify-size") || "").split("x").map(Number);
   if (!(w > 0 && h > 0)) return "no size from the server";
-  const out = await sharp(Buffer.from(await src.arrayBuffer()))
-    .resize({ width: w, height: h, fit: "fill" })
-    .composite([{ input: Buffer.from(creditSvg(w, h, j.credit)), top: 0, left: 0 }])
-    .webp({ quality: CREDITED_QUALITY })
-    .toBuffer();
+  const out = await credited(sharp, Buffer.from(await src.arrayBuffer()), w, h, j.credit);
   const put = await call(`?op=redraw&${q}&version=${version}`, { method: "PUT", headers: { "content-type": "image/webp" }, body: out });
   const pb = await put.json().catch(() => ({}));
   if (!put.ok) return `redraw ${put.status} ${pb.error ?? ""}`;

@@ -139,7 +139,7 @@ describe("photo plan U1b · photo_set_v2 on the resumable path", () => {
     const encV3 = async (f: File): Promise<EncodedPhoto> => ({
       full: { blob: new Blob([new Uint8Array(f.size)], { type: "image/webp" }), width: 1080, height: 810 },
       thumb: new Blob([new Uint8Array(10)], { type: "image/webp" }),
-      rungs: [{ rung: 2048, suffix: "-r2048c", blob: new Blob([new Uint8Array(40)], { type: "image/webp" }) }, { rung: 320, suffix: "-r320", blob: new Blob([new Uint8Array(5)], { type: "image/webp" }) }],
+      rungs: [{ rung: 320, suffix: "-r320", blob: new Blob([new Uint8Array(5)], { type: "image/webp" }) }],
       clean: new Blob([new Uint8Array(50)], { type: "image/webp" }),
       marker: "-l5",
     });

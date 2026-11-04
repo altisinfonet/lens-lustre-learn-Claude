@@ -46,7 +46,7 @@ describe("build-only packages are devDependencies", () => {
   }
   it("sharp's users are the backfill tools (S3 ladder, photo plan U5, the -l4 rectify, the old photos' credit 0109), the credit-measuring CI check and the one pixel comparison (visual baselines), which CI runs after a full `npm ci`", () => {
     expect(imports("sharp", files(path.join(ROOT, "tools"))).map((f) => path.relative(ROOT, f).replace(/\\/g, "/")).sort())
-      .toEqual(["tools/media-derivatives/old-credit.mjs", "tools/media-derivatives/photo-set.mjs", "tools/media-derivatives/rectify-l4.mjs", "tools/media-derivatives/run.mjs", "tools/uishot/photo-feed-credit.mjs", "tools/uishot/pixel-compare.mjs"]);
+      .toEqual(["tools/media-derivatives/old-credit.mjs", "tools/media-derivatives/photo-set.mjs", "tools/media-derivatives/rectify-l4.mjs", "tools/media-derivatives/run.mjs", "tools/media-derivatives/set-credit.mjs", "tools/uishot/photo-feed-credit.mjs", "tools/uishot/pixel-compare.mjs"]);
     expect(fs.readFileSync(path.join(ROOT, ".github/workflows/s3-media-backfill.yml"), "utf8")).toMatch(/run: npm ci --no-audit --no-fund\n/);
   });
 });
