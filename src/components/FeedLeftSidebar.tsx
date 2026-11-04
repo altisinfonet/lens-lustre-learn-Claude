@@ -1,3 +1,4 @@
+import { memberPhotoSrc } from "@/lib/photoProtection";
 import { useState, useRef, useMemo } from "react";
 import ProfileLink from "@/components/ProfileLink";
 import { Link } from "react-router-dom";
@@ -203,7 +204,7 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
 
                 const inner = (
                   <>
-                    <img src={photo.image_url} alt={photo.title || "Trending photograph"} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" decoding="async" />
+                    <img src={memberPhotoSrc(photo.image_url, 320) ?? undefined} alt={photo.title || "Trending photograph"} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" decoding="async" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="absolute bottom-1 left-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <p className="text-[8px] text-white truncate" style={headingFont}>{photo.title}</p>

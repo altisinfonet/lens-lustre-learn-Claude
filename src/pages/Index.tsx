@@ -33,6 +33,8 @@ import { fetchPostAttachments, attachmentsFor } from "@/lib/posts/postAttachment
 import { postMedia } from "@/lib/posts/subjectMedia";
 import type { FeedVideo } from "@/lib/video/postVideoRead";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
+import { photoSetMarker } from "@/lib/imageLadder";
+import { memberPhotoSrc } from "@/lib/photoProtection";
 
 const FILE = "src/pages/Index.tsx";
 
@@ -103,6 +105,8 @@ const optimizeHeroImageUrl = (url: string) => {
 /** Optimize gallery thumbnail URLs via Supabase image transform */
 const optimizeGalleryImageUrl = (url: string, isHero: boolean) => {
   if (!url) return url;
+  // Credit fix U1: a member set photo (an admin may feature one) → its stored clean copy, never its own (credited) URL.
+  if (photoSetMarker(url)) return memberPhotoSrc(url, isHero ? 1080 : 600) ?? url;
 
   // Supabase Storage transform path
   if (url.includes("/storage/v1/object/public/")) {
@@ -879,7 +883,7 @@ const Index = () => {
                         if (!media.imageUrls[0]) return null;
                         return (
                           <div className="h-36 md:h-44 rounded-md overflow-hidden bg-muted mb-2.5">
-                            <img loading="lazy" decoding="async" src={media.imageUrls[0]} alt="" className="w-full h-full object-cover" />
+                            <img loading="lazy" decoding="async" src={memberPhotoSrc(media.imageUrls[0], 600) ?? undefined} alt="" className="w-full h-full object-cover" />
                           </div>
                         );
                       })()}

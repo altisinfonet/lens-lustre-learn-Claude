@@ -1,3 +1,4 @@
+import { memberPhotoSrc } from "@/lib/photoProtection";
 import { useEffect, useState, useRef } from "react";
 import { Plus, X, ChevronLeft, ChevronRight, Eye, Radio, TrendingUp, Trash2, Clock, Star, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -426,7 +427,7 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
               className="flex-shrink-0 flex flex-col items-center gap-1 group"
             >
               <div className="relative h-[68px] w-[68px] sm:h-20 sm:w-20 rounded-full p-0.5 bg-gradient-to-tr from-primary via-primary/60 to-accent">
-                <img loading="lazy" decoding="async" src={story.image_url} alt="Story" className="w-full h-full rounded-full object-cover border-2 border-background" />
+                <img loading="lazy" decoding="async" src={memberPhotoSrc(story.image_url, 320) ?? undefined} alt="Story" className="w-full h-full rounded-full object-cover border-2 border-background" />
                 <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[7px] font-bold px-1.5 py-0.5 rounded-full leading-none">
                   24h
                 </span>
@@ -447,7 +448,7 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
               <div className="relative h-[68px] w-[68px] sm:h-20 sm:w-20 rounded-full p-0.5 bg-gradient-to-tr from-accent via-accent/60 to-amber-500">
                 <div className="w-full h-full rounded-full overflow-hidden border-2 border-background">
                   {hl.cover_url || hl.items[0]?.image_url ? (
-                    <img loading="lazy" decoding="async" src={hl.cover_url || hl.items[0]?.image_url} alt={hl.title} className="w-full h-full object-cover" />
+                    <img loading="lazy" decoding="async" src={hl.cover_url || memberPhotoSrc(hl.items[0]?.image_url, 320) || undefined} alt={hl.title} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full bg-muted" />
                   )}

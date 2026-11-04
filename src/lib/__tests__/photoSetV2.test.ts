@@ -107,9 +107,9 @@ describe("photoSetUrl — the feed is NEVER handed a credited file", () => {
     expect(photoSetUrl(tiny, 320)).toBe("https://cdn.x/competition-photos/u/competitions/t-w300h200-l5f-r1080.webp");
   });
 
-  it("v2 -l4 (read only): only 2048 is the credited URL; a small photo's 1080 / 320 fall to the clean thumb", () => {
+  it("v2 -l4 (read only): every size is a CLEAN copy, 2048 included (credit fix U1); a small photo's 1080 / 320 fall to the clean thumb", () => {
     const l4 = `${CDN}/1793-abc-w2048h1365-l4.webp`;
-    expect(photoSetUrl(l4, 2048)).toBe(l4);
+    expect(photoSetUrl(l4, 2048)).toBe(`${CDN}/1793-abc-w2048h1365-l4-r1080.webp`);
     expect(photoSetUrl(l4, 1080)).toBe(`${CDN}/1793-abc-w2048h1365-l4-r1080.webp`);
     expect(photoSetUrl(l4, 600)).toBe(`${CDN}/1793-abc-w2048h1365-l4-thumb.webp`);
     expect(photoSetUrl(l4, 320)).toBe(`${CDN}/1793-abc-w2048h1365-l4-r320.webp`);
@@ -118,7 +118,7 @@ describe("photoSetUrl — the feed is NEVER handed a credited file", () => {
     const tiny = `${CDN}/t-w300h200-l4.webp`;
     expect(photoSetUrl(tiny, 320)).toBe(`${CDN}/t-w300h200-l4-thumb.webp`);
     const smallComp = `${CDN}/c-w900h600-l4f.webp`;
-    expect(photoSetUrl(smallComp, 2048)).toBe(`${CDN}/c-w900h600-l4f-r2048.webp`);
+    expect(photoSetUrl(smallComp, 2048)).toBe(`${CDN}/c-w900h600-l4f-thumb.webp`);
     expect(photoSetUrl(smallComp, 1080)).toBe(`${CDN}/c-w900h600-l4f-thumb.webp`);
   });
 
@@ -131,7 +131,8 @@ describe("photoSetUrl — the feed is NEVER handed a credited file", () => {
     for (const u of urls) {
       for (const s of [1080, 600, 320] as const) expect(isCreditedPhotoUrl(photoSetUrl(u, s)), `${u} @${s}`).toBe(false);
       expect(isCreditedPhotoUrl(photoSetCleanUrl(u)), `${u} clean`).toBe(false);
-      expect(isCreditedPhotoUrl(photoSetUrl(u, 2048)), `${u} @2048`).toBe(true);
+      // credit fix U1: a v3 set's 2048 is its credited copy; a v2 set's 2048 is clean (its old credit is retired)
+      expect(isCreditedPhotoUrl(photoSetUrl(u, 2048)), `${u} @2048`).toBe(/-l5f?\.webp$/.test(u));
     }
   });
 
