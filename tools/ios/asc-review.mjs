@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 const APP_ID = "6809751061";
 const API = "https://api.appstoreconnect.apple.com";
 const HERE = dirname(fileURLToPath(import.meta.url));
+const ATTACHMENT = "age-check-both.png";
 const NOTES_MARK = "--- Resubmission notes, 4 Nov 2026 ---";
 
 const key = createPrivateKey(Buffer.from(process.env.APP_STORE_KEY_BASE64 ?? "", "base64"));
@@ -41,7 +42,7 @@ async function asc(method, path, body) {
   const text = await res.text();
   const json = text ? JSON.parse(text) : null;
   if (!res.ok) {
-    const why = (json?.errors ?? []).map((e) => `${e.code}: ${e.title}`).join("; ");
+    const why = (json?.errors ?? []).map((e) => `${e.code}: ${e.title} ${path.includes("Attachment") ? (e.detail ?? "") : ""}`).join("; ");
     throw new Error(`${method} ${path.split("?")[0]} ${res.status} ${why}`);
   }
   return json;
@@ -133,15 +134,17 @@ async function submit() {
 
   const existing = (await asc("GET", `/v1/appStoreReviewDetails/${detail.id}/appStoreReviewAttachments`)).data;
   const names = new Set();
+  for (const a of existing) console.log(`attachment ${a.attributes.fileName} ${a.attributes.assetDeliveryState?.state ?? ""} uploaded=${a.attributes.uploaded ?? ""}`);
   for (const a of existing) {
     // A half-finished upload never becomes visible to Apple: remove it and send it again.
-    if (a.attributes.assetDeliveryState?.state === "FAILED" || a.attributes.uploaded === false) {
+    if (a.attributes.fileName !== ATTACHMENT || a.attributes.assetDeliveryState?.state === "FAILED" || a.attributes.uploaded === false) {
       await asc("DELETE", `/v1/appStoreReviewAttachments/${a.id}`);
     } else {
       names.add(a.attributes.fileName);
     }
   }
-  for (const name of ["age-check-1-18-plus-line.png", "age-check-2-under-18-refused.png"]) {
+  // Apple allows one attachment, so the two pictures travel as one file.
+  for (const name of [ATTACHMENT]) {
     if (!names.has(name)) await attach(detail.id, join(HERE, "review-attachments", name));
   }
 
@@ -176,7 +179,6 @@ async function submit() {
   }
   await asc("PATCH", `/v1/reviewSubmissions/${id}`, { data: { type: "reviewSubmissions", id, attributes: { submitted: true } } });
   console.log(`submitted ${id}`);
-  await read();
 }
 
 const action = process.env.ASC_ACTION;
