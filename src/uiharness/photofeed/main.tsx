@@ -3,7 +3,7 @@
  *
  * Photo plan Unit A / audit B1 + B2 + M6: "the feed never loads a credited
  * file". This page makes a photo EXACTLY as the uploader does today — the
- * real encoder (`photoSetPhotoEncoder`) and the real names (`photoObjectPath`)
+ * real v3 encoder (`encodePhotoSet`) and the real names (`photoObjectPath`)
  * of the resumable post upload — and shows it in the REAL feed card
  * (PostCard → PostMedia) with the real CSS.
  *
@@ -31,11 +31,12 @@
  *                 post_photo_credit_for (20261110_0109)
  *   ?admin=1      the viewer is a site admin (user_roles role = admin)
  *   ?app=1        the Android shell (window.Capacitor, set before the app loads)
+ *   ?grid=1       also the post's photo grid (#gridwrap), whose tap opens full screen
  *   ?viewer=err   signed out, and the first feed copy requested fails (404):
  *                 the image-error fallback must be clean too (tools side)
  */
 import { createRoot } from "react-dom/client";
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useState } from "react";
 import { installFakeBackend, HARNESS_USER_ID, type FakeRoute } from "../fakeBackend";
 import { fixtureRoutes } from "../fixtureRoutes";
 import "../../index.css";
@@ -132,13 +133,25 @@ declare global {
 }
 
 async function main() {
-  const { photoSetPhotoEncoder } = await import("@/lib/photoSetUpload");
+  const { encodePhotoSet } = await import("@/lib/photoSetEncode");
   const { photoObjectPath } = await import("@/lib/upload/photoJobs");
-  const { rungPath } = await import("@/lib/imageLadder");
+  const { rungPath, photoSetSuffix, PHOTO_SET_V3_MARKER } = await import("@/lib/imageLadder");
   const file = await sourcePhoto();
-  // The uploader's clean files (it draws no credit: credit U3); the credited 2048
-  // is what the server's renderer makes from the private clean 2048.
-  const clean = await photoSetPhotoEncoder()(file);
+  // The v3 (`-l5`) post set — what live posts made while photo_set_v2 was on
+  // still carry (since the Owner's order of 4 Nov 2026 new feed posts are `-l6`,
+  // locked in feedPhotoSet.test.ts). Built from the REAL v3 encoder (it draws no
+  // credit: credit U3); the credited 2048 is what the server's renderer makes
+  // from the private clean 2048.
+  const v3 = await encodePhotoSet(file, false);
+  if (!v3) throw new Error("harness browser has no WebP encoder");
+  const slot = (s: string) => v3.copies.find((c) => c.slot === s)!;
+  const clean = {
+    full: { blob: slot("master").file, width: slot("master").width, height: slot("master").height },
+    thumb: slot("thumb").file,
+    rungs: v3.copies.filter((c) => c.slot === "r320").map((c) => ({ rung: c.maxDimension, blob: c.file, suffix: photoSetSuffix(c.slot) })),
+    clean: slot("clean2048").file,
+    marker: PHOTO_SET_V3_MARKER,
+  };
   const k2048 = clean.clean as Blob;
   const c2048 = window.__serverCredit
     ? new Blob([Uint8Array.from(atob(await window.__serverCredit(await b64(k2048))), (ch) => ch.charCodeAt(0))], { type: "image/webp" })
@@ -198,13 +211,32 @@ async function main() {
 
   const AppShell = lazy(() => import("../AppShell"));
   const PostCard = lazy(() => import("@/components/post/PostCard"));
+  const FacebookPhotoGrid = lazy(() => import("@/components/FacebookPhotoGrid"));
+  /** The card keeps its own like state, as the feed does — so a double-tap shows the like land (feed gestures, 4 Nov 2026). */
+  const Card = () => {
+    const [p, setP] = useState(post);
+    return (
+      <PostCard
+        post={p}
+        currentUserId={viewer === "out" ? undefined : HARNESS_USER_ID}
+        onReact={(_, type) => setP((c) => ({ ...c, user_reaction: type, like_count: c.like_count + 1, reaction_counts: { ...c.reaction_counts, [type]: (c.reaction_counts[type] ?? 0) + 1 } }))}
+        onUnreact={() => setP(post)}
+      />
+    );
+  };
   createRoot(document.getElementById("root")!).render(
     <Suspense fallback={<p>loading…</p>}>
       <AppShell route="/feed" path="/feed" withLayout={false}>
         <CommentsOverlayProvider>
           <div id="cardwrap" style={{ width: phone ? 390 : 560, margin: phone ? "0" : "16px auto", background: "hsl(var(--card))" }}>
-            <PostCard post={post} currentUserId={viewer === "out" ? undefined : HARNESS_USER_ID} onReact={() => {}} onUnreact={() => {}} />
+            <Card />
           </div>
+          {/* ?grid=1: the post's photo grid, the full-screen path photo-feed-credit.mjs checks (the feed photo opens no viewer since 4 Nov 2026). */}
+          {q.get("grid") === "1" && (
+            <div id="gridwrap" style={{ width: phone ? 390 : 560, margin: phone ? "0" : "16px auto" }}>
+              <FacebookPhotoGrid urls={[url]} />
+            </div>
+          )}
         </CommentsOverlayProvider>
       </AppShell>
     </Suspense>,

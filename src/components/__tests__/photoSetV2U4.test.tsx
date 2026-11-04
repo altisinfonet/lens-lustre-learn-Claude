@@ -98,14 +98,14 @@ const setConnection = (type: string | undefined) =>
 const setApp = (on: boolean) => { (globalThis as { Capacitor?: unknown }).Capacitor = on ? { isNativePlatform: () => true, getPlatform: () => "android" } : undefined; };
 const sharp = (c: HTMLElement) => [...c.querySelectorAll("img")].find((i) => i.className.includes("object-contain")) as HTMLImageElement;
 
+/**
+ * Full screen. Since 4 Nov 2026 the FEED photo opens no viewer (Owner, "like
+ * Instagram" — pinch in place instead), so the full-screen photograph is
+ * opened from the post page's photo grid, which hands ZoomableImage the same
+ * `originalFor(url)` the feed viewer did.
+ */
 async function openViewer() {
-  vi.useFakeTimers({ shouldAdvanceTime: true });
-  const frame = document.querySelector(".cursor-zoom-in") as HTMLElement;
-  for (let i = 0; i < 2 && !screen.queryByRole("dialog", { name: /full size/ }); i++) {
-    fireEvent.click(frame);
-    await act(async () => { vi.advanceTimersByTime(400); });
-  }
-  vi.useRealTimers();
+  fireEvent.click(document.querySelector(".group\\/photo") as HTMLElement);
   return screen.findByRole("dialog", { name: /full size/ });
 }
 
@@ -156,12 +156,12 @@ describe("Save mobile data (decision 6)", () => {
 
   it("full screen: the credited 2048 normally (v3); a stale v2 -l4 row → its clean 1080, never the master", async () => {
     setConnection("cellular");
-    const a = wrap(<PostMedia urls={[L5]} thumbUrls={[L5_THUMB]} />);
+    const a = wrap(<FacebookPhotoGrid urls={[L5]} />);
     await settle();
     const viewer = await openViewer();
     expect(viewer.querySelector("img")!.getAttribute("src")).toBe(withCreditVersion(`${CDN}-w1080h720-l5-r2048c.webp`));
     a.unmount();
-    wrap(<PostMedia urls={[L4]} thumbUrls={[L4_THUMB]} />);
+    wrap(<FacebookPhotoGrid urls={[L4]} />);
     await settle();
     const v2 = await openViewer();
     expect(v2.querySelector("img")!.getAttribute("src")).toBe(L4_1080);
@@ -170,7 +170,7 @@ describe("Save mobile data (decision 6)", () => {
   it("full screen: the 600 copy is painted when saving (Unit A: the clean copy is painted, one size down)", async () => {
     localStorage.setItem("50mm.saveMobileData", "on");
     setConnection("cellular");
-    wrap(<PostMedia urls={[L5]} thumbUrls={[L5_THUMB]} />);
+    wrap(<FacebookPhotoGrid urls={[L5]} />);
     await settle();
     const viewer = await openViewer();
     const img = viewer.querySelector("img")!;

@@ -26,6 +26,7 @@ import { asMember, bucketFor, parsePhoto, rpc } from "./_lib";
 import type { MediaEnv } from "../derivatives/_lib";
 import { MAX_DERIVATIVE_BYTES, webpSize } from "../../../../src/lib/media/derivativeRules";
 import { CREDIT_GEOMETRY } from "../../../../src/lib/creditGeometry.mjs";
+import { isFeedPhotoSet } from "../../../../src/lib/feedPhotoSet.mjs";
 import { creditFor } from "./claim";
 
 interface QueueRow { post_id: string; ord: number; src_url: string; owner_full_name: string | null; owner_handle: string | null; owner_is_admin: boolean }
@@ -47,6 +48,9 @@ export async function handleOldCredit(request: Request, env: MediaEnv, fetchImpl
         env, who.jwt, ...rpc("photo_old_credit_target", { _post_id: postId, _ord: ord }), fetchImpl);
       const t = Array.isArray(rows) ? rows[0] : undefined;
       if (!t) throw new HttpError(404, "PHOTO-OC-404", "not old-credit work (the post does not name an old photo here)");
+      // Owner order, 4 Nov 2026: a feed set photo's credit is NEVER stored (drawn on save in the browser).
+      // The SQL class still counts `-l6` as old; this route never writes for one.
+      if (isFeedPhotoSet(t.src_url)) throw new HttpError(409, "PHOTO-OC-FEED-001", "a feed set photo (-l6) never gets a stored credited copy — refused");
       if (!OLD_CREDIT_KEY_RE.test(t.credited_key) || !t.credited_key.includes(`/posts/credit/${postId}-${ord}-`)) {
         throw new HttpError(500, "PHOTO-OC-KEY-001", "the database named a key that is not this photo's credited copy — refused");
       }
@@ -82,7 +86,10 @@ export async function handleOldCredit(request: Request, env: MediaEnv, fetchImpl
         const after = typeof body.after === "string" && UUID_RE.test(body.after) ? body.after : null;
         const rows = await asMember<QueueRow[]>(env, who.jwt, ...rpc("photo_old_credit_queue", { _limit: limit, _after: after }), fetchImpl);
         const parked = await asMember<number>(env, who.jwt, ...rpc("photo_credit_parked_count", {}), fetchImpl);
-        return json(200, { parked, jobs: (Array.isArray(rows) ? rows : []).map((r) => ({ post_id: r.post_id, ord: r.ord, src_url: r.src_url, credit: creditFor(r) })) });
+        // `-l6` feed set photos are never old-credit work, but the SQL class still lists them: they
+        // stay in the list (the worker's keyset paging counts every row) and are flagged `skip`;
+        // the worker never draws them and the PUT above refuses them.
+        return json(200, { parked, jobs: (Array.isArray(rows) ? rows : []).map((r) => ({ post_id: r.post_id, ord: r.ord, src_url: r.src_url, credit: creditFor(r), ...(isFeedPhotoSet(r.src_url) ? { skip: "feed_set" } : {}) })) });
       }
       if (body.op === "failed") {
         const { postId, ord } = parsePhoto(body.post_id, body.ord);
