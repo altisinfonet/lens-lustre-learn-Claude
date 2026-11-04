@@ -963,8 +963,10 @@ const CommentThread = ({
             <span aria-hidden="true" className="h-px w-6 shrink-0 bg-muted-foreground/60" />
             <span className="relative before:absolute before:inset-x-0 before:-top-3 before:bottom-0 before:content-['']">
               {repliesShown
-                ? "Hide replies"
-                : `View ${replyCount} more ${replyCount === 1 ? "reply" : "replies"}`}
+                ? t("cmt.hideReplies", "Hide replies")
+                : replyCount === 1
+                  ? t("cmt.viewOneReply", "View 1 more reply")
+                  : t("cmt.viewReplies", "View {n} more replies").replace("{n}", String(replyCount))}
             </span>
           </button>
         )}
