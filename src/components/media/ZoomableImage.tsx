@@ -5,6 +5,7 @@ import { logger } from "@/lib/logger";
 import { deviceContext } from "@/lib/deviceContext";
 import { useDataSaver } from "@/hooks/core/useDataSaver";
 import { fullScreenPhoto } from "@/lib/photoProtection";
+import { useOldPhotoCreditVersion } from "@/lib/photoOldCredit";
 import { layeredStyle } from "@/lib/photoSaveTarget";
 
 /**
@@ -130,6 +131,8 @@ const ZoomableImage = ({ src: given, alt = "", className, wrapperClassName = "w-
    */
   // U4: "Save mobile data" on mobile data → the 600 copy is shown.
   const saving = useDataSaver().saving;
+  // An OLD photo's credited copy arrives from a lookup (20261110_0109): re-render when it does.
+  useOldPhotoCreditVersion();
   const { shown, saveAs } = fullScreenPhoto(given, saving);
   const [saveAsFailed, setSaveAsFailed] = useState<string | null>(null);
   const layered = !!saveAs && saveAsFailed !== saveAs;
