@@ -179,7 +179,6 @@ async function submit() {
   }
   await asc("PATCH", `/v1/reviewSubmissions/${id}`, { data: { type: "reviewSubmissions", id, attributes: { submitted: true } } });
   console.log(`submitted ${id}`);
-  await read();
 }
 
 const action = process.env.ASC_ACTION;
