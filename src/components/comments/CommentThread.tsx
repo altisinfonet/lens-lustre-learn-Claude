@@ -99,6 +99,8 @@ export interface ThreadComment {
   reaction_counts?: Record<string, number>;
   /** The reaction_type the current viewer picked on this comment, or null/undefined for none. */
   user_reaction?: string | null;
+  /** A comment placed by the admin seeding tool: a small star beside the age, as image threads have always shown. */
+  is_admin_seed?: boolean;
   /** OFF-2 · still on the device, waiting for the network (OFF-5 G4 "Pending" mark). */
   pending?: boolean;
   replies: ThreadComment[];
@@ -113,6 +115,11 @@ export interface ThreadFeatures {
   reporting?: boolean;
   /** Most relevant / Newest first. */
   sorting?: boolean;
+  /**
+   * Edit your own comment. Off on a photograph's thread: its moderation runs on
+   * INSERT only (blocklist trigger, moderate-comment), so an edit would skip it.
+   */
+  editing?: boolean;
 }
 
 /**
@@ -382,6 +389,7 @@ const CommentThread = ({
   const canPinHere = (features?.pinning ?? true) && canPin;
   const canReport = features?.reporting ?? true;
   const canSort = features?.sorting ?? true;
+  const canEdit = features?.editing ?? true;
 
   const [commentInput, setCommentInput] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
@@ -587,6 +595,7 @@ const CommentThread = ({
                   {comment.pending && (
                     <span className="shrink-0 text-[11px] text-muted-foreground" data-testid="comment-pending">Pending</span>
                   )}
+                  {comment.is_admin_seed && <span className="shrink-0 text-xs text-primary/70">★</span>}
                 </div>
 
                 {/*
@@ -682,7 +691,7 @@ const CommentThread = ({
                 {/* THE META LINE — one small grey line 4 px under the text,
                     16 px tall. Its controls' 44 px lives in META_HIT / MENU_HIT
                     (invisible), not in the line's height. */}
-                <div data-comment-meta="" className="mt-1 flex h-4 items-center gap-4 text-xs font-semibold leading-4 text-muted-foreground">
+                <div data-comment-meta="" className={`mt-1 flex h-4 items-center gap-4 text-xs font-semibold leading-4 text-muted-foreground${canReact ? "" : " pe-3"}`}>
                   {currentUserId && depth < maxReplyDepth && (
                     <button
                       type="button"
@@ -737,7 +746,7 @@ const CommentThread = ({
                             <SmilePlus className="mr-2 h-3.5 w-3.5" /> React…
                           </DropdownMenuItem>
                         )}
-                        {isOwn && (
+                        {isOwn && canEdit && (
                           <DropdownMenuItem onClick={() => { setEditingId(comment.id); setEditInput(comment.content); }} className="cursor-pointer">
                             <Pencil className="h-3.5 w-3.5 mr-2" /> {t("cmt.edit", "Edit")}
                           </DropdownMenuItem>
