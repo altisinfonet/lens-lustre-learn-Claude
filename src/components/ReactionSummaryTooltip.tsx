@@ -17,6 +17,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Loader2 } from "lucide-react";
+import { ROW_COUNT_TAP } from "@/components/post/actionRowGeometry";
 import ReactorFriendAction from "@/components/ReactorFriendAction";
 import AutoBadge from "@/components/AutoBadge";
 import AutoRole from "@/components/AutoRole";
@@ -163,8 +164,12 @@ const ReactionSummaryTooltip = ({ reactionCounts, totalCount, source, children }
               type="button"
               onClick={handleOpen}
               aria-label={`See who reacted (${totalCount})`}
-              /* ⚠ 44/32 TAP FLOOR. h-12 px-2.5 is not decoration — it is the
-                 same box the Comment and Share buttons beside it already use.
+              /* ⚠ 44/32 TAP FLOOR. ROW_COUNT_TAP is not decoration — it is the
+                 same 44 px band the Like / Comment / Share buttons beside it
+                 use (src/components/post/actionRowGeometry.ts). Side to side
+                 it is content-sized (Owner report 4 Nov, Instagram's spacing):
+                 the row's ActionCount carries the visible gaps as padding, and
+                 `min-w-8` keeps a one-digit count 32 px wide, number first.
 
                  Making this a real <button> on 2026-08-28 was correct and is
                  kept. What it also did was make the control MEASURABLE: as a
@@ -174,17 +179,15 @@ const ReactionSummaryTooltip = ({ reactionCounts, totalCount, source, children }
 
                  The rule (tools/uishot/capture.mjs) is LONG >= 44 AND SHORT >= 32,
                  measured with getBoundingClientRect, which INCLUDES padding.
-                 h-11 gives 44 on the long axis; px-2.5 lifts the narrowest
-                 content (16px) to 36 on the short axis. The row under the
-                 photo is 32px (Owner report 3 Nov 2026, "too much space" —
-                 PostActionRow), so the box reaches 12px UP only (`-mt-3`, its
-                 `pt-3` keeps the number on the row's centre) and never down
-                 into the caption's name — the same band as Like / Comment /
-                 Share (`.tap-44-under`, src/index.css). `relative` puts it in
+                 h-11 gives 44 on the long axis; min-w-8 gives 32 on the short
+                 one. The row under the photo is 32px (Owner report 3 Nov 2026,
+                 "too much space" — PostActionRow), so the box reaches 12px UP
+                 only (`-mt-3`, its `pt-3` keeps the number on the row's centre)
+                 and never down into the caption's name. `relative` puts it in
                  that layer, under the camera line and the caption (review of
                  #867, tools/uishot/card-hits.mjs).
               */
-              className="relative cursor-pointer inline-flex items-center justify-center h-11 -mt-3 pt-3 px-2.5 touch-manipulation"
+              className={ROW_COUNT_TAP}
             >
               {children}
             </button>

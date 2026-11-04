@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { ThumbsUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { ROW_TAP } from "@/components/post/actionRowGeometry";
 
 export type ReactionType = "like" | "love" | "haha" | "wow" | "sad" | "angry";
 
@@ -30,11 +31,16 @@ interface ReactionPickerProps {
   onReact: (type: ReactionType) => void;
   onUnreact: () => void;
   disabled?: boolean;
+  /**
+   * The Like button's side padding, set by THE row (PostActionRow), which
+   * alone knows whether a count follows it (src/components/post/actionRowGeometry.ts).
+   */
+  sideClassName?: string;
 }
 
 const LONG_PRESS_MS = 500;
 
-const ReactionPicker = ({ currentReaction, onReact, onUnreact, disabled }: ReactionPickerProps) => {
+const ReactionPicker = ({ currentReaction, onReact, onUnreact, disabled, sideClassName = "ps-2.5 pe-2" }: ReactionPickerProps) => {
   const [showPicker, setShowPicker] = useState(false);
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -124,12 +130,11 @@ const ReactionPicker = ({ currentReaction, onReact, onUnreact, disabled }: React
       ref={containerRef}
       // Sized to the icon, not stretched. Owner, 2026-08-10: the action icons
       // are left-aligned with even spacing, Instagram-style, and carry no text
-      // label. The button below is 48px TALL and 44px wide (24px icon + px-2.5)
-      // — comfortably above the 36px that he reported as "too small / hard to
-      // tap" earlier the same day, and it must not shrink below that again.
-      // It stopped being a 48x48 square when he said the icons looked oversized
-      // next to Instagram's; the height, which is what the thumb actually
-      // needs in a horizontal row, is unchanged.
+      // label. The button below is 44px TALL to a finger (ROW_TAP) and 34–42px
+      // wide (the row decides: actionRowGeometry.ts) — above the 36px-square
+      // he reported as "too small / hard to tap" on 10 Aug, on the axis a thumb
+      // sweeps; its width follows the Owner's 4 Nov ruling that the row's
+      // side-to-side spacing match Instagram's.
       className="relative select-none"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -187,10 +192,16 @@ const ReactionPicker = ({ currentReaction, onReact, onUnreact, disabled }: React
            the picker, whose emoji buttons are named by their title. */
         aria-label={currentReaction && activeReaction ? `Remove your ${activeReaction.label} reaction` : "Like"}
         aria-pressed={!!currentReaction}
-        className={`tap-44-under h-8 px-2.5 flex items-center justify-center rounded-md select-none touch-manipulation transition-colors ${
+        /* ROW_TAP: 44 px tall, reaching 12 px up only; content-sized side to
+           side (Owner report 4 Nov — actionRowGeometry.ts). No hover
+           background: the box is the finger target, wider than the icon on one
+           side and reaching into the photo, so painting it would show
+           exactly the space the Owner asked to remove. Hover brightens the
+           icon instead. */
+        className={`${ROW_TAP} ${sideClassName} flex items-center justify-start transition-colors ${
           currentReaction
-            ? `${activeReaction?.color || "text-primary"} hover:bg-primary/5`
-            : "text-muted-foreground hover:bg-muted/50"
+            ? `${activeReaction?.color || "text-primary"} hover:opacity-80`
+            : "text-muted-foreground hover:text-foreground"
         } disabled:opacity-40`}
       >
         {/*

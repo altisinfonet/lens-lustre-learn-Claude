@@ -31,6 +31,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { measureCardInk } from "./card-ink.mjs";
 import { checkCardHits } from "./card-hits.mjs";
+import { measureRowInk, rowInkChecks } from "./row-ink.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BASELINE = join(here, "camline-baseline");
@@ -97,6 +98,14 @@ const SCENES = [
   ["web-phone-switch-off", "post=a&off=1&w=phone", PHONE, false],
   ["app-phone-switch-off", "post=a&off=1&w=phone&app=1", PHONE, false],
   ["web-phone-album-switch-off", "post=c&off=1&w=phone", PHONE, false],
+  // Owner report 4 Nov: the row's SIDE-TO-SIDE spacing follows the digits, as
+  // on Instagram. Switch OFF, as on live (the Owner's screenshot).
+  ["web-phone-counts-823-50-17", "post=a&off=1&w=phone&counts=823,50,17", PHONE, false],
+  ["web-phone-counts-12k-0-640", "post=a&off=1&w=phone&counts=12100,0,640", PHONE, false],
+  ["web-phone-counts-zero", "post=a&off=1&w=phone&counts=0,0,0", PHONE, false],
+  ["web-phone-counts-3-0-2", "post=a&off=1&w=phone&counts=3,0,2", PHONE, false],
+  ["web-desktop-counts-823-50-17", "post=a&off=1&counts=823,50,17", DESKTOP, false],
+  ["app-phone-counts-823-50-17", "post=a&off=1&w=phone&app=1&counts=823,50,17", PHONE, false],
 ].map(([name, query, viewport, open]) => ({ name, query, viewport, open }));
 
 /**
@@ -152,7 +161,10 @@ async function shoot(browser, s) {
     window.__camGaps = gaps;
     const tick = () => {
       const frame = document.querySelector("#cardwrap .cursor-zoom-in");
-      const act = document.querySelector("#cardwrap [data-post-id] button[aria-label*='omment' i]");
+      // The ROW's layout box (the Comment button's flex row), not the button:
+      // since 4 Nov every row button is a 44 px box reaching 12 px UP over the
+      // photo (finger target), so its own top is 12 px above the row's.
+      const act = document.querySelector("#cardwrap [data-post-id] button[aria-label*='omment' i]")?.parentElement;
       if (frame && act) gaps.push(Math.round(act.getBoundingClientRect().top - frame.getBoundingClientRect().bottom));
       if (gaps.length < 400) requestAnimationFrame(tick);
     };
@@ -190,13 +202,18 @@ async function shoot(browser, s) {
   });
   // What the EYE sees under the photo (Owner, 3 Nov ~16:20Z): ink, not boxes.
   const ink = await measureCardInk(page, await page.$("#cardwrap [data-post-id]"));
+  // ...and side to side in the Like / Comment / Share row (Owner report 4 Nov).
+  const row = await measureRowInk(page, await page.$("#cardwrap [data-post-id]"));
+  const rowEl = (await page.evaluateHandle(() => [...document.querySelector("#cardwrap [data-post-id]").children]
+    .find((k) => k.querySelector("svg.lucide-message-circle")) ?? null)).asElement();
+  row.png = rowEl ? await rowEl.screenshot() : null;
   const card = await (await page.$("#cardwrap")).screenshot();
   const lineEl = await page.$("[data-camera-line]");
   const line = lineEl ? await lineEl.screenshot() : null;
   // What a FINGER gets (review of #867): elementFromPoint every 2 px under the photo.
   const hits = await checkCardHits(page);
   await ctx.close();
-  return { card, line, dom, ink, hits, errors };
+  return { card, line, dom, ink, row, hits, errors };
 }
 
 /**
@@ -277,6 +294,8 @@ for (const s of SCENES) {
     [!isAlbum || (r.dom.dotSteps.length === 2 && r.dom.dotSteps.every((x) => x > 0 && x <= 14)), `slider dots close together (steps ${r.dom.dotSteps.join(", ")} px)`],
     // Owner, 3 Nov ~16:20Z (screenshots 3 + 4): measured on VISIBLE pixels.
     ...inkChecks(r.ink, { hasLine, opened: s.open }),
+    // Owner report 4 Nov (Instagram beside it): side to side, on ink.
+    ...rowInkChecks(r.row),
     // Review of #867: no two tap areas overlap; every point hits the control whose band holds it.
     [r.hits.points > 200 && r.hits.mismatches.length === 0, `every tap lands on its own control (${r.hits.points} points every 2 px)${r.hits.mismatches.length ? `: ${r.hits.mismatches.join("; ")}` : ""}`],
     // Re-review of #867: every row control (and the admins' camera toggle) is >= 44 px tall TO A FINGER,
@@ -284,6 +303,8 @@ for (const s of SCENES) {
     [r.hits.short.length === 0 && !!r.hits.runs, `every control >= 44 px tall to a finger (${r.hits.runs})${r.hits.short.length ? `: ${r.hits.short.join("; ")}` : ""}`],
   ];
   row.ink = { ...r.ink.gaps, lefts: r.ink.lefts };
+  row.rowGaps = r.row.gaps.map((g) => `${g.from}→${g.to} ${g.px}`).join(", ");
+  row.rowParts = r.row.parts;
   row.failed = checks.filter(([ok]) => !ok).map(([, what]) => what);
   if (UPDATE) {
     writeFileSync(file, r.card);
@@ -300,6 +321,36 @@ for (const s of SCENES) {
   if (row.failed.length) pass = false;
   rows.push(row);
 }
+// Owner report 4 Nov: the groups' widths FOLLOW THE DIGITS — "3" is narrower
+// than "50", "12" narrower than "823", by about the digits' own width (no fixed
+// boxes). Ink, icon's left edge to its count's right edge, same 390 px card.
+{
+  const group = (scene, icon, count) => {
+    const p = shots[scene]?.row?.parts ?? [];
+    const i = p.find((x) => x.part === icon), c = p.find((x) => x.part === count);
+    return i && c ? { w: Math.round((c.right - i.left) * 10) / 10, digits: c.right - c.left } : null;
+  };
+  const failed = [];
+  const said = [];
+  for (const [icon, count] of [["like-icon", "like-count"], ["comment-icon", "comment-count"]]) {
+    const short = group("web-phone-switch-off", icon, count); // 12 · 3
+    const long = group("web-phone-counts-823-50-17", icon, count); // 823 · 50
+    if (!short || !long) { failed.push(`${icon} group not found`); continue; }
+    const grew = long.w - short.w, digits = long.digits - short.digits;
+    said.push(`${icon.split("-")[0]} ${short.w} → ${long.w} px (digits +${digits.toFixed(1)})`);
+    if (!(grew > 2 && Math.abs(grew - digits) <= 1.5)) failed.push(`${icon.split("-")[0]} group grew ${grew.toFixed(1)} px for +${digits.toFixed(1)} px of digits`);
+  }
+  if (failed.length) pass = false;
+  rows.push({ scene: "row widths follow the digits (12/3 vs 823/50, 390 px)", baseline: said.join("; "), failed });
+}
+// One shared row: the app's Like / Comment / Share row == the website's, pixel for pixel.
+for (const v of ["switch-off", "counts-823-50-17"]) {
+  const web = shots[`web-phone-${v}`]?.row?.png;
+  const app = shots[`app-phone-${v}`]?.row?.png;
+  const d = web && app ? await diff(web, app) : { same: false, why: "a row is missing" };
+  if (!d.same) pass = false;
+  rows.push({ scene: `app == web (${v}, 390 px action row)`, baseline: d.why, failed: d.same ? [] : [`app and web rows differ: ${d.why}`] });
+}
 // Exact same to same: the app's camera line == the website's, at 390 px.
 for (const v of ["member", "admin-closed", "admin-opened"]) {
   const web = shots[`web-phone-${v}`].line;
@@ -312,7 +363,7 @@ for (const v of ["member", "admin-closed", "admin-opened"]) {
 await browser.close();
 stop();
 
-for (const r of rows) console.log(`${r.failed.length ? "FAIL" : "PASS"}  ${r.scene}${r.baseline ? `  [${r.baseline}]` : ""}${r.ink ? `\n      ink ${JSON.stringify(r.ink)}` : ""}${r.failed.length ? `\n      ✗ ${r.failed.join("\n      ✗ ")}` : ""}`);
+for (const r of rows) console.log(`${r.failed.length ? "FAIL" : "PASS"}  ${r.scene}${r.baseline ? `  [${r.baseline}]` : ""}${r.ink ? `\n      ink ${JSON.stringify(r.ink)}` : ""}${r.rowGaps ? `\n      row ${r.rowGaps}` : ""}${r.failed.length ? `\n      ✗ ${r.failed.join("\n      ✗ ")}` : ""}`);
 console.log(pass ? "\nCAMERA LINE VISUAL: PASS" : "\nCAMERA LINE VISUAL: FAIL");
 if (JSON_OUT) writeFileSync(JSON_OUT, JSON.stringify({ pass, rows }, null, 2));
 process.exit(pass ? 0 : 1);

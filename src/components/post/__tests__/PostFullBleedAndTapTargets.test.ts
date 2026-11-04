@@ -24,7 +24,9 @@
  *    the icon plus px-2.5, which is what Instagram looks like. **Anything that
  *    reduces the FINGER TARGET under 44px puts back the bug he reported at 36px.**
  *    (3 Nov 2026: the 48px BOX itself was the "too much space" the Owner
- *    reported; the box is 32px now and the target 44px — `.tap-44-under`.)
+ *    reported; the row is 32px now and the target 44px TALL, reaching up.
+ *    4 Nov 2026: the side-to-side boxes were "far too wide" next to Instagram;
+ *    they are content-sized now, >= 32 wide — actionRowGeometry.ts.)
  *
  * 4. "I told No border anything to anywhere, example like Instagram, didnt do
  *    it it." `md:border` and `md:mb-4` are therefore gone: phone and desktop
@@ -191,23 +193,35 @@ const actionSlot = (() => {
 })();
 
 describe("react, comment and share are thumb-sized", () => {
-  it("keeps a 44px finger target that fixed 'too small / hard to tap' — without the visible space (Owner, 3 Nov 2026)", () => {
+  it("keeps a 44px finger target that fixed 'too small / hard to tap' — without the visible space (Owner, 3 + 4 Nov 2026)", () => {
     // Was h-12 (48px box). Owner report 3 Nov 2026 ~16:20Z: the 48px box left
     // 13px of empty card above the icons and 18px below them ("not done").
-    // The BOX is now 32px (h-8); the FINGER target is `.tap-44-under`'s
-    // ::after, 8px up + 4px down = 44px. What must never come back is a
-    // target under 44 — the 36px bug.
-    const targets = actionButtons.match(/tap-44-under h-8 px-2\.5/g) ?? [];
+    // 4 Nov: the 44px-WIDE boxes were the "far too wide" space side to side.
+    // Every control is now ROW_TAP: a real 44px-tall box (h-11) that takes
+    // 12px back out of the flow by reaching UP (-mt-3; pt-3 keeps the icon on
+    // the 32px row's centre) — never down into the caption's name. What must
+    // never come back is a target under 44 tall — the 36px bug.
+    const geometry = stripComments(read("src/components/post/actionRowGeometry.ts"));
+    const rowTap = geometry.match(/ROW_TAP\s*=\s*"([^"]*)"/)?.[1] ?? "";
+    expect(rowTap.split(/\s+/)).toEqual(expect.arrayContaining(["relative", "h-11", "-mt-3", "pt-3"]));
+    expect(rowTap, "reaches UP only").not.toMatch(/-m[yb]-|\bmb-/);
     // comment + share here; the react button lives in ReactionPicker.
-    expect(targets.length).toBe(2);
-    expect(picker).toContain("tap-44-under h-8 px-2.5");
-    const css = read("src/index.css");
-    const rule = css.match(/\.tap-44-under::after\s*\{([^}]*)\}/)?.[1] ?? "";
-    const px = (k: string) => Number(rule.match(new RegExp(`(?:^|[\\s;])${k}:\\s*(-?\\d+)(?:px)?\\s*;`))?.[1] ?? NaN);
-    expect(32 - px("top") - px("bottom"), "box 32px + the ::after's reach up and down").toBeGreaterThanOrEqual(44);
-    // Review of #867: it reaches UP only — never down into the caption's name.
-    expect(px("bottom")).toBe(0);
-    expect(px("min-width")).toBeGreaterThanOrEqual(44);
+    expect(actionButtons.match(/\$\{ROW_TAP\}/g)?.length).toBe(2);
+    expect(picker).toMatch(/\$\{ROW_TAP\}/);
+    // No ::after that claims 44 wide over the neighbour (the old .tap-44-under had min-width: 44px).
+    expect(actionButtons + picker).not.toContain("tap-44-under");
+    expect(read("src/index.css")).not.toMatch(/\.tap-44-under\s*(::after)?\s*\{/);
+  });
+
+  it("is content-sized side to side, like Instagram (Owner, 4 Nov 2026)", () => {
+    // The fixed px-2.5 on every icon and count put 21px between an icon and
+    // its count and 28px between a count and the next icon. The visible gaps
+    // are now the boxes' own padding; tools/uishot/row-ink.mjs measures them
+    // on ink in CI (camline-visual.mjs).
+    expect(actionButtons).not.toMatch(/px-2\.5/);
+    expect(picker).not.toMatch(/px-2\.5/);
+    expect(actionButtons, "the like count hugs the Like icon").toContain('"ps-2.5 pe-0"');
+    expect(actionButtons, "ActionCount: ~5px before, ~16px after").toContain("ps-[3px] pe-3.5");
   });
 
   it("groups the icons on the LEFT, Instagram-style", () => {
