@@ -579,6 +579,7 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
               <span className="text-[10px] tracking-[0.2em] uppercase text-foreground font-medium block" style={{ fontFamily: "var(--font-heading)" }}>
                 Date of Birth <span className="text-destructive">*</span>
               </span>
+              <p className="text-sm font-semibold text-foreground" data-testid="age-18-notice">18+ only. Under 18 not accepted.</p>
               <Popover>
                 <PopoverTrigger asChild>
                   <button
