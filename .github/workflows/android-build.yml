@@ -820,6 +820,11 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
+          # 2026-11-04: bumped 1.2.37 -> 1.2.38. 1.2.37 (run 140, 41534590843 on e92d4669) is spent.
+          # 1.2.38 carries what main gained since 2 Nov (Owner order, 4 Nov): one age rule 18+ at sign-up
+          # and Edit Profile, no tracking / no cookie box in the app, compact comments (competition too),
+          # credit U1+U2, Instagram action row, photo gaps + one left edge, camera line every 5 s,
+          # hashtag page on PostCard, waiting-card words. No switch is changed.
           # 2026-11-02: bumped 1.2.36 -> 1.2.37. 1.2.36 (run 139, 41341965644 on 90d9c4fa) is spent.
           # 1.2.37 is the ONE app version of the Smart Photo Plan (Owner-approved 2026-11-02): it carries
           # U1–U7 (new photo set + credit, camera details, download removal and WebView long-press off,
@@ -933,8 +938,8 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
-          sed -i 's/versionName "1.0"/versionName "1.2.37"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.37 (1.2.36 is spent - run 139)"
+          sed -i 's/versionName "1.0"/versionName "1.2.38"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.38 (1.2.37 is spent - run 140)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
           # S11: prove both edits landed — exactly one versionCode, the derived
