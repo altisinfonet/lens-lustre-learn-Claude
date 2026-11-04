@@ -122,7 +122,7 @@ if (strayOrigins.length) {
 // (besides the Google Play listing) would send AI readers to the wrong place.
 const llms = readFileSync("dist/llms.txt", "utf8");
 const strayLlms = [...new Set(llms.match(/https?:\/\/[a-z0-9.-]+/gi) || [])].filter(
-  (u) => !u.startsWith(displayOrigin) && u !== "https://play.google.com",
+  (u) => u !== displayOrigin && u !== "https://play.google.com",
 );
 if (strayLlms.length) {
   console.error(`generate-seo-assets FAIL: llms.txt names other origins: ${strayLlms.join(", ")}`);
