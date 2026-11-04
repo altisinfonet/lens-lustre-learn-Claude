@@ -1,3 +1,4 @@
+import { memberPhotoSrc } from "@/lib/photoProtection";
 import { useState, useRef, useCallback } from "react";
 import { fetchTaggedPhotosPage, nextTaggedPage } from "@/lib/profile/taggedPhotos";
 import { Link } from "react-router-dom";
@@ -266,7 +267,7 @@ const AlbumCard = ({ album, index, isOwner, onClick, onDelete }: {
           {album.cover_url ? (
             <img src={album.cover_url} alt={album.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
           ) : photos.length > 0 ? (
-            <img src={photos[0].image_url} alt={album.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
+            <img src={memberPhotoSrc(photos[0].image_url, 320) ?? undefined} alt={album.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-secondary/30">
               <Camera className="h-8 w-8 text-muted-foreground/30" />

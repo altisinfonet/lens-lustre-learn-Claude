@@ -149,23 +149,33 @@ describe("Save mobile data (decision 6)", () => {
     expect(sharp(container).getAttribute("src")).toBe(L4_1080);
   });
 
-  it("full screen: the credited 2048 normally", async () => {
+  // A CURRENT (v3 -l5) set carries the credited copy under the context menu; a
+  // v2 -l4 set has none since credit fix U1 (its master holds the retired big credit).
+  const L5 = `${CDN}-w1080h720-l5.webp`;
+  const L5_THUMB = `${CDN}-w1080h720-l5-thumb.webp`;
+
+  it("full screen: the credited 2048 normally (v3); a stale v2 -l4 row → its clean 1080, never the master", async () => {
     setConnection("cellular");
-    wrap(<PostMedia urls={[L4]} thumbUrls={[L4_THUMB]} />);
+    const a = wrap(<PostMedia urls={[L5]} thumbUrls={[L5_THUMB]} />);
     await settle();
     const viewer = await openViewer();
-    expect(viewer.querySelector("img")!.getAttribute("src")).toBe(withCreditVersion(`${L4}`));
+    expect(viewer.querySelector("img")!.getAttribute("src")).toBe(withCreditVersion(`${CDN}-w1080h720-l5-r2048c.webp`));
+    a.unmount();
+    wrap(<PostMedia urls={[L4]} thumbUrls={[L4_THUMB]} />);
+    await settle();
+    const v2 = await openViewer();
+    expect(v2.querySelector("img")!.getAttribute("src")).toBe(L4_1080);
   });
 
   it("full screen: the 600 copy is painted when saving (Unit A: the clean copy is painted, one size down)", async () => {
     localStorage.setItem("50mm.saveMobileData", "on");
     setConnection("cellular");
-    wrap(<PostMedia urls={[L4]} thumbUrls={[L4_THUMB]} />);
+    wrap(<PostMedia urls={[L5]} thumbUrls={[L5_THUMB]} />);
     await settle();
     const viewer = await openViewer();
     const img = viewer.querySelector("img")!;
-    expect(img.style.backgroundImage).toContain(L4_THUMB);
-    expect(img.style.backgroundImage).not.toContain(L4_1080);
+    expect(img.style.backgroundImage).toContain(L5_THUMB);
+    expect(img.style.backgroundImage).not.toContain(L5);
   });
 
   it("the setting: shown only with the switch on, saved on this device", async () => {

@@ -51,6 +51,7 @@ import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import PostCommentsSection from "@/components/PostCommentsSection";
 import AdComments from "@/components/ads/AdComments";
 import { hasMedia, type SubjectMedia } from "@/lib/posts/subjectMedia";
+import { memberPhotoSrc } from "@/lib/photoProtection";
 
 // Lazy (P13): the overlay is mounted at the app root; the video card's code is
 // fetched the first time a video subject's comments open, never before.
@@ -70,7 +71,7 @@ const SubjectMediaPanel = ({ media }: { media: SubjectMedia }) => (
       </Suspense>
     ) : (
       <div className="flex h-full w-full items-center justify-center">
-        <img src={media.imageUrls[0]} alt="" className="max-w-full max-h-full object-contain" />
+        <img src={memberPhotoSrc(media.imageUrls[0]) ?? undefined} alt="" className="max-w-full max-h-full object-contain" />
       </div>
     )}
   </div>

@@ -14,6 +14,7 @@ import SidebarTopContributors from "@/components/sidebar/SidebarTopContributors"
 import type { SidebarData } from "@/hooks/core/useDashboardInit";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { isPaidCourse } from "@/lib/native/iosReview";
+import { memberPhotoSrc } from "@/lib/photoProtection";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -415,7 +416,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
                 <div key={w.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
                   <Link to={`/competitions`} className="shrink-0" aria-label={`${w.title || "Winning photo"} — competitions`}>
                     {w.photos?.[0] ? (
-                      <img loading="lazy" decoding="async" src={w.photos[0]} alt="" className="w-10 h-10 rounded-sm object-cover shrink-0" />
+                      <img loading="lazy" decoding="async" src={memberPhotoSrc(w.photos[0], 320) ?? undefined} alt="" className="w-10 h-10 rounded-sm object-cover shrink-0" />
                     ) : (
                       <div className="w-10 h-10 rounded-sm bg-primary/10 flex items-center justify-center shrink-0">
                         <Award className="h-4 w-4 text-primary/50" />

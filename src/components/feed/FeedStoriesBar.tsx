@@ -1,3 +1,4 @@
+import { memberPhotoSrc } from "@/lib/photoProtection";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Plus, X, ChevronLeft, ChevronRight, Trash2, Star, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -343,7 +344,7 @@ const FeedStoriesBar = () => {
                 {uploading ? (
                   <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                 ) : ownStories.length > 0 ? (
-                  <img loading="lazy" decoding="async" src={ownStories[0].image_url} alt="Your story" className="w-full h-full object-cover" />
+                  <img loading="lazy" decoding="async" src={memberPhotoSrc(ownStories[0].image_url, 320) ?? undefined} alt="Your story" className="w-full h-full object-cover" />
                 ) : (
                   <Plus className="h-5 w-5 text-primary/70 group-hover:text-primary" />
                 )}
@@ -463,7 +464,7 @@ const FeedStoriesBar = () => {
             {/* Image */}
             <img
               key={currentStory.id}
-              src={currentStory.image_url}
+              src={memberPhotoSrc(currentStory.image_url, 1080) ?? undefined}
               alt="Story"
               className="max-h-[92vh] max-w-[100vw] sm:max-w-[440px] object-contain select-none"
               draggable={false}

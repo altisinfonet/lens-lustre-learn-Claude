@@ -1,3 +1,4 @@
+import { memberPhotoSrc } from "@/lib/photoProtection";
 import { useEffect, useState } from "react";
 import { Plus, X, Star, Expand } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -107,7 +108,7 @@ const FeaturedPhotos = ({ userId, isOwner }: Props) => {
           {photos.map((photo) => (
             <div key={photo.id} className="relative group aspect-square overflow-hidden cursor-pointer" onClick={() => setLightbox(photo.image_url)}>
               <img
-                src={photo.thumbnail_url || photo.image_url}
+                src={photo.thumbnail_url || memberPhotoSrc(photo.image_url, 600) || undefined}
                 alt={photo.title || "Featured"}
                 className="w-full h-full object-cover"
                 loading="lazy"

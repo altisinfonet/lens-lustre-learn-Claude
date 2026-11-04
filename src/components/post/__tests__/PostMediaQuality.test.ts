@@ -52,7 +52,8 @@ describe("the sharp layer shows the original, not the thumbnail", () => {
 
   it("uses the original when the URL cannot be transformed", () => {
     // Photo plan U4: only a v2 photo with switch photo_set_v2 on (`v2Set`) takes its 1080/600 copy.
-    expect(CODE).toMatch(/const sharpSrc = v2Set \? v2Set\.src : transformable \? buildRenderUrl\(src, 800\) : src;/);
+    // Credit fix U1: a set photo without widths (no v2Set) takes its CLEAN copy, never its own URL.
+    expect(CODE).toMatch(/const sharpSrc = v2Set \? v2Set\.src : setPhoto \? \(memberPhotoSrc\(src, saving \? 600 : 1080\) \?\? src\) : transformable \? buildRenderUrl\(src, 800\) : src;/);
   });
 
   it("still paints the thumbnail as the instant backdrop", () => {
@@ -82,7 +83,9 @@ describe("the sharp layer shows the original, not the thumbnail", () => {
 
 describe("the browser is given both copies, with honest widths", () => {
   it("builds a srcset on the CDN path, where there was none", () => {
-    expect(CODE).toMatch(/srcSet = transformable \? buildSrcSet\(src\) : buildThumbFirstSrcSet\(thumb, src\)/);
+    expect(CODE).toMatch(/srcSet: string \| undefined = transformable \? buildSrcSet\(src\) : buildThumbFirstSrcSet\(thumb, src\)/);
+    // credit fix U1: a set photo never gets the srcset built from its own URL
+    expect(CODE).toMatch(/else if \(setPhoto\) srcSet = undefined;/);
   });
 
   it("reads the real pixel size out of the filename rather than assuming one", () => {
@@ -123,7 +126,7 @@ describe("a dead thumbnail still degrades instead of breaking", () => {
     // Photo plan Unit A: `failSrc` is `src` for every photo except a set photo
     // (-l4/-l4f/-l5/-l5f), which falls back to its largest CLEAN copy — never a credited file.
     expect(CODE).toMatch(/src=\{failed \? failSrc : sharpSrc\}/);
-    expect(CODE).toMatch(/const failSrc = v2Set \? photoSetCleanUrl\(src\) : src;/);
+    expect(CODE).toMatch(/const failSrc = setPhoto \? photoSetCleanUrl\(src\) : src;/);
   });
 
   it("never guesses a thumbnail address — it only reads a stored one", () => {

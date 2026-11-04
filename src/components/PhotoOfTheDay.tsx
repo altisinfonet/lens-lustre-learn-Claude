@@ -1,3 +1,4 @@
+import { memberPhotoSrc } from "@/lib/photoProtection";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -91,7 +92,7 @@ export default function PhotoOfTheDay() {
    * kept only as a last resort for a record that has no original at all, where
    * a soft picture still beats an empty square.
    */
-  const base = potd.image_url || potd.thumbnail_url || "";
+  const base = memberPhotoSrc(potd.image_url, 1080) || potd.thumbnail_url || "";
 
   return (
     <motion.div

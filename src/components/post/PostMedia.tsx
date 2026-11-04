@@ -25,7 +25,7 @@ import { frameAspectFor, frameAspectForUrls, parseImageDims } from "@/lib/imageF
 import { hasLadderMarker, photoSetBlurUrl, photoSetCleanUrl, photoSetMarker, rungPath, rungPlan, rungWidthFor } from "@/lib/imageLadder";
 import { useNetworkQuality } from "@/hooks/core/useNetworkQuality";
 import { useDataSaver } from "@/hooks/core/useDataSaver";
-import { feedPhotoSet, saveAsPhotoUrl } from "@/lib/photoProtection";
+import { feedPhotoSet, memberPhotoSrc, saveAsPhotoUrl } from "@/lib/photoProtection";
 import { useOldPhotoCreditVersion } from "@/lib/photoOldCredit";
 import { creditedSaveProps } from "@/lib/photoSaveTarget";
 
@@ -485,10 +485,12 @@ const ProgressiveImage = ({
     if (ready) setLoaded(true);
     setCached(ready);
   }, [setPhoto]);
-  // Not a set photo: exactly the pre-U2 expression.
+  // Not a set photo: exactly the pre-U2 expression. Credit fix U1: a set photo is
+  // never transformed from its own URL (a `-l4` URL is the credited master).
+  const blurByUrl = transformable && !setPhoto;
   const lqip = backdropFailed || (setPhoto && cached !== false)
     ? null
-    : transformable
+    : blurByUrl
       ? buildLqipUrl(src)
       : (setPhoto ? photoSetBlurUrl(src) : null) ?? thumb ?? null;
   // The sharp layer is the ORIGINAL again. The thumbnail has not been dropped —
@@ -509,13 +511,17 @@ const ProgressiveImage = ({
   // 2048 itself). Only "Save mobile data" stays behind the switch (useDataSaver
   // answers false while the switch is off or unknown).
   const v2Set = feedPhotoSet(src, saving);
-  const sharpSrc = v2Set ? v2Set.src : transformable ? buildRenderUrl(src, 800) : src;
-  let srcSet = transformable ? buildSrcSet(src) : buildThumbFirstSrcSet(thumb, src);
+  // Credit fix U1 (review of #874): a set photo WITHOUT widths in its name
+  // (feedPhotoSet null) still never paints its own URL raw or transformed — a
+  // `-l4` URL is the credited master — but its clean copy, with no srcset.
+  const sharpSrc = v2Set ? v2Set.src : setPhoto ? (memberPhotoSrc(src, saving ? 600 : 1080) ?? src) : transformable ? buildRenderUrl(src, 800) : src;
+  let srcSet: string | undefined = transformable ? buildSrcSet(src) : buildThumbFirstSrcSet(thumb, src);
   if (ladder) srcSet = ladder.srcSet; // S3-c: 600/1080/1440 derivatives, never the original
   if (v2Set) srcSet = v2Set.srcSet;
+  else if (setPhoto) srcSet = undefined;
   // A set copy that fails falls back to the set's largest CLEAN copy — never a
   // credited file, never a competition full size (Unit A).
-  const failSrc = v2Set ? photoSetCleanUrl(src) : src;
+  const failSrc = setPhoto ? photoSetCleanUrl(src) : src;
   // Fault 2 (Owner, 3 Nov): a web right-click / long-press "save image" on the
   // feed photo gets the CREDITED copy; the screen keeps the clean one. Armed
   // only at that moment (src/lib/photoSaveTarget.ts), so scrolling never

@@ -1,3 +1,4 @@
+import { memberPhotoSrc } from "@/lib/photoProtection";
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -345,7 +346,7 @@ const AdminEngagement = ({ user }: Props) => {
                   <div key={img.id} className="border border-border rounded-sm p-4 hover:border-primary/30 transition-colors">
                     <div className="flex gap-4">
                       <div className="w-20 h-20 rounded-sm overflow-hidden shrink-0 bg-muted">
-                        {img.image_url ? <img loading="lazy" decoding="async" src={img.image_url} alt={img.title} className="w-full h-full object-cover" /> :
+                        {img.image_url ? <img loading="lazy" decoding="async" src={memberPhotoSrc(img.image_url, 320) ?? undefined} alt={img.title} className="w-full h-full object-cover" /> :
                           <div className="w-full h-full flex items-center justify-center"><ImageIcon className="h-5 w-5 text-muted-foreground/40" /></div>}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -441,7 +442,7 @@ const AdminEngagement = ({ user }: Props) => {
                         className={`shrink-0 w-14 h-14 rounded-sm overflow-hidden border-2 transition-all ${
                           seedImageId === img.id ? "border-primary" : "border-transparent hover:border-border"
                         }`}>
-                        <img loading="lazy" decoding="async" src={img.image_url} alt={img.title} className="w-full h-full object-cover" />
+                        <img loading="lazy" decoding="async" src={memberPhotoSrc(img.image_url, 320) ?? undefined} alt={img.title} className="w-full h-full object-cover" />
                       </button>
                     ))}
                   </div>
@@ -488,7 +489,7 @@ const AdminEngagement = ({ user }: Props) => {
                   img.is_pinned ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
                 }`}>
                   <div className="w-12 h-12 rounded-sm overflow-hidden shrink-0 bg-muted">
-                    {img.image_url && <img loading="lazy" decoding="async" src={img.image_url} alt="" className="w-full h-full object-cover" />}
+                    {img.image_url && <img loading="lazy" decoding="async" src={memberPhotoSrc(img.image_url, 320) ?? undefined} alt="" className="w-full h-full object-cover" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="text-xs font-medium truncate">{img.title}</h4>
@@ -512,7 +513,7 @@ const AdminEngagement = ({ user }: Props) => {
               {filtered.map(img => (
                 <div key={img.id} className="border border-border rounded-sm p-3 flex items-center gap-3">
                   <div className="w-12 h-12 rounded-sm overflow-hidden shrink-0 bg-muted">
-                    {img.image_url && <img loading="lazy" decoding="async" src={img.image_url} alt="" className="w-full h-full object-cover" />}
+                    {img.image_url && <img loading="lazy" decoding="async" src={memberPhotoSrc(img.image_url, 320) ?? undefined} alt="" className="w-full h-full object-cover" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="text-xs font-medium truncate">{img.title}</h4>
@@ -546,7 +547,7 @@ const AdminEngagement = ({ user }: Props) => {
                   img.is_trending ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
                 }`}>
                   <div className="w-12 h-12 rounded-sm overflow-hidden shrink-0 bg-muted">
-                    {img.image_url && <img loading="lazy" decoding="async" src={img.image_url} alt="" className="w-full h-full object-cover" />}
+                    {img.image_url && <img loading="lazy" decoding="async" src={memberPhotoSrc(img.image_url, 320) ?? undefined} alt="" className="w-full h-full object-cover" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="text-xs font-medium truncate">{img.title}</h4>
@@ -624,7 +625,7 @@ const AdminEngagement = ({ user }: Props) => {
                         className={`shrink-0 w-10 h-10 rounded-sm overflow-hidden border-2 transition-all ${
                           boostForm.image_id === img.id ? "border-primary" : "border-transparent hover:border-border"
                         }`}>
-                        <img loading="lazy" decoding="async" src={img.image_url} alt="" className="w-full h-full object-cover" />
+                        <img loading="lazy" decoding="async" src={memberPhotoSrc(img.image_url, 320) ?? undefined} alt="" className="w-full h-full object-cover" />
                       </button>
                     ))}
                   </div>

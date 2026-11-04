@@ -129,7 +129,8 @@ describe("the Curated Wall shows the original, not the soft thumbnail", () => {
     // thumbnail inside a 663x663 object-cover square, at dpr 1.25, is a 2.45x
     // upscale of only 338 real pixels.
     expect(code).not.toContain("potd.thumbnail_url || potd.image_url");
-    expect(code).toMatch(/const base = potd\.image_url \|\| potd\.thumbnail_url/);
+    // credit fix U1: the original goes through the clean-copy helper (a set photo → its clean 1080; an old photo → itself)
+    expect(code).toMatch(/const base = memberPhotoSrc\(potd\.image_url, 1080\) \|\| potd\.thumbnail_url/);
     expect(code).toMatch(/src=\{base\}/);
   });
 

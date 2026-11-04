@@ -1,3 +1,4 @@
+import { memberPhotoSrc } from "@/lib/photoProtection";
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
@@ -1301,7 +1302,7 @@ export const PublicProfileInner = ({ userId }: { userId: string }) => {
                               className="group relative cursor-pointer aspect-square overflow-hidden"
                               onClick={() => setLightboxPhoto({ src: photo.image_url, title: photo.title || "Featured Photo" })}
                             >
-                              <img src={photo.thumbnail_url || photo.image_url} alt={photo.title || "Featured"} className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                              <img src={photo.thumbnail_url || memberPhotoSrc(photo.image_url, 600) || undefined} alt={photo.title || "Featured"} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
                                 <Expand className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                               </div>
