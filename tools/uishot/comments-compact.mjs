@@ -197,9 +197,11 @@ function measureInPage({ LIMITS }) {
   const ordered = info.slice().sort((a, b) => r(a.row).top - r(b.row).top);
   for (let i = 0; i + 1 < ordered.length; i++) {
     const a = ordered[i], b = ordered[i + 1];
-    // A reply at the depth limit has no Reply button, but its meta line (the ⋯) is still there.
-    const meta = a.row.querySelector("[data-comment-meta]");
-    const aBottom = a.replyLine ? a.replyLine.bottom : (meta ? r(meta).bottom : a.p ? lineBox(a.p).bottom : r(a.row).bottom);
+    // A reply at the depth limit has no Reply button. What the eye sees decides: its ⋯ counts
+    // only where it is showing (touch). With a mouse it is hidden, so the text is the last line.
+    const menu = a.row.querySelector("[data-comment-meta] button[aria-label='Comment options']");
+    const menuBottom = menu && getComputedStyle(menu).opacity !== "0" ? r(menu).bottom : null;
+    const aBottom = a.replyLine ? a.replyLine.bottom : (menuBottom ?? (a.p ? lineBox(a.p).bottom : r(a.row).bottom));
     const bTop = r(b.avatar).top;
     const between = toggles.filter((t) => r(t).top >= aBottom - 1 && r(t).bottom <= bTop + 1);
     const name = `${out.rows[info.indexOf(a)].name} → ${out.rows[info.indexOf(b)].name}`;

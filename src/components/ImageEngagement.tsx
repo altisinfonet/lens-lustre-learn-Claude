@@ -31,6 +31,8 @@ interface Props {
   /** Per-photo scoping. Defaults to 0 when omitted (single-photo entities). */
   photoIndex?: number;
   compact?: boolean;
+  /** The surface around this already scrolls (the lightbox panel), so the thread takes its full height. */
+  panelScrolls?: boolean;
 }
 
 interface Reaction {
@@ -44,7 +46,7 @@ const REACTION_CONFIG = [
   { type: "love", icon: Heart, label: "Love", activeClass: "text-destructive" },
 ];
 
-const ImageEngagement = ({ imageType, imageId, photoIndex = 0 }: Props) => {
+const ImageEngagement = ({ imageType, imageId, photoIndex = 0, panelScrolls = false }: Props) => {
   const { user } = useAuth();
   const { data: viewer } = useProfileCore(user?.id);
   const [reactions, setReactions] = useState<Record<string, Reaction>>({});
@@ -300,7 +302,7 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0 }: Props) => {
             {comments.length === 0 ? (
               <p className="text-[10px] text-muted-foreground py-2">No comments yet. Be the first!</p>
             ) : (
-              <div className="-mx-3 max-h-64 overflow-y-auto">
+              <div className={panelScrolls ? "-mx-3" : "-mx-3 max-h-64 overflow-y-auto"}>
                 <CommentThread
                   comments={threadComments}
                   loading={false}
