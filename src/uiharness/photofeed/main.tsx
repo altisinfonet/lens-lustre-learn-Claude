@@ -124,17 +124,25 @@ const same = async (a: Blob, b: Blob) => {
 
 interface Stored { url: string; b64: string; credited: boolean; type: string; /** the clean twin (credited files only) — the tool measures the credit against it */ twin?: string }
 declare global {
-  interface Window { __photoStore?: Record<string, Stored>; __photoUrl?: string; __photoReady?: boolean }
+  interface Window {
+    __photoStore?: Record<string, Stored>; __photoUrl?: string; __photoReady?: boolean;
+    /** Exposed by tools/uishot/photo-feed-credit.mjs: the REAL server renderer (credit-render.mjs) on these bytes. */
+    __serverCredit?: (b64: string) => Promise<string>;
+  }
 }
 
 async function main() {
   const { photoSetPhotoEncoder } = await import("@/lib/photoSetUpload");
   const { photoObjectPath } = await import("@/lib/upload/photoJobs");
   const { rungPath } = await import("@/lib/imageLadder");
-  const { creditText } = await import("@/lib/photoCredit");
   const file = await sourcePhoto();
-  const credited = await photoSetPhotoEncoder(creditText("Dipannita Sen"))(file);
-  const clean = await photoSetPhotoEncoder("")(file);
+  // The uploader's clean files (it draws no credit: credit U3); the credited 2048
+  // is what the server's renderer makes from the private clean 2048.
+  const clean = await photoSetPhotoEncoder()(file);
+  const k2048 = clean.clean as Blob;
+  const c2048 = window.__serverCredit
+    ? new Blob([Uint8Array.from(atob(await window.__serverCredit(await b64(k2048))), (ch) => ch.charCodeAt(0))], { type: "image/webp" })
+    : k2048;
   type Rung = { rung: number; blob: Blob; suffix?: string };
   let full: string;
   let pairs: Array<[string, Blob, Blob]>;
@@ -142,37 +150,34 @@ async function main() {
   if (old) {
     // The old original: a clean WebP at an unmarked name. Its credited copy: the
     // same pixels with the small credit (the uploader's own 2048 pair).
-    const c2048 = (credited.rungs as Rung[]).find((r) => r.suffix === "-r2048c")!;
-    const k2048 = (clean.rungs as Rung[]).find((r) => r.suffix === "-r2048c")!;
     full = `post-images/${AUTHOR}/posts/1700000000000-IMG_0001.webp`;
     const copy = `post-images/${AUTHOR}/posts/credit/${POST_ID}-0-0123456789ab.webp`;
-    pairs = [[full, k2048.blob, k2048.blob], [copy, c2048.blob, k2048.blob]];
+    pairs = [[full, k2048, k2048], [copy, c2048, k2048]];
     thumbPath = full;
     oldCredit = { src: `${CDN}${full}`, credited: `${CDN}${copy}` };
   } else if (!legacy) {
-    full = photoObjectPath(AUTHOR, "1762160000000-job", 0, credited.full.width, credited.full.height, true, credited.marker);
+    full = photoObjectPath(AUTHOR, "1762160000000-job", 0, clean.full.width, clean.full.height, true, clean.marker);
     const pathOf = (r: Rung) => (r.suffix ? full.replace(/\.webp$/, `${r.suffix}.webp`) : rungPath(full, r.rung));
     pairs = [
-      [full, credited.full.blob, clean.full.blob],
-      [full.replace(/\.webp$/, "-thumb.webp"), credited.thumb, clean.thumb],
-      ...(credited.rungs as Rung[]).map((r, i): [string, Blob, Blob] => [pathOf(r), r.blob, (clean.rungs as Rung[])[i].blob]),
+      [full, clean.full.blob, clean.full.blob],
+      [full.replace(/\.webp$/, "-thumb.webp"), clean.thumb, clean.thumb],
+      [full.replace(/\.webp$/, "-r2048c.webp"), c2048, k2048],
+      ...(clean.rungs as Rung[]).map((r): [string, Blob, Blob] => [pathOf(r), r.blob, r.blob]),
     ];
   } else {
     // The v2 `-l4` shape, built from the same encoded copies: the URL is the
     // credited 2048 (its W×H in the name), `-r1080` the clean 1080 (only when
     // the long edge > 1080), `-thumb`, `-r320`.
-    const c2048 = (credited.rungs as Rung[]).find((r) => r.suffix === "-r2048c")!;
-    const k2048 = (clean.rungs as Rung[]).find((r) => r.suffix === "-r2048c")!;
-    const bmp = await createImageBitmap(c2048.blob);
+    const bmp = await createImageBitmap(c2048);
     const W = bmp.width, H = bmp.height;
     bmp.close();
     full = `post-images/${AUTHOR}/posts/1762160000000-job-0-w${W}h${H}-l4.webp`;
     const at = (s: string) => full.replace(/\.webp$/, `${s}.webp`);
     pairs = [
-      [full, c2048.blob, k2048.blob],
-      [at("-thumb"), credited.thumb, clean.thumb],
-      ...(Math.max(W, H) > 1080 ? [[at("-r1080"), credited.full.blob, clean.full.blob] as [string, Blob, Blob]] : []),
-      ...(credited.rungs as Rung[]).filter((r) => r.suffix === "-r320").map((r): [string, Blob, Blob] => [at("-r320"), r.blob, (clean.rungs as Rung[]).find((x) => x.suffix === "-r320")!.blob]),
+      [full, c2048, k2048],
+      [at("-thumb"), clean.thumb, clean.thumb],
+      ...(Math.max(W, H) > 1080 ? [[at("-r1080"), clean.full.blob, clean.full.blob] as [string, Blob, Blob]] : []),
+      ...(clean.rungs as Rung[]).filter((r) => r.suffix === "-r320").map((r): [string, Blob, Blob] => [at("-r320"), r.blob, (clean.rungs as Rung[]).find((x) => x.suffix === "-r320")!.blob]),
     ];
   }
   const store: Record<string, Stored> = {};

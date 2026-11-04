@@ -62,26 +62,26 @@ describe("the markers", () => {
 });
 
 describe("photoSetPlan (v3) — what is stored, at which quality, and where the credit goes", () => {
-  it("post: private clean 2048 + credited 2048 + clean 1080 (the URL) + 600 + 320; qualities are U0's", () => {
+  it("post: private clean 2048 + clean 1080 (the URL) + 600 + 320; qualities are U0's", () => {
     const plan = photoSetPlan(4000, 3000, false);
-    expect(plan.map((c) => c.slot)).toEqual(["clean2048", "r2048c", "master", "thumb", "r320"]);
-    expect(plan.map((c) => c.maxDimension)).toEqual([2048, 2048, 1080, 600, 320]);
-    expect(plan.map((c) => c.quality)).toEqual([0.85, 0.85, 0.82, 0.78, 0.75]);
+    expect(plan.map((c) => c.slot)).toEqual(["clean2048", "master", "thumb", "r320"]);
+    expect(plan.map((c) => c.maxDimension)).toEqual([2048, 1080, 600, 320]);
+    expect(plan.map((c) => c.quality)).toEqual([0.85, 0.82, 0.78, 0.75]);
     expect(plan.filter((c) => c.private).map((c) => c.slot)).toEqual(["clean2048"]);
     expect(PHOTO_SET_QUALITY).toEqual({ 2048: 0.85, 1080: 0.82, 600: 0.78, 320: 0.75 });
   });
 
-  it("the credit is burned into the credited 2048 ONLY — never the URL, never the private copy", () => {
+  it("credit U3: the uploader's plan holds no credited copy at all (the server draws -r2048c)", () => {
     for (const keepFull of [false, true]) {
       const plan = photoSetPlan(4000, 3000, keepFull);
-      expect(plan.filter((c) => c.credit).map((c) => c.slot)).toEqual(["r2048c"]);
+      expect(plan.filter((c) => c.credit || c.slot === "r2048c")).toEqual([]);
     }
   });
 
-  it("every size of photo gets a credited copy and a clean 1080-or-smaller copy (audit B2)", () => {
-    expect(photoSetPlan(1000, 700, false).map((c) => c.slot)).toEqual(["clean2048", "r2048c", "master", "thumb", "r320"]);
-    expect(photoSetPlan(300, 200, false).map((c) => c.slot)).toEqual(["clean2048", "r2048c", "master", "thumb"]);
-    expect(photoSetPlan(900, 600, true).map((c) => c.slot)).toEqual(["clean2048", "r2048c", "r1080", "thumb", "r320"]);
+  it("every size of photo keeps a clean copy for the server to draw on, and a clean 1080-or-smaller copy (audit B2)", () => {
+    expect(photoSetPlan(1000, 700, false).map((c) => c.slot)).toEqual(["clean2048", "master", "thumb", "r320"]);
+    expect(photoSetPlan(300, 200, false).map((c) => c.slot)).toEqual(["clean2048", "master", "thumb"]);
+    expect(photoSetPlan(900, 600, true).map((c) => c.slot)).toEqual(["clean2048", "r1080", "thumb", "r320"]);
   });
 });
 

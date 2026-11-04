@@ -35,7 +35,8 @@ import { join } from "node:path";
 import { chromium, firefox, webkit } from "playwright";
 import { PNG } from "pngjs";
 import sharp from "sharp";
-import { creditSvg } from "../media-derivatives/credit-svg.mjs";
+import { creditFontPx, measureCredit as measureLine, renderCredit } from "../media-derivatives/credit-render.mjs";
+import { creditSeen, lineBox } from "./credit-guard.mjs";
 
 const arg = (n, d) => { const i = process.argv.indexOf(n); return i > -1 ? process.argv[i + 1] : d; };
 const OUT = arg("--out", null);
@@ -47,8 +48,12 @@ const BASE = arg("--base", null) || `http://127.0.0.1:${PORT}`;
 const CHANNEL = 40;
 /** Two pictures "match" when at most this share of pixels differ (resampling noise). */
 const SHARE = 0.002;
-/** The credited reference must differ from the clean one in at least this many pixels. */
-const CREDIT_MIN_PIXELS = 40;
+const CREDIT_LINE = "© Dipannita Sen, 50mm Retina World";
+/** The server's path, on bytes the harness hands over: credit-render.mjs, then the workers' WebP. */
+async function serverCredit(b64) {
+  const { image } = await renderCredit(sharp, Buffer.from(b64, "base64"), CREDIT_LINE);
+  return (await image.webp({ quality: 85 }).toBuffer()).toString("base64");
+}
 
 let server = null;
 const stop = () => {
@@ -99,10 +104,12 @@ function diff(aBuf, bBuf) {
  * drawn. Measured on live: v1 57 % of the width at alpha ≈ 0.82; v2 (one third,
  * half) 18–23 % at ≈ 0.40; v3 (one third of v2) 6–8 % at ≈ 0.15 — "unreadable".
  * v4 "MIDDLE SIZE" (Owner, 3 Nov 16:05Z): HALF of v2's size, slightly fainter
- * (≈ 0.30) — ≈ 9–12 % of the width. The bounds below fail v1, v2 AND v3.
+ * (≈ 0.30). v5 (Owner approved, 4 Nov): the font follows the SHORT side, 22–56 px,
+ * so a share of the width means nothing across sizes. The line's expected width
+ * comes from the renderer's own measurement for THIS file; the ink must be within
+ * the bounds below of it, which fails every older size on a real file.
  */
-// alpha (p90) reads low on 6 px text (anti-aliased edges), so WIDTH separates v3 from v4; alpha guards "too opaque / invisible"
-const CREDIT_LIMITS = { minWidthPct: 8, maxWidthPct: 14, maxHeightPct: 2.5, minAlpha: 0.14, maxAlpha: 0.36 };
+const CREDIT_LIMITS = { minOfExpected: 0.8, maxOfExpected: 1.15, maxHeightPct: 3.5, minAlpha: 0.14, maxAlpha: 0.36 };
 async function measureCredit(credB64, cleanB64) {
   const a0 = Buffer.from(credB64, "base64");
   const m = await sharp(a0).metadata();
@@ -116,9 +123,12 @@ async function measureCredit(credB64, cleanB64) {
   }
   est.sort((p, q) => p - q);
   if (!est.length) return { size: `${m.width}x${m.height}`, px: 0, widthPct: 0, heightPct: 0, alphaP90: 0 };
+  const { px: fontPx } = await creditFontPx(sharp, m.width, m.height, CREDIT_LINE);
+  const expected = (await measureLine(sharp, CREDIT_LINE, fontPx)).w;
   return {
     size: `${m.width}x${m.height}`, px: est.length,
     widthPct: +((maxx - minx + 1) / m.width * 100).toFixed(1),
+    ofExpected: +((maxx - minx + 1) / expected).toFixed(2),
     heightPct: +((maxy - miny + 1) / m.height * 100).toFixed(2),
     heightPx: maxy - miny + 1,
     alphaP90: +est[Math.floor(est.length * 0.9)].toFixed(2),
@@ -127,9 +137,9 @@ async function measureCredit(credB64, cleanB64) {
 function creditFail(row, c) {
   const L = CREDIT_LIMITS;
   if (!c || c.px === 0) return fail(row, "the saved file carries no credit at all");
-  if (c.widthPct > L.maxWidthPct || c.widthPct < L.minWidthPct) fail(row, `the credit is ${c.widthPct} % of the width (want ${L.minWidthPct}–${L.maxWidthPct} %: half of v2)`);
+  if (c.ofExpected > L.maxOfExpected || c.ofExpected < L.minOfExpected) fail(row, `the credit's ink is ${c.ofExpected} × the v5 line for this file (want ${L.minOfExpected}–${L.maxOfExpected})`);
   if (c.heightPct > L.maxHeightPct) fail(row, `the credit is ${c.heightPct} % of the height (max ${L.maxHeightPct} %)`);
-  if (c.alphaP90 > L.maxAlpha || c.alphaP90 < L.minAlpha) fail(row, `the credit's opacity is ${c.alphaP90} (want ${L.minAlpha}–${L.maxAlpha}: slightly fainter than v2 ≈ 0.38)`);
+  if (c.alphaP90 > L.maxAlpha || c.alphaP90 < L.minAlpha) fail(row, `the credit's opacity is ${c.alphaP90} (want ${L.minAlpha}–${L.maxAlpha})`);
 }
 /** The saved file's bottom-right corner, zoomed 3× (the Owner's PNGs). */
 async function corner(b64, out) {
@@ -139,16 +149,19 @@ async function corner(b64, out) {
   await sharp(buf).extract({ left: m.width - w, top: m.height - h, width: w, height: h }).resize({ width: w * 3, kernel: "nearest" }).png().toFile(out);
 }
 
-async function open(browser, { vp, dpr, viewer, size, shape, admin = false, app = false }) {
+async function open(browser, { vp, dpr, viewer, size, shape, admin = false, app = false, noCredited = false }) {
   const ctx = await browser.newContext({ viewport: VIEWPORTS[vp], deviceScaleFactor: dpr, colorScheme: "dark", reducedMotion: "reduce" });
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
+  await page.exposeFunction("__serverCredit", serverCredit);
   const requested = [];
   const failedOnce = new Set();
   await page.route("https://cdn.harness.test/**", async (route) => {
     const url = bare(route.request().url()); // the credited copy is loaded as ?cv=<urlVersion>; the store is keyed by the file
     requested.push(url);
+    // noCredited: the window before the server's sweep has drawn the copy.
+    if (noCredited && /-r2048c\.webp$/.test(url)) return route.fulfill({ status: 404, body: "" });
     // viewer "err": every copy's FIRST request fails, so every fallback path runs.
     if (viewer === "err" && !failedOnce.has(url)) { failedOnce.add(url); return route.fulfill({ status: 404, body: "" }); }
     const hit = await page.evaluate((u) => window.__photoStore?.[u] ?? null, url).catch(() => null);
@@ -184,33 +197,31 @@ let pass = true;
 const fail = (row, why) => { row.ok = false; (row.failed ??= []).push(why); pass = false; };
 
 // ── 0. THE CREDIT INSIDE EVERY SAVED FILE, for every path that draws it ─────
-//   · new uploads: the browser canvas (photoCredit.drawCredit) — the harness
-//     encodes with the REAL uploader; every credited copy it stored is measured;
-//   · the backfill / rectify workers: sharp + credit-svg.mjs, exactly as
-//     tools/media-derivatives/{photo-set,rectify-l4}.mjs draw it, on the clean
-//     1080 the uploader made (the rectify case) — measured the same way.
+//   · new uploads: the harness encodes with the REAL uploader (it draws no credit)
+//     and the REAL renderer draws on its private clean 2048, as set-credit.mjs does;
+//   · the rectify worker: the same renderer on the clean 1080 the uploader made.
 {
   const browser = await chromium.launch();
   for (const size of ["large", "small"]) {
     const r = await open(browser, { vp: "desktop", dpr: 1, viewer: "out", size, shape: "v3" });
     for (const s of Object.values(r.store).filter((x) => x.credited)) {
-      const row = { part: "credit in the saved file", path: "upload (browser canvas)", size, file: name(s.url), ok: true };
+      const row = { part: "credit in the saved file", path: "new photo (server, clean 2048)", size, file: name(s.url), ok: true };
       row.credit = await measureCredit(s.b64, s.twin);
       creditFail(row, row.credit);
       rows.push(row);
-      console.log(`${row.ok ? "PASS" : "FAIL"} credit in saved file · upload canvas · ${size} · ${row.file} ${JSON.stringify(row.credit)}${row.failed ? ` — ${row.failed.join("; ")}` : ""}`);
+      console.log(`${row.ok ? "PASS" : "FAIL"} credit in saved file · new photo · ${size} · ${row.file} ${JSON.stringify(row.credit)}${row.failed ? ` — ${row.failed.join("; ")}` : ""}`);
     }
     // the worker path, on the clean 1080 this photo's post names
     const cleanUrl = Object.keys(r.store).find((u) => /-l5\.webp$/.test(u));
     if (cleanUrl) {
       const clean = Buffer.from(r.store[cleanUrl].b64, "base64");
       const m = await sharp(clean).metadata();
-      const out = await sharp(clean).composite([{ input: Buffer.from(creditSvg(m.width, m.height, "© Dipannita Sen, 50mm Retina World")), top: 0, left: 0 }]).webp({ quality: 85 }).toBuffer();
-      const row = { part: "credit in the saved file", path: "backfill / rectify worker (sharp + credit-svg)", size, file: `${m.width}x${m.height}`, ok: true };
+      const out = Buffer.from(await serverCredit(r.store[cleanUrl].b64), "base64");
+      const row = { part: "credit in the saved file", path: "rectified photo (server, clean 1080)", size, file: `${m.width}x${m.height}`, ok: true };
       row.credit = await measureCredit(out.toString("base64"), r.store[cleanUrl].b64);
       creditFail(row, row.credit);
       rows.push(row);
-      console.log(`${row.ok ? "PASS" : "FAIL"} credit in saved file · worker svg · ${size} · ${JSON.stringify(row.credit)}${row.failed ? ` — ${row.failed.join("; ")}` : ""}`);
+      console.log(`${row.ok ? "PASS" : "FAIL"} credit in saved file · rectified · ${size} · ${JSON.stringify(row.credit)}${row.failed ? ` — ${row.failed.join("; ")}` : ""}`);
       if (OUT) await corner(out.toString("base64"), join(OUT, `saved-worker-${size}.png`));
     }
     await r.ctx.close();
@@ -242,6 +253,48 @@ if (!process.argv.includes("--skip-feed") && !ONLY_CREDIT) {
     if (bad.length) fail(row, `feed loaded credited ${bad.map(name).join(", ")}`);
     rows.push(row);
     console.log(`${row.ok ? "PASS" : "FAIL"} feed ${s.shape} ${s.size} ${s.vp} dpr ${s.dpr} viewer ${s.viewer}${bad.length ? ` — ${bad.map(name).join(", ")}` : ""}`);
+    await r.ctx.close();
+  }
+  await browser.close();
+}
+
+/** The guard, with the renderer's box for the file now in `img` and the photo's place inside the element. */
+async function creditOnScreen(cleanRef, creditRef, img) {
+  const { nw, nh, photo } = await img.evaluate((i) => {
+    const r = i.getBoundingClientRect();
+    const k = Math.min(r.width / i.naturalWidth, r.height / i.naturalHeight);
+    const w = (i.naturalWidth * k) / r.width, h = (i.naturalHeight * k) / r.height;
+    return { nw: i.naturalWidth, nh: i.naturalHeight, photo: { x: (1 - w) / 2, y: (1 - h) / 2, w, h } };
+  });
+  const { px, inset } = await creditFontPx(sharp, nw, nh, CREDIT_LINE);
+  const m = await measureLine(sharp, CREDIT_LINE, px);
+  return creditSeen(cleanRef, creditRef, lineBox(nw, nh, { left: nw - inset - m.w, top: nh - inset - m.h, textW: m.w, textH: m.h }), photo);
+}
+
+// ── 1b. BEFORE THE SWEEP: no credited file yet. A right-click must leave the
+//       feed photo exactly as it was, never a broken image or the placeholder. ──
+if (!process.argv.includes("--skip-feed") && !ONLY_CREDIT) {
+  const browser = await chromium.launch();
+  for (const vp of Object.keys(VIEWPORTS)) {
+    const r = await open(browser, { shape: "v3", size: "large", vp, dpr: 2, viewer: "out", noCredited: true });
+    const row = { part: "feed before the sweep", vp, ok: true };
+    // [sizes]: the photo, not its blurred backdrop. A handle, because arming removes `sizes`.
+    const photo = await r.page.locator('#cardwrap img[sizes][src*="-l5"]').first().elementHandle();
+    const before = await photo.screenshot();
+    await photo.click({ button: "right" });
+    await r.page.waitForTimeout(2500); // past the retrier's delays
+    await r.page.keyboard.press("Escape");
+    const facts = await photo.evaluate((i) => ({ src: i.getAttribute("src"), width: i.naturalWidth, placeholder: i.dataset.fallbackApplied ?? null, armed: i.dataset.saveAs ?? null }));
+    const after = await photo.screenshot();
+    const same = diff(before, after);
+    Object.assign(row, { facts, same: same.why });
+    if (!r.requested.some((u) => /-r2048c\.webp$/.test(u))) fail(row, "the right-click never asked for the credited file: the check would be vacuous");
+    if (/-r2048c/.test(facts.src) || facts.armed) fail(row, `the photo stayed on the missing credited file (${name(facts.src)})`);
+    if (!facts.width) fail(row, "the photo is broken after the right-click");
+    if (facts.placeholder) fail(row, "the global fallback planted the placeholder");
+    if (!same.same) fail(row, `the photo changed on screen: ${same.why}`);
+    rows.push(row);
+    console.log(`${row.ok ? "PASS" : "FAIL"} feed before the sweep ${vp}${row.failed ? ` — ${row.failed.join("; ")}` : ""}`);
     await r.ctx.close();
   }
   await browser.close();
@@ -388,9 +441,9 @@ for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
       if (!vsClean.same) fail(row, `the screen is not the clean copy: ${vsClean.why}`);
       if (!retired) {
         const creditRef = await draw(facts.src);
-        const vsCredit = diff(cleanRef, creditRef);
-        row.cleanVsCredited = vsCredit.why;
-        if (vsCredit.differing < CREDIT_MIN_PIXELS) fail(row, `the credited file looks like the clean one here (${vsCredit.why}) — the check would be vacuous`);
+        const seen = await creditOnScreen(cleanRef, creditRef, img);
+        row.cleanVsCredited = seen.why;
+        if (!seen.seen) fail(row, `the credited file shows no credit here (${seen.why}) — the check would be vacuous`);
       }
       if (r.errors.length) row.errors = r.errors;
       await r.ctx.close();

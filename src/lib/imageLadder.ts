@@ -100,19 +100,21 @@ export function rungWidthFor(rung: number, w: number, h: number): number {
  *
  * ── v3 · `-l5` / `-l5f` — what the uploader writes now (photo plan Unit A) ──
  *   The URL that `image_urls` stores is ALWAYS A CLEAN COPY. The credited 2048
- *   is a sibling (`-r2048c`) that only full screen asks for. A clean 2048 is
+ *   is a sibling (`-r2048c`) that only full screen asks for; the SERVER draws it
+ *   after the post exists (credit U3), so for a few minutes it may not be there
+ *   yet (full screen then shows the clean copy and "save image" waits). A clean 2048 is
  *   kept PRIVATE (the lane's MEDIA bucket, no public host) so the credit can be
  *   redrawn later (name change, new wording) without the member re-uploading.
  *
  *   `…-w{W}h{H}-l5.webp`    POSTS. The URL = the clean 1080 copy (long ≤ 1080).
- *                             `-l5-r2048c` credited 2048 — ALWAYS (a small photo
+ *                             `-l5-r2048c` credited 2048, by the server (a small photo
  *                                          gets a credited copy of its own size)
  *                             `-l5-thumb`  600 — always
  *                             `-l5-r320`   when the long edge > 320
  *                             private: `-l5-r2048` (clean 2048) — CLEAN_PREFIX
  *   `…-w{W}h{H}-l5f.webp`   COMPETITION. The URL = the kept full-size file
  *                           (decision 5, unchanged). Siblings:
- *                             `-l5f-r2048c` credited 2048 — always
+ *                             `-l5f-r2048c` credited 2048, by the server
  *                             `-l5f-r1080`  clean 1080 — ALWAYS (a 601–1080 px
  *                                           entry's "1080" is itself, not the
  *                                           credited copy — audit B2)
@@ -173,7 +175,7 @@ export interface PhotoSetCopy {
   /** Long-edge cap; the encoder never upscales. */
   maxDimension: PhotoSetSize;
   quality: number;
-  /** True for the credited 2048 copy only (decision 4). */
+  /** Always false in the uploader's plan (credit U3: the server draws the credit). */
   credit: boolean;
   /** True for the copy that is NOT published (the private clean 2048). */
   private?: boolean;
@@ -182,14 +184,13 @@ export interface PhotoSetCopy {
 /**
  * The v3 copies to store for a source of `width × height`, in upload order
  * (largest first). `keepFull` = competition (the full-size file is stored
- * separately, as today). The private clean 2048 and the credited 2048 are drawn
- * from the same canvas: clean first, then the credit on top.
+ * separately, as today). No copy here is credited: the server draws `-r2048c`
+ * from the clean 2048 after the post exists (credit U3).
  */
 export function photoSetPlan(width: number, height: number, keepFull: boolean): PhotoSetCopy[] {
   const longEdge = Math.max(width, height);
   const plan: PhotoSetCopy[] = [
     { slot: "clean2048", maxDimension: 2048, quality: PHOTO_SET_QUALITY[2048], credit: false, private: true },
-    { slot: "r2048c", maxDimension: 2048, quality: PHOTO_SET_QUALITY[2048], credit: true },
     keepFull
       ? { slot: "r1080", maxDimension: 1080, quality: PHOTO_SET_QUALITY[1080], credit: false }
       : { slot: "master", maxDimension: 1080, quality: PHOTO_SET_QUALITY[1080], credit: false },

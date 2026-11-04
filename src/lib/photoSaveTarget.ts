@@ -65,15 +65,28 @@ function saveGuardOn(): boolean {
 }
 
 /**
+ * Credit U3: the server draws a new photo's credited copy after the post exists,
+ * so for some minutes it is not there. A file that just failed is not asked for
+ * again until this much later (the sweep may have run by then).
+ */
+export const CREDITED_RETRY_MS = 60_000;
+const missingCredited = new Map<string, number>();
+
+/**
  * Make `img` hand the browser `credited` as its file while still PAINTING the
  * clean picture it shows now. Idempotent; a no-op in the app, without a
- * credited copy, or before the clean picture is on screen.
+ * credited copy, or before the clean picture is on screen. If the credited
+ * file fails to load, the clean picture goes back as a plain image, exactly as
+ * it was (the same fallback as ZoomableImage): "save image" then gets the clean
+ * copy on screen rather than a broken file.
  */
 export function armCreditedSave(img: HTMLImageElement | null, credited: string | null | undefined): void {
   if (!img || !credited || saveGuardOn() || !img.isConnected) return;
   // Already armed — unless React has since written the clean source back (a
   // rung / data-saver change): then arm again.
   if (img.dataset.saveAs === credited && img.getAttribute("src") === credited && !img.hasAttribute("srcset")) return;
+  const failedAt = missingCredited.get(credited);
+  if (failedAt !== undefined && Date.now() - failedAt < CREDITED_RETRY_MS) return;
   const shown = img.currentSrc || img.getAttribute("src") || "";
   if (!shown || !(img.complete && img.naturalWidth > 0)) return;
   let fit = "contain";
@@ -84,10 +97,29 @@ export function armCreditedSave(img: HTMLImageElement | null, credited: string |
   img.style.backgroundPosition = st.backgroundPosition;
   img.style.backgroundRepeat = st.backgroundRepeat;
   img.style.objectPosition = st.objectPosition;
+  const was = { src: img.getAttribute("src"), srcset: img.getAttribute("srcset"), sizes: img.getAttribute("sizes") };
   img.dataset.photoShown = shown;
   img.dataset.saveAs = credited;
   img.removeAttribute("srcset");
   img.removeAttribute("sizes");
+  const loaded = () => img.removeEventListener("error", failed);
+  const failed = () => {
+    img.removeEventListener("load", loaded);
+    if (img.getAttribute("src") !== credited) return; // React has moved on: not this file's error
+    missingCredited.set(credited, Date.now());
+    img.style.backgroundImage = "";
+    img.style.backgroundSize = "";
+    img.style.backgroundPosition = "";
+    img.style.backgroundRepeat = "";
+    img.style.objectPosition = "";
+    delete img.dataset.photoShown;
+    delete img.dataset.saveAs;
+    if (was.srcset !== null) img.setAttribute("srcset", was.srcset);
+    if (was.sizes !== null) img.setAttribute("sizes", was.sizes);
+    img.setAttribute("src", was.src ?? shown);
+  };
+  img.addEventListener("load", loaded, { once: true });
+  img.addEventListener("error", failed, { once: true });
   img.setAttribute("src", credited);
 }
 
