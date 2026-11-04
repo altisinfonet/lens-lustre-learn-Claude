@@ -1,30 +1,35 @@
+/**
+ * Comments under a JOURNAL ARTICLE (articleId) or a COMPETITION ENTRY (entryId).
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * A DATA ADAPTER, NOT A SECOND COMMENT LIST. (4 Nov 2026.)
+ *
+ * This file used to draw its own comment row — a chat bubble with the like
+ * count on its corner and a "time · Like · Reply" line under it — a hand-copy
+ * of the thread that posts, the post page, the app's sheet and sponsored ads
+ * all share (src/components/comments/CommentThread.tsx). When the Owner asked
+ * for Instagram's compact spacing (4 Nov, "huge gap from each comment"), a
+ * second renderer would have kept the old spacing on articles and entries and
+ * drifted again at the next change. So the row is CommentThread's here too,
+ * and this file keeps only what genuinely differs: the `comments` table,
+ * `comment_reactions` ("like" only — no reaction picker, see onReact), and
+ * `comment_reports`. Data, sorting and moderation are unchanged.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
 import { useState, useEffect, useCallback, useMemo } from "react";
-import ProfileLink from "@/components/ProfileLink";
 import { Link } from "react-router-dom";
-import { MessageCircle, ThumbsUp, MoreHorizontal, Trash2, Flag, Pin, Pencil, ChevronDown } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { MessageCircle, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfileMap } from "@/hooks/profile/useProfileMap";
 import { useAuth } from "@/hooks/core/useAuth";
-import { useOnline } from "@/lib/presence/online";
 import { useProfileCore } from "@/hooks/profile/useProfileData";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import { toast } from "@/hooks/core/use-toast";
-import MentionInput from "@/components/MentionInput";
-import RichContentRenderer from "@/components/RichContentRenderer";
-import AutoBadge from "@/components/AutoBadge";
-import AutoRole from "@/components/AutoRole";
-import UserIdentityBlock from "@/components/UserIdentityBlock";
+import CommentThread, { type ThreadComment } from "@/components/comments/CommentThread";
+import CommentComposer from "@/components/comments/CommentComposer";
 import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useT } from "@/i18n/I18nContext";
 import { convertEmojiShortcuts } from "@/lib/emoji";
-import { avatarInitial } from "@/lib/displayName";
 
 interface Comment {
   id: string;
@@ -47,39 +52,27 @@ interface Props {
   entryId?: string;
 }
 
-const REPORT_REASONS = ["Inappropriate", "Spam", "Harassment", "Nudity", "Hate Speech", "False Information", "Violence"];
-
-const Avatar = ({ src, name, size = "sm", userId }: { src: string | null | undefined; name: string | null | undefined; size?: "xs" | "sm"; userId?: string | null }) => {
-  const cls = size === "xs" ? "w-6 h-6 text-[10px]" : "w-8 h-8 text-xs";
-  /* P1 §4: live presence keyed on the commenter's id, not comment.last_active. */
-  const online = useOnline(userId);
-  return (
-    <span className={`relative inline-block ${cls}`}>
-      {src ? (
-        <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={src} alt="" className={`${cls} rounded-full object-cover`} />
-      ) : (
-        <div className={`${cls} rounded-full bg-muted flex items-center justify-center font-semibold text-muted-foreground`}>
-          {avatarInitial(name)}
-        </div>
-      )}
-      {online && (
-        <span aria-label="Online" title="Online" className="absolute bottom-0 right-0 block h-2 w-2 rounded-full bg-green-500 ring-2 ring-background" />
-      )}
-    </span>
-  );
-};
-
-const timeAgo = (date: string, justNow = "Just now") => {
-  const diff = Date.now() - new Date(date).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return justNow;
-  if (mins < 60) return `${mins}m`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h`;
-  const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days}d`;
-  return new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-};
+/** This table's row → the one shared thread's shape. */
+const toThread = (c: Comment): ThreadComment => ({
+  id: c.id,
+  user_id: c.user_id,
+  content: c.content,
+  created_at: c.created_at,
+  updated_at: c.updated_at,
+  parent_id: c.parent_id,
+  is_pinned: c.is_pinned,
+  author_name: c.profile?.full_name ?? null,
+  author_handle: c.profile?.custom_url ?? null,
+  author_avatar: c.profile?.avatar_url ?? null,
+  author_badges: c.badges,
+  author_last_active: c.last_active,
+  like_count: c.like_count,
+  is_liked: c.is_liked,
+  // comment_reactions stores "like" only, so the heart IS the reaction.
+  user_reaction: c.is_liked ? "like" : null,
+  reaction_counts: c.like_count > 0 ? { like: c.like_count } : {},
+  replies: c.replies.map(toThread),
+});
 
 const CommentsSection = ({ articleId, entryId }: Props) => {
   const t = useT();
@@ -91,15 +84,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
   const [rawReactions, setRawReactions] = useState<{ likeCountMap: Map<string, number>; userLikedSet: Set<string> }>({ likeCountMap: new Map(), userLikedSet: new Set() });
   const [commentUserIds, setCommentUserIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newComment, setNewComment] = useState("");
-  const [replyTo, setReplyTo] = useState<string | null>(null);
-  const [replyText, setReplyText] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editInput, setEditInput] = useState("");
-  const [reportingId, setReportingId] = useState<string | null>(null);
-  const [reportReason, setReportReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [sortMode, setSortMode] = useState<"relevant" | "newest">("relevant");
   const [expanded, setExpanded] = useState(!articleId); // collapsed by default on articles, open elsewhere
 
   const { profileMap } = useProfileMap(commentUserIds);
@@ -119,7 +104,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
     const userIds = [...new Set(data.map((c: any) => c.user_id))];
     const commentIds = data.map((c: any) => c.id);
 
-    const [adminIds, reactionsRes, userReactionsRes] = await Promise.all([
+    const [, reactionsRes, userReactionsRes] = await Promise.all([
       getAdminIds(),
       commentIds.length ? supabase.from("comment_reactions" as any).select("comment_id").in("comment_id", commentIds) : { data: [] },
       commentIds.length && user ? supabase.from("comment_reactions" as any).select("comment_id").eq("user_id", user.id).in("comment_id", commentIds) : { data: [] },
@@ -182,20 +167,9 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
     fetchComments();
   }, [fetchComments]);
 
-  const sortedComments = [...comments].sort((a, b) => {
-    if (a.is_pinned && !b.is_pinned) return -1;
-    if (!a.is_pinned && b.is_pinned) return 1;
-    if (sortMode === "relevant") {
-      const scoreA = a.like_count + a.replies.length;
-      const scoreB = b.like_count + b.replies.length;
-      if (scoreA !== scoreB) return scoreB - scoreA;
-    }
-    if (sortMode === "newest") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-  });
-
-  const handlePost = async (parentId: string | null = null) => {
-    if (!user) return;
+  /** Resolves false when nothing was written, so the box gets the text back. */
+  const handlePost = async (parentId: string | null, content: string): Promise<boolean> => {
+    if (!user) return false;
     /**
      * The trailing shortcut, converted at submit.
      *
@@ -204,11 +178,11 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
      * MentionInput fires on a space, and there is no space here, so this is the
      * half that catches it. See src/lib/emoji.ts.
      */
-    const text = convertEmojiShortcuts(parentId ? replyText.trim() : newComment.trim());
-    if (!text) return;
+    const text = convertEmojiShortcuts(content.trim());
+    if (!text) return false;
     if (text.length > 2000) {
       toast({ title: t("cmt.tooLong"), variant: "destructive" });
-      return;
+      return false;
     }
 
     const optimistic: Comment = {
@@ -233,10 +207,8 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
 
     if (parentId) {
       setComments((prev) => prev.map((c) => c.id === parentId ? { ...c, replies: [...c.replies, optimistic] } : c));
-      setReplyText(""); setReplyTo(null);
     } else {
       setComments((prev) => [...prev, optimistic]);
-      setNewComment("");
     }
 
     setSubmitting(true);
@@ -248,6 +220,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
       entry_id: entryId || null,
     } as any);
 
+    setSubmitting(false);
     if (error) {
       toast({ title: t("cmt.postFailed"), description: error.message, variant: "destructive" });
       if (parentId) {
@@ -255,10 +228,10 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
       } else {
         setComments((prev) => prev.filter((c) => c.id !== optimistic.id));
       }
-    } else {
-      fetchComments();
+      return false;
     }
-    setSubmitting(false);
+    fetchComments();
+    return true;
   };
 
   const handleDelete = async (commentId: string, parentId: string | null) => {
@@ -274,26 +247,36 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
     }
   };
 
-  const editComment = async (commentId: string) => {
-    if (!editInput.trim()) return;
+  /** Resolves true to close the editor; false leaves it open with the text in it. */
+  const editComment = async (commentId: string, content: string): Promise<boolean> => {
+    const text = content.trim();
+    if (!text) return false;
     setSubmitting(true);
     const { error } = await supabase
       .from("comments")
-      .update({ content: editInput.trim(), updated_at: new Date().toISOString() })
+      .update({ content: text, updated_at: new Date().toISOString() })
       .eq("id", commentId);
+    setSubmitting(false);
     if (error) {
       toast({ title: t("cmt.editFailed"), variant: "destructive" });
-    } else {
-      const updateInTree = (list: Comment[]): Comment[] =>
-        list.map((c) => c.id === commentId
-          ? { ...c, content: editInput.trim(), updated_at: new Date().toISOString() }
-          : { ...c, replies: updateInTree(c.replies) }
-        );
-      setComments(updateInTree);
-      setEditingId(null);
-      setEditInput("");
+      return false;
     }
-    setSubmitting(false);
+    const updateInTree = (list: Comment[]): Comment[] =>
+      list.map((c) => c.id === commentId
+        ? { ...c, content: text, updated_at: new Date().toISOString() }
+        : { ...c, replies: updateInTree(c.replies) }
+      );
+    setComments(updateInTree);
+    return true;
+  };
+
+  const findComment = (list: Comment[], id: string): Comment | undefined => {
+    for (const c of list) {
+      if (c.id === id) return c;
+      const found = findComment(c.replies, id);
+      if (found) return found;
+    }
+    return undefined;
   };
 
   const toggleLike = async (commentId: string) => {
@@ -323,12 +306,12 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
     await supabase.from("comments").update({ is_pinned: newPinned } as any).eq("id", commentId);
   };
 
-  const reportComment = async (commentId: string) => {
-    if (!user || !reportReason) return;
+  const reportComment = async (commentId: string, reason: string) => {
+    if (!user || !reason) return;
     const { error } = await supabase.from("comment_reports").insert({
       comment_id: commentId,
       reporter_id: user.id,
-      reason: reportReason.toLowerCase().replace(/\s/g, "_"),
+      reason: reason.toLowerCase().replace(/\s/g, "_"),
     } as any);
     if (error?.code === "23505") {
       toast({ title: t("cmt.alreadyReported") });
@@ -337,229 +320,10 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
     } else {
       toast({ title: t("cmt.reported") });
     }
-    setReportingId(null);
-    setReportReason("");
   };
 
-  const findComment = (list: Comment[], id: string): Comment | undefined => {
-    for (const c of list) {
-      if (c.id === id) return c;
-      const found = findComment(c.replies, id);
-      if (found) return found;
-    }
-    return undefined;
-  };
-
-  const isEdited = (c: Comment) => c.updated_at && c.updated_at !== c.created_at && new Date(c.updated_at).getTime() - new Date(c.created_at).getTime() > 2000;
-
+  const threadComments = useMemo(() => comments.map(toThread), [comments]);
   const totalCount = comments.reduce((acc, c) => acc + 1 + c.replies.length, 0);
-
-  /**
-   * ⚠ RENDERED BY CALLING IT, NOT AS <CommentItem />. THAT IS THE WHOLE POINT.
-   *
-   * Owner, 2026-08-12: *"In Comment Reply : I am typing 'Thanks' its typing as
-   * 'sknaht'. Text pointer atomically coming front after typing"*.
-   *
-   * This function is DEFINED INSIDE the parent's render. Written as a JSX
-   * element (`<CommentItem ... />`) that makes it a brand-new component TYPE on
-   * every parent render — and the reply text lives in parent state, so every
-   * keystroke re-rendered the parent, React saw an unfamiliar type, and it
-   * unmounted and rebuilt the entire subtree. The real DOM <input> was
-   * destroyed and recreated per letter, so the caret snapped back to 0 and the
-   * next character landed in FRONT of the previous one. "Thanks" → "sknaht".
-   *
-   * Calling it as a plain function splices its output into the PARENT's
-   * element tree, so there is no new component type, nothing remounts, and the
-   * caret stays where the member put it.
-   *
-   * ⚠ THE `key` LIVES ON THE RETURNED ROOT ELEMENT, not on a call site — a
-   * function call cannot carry one.
-   *
-   * ⚠ NEVER CALL A REACT HOOK IN HERE. As a function call it shares the
-   * parent's hook slots, so a conditional `useState` here would corrupt the
-   * parent's hook order. It uses none today, and it must stay that way.
-   * If you ever need one, hoist this to a real component at module scope with
-   * explicit props instead of putting `<CommentItem />` back.
-   */
-  const renderComment = (comment: Comment, depth = 0) => {
-    const isOwn = user?.id === comment.user_id;
-    const canDelete = isOwn || isAdmin;
-
-    return (
-      // Key moved here — see the note above renderComment.
-      <div key={comment.id} className={`${depth > 0 ? "ml-10" : ""}`}>
-        <div className="flex gap-2 group/comment py-0.5">
-          <ProfileLink userId={comment.user_id} handle={comment.profile?.custom_url} className="shrink-0 mt-0.5">
-            <Avatar src={comment.profile?.avatar_url} name={comment.profile?.full_name} size={depth > 0 ? "xs" : "sm"} userId={comment.user_id} />
-          </ProfileLink>
-          <div className="flex-1 min-w-0">
-            {editingId === comment.id ? (
-              <div className="flex gap-2 items-end">
-                <MentionInput
-                  value={editInput}
-                  onChange={setEditInput}
-                  onSubmit={() => editComment(comment.id)}
-                  placeholder={t("cmt.phEdit")}
-                  disabled={submitting}
-                  maxLength={2200}
-                  autoFocus
-                  className="bg-muted rounded-2xl px-3 py-2 text-sm"
-                />
-                <button onClick={() => { setEditingId(null); setEditInput(""); }} className="text-xs text-muted-foreground hover:text-foreground mb-2">
-                  {t("common.cancel")}
-                </button>
-              </div>
-            ) : (
-              <>
-                {comment.is_pinned && (
-                  <div className="flex items-center gap-1 text-[10px] text-primary font-medium mb-0.5">
-                    <Pin className="h-3 w-3" /> {t("cmt.pinned")}
-                  </div>
-                )}
-
-                <div className="relative inline-block max-w-full">
-                  <div className="bg-muted rounded-2xl px-3 py-2 inline-block max-w-full">
-                    <UserIdentityBlock
-                      userId={comment.user_id}
-                      name={comment.profile?.full_name || "Anonymous"}
-                      handle={comment.profile?.custom_url}
-                    />
-                    {/* `whitespace-pre-wrap` for the same reason as in
-                        src/components/comments/CommentThread.tsx: without it a
-                        two-paragraph comment collapses onto one line. */}
-                    <p className="text-[15px] text-foreground leading-[1.33] whitespace-pre-wrap break-words">
-                      <RichContentRenderer content={comment.content} />
-                    </p>
-                    {isEdited(comment) && (
-                      <span className="text-[10px] text-muted-foreground italic ml-1">{t("cmt.edited")}</span>
-                    )}
-                  </div>
-
-                  {comment.like_count > 0 && (
-                    <span className="absolute -bottom-2 right-2 bg-card border border-border rounded-full px-1.5 py-0.5 text-[10px] font-medium text-foreground shadow-sm flex items-center gap-0.5">
-                      👍 {comment.like_count}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-3 mt-1 px-1">
-                  <span className="text-xs text-muted-foreground font-medium">{timeAgo(comment.created_at, t("dash.justNow"))}</span>
-                  {user && (
-                    <button
-                      onClick={() => toggleLike(comment.id)}
-                      className={`text-xs font-semibold transition-colors ${comment.is_liked ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
-                    >
-                      {t("cmt.like")}
-                    </button>
-                  )}
-                  {user && (
-                    <button
-                      onClick={() => {
-                        const opening = replyTo !== comment.id;
-                        setReplyTo(opening ? comment.id : null);
-                        if (opening) {
-                          const name = comment.profile?.full_name || "Photographer";
-                          setReplyText(`@[${name}](${comment.user_id}) `);
-                        } else {
-                          setReplyText("");
-                        }
-                      }}
-                      className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {t("cmt.reply")}
-                    </button>
-                  )}
-
-                  {user && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="opacity-0 group-hover/comment:opacity-100 transition-opacity p-0.5 rounded hover:bg-muted">
-                          <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="w-44">
-                        {isOwn && (
-                          <DropdownMenuItem onClick={() => { setEditingId(comment.id); setEditInput(comment.content); }} className="cursor-pointer">
-                            <Pencil className="h-3.5 w-3.5 mr-2" /> {t("cmt.edit")}
-                          </DropdownMenuItem>
-                        )}
-                        {isAdmin && depth === 0 && (
-                          <DropdownMenuItem onClick={() => togglePin(comment.id)} className="cursor-pointer">
-                            <Pin className="h-3.5 w-3.5 mr-2" /> {comment.is_pinned ? "Unpin" : "Pin"}
-                          </DropdownMenuItem>
-                        )}
-                        {canDelete && (
-                          <DropdownMenuItem onClick={() => handleDelete(comment.id, comment.parent_id)} className="cursor-pointer text-destructive focus:text-destructive">
-                            <Trash2 className="h-3.5 w-3.5 mr-2" /> {t("common.delete")}
-                          </DropdownMenuItem>
-                        )}
-                        {!isOwn && (
-                          <DropdownMenuItem onClick={() => { setReportingId(comment.id); setReportReason(""); }} className="cursor-pointer text-destructive focus:text-destructive">
-                            <Flag className="h-3.5 w-3.5 mr-2" /> {t("cmt.report")}
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </div>
-
-                <AnimatePresence>
-                  {reportingId === comment.id && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden mt-1 ml-1"
-                    >
-                      <div className="flex flex-wrap gap-1 mb-1.5">
-                        {REPORT_REASONS.map((r) => (
-                          <button
-                            key={r}
-                            onClick={() => setReportReason(r)}
-                            className={`text-[10px] px-2 py-1 border rounded-md transition-all ${reportReason === r ? "border-destructive text-destructive bg-destructive/5 font-medium" : "border-border text-muted-foreground hover:border-muted-foreground/50"}`}
-                          >
-                            {t("cmt.r." + r, r)}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => reportComment(comment.id)} disabled={!reportReason} className="text-[10px] px-3 py-1 bg-destructive text-destructive-foreground rounded-md hover:opacity-90 disabled:opacity-50">
-                          {t("dash.submit")}
-                        </button>
-                        <button onClick={() => { setReportingId(null); setReportReason(""); }} className="text-[10px] px-3 py-1 border border-border rounded-md text-muted-foreground">
-                          {t("common.cancel")}
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {replyTo === comment.id && (
-                  <div className="flex gap-2 mt-2">
-                    <Avatar src={currentProfile?.avatar_url} name={currentProfile?.full_name} size="xs" />
-                    <MentionInput
-                      value={replyText}
-                      onChange={setReplyText}
-                      onSubmit={() => handlePost(comment.id)}
-                      placeholder={`${t("cmt.phReplyTo")} ${comment.profile?.full_name || "Photographer"}...`}
-                      disabled={submitting}
-                      maxLength={2200}
-                      autoFocus
-                      className="bg-muted rounded-full px-3 py-1.5 text-sm"
-                    />
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-
-        {comment.replies.map((reply) => (
-          renderComment(reply, depth + 1)
-        ))}
-      </div>
-    );
-  };
 
   if (articleId && !expanded) {
     return (
@@ -587,44 +351,29 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
             <span className="text-sm font-normal text-muted-foreground">({totalCount})</span>
           )}
         </h3>
-        <div className="flex items-center gap-3">
-          {totalCount > 1 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1">
-                  {sortMode === "relevant" ? t("cmt.mostRelevant") : t("cmt.newestFirst")}
-                  <ChevronDown className="h-3 w-3" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem onClick={() => setSortMode("relevant")} className="cursor-pointer text-xs">{t("cmt.mostRelevant")}</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortMode("newest")} className="cursor-pointer text-xs">{t("cmt.newestFirst")}</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          {articleId && (
-            <button
-              onClick={() => setExpanded(false)}
-              className="text-xs text-muted-foreground hover:text-foreground"
-              title="Collapse"
-            >
-              {t("cmt.hide")}
-            </button>
-          )}
-        </div>
+        {articleId && (
+          <button
+            onClick={() => setExpanded(false)}
+            className="text-xs text-muted-foreground hover:text-foreground"
+            title="Collapse"
+          >
+            {t("cmt.hide")}
+          </button>
+        )}
       </div>
 
       <div className="p-4">
         {user ? (
-          <div className="flex gap-2 mb-4">
-            <Avatar src={currentProfile?.avatar_url} name={currentProfile?.full_name} size="sm" />
-            <MentionInput
-              value={newComment}
-              onChange={setNewComment}
-              onSubmit={() => handlePost()}
-              placeholder={t("cmt.phWrite")}
-              disabled={submitting}
+          <div className="mb-4">
+            {/* The one shared composer (the post sheet's), so the box looks and
+                behaves the same on every surface. */}
+            <CommentComposer
+              currentUserId={user.id}
+              viewer={currentProfile ?? null}
+              submitting={submitting}
               maxLength={2200}
+              placeholder={t("cmt.phWrite")}
+              onSubmit={(content) => handlePost(null, content)}
             />
           </div>
         ) : (
@@ -644,10 +393,26 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
             <p className="text-sm text-muted-foreground">{t("cmt.noComments")}</p>
           </div>
         ) : (
-          <div className="space-y-0.5">
-            {sortedComments.map((comment) => (
-              renderComment(comment)
-            ))}
+          <div className="-mx-3 -my-2">
+            <CommentThread
+              comments={threadComments}
+              loading={false}
+              currentUserId={user?.id ?? null}
+              viewer={currentProfile ?? null}
+              isAdmin={isAdmin}
+              canPin={isAdmin}
+              submitting={submitting}
+              editSubmitting={submitting}
+              maxLength={2200}
+              hideComposer
+              features={{ reactions: true, pinning: true, reporting: true, sorting: true }}
+              onAdd={(content, parentId) => handlePost(parentId, content)}
+              onEdit={editComment}
+              onDelete={handleDelete}
+              onToggleLike={toggleLike}
+              onTogglePin={togglePin}
+              onReport={reportComment}
+            />
           </div>
         )}
       </div>

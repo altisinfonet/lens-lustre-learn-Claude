@@ -236,9 +236,12 @@ describe("the render-functions that replaced them stay hook-free", () => {
   // literal words where their comment should have been. There is one thread
   // now — CommentThread — and those two files are its data adapters, so this
   // is where the render-function lives and where the rule applies.
+  //
+  // 4 Nov 2026: CommentsSection.tsx (journal articles, competition entries)
+  // was the last surface with a renderer of its own — a third copy. It is a
+  // data adapter now and is held to that below, with the other two.
   const files = [
     "src/components/comments/CommentThread.tsx",
-    "src/components/CommentsSection.tsx",
   ];
 
   for (const file of files) {
@@ -270,10 +273,24 @@ describe("the reply inputs are still there", () => {
   it("each comment surface still renders a controlled input", () => {
     for (const f of [
       "src/components/comments/CommentThread.tsx",
-      "src/components/CommentsSection.tsx",
+      "src/components/comments/CommentComposer.tsx",
     ]) {
       expect(code(read(f))).toMatch(/<(MentionInput|Textarea|Input|input|textarea)\b/);
     }
+  });
+});
+
+describe("articles and competition entries draw the SAME comment row", () => {
+  const F = "src/components/CommentsSection.tsx";
+  it("CommentsSection renders the shared thread and the shared composer", () => {
+    const src = code(read(F));
+    expect(src, `${F} must draw the shared thread`).toMatch(/<CommentThread\b/);
+    expect(src, `${F} must use the shared composer`).toMatch(/<CommentComposer\b/);
+  });
+  it("and grows no comment renderer or input of its own", () => {
+    const src = code(read(F));
+    expect(src, `${F} has grown a second comment renderer`).not.toMatch(/const render(Comment|Row)\s*=/);
+    expect(src, `${F} has grown a second comment box`).not.toMatch(/<(MentionInput|Textarea|input|textarea)\b/);
   });
 });
 
