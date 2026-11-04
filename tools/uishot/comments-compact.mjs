@@ -103,6 +103,14 @@ const SCENES = [
   ["app-phone-sheet-long", "thread=long&app=1", PHONE, false],
   ["web-desktop-entry-replies-open", "surface=entry&thread=replies", DESKTOP, true],
   ["web-phone-entry-long", "surface=entry&thread=long", PHONE, false],
+  // A photograph's thread (ImageEngagement on image_comments, plan C2): the panel opens on "N Comments".
+  ["web-desktop-image-replies-open", "surface=image&thread=replies", DESKTOP, true],
+  ["web-phone-image-owner", "surface=image&thread=owner", PHONE, false],
+  ["app-phone-image-replies-open", "surface=image&thread=replies&app=1", PHONE, true],
+  ["web-320-image-long", "surface=image&thread=long", SMALL, false],
+  ["web-desktop-lightbox-replies-open", "surface=lightbox&thread=replies", DESKTOP, true],
+  ["web-phone-lightbox-owner", "surface=lightbox&thread=owner", PHONE, false],
+  ["app-phone-lightbox-replies-open", "surface=lightbox&thread=replies&app=1", PHONE, true],
 ].map(([name, query, viewport, open]) => ({ name, query, viewport, open }));
 
 /** Everything measured in the page. Pure DOM + elementFromPoint; no app import. */
@@ -189,7 +197,11 @@ function measureInPage({ LIMITS }) {
   const ordered = info.slice().sort((a, b) => r(a.row).top - r(b.row).top);
   for (let i = 0; i + 1 < ordered.length; i++) {
     const a = ordered[i], b = ordered[i + 1];
-    const aBottom = a.replyLine ? a.replyLine.bottom : (a.p ? lineBox(a.p).bottom : r(a.row).bottom);
+    // A reply at the depth limit has no Reply button. What the eye sees decides: its ⋯ counts
+    // only where it is showing (touch). With a mouse it is hidden, so the text is the last line.
+    const menu = a.row.querySelector("[data-comment-meta] button[aria-label='Comment options']");
+    const menuBottom = menu && getComputedStyle(menu).opacity !== "0" ? r(menu).bottom : null;
+    const aBottom = a.replyLine ? a.replyLine.bottom : (menuBottom ?? (a.p ? lineBox(a.p).bottom : r(a.row).bottom));
     const bTop = r(b.avatar).top;
     const between = toggles.filter((t) => r(t).top >= aBottom - 1 && r(t).bottom <= bTop + 1);
     const name = `${out.rows[info.indexOf(a)].name} → ${out.rows[info.indexOf(b)].name}`;
@@ -362,6 +374,10 @@ for (const engine of ENGINES) {
     });
     const page = await ctx.newPage();
     await page.goto(`${BASE}/commentsharness.html?${s.query}`, { waitUntil: "load", timeout: 120000 });
+    // ImageEngagement keeps its thread closed behind its "N Comments" button.
+    if (/surface=(image|lightbox)/.test(s.query)) {
+      await page.getByRole("button", { name: /\d+ Comments/ }).click({ timeout: 30000 }).catch(() => {});
+    }
     try {
       await page.waitForSelector("[data-comment-id]", { timeout: 20000 });
     } catch {
