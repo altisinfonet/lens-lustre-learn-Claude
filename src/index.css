@@ -15,6 +15,25 @@
 
 @layer base {
   :root {
+    /* TOKENS:START generated from src/ui/tokens.ts, do not edit by hand */
+    --space-card-x: 0.75rem;
+    --space-card-y: 0.75rem;
+    --space-row-gap: 0.625rem;
+    --space-stack: 0.5rem;
+    --tap-min: 2.75rem;
+    --tap-short: 2rem;
+    --avatar-xs: 1.5rem;
+    --avatar-sm: 2rem;
+    --avatar-md: 2.5rem;
+    --avatar-lg: 3rem;
+    --avatar-xl: 5rem;
+    --comment-indent: 2.75rem;
+    --type-caption: 0.8125rem;
+    --type-meta: 0.75rem;
+    --type-body: 0.875rem;
+    --type-name: 0.875rem;
+    /* TOKENS:END */
+
     /* Facebook-classic light theme as default */
     --background: 209 40% 96%;
     --foreground: 222 47% 11%;
