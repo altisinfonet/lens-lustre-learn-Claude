@@ -31,6 +31,10 @@
  * that a 32x44 control (full height, deliberately narrow) passes. The rect is
  * getBoundingClientRect, which INCLUDES padding.
  *
+ * (4 Nov 2026, Owner, Instagram's side-to-side spacing: the box is now
+ * ROW_COUNT_TAP — h-11 -mt-3 pt-3, content-sized, `min-w-8` for the short axis
+ * with the number at the start. The history below is how it got here.)
+ *
  * `h-11 -my-1.5 px-2.5` is therefore not decoration and not arbitrary:
  *   • h-11 = 44px  -> long axis 44, clears 44
  *   • px-2.5 = 20px total -> the narrowest content (16px) reaches 36, clears 32
@@ -67,6 +71,11 @@ const stripComments = (s: string) =>
 
 const read = (p: string) => stripComments(readFileSync(join(process.cwd(), p), "utf8"));
 
+/** The row's one count box (src/components/post/actionRowGeometry.ts), both template parts joined. */
+const GEOMETRY = read("src/components/post/actionRowGeometry.ts");
+const ROW_TAP_SRC = GEOMETRY.match(/ROW_TAP\s*=\s*"([^"]*)"/)?.[1] ?? "";
+const COUNT_TAP = (GEOMETRY.match(/ROW_COUNT_TAP\s*=\s*`([^`]*)`/)?.[1] ?? "").replace("${ROW_TAP}", ROW_TAP_SRC);
+
 const TRIGGERS = [
   ["ReactionSummaryTooltip", "src/components/ReactionSummaryTooltip.tsx"],
   ["ShareSummaryTooltip", "src/components/ShareSummaryTooltip.tsx"],
@@ -86,14 +95,19 @@ describe("summary triggers clear the gate's 44/32 tap floor", () => {
         expect(src).toMatch(/aria-label=\{`See who (reacted|shared) \(\$\{\w+\}\)`\}/);
       });
 
-      it("sets h-11, so the long axis clears 44 — reaching UP only (-mt-3 pt-3), never down into the caption (Owner 3 Nov 2026; review of #867)", () => {
-        expect(src).toMatch(/className="relative cursor-pointer inline-flex[^"]*\bh-11\b/);
-        expect(src).toMatch(/className="relative cursor-pointer inline-flex[^"]*\s-mt-3 pt-3\b/);
-        expect(src).not.toMatch(/className="[^"]*cursor-pointer inline-flex[^"]*-m[yb]-/);
+      it("uses the row's one count box (ROW_COUNT_TAP)", () => {
+        expect(src).toMatch(/className=\{ROW_COUNT_TAP\}/);
       });
 
-      it("sets px-2.5, so the short axis clears 32", () => {
-        expect(src).toMatch(/className="relative cursor-pointer inline-flex[^"]*\bpx-2\.5\b/);
+      it("sets h-11, so the long axis clears 44 — reaching UP only (-mt-3 pt-3), never down into the caption (Owner 3 Nov 2026; review of #867)", () => {
+        expect(COUNT_TAP).toMatch(/\bh-11\b/);
+        expect(COUNT_TAP).toMatch(/\s-mt-3 pt-3\b/);
+        expect(COUNT_TAP).not.toMatch(/-m[yb]-|\bmb-/);
+      });
+
+      it("sets min-w-8 with the number at the START, so the short axis clears 32 without moving the number off its icon (Owner 4 Nov 2026)", () => {
+        expect(COUNT_TAP).toMatch(/\bmin-w-8\b/);
+        expect(COUNT_TAP).toMatch(/\bjustify-start\b/);
       });
 
       it("has NOT been returned to the bare inline-flex box the gate rejected", () => {
