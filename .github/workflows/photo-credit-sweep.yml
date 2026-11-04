@@ -1,0 +1,105 @@
+name: Photo credit sweep (every 15 minutes, once enabled)
+
+# ══════════════════════════════════════════════════════════════════
+# CREDIT U3 — the browser no longer draws a credit, so every new photo needs
+# the server to draw it. This runs the workers for BOTH lanes:
+#   set-credit.mjs   every v3 photo with no record (20261110_0111)
+#   old-credit.mjs   an upload that fell back to the old path gets its credited
+#                    copy the way an old photo does (20261110_0109)
+# The queue IS the missing work: an empty queue costs one sign-in and one call.
+# Until a run succeeds a new photo has no credited file: full screen shows the
+# clean copy and "save image" waits.
+#
+# OFF UNTIL SOMEONE TURNS IT ON. The schedule does nothing unless the repository
+# variable PHOTO_CREDIT_SWEEP is 'on' (Settings → Secrets and variables →
+# Actions → Variables). Scheduled runs happen on the default branch only.
+# Order for a lane: apply 20261110_0111 there, run this once by hand, THEN let
+# the uploader change reach that lane's site.
+#
+# WHO IT RUNS AS and every fence: as s3-media-backfill.yml — the converter
+# account, secrets in the lane's GitHub Environment, the lane chosen here and
+# never typed. The code run for a lane is that lane's branch.
+#
+# RULE kept from apply-migration.yml: no ${{ inside any run: block.
+# ══════════════════════════════════════════════════════════════════
+
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "the lane to sweep (a by-hand run sweeps this one only)"
+        required: true
+        type: choice
+        options: [staging, production]
+
+concurrency:
+  group: photo-credit-sweep-${{ github.event_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sweep:
+    name: sweep ${{ matrix.lane }}
+    if: github.event_name == 'workflow_dispatch' || vars.PHOTO_CREDIT_SWEEP == 'on'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.target)) || fromJSON('["staging","production"]') }}
+    environment: ${{ matrix.lane }}
+    env:
+      LANE: ${{ matrix.lane }}
+    steps:
+      - name: The lane fixes the site and the project
+        run: |
+          set -euo pipefail
+          case "$LANE" in
+            production) SITE=https://www.50mmretina.com;     SB=https://jtdtehuqtinjxropkkcn.supabase.co
+                        ANON=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0ZHRlaHVxdGluanhyb3Bra2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzI3MjEsImV4cCI6MjA5OTE0ODcyMX0.qY8BI5LXb6uLzTwbpf8AleZ6UZyfeaOA0q4_TC5CEpo ;;
+            staging)    SITE=https://staging.50mmretina.com; SB=https://fpszggreishhuvdpkmdr.supabase.co
+                        ANON=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwc3pnZ3JlaXNoaHV2ZHBrbWRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxMDcyNDUsImV4cCI6MjEwNDY4MzI0NX0.h3t2eZ8hwXDev6JydjsDnA8CpXFlKve4CaUlXp_mwiQ ;;
+            *) echo "::error::Unknown lane '$LANE'."; exit 1 ;;
+          esac
+          { echo "SITE=$SITE"; echo "SB_URL=$SB"; echo "SB_ANON=$ANON"; } >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.lane == 'production' && 'main' || 'staging' }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install (lockfile only)
+        run: npm ci --no-audit --no-fund
+
+      # tools/media-derivatives/fonts/README.md: a name in another script comes from the machine's fonts.
+      - name: Fonts for names outside the committed font
+        run: sudo apt-get install -y --no-install-recommends fonts-noto-core
+
+      - name: Sign in as the worker account (token masked, 0600 file)
+        env:
+          WORKER_EMAIL: ${{ secrets.MEDIA_WORKER_EMAIL }}
+          WORKER_PASSWORD: ${{ secrets.MEDIA_WORKER_PASSWORD }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          umask 077
+          node tools/media-derivatives/worker-session.mjs --out "$RUNNER_TEMP/worker.jwt"
+          [ -s "$RUNNER_TEMP/worker.jwt" ] || { echo "::error::the sign-in tool wrote no token"; exit 1; }
+          echo "MEDIA_WORKER_JWT_FILE=$RUNNER_TEMP/worker.jwt" >> "$GITHUB_ENV"
+
+      - name: New photos (server credit)
+        run: node tools/media-derivatives/set-credit.mjs --site "$SITE"
+
+      - name: Uploads that fell back to the old path
+        run: node tools/media-derivatives/old-credit.mjs --site "$SITE"
+
+      - name: Forget the token
+        if: always()
+        run: rm -f "$RUNNER_TEMP/worker.jwt" "$RUNNER_TEMP/auth.json"

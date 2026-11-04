@@ -137,7 +137,7 @@ describe("S3-e backfill workflow — fences", () => {
 
   it("photo plan U5: `job` picks the tool from a fixed list (ladder = today's default, photo-set = the v2 backfill)", () => {
     const on = wf.slice(wf.indexOf("\non:\n"), wf.indexOf("\nconcurrency:"));
-    expect(on).toMatch(/\n {6}job:\n(?: {8}.*\n)*? {8}type: choice\n {8}options: \[ladder, photo-set, rectify-l4, redraw-credit, old-credit\]/);
+    expect(on).toMatch(/\n {6}job:\n(?: {8}.*\n)*? {8}type: choice\n {8}options: \[ladder, photo-set, rectify-l4, redraw-credit, old-credit, set-credit\]/);
     expect(on).toMatch(/\n {6}job:\n(?: {8}.*\n)*? {8}default: ladder/);
     expect(wf).toContain("JOB: ${{ inputs.job }}");
     const run = step("Run the backfill tool").run;
@@ -149,6 +149,7 @@ describe("S3-e backfill workflow — fences", () => {
     expect(run).toMatch(/redraw-credit\) TOOL=tools\/media-derivatives\/rectify-l4\.mjs; ARGS\+=\(--redraw\) ;;/);
     // 20261110_0109: the old photos' credited copy
     expect(pick("old-credit").stdout.trim()).toBe("tools/media-derivatives/old-credit.mjs");
+    expect(pick("set-credit").stdout.trim()).toBe("tools/media-derivatives/set-credit.mjs");
     expect(fs.existsSync(path.join(ROOT, "tools/media-derivatives/old-credit.mjs"))).toBe(true);
     expect(pick("../../evil").status).not.toBe(0);
     expect(run).toContain('node "$TOOL" "${ARGS[@]}"');

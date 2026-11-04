@@ -1,5 +1,5 @@
 /**
- * Photo plan U1b — the credit burned into the 2048 copy (Owner decision 4).
+ * Photo plan U1b — the words of the credit (Owner decision 4).
  *
  *   "© <post owner's name>, 50mm Retina World"
  *   full name if ≤ 26 characters; else middle names → initials;
@@ -8,8 +8,7 @@
  * The three examples are the ones in the approved sample (50mm-photo-samples-2).
  */
 import { describe, it, expect } from "vitest";
-import { creditName, creditOwnerName, creditText, creditLayout, CREDIT_NAME_MAX } from "@/lib/photoCredit";
-import { creditGeometryFor } from "@/lib/creditGeometry.mjs";
+import { creditName, creditOwnerName, creditText, CREDIT_NAME_MAX } from "@/lib/photoCredit";
 
 describe("creditName — the name rule", () => {
   it("keeps a name of up to 26 characters in full", () => {
@@ -63,32 +62,5 @@ describe("creditOwnerName — whose name, from the profile WallPosts already has
     expect(creditOwnerName({ full_name: "Photographer", custom_url: "neilb" })).toBe("neilb");
     expect(creditOwnerName({ full_name: null, custom_url: null })).toBe("");
     expect(creditOwnerName(null)).toBe("");
-  });
-});
-
-describe("creditLayout — small, bottom-right, scaled to the image width (approved sample geometry)", () => {
-  it("v4 'middle size' (Owner, 3 Nov 16:05Z): HALF of v2 — 22 px → 11 px on 2048, 12 px → 6 px on 1080 (portrait: width decides)", () => {
-    expect(creditLayout(2048, 1365).fontPx).toBe(11);
-    expect(creditLayout(1152, 2048).fontPx).toBe(6);
-    expect(creditLayout(1080, 720).fontPx).toBe(6);
-  });
-  it("anchors bottom-right with the sample's margins; slightly fainter than v2 (white 0.41 → 0.32, shadow 0.325 → 0.25)", () => {
-    const l = creditLayout(2048, 1365);
-    expect(l.x).toBe(2048 - Math.round(2048 * 0.022));
-    expect(l.y).toBe(1365 - Math.round(1365 * 0.026));
-    expect(l.fill).toBe("rgba(255,255,255,0.32)");
-    expect(l.shadow).toBe("rgba(0,0,0,0.25)");
-    expect(l.shadowOffsetY).toBe(1);
-    expect(l.shadowBlur).toBe(2);
-  });
-  it("no floor that undoes the Owner's size: 3 px is the smallest drawn", () => {
-    expect(creditLayout(100, 80).fontPx).toBe(3);
-    expect(creditLayout(300, 200).fontPx).toBe(3);
-  });
-  it("ONE geometry for both renderers (audit M3): the canvas and the worker svg read the same module", async () => {
-    const svg = await import("../../../tools/media-derivatives/credit-svg.mjs");
-    for (const [w, h] of [[2048, 1365], [1080, 720], [810, 1080], [320, 213]]) expect(svg.creditLayout(w, h)).toEqual(creditGeometryFor(w, h));
-    const { font: _f, ...canvas } = creditLayout(2048, 1365);
-    expect(canvas).toEqual(creditGeometryFor(2048, 1365));
   });
 });

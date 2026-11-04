@@ -35,7 +35,7 @@ import { join } from "node:path";
 import { chromium, firefox, webkit } from "playwright";
 import { PNG } from "pngjs";
 import sharp from "sharp";
-import { creditSvg } from "../media-derivatives/credit-svg.mjs";
+import { renderCredit } from "../media-derivatives/credit-render.mjs";
 
 const arg = (n, d) => { const i = process.argv.indexOf(n); return i > -1 ? process.argv[i + 1] : d; };
 const OUT = arg("--out", null);
@@ -49,6 +49,12 @@ const CHANNEL = 40;
 const SHARE = 0.002;
 /** The credited reference must differ from the clean one in at least this many pixels. */
 const CREDIT_MIN_PIXELS = 40;
+const CREDIT_LINE = "© Dipannita Sen, 50mm Retina World";
+/** The server's path, on bytes the harness hands over: credit-render.mjs, then the workers' WebP. */
+async function serverCredit(b64) {
+  const { image } = await renderCredit(sharp, Buffer.from(b64, "base64"), CREDIT_LINE);
+  return (await image.webp({ quality: 85 }).toBuffer()).toString("base64");
+}
 
 let server = null;
 const stop = () => {
@@ -144,6 +150,7 @@ async function open(browser, { vp, dpr, viewer, size, shape, admin = false, app 
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
+  await page.exposeFunction("__serverCredit", serverCredit);
   const requested = [];
   const failedOnce = new Set();
   await page.route("https://cdn.harness.test/**", async (route) => {
@@ -184,33 +191,31 @@ let pass = true;
 const fail = (row, why) => { row.ok = false; (row.failed ??= []).push(why); pass = false; };
 
 // ── 0. THE CREDIT INSIDE EVERY SAVED FILE, for every path that draws it ─────
-//   · new uploads: the browser canvas (photoCredit.drawCredit) — the harness
-//     encodes with the REAL uploader; every credited copy it stored is measured;
-//   · the backfill / rectify workers: sharp + credit-svg.mjs, exactly as
-//     tools/media-derivatives/{photo-set,rectify-l4}.mjs draw it, on the clean
-//     1080 the uploader made (the rectify case) — measured the same way.
+//   · new uploads: the harness encodes with the REAL uploader (it draws no credit)
+//     and the REAL renderer draws on its private clean 2048, as set-credit.mjs does;
+//   · the rectify worker: the same renderer on the clean 1080 the uploader made.
 {
   const browser = await chromium.launch();
   for (const size of ["large", "small"]) {
     const r = await open(browser, { vp: "desktop", dpr: 1, viewer: "out", size, shape: "v3" });
     for (const s of Object.values(r.store).filter((x) => x.credited)) {
-      const row = { part: "credit in the saved file", path: "upload (browser canvas)", size, file: name(s.url), ok: true };
+      const row = { part: "credit in the saved file", path: "new photo (server, clean 2048)", size, file: name(s.url), ok: true };
       row.credit = await measureCredit(s.b64, s.twin);
       creditFail(row, row.credit);
       rows.push(row);
-      console.log(`${row.ok ? "PASS" : "FAIL"} credit in saved file · upload canvas · ${size} · ${row.file} ${JSON.stringify(row.credit)}${row.failed ? ` — ${row.failed.join("; ")}` : ""}`);
+      console.log(`${row.ok ? "PASS" : "FAIL"} credit in saved file · new photo · ${size} · ${row.file} ${JSON.stringify(row.credit)}${row.failed ? ` — ${row.failed.join("; ")}` : ""}`);
     }
     // the worker path, on the clean 1080 this photo's post names
     const cleanUrl = Object.keys(r.store).find((u) => /-l5\.webp$/.test(u));
     if (cleanUrl) {
       const clean = Buffer.from(r.store[cleanUrl].b64, "base64");
       const m = await sharp(clean).metadata();
-      const out = await sharp(clean).composite([{ input: Buffer.from(creditSvg(m.width, m.height, "© Dipannita Sen, 50mm Retina World")), top: 0, left: 0 }]).webp({ quality: 85 }).toBuffer();
-      const row = { part: "credit in the saved file", path: "backfill / rectify worker (sharp + credit-svg)", size, file: `${m.width}x${m.height}`, ok: true };
+      const out = Buffer.from(await serverCredit(r.store[cleanUrl].b64), "base64");
+      const row = { part: "credit in the saved file", path: "rectified photo (server, clean 1080)", size, file: `${m.width}x${m.height}`, ok: true };
       row.credit = await measureCredit(out.toString("base64"), r.store[cleanUrl].b64);
       creditFail(row, row.credit);
       rows.push(row);
-      console.log(`${row.ok ? "PASS" : "FAIL"} credit in saved file · worker svg · ${size} · ${JSON.stringify(row.credit)}${row.failed ? ` — ${row.failed.join("; ")}` : ""}`);
+      console.log(`${row.ok ? "PASS" : "FAIL"} credit in saved file · rectified · ${size} · ${JSON.stringify(row.credit)}${row.failed ? ` — ${row.failed.join("; ")}` : ""}`);
       if (OUT) await corner(out.toString("base64"), join(OUT, `saved-worker-${size}.png`));
     }
     await r.ctx.close();

@@ -94,7 +94,11 @@ describe("POST /api/media/clean-copy", () => {
     expect((await s.send(key, webp(2048, 1365))).status).toBe(409);
     expect(s.writes).toHaveLength(0);
   });
-  it("Unit B: 409 PHOTO-CLEAN-006 when the photo's public credited copy is not stored (no parking files under made-up names)", async () => {
+  it("credit U3: the stored photo itself is the proof (the browser sends no credited copy any more)", async () => {
+    const s = setup(ME, new Map([[POST, webp(1080, 720)]]));
+    expect((await s.send(key, webp(2048, 1365))).status).toBe(201);
+  });
+  it("Unit B: 409 PHOTO-CLEAN-006 when neither the photo nor its credited copy is stored (no parking files under made-up names)", async () => {
     const s = setup(ME, new Map());
     const r = await s.send(key, webp(2048, 1365));
     expect(r.status).toBe(409);

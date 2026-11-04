@@ -50,10 +50,10 @@ on:
         type: string
         default: "0"
       job:
-        description: "ladder = S3 600/1080/1440 for media posts · photo-set = photo plan U5, the v2 set (credited 2048/1080/600/320) beside every old post photo · rectify-l4 = the -l4 posts get a -l5 set from their clean 1080 (small credit), recorded for 20261110_0107 · redraw-credit = the rectified photos' credited copy redrawn with the current credit geometry (20261110_0108) · old-credit = every old (unmarked) post photo gets a credited copy (v4) at a new derived key, found by the web through post_photo_credit_for (20261110_0109)"
+        description: "ladder = S3 600/1080/1440 for media posts · photo-set = photo plan U5, the v2 set (credited 2048/1080/600/320) beside every old post photo · rectify-l4 = the -l4 posts get a -l5 set from their clean 1080 (small credit), recorded for 20261110_0107 · redraw-credit = the rectified photos' credited copy redrawn with the current credit geometry (20261110_0108) · old-credit = every old (unmarked) post photo gets a credited copy (v4) at a new derived key, found by the web through post_photo_credit_for (20261110_0109) · set-credit = the credited copy of every new (v3) photo, drawn by the server, recorded in photo_set_credit (20261110_0111)"
         required: false
         type: choice
-        options: [ladder, photo-set, rectify-l4, redraw-credit, old-credit]
+        options: [ladder, photo-set, rectify-l4, redraw-credit, old-credit, set-credit]
         default: ladder
 
 concurrency:
@@ -117,6 +117,11 @@ jobs:
       - name: Install (lockfile only)
         run: npm ci --no-audit --no-fund
 
+      # A name in another script is drawn by Pango from the machine's fonts
+      # (tools/media-derivatives/fonts/README.md); the runner has none by default.
+      - name: Fonts for names outside the committed font
+        run: sudo apt-get install -y --no-install-recommends fonts-noto-core
+
       - name: Sign in as the worker account (token masked, 0600 file)
         env:
           WORKER_EMAIL: ${{ secrets.MEDIA_WORKER_EMAIL }}
@@ -144,7 +149,8 @@ jobs:
             rectify-l4) TOOL=tools/media-derivatives/rectify-l4.mjs ;;
             redraw-credit) TOOL=tools/media-derivatives/rectify-l4.mjs; ARGS+=(--redraw) ;;
             old-credit) TOOL=tools/media-derivatives/old-credit.mjs ;;
-            *) echo "::error::job must be ladder, photo-set, rectify-l4, redraw-credit or old-credit"; exit 1 ;;
+            set-credit) TOOL=tools/media-derivatives/set-credit.mjs ;;
+            *) echo "::error::job must be ladder, photo-set, rectify-l4, redraw-credit, old-credit or set-credit"; exit 1 ;;
           esac
           node "$TOOL" "${ARGS[@]}"
 

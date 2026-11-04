@@ -6,9 +6,9 @@
  *   POST {op:"claim", limit?, after?}   → old photos still without a credited copy:
  *                                         post_id, ord, src_url (the CLEAN original the
  *                                         post shows) and the finished credit line
- *   PUT  ?op=credited&post_id=&ord=     body: that photo with the v4 small credit
- *                                         (WebP, long edge 1–2048, ≤ 4 MB) → stored at
- *                                         the DERIVED key, one HEAD, then recorded (SQL)
+ *   PUT  ?op=credited&post_id=&ord=&version=  body: that photo with the credit (WebP,
+ *                                         long edge 1–2048, ≤ 4 MB) → stored at the DERIVED
+ *                                         key, one HEAD, then recorded with the version (SQL)
  *
  * Same rules as the U5 / rectify writers: every call asks SQL AS the caller's
  * JWT and the SQL refuses everybody but an admin or the converter account
@@ -23,6 +23,7 @@ import { handleError, json, member, readJson, HttpError, UUID_RE } from "../../v
 import { asMember, bucketFor, parsePhoto, rpc } from "./_lib";
 import type { MediaEnv } from "../derivatives/_lib";
 import { MAX_DERIVATIVE_BYTES, webpSize } from "../../../../src/lib/media/derivativeRules";
+import { CREDIT_GEOMETRY } from "../../../../src/lib/creditGeometry.mjs";
 import { creditFor } from "./claim";
 
 interface QueueRow { post_id: string; ord: number; src_url: string; owner_full_name: string | null; owner_handle: string | null; owner_is_admin: boolean }
@@ -38,6 +39,7 @@ export async function handleOldCredit(request: Request, env: MediaEnv, fetchImpl
     const who = await member(request, env, fetchImpl);
 
     if (request.method === "PUT" && q.get("op") === "credited") {
+      if (Number(q.get("version")) !== CREDIT_GEOMETRY.version) throw new HttpError(409, "PHOTO-OC-VER-001", `version must be the current credit geometry (${CREDIT_GEOMETRY.version})`);
       const { postId, ord } = parsePhoto(q.get("post_id"), q.get("ord"));
       const rows = await asMember<Array<{ src_url: string; credited_key: string; done: boolean }>>(
         env, who.jwt, ...rpc("photo_old_credit_target", { _post_id: postId, _ord: ord }), fetchImpl);
@@ -67,7 +69,7 @@ export async function handleOldCredit(request: Request, env: MediaEnv, fetchImpl
         await bucket.put(t.credited_key, bytes, { httpMetadata: IMMUTABLE });
       }
       if (!(await bucket.head(t.credited_key))) throw new HttpError(409, "PHOTO-OC-INCOMPLETE", "the copy is not in the store after writing it");
-      await asMember(env, who.jwt, ...rpc("photo_old_credit_record", { _post_id: postId, _ord: ord, _key: t.credited_key }), fetchImpl);
+      await asMember(env, who.jwt, ...rpc("photo_old_credit_record", { _post_id: postId, _ord: ord, _key: t.credited_key, _version: CREDIT_GEOMETRY.version }), fetchImpl);
       return json(201, { status: was ? "recorded (copy was there)" : "recorded" });
     }
 

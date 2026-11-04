@@ -4,7 +4,7 @@
  * font file (fonts/FiraSans-SemiBold-latin.ttf, SIL OFL 1.1 — see fonts/README.md),
  * so a GitHub runner, the Oracle VM and a developer PC draw the same glyphs,
  * and the line is MEASURED with the real font (Pango's own text box), never
- * estimated (credit-svg.mjs estimates 0.58 em per character).
+ * estimated.
  *
  *   renderCredit(sharp, input, text) → {
  *     image   a sharp pipeline: the photo with the credit (encode it as you like),
@@ -18,8 +18,7 @@
  * a new photo, the clean 1080 for a rectified one, ≤ 2048 for an old one). The
  * pixels are only turned upright (EXIF).
  *
- * NOT YET WIRED: the workers keep credit-svg.mjs (v4) until the Owner approves
- * the v5 samples; switching them is U3/U4 (one renderer for every path).
+ * Every path draws through here (credit U3); ratchet: creditOneRenderer.test.ts.
  */
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -95,7 +94,9 @@ export async function creditFontPx(sharp, width, height, text) {
 /** Draw the v5 credit bottom-right on `input` (a path or a Buffer). */
 export async function renderCredit(sharp, input, text) {
   await assertCreditFont(sharp);
-  const upright = await sharp(input).rotate().toBuffer({ resolveWithObject: true });
+  // PNG: lossless. sharp keeps the input's format, so a WebP input would be encoded
+  // lossy here and again by the caller, softening the whole photo.
+  const upright = await sharp(input).rotate().png({ compressionLevel: 1 }).toBuffer({ resolveWithObject: true });
   const { width, height } = upright.info;
   const { px, inset } = await creditFontPx(sharp, width, height, text);
   const fill = await textImage(sharp, text, px, "#FFFFFF", G.fillAlpha);

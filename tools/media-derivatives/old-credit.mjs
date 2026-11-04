@@ -11,9 +11,9 @@
  *   1. reads the CLEAN original the post shows (its public URL — this lane's
  *      photo CDN, its avatars bucket or Supabase storage; never a `-l4` copy);
  *   2. turns it upright (EXIF), fits it in 2048 px (never enlarged), draws the
- *      v4 small credit (credit-svg.mjs, the uploader's shared geometry) and
- *      PUTs it (op=credited) — the route stores it at the derived NEW key
- *      (never overwrites), HEADs it and records it.
+ *      credit (credit-render.mjs, the one renderer) and PUTs it (op=credited) —
+ *      the route stores it at the derived NEW key (never overwrites), HEADs it
+ *      and records it with the credit version.
  * CHANGES NO POST and nothing on screen: the web finds the copy through
  * post_photo_credit_for and offers it only to "save image as".
  *
@@ -23,7 +23,7 @@
  * Prints post ids and counts only (no member data, no token, no credit line).
  */
 import { readFileSync } from "node:fs";
-import { creditSvg } from "./credit-svg.mjs";
+import { renderCredit } from "./credit-render.mjs";
 import { OLD_CREDIT_MAX_SOURCE_BYTES, laneSources, readCapped, sourceAllowed } from "./old-credit-source.mjs";
 
 const args = process.argv.slice(2);
@@ -58,15 +58,13 @@ async function credit(sharp, j) {
   const read = await readCapped(src, OLD_CREDIT_MAX_SOURCE_BYTES);
   if (!read.ok) return `source skipped: ${read.reason}`;
   const input = Buffer.from(read.bytes);
-  const upright = await sharp(input).rotate()
+  const fitted = await sharp(input).rotate()
     .resize({ width: LONG_EDGE, height: LONG_EDGE, fit: "inside", withoutEnlargement: true })
-    .toBuffer({ resolveWithObject: true });
-  const { width: w, height: h } = upright.info;
-  const out = await sharp(upright.data)
-    .composite([{ input: Buffer.from(creditSvg(w, h, j.credit)), top: 0, left: 0 }])
-    .webp({ quality: CREDITED_QUALITY })
+    .png({ compressionLevel: 1 })
     .toBuffer();
-  const put = await call(`?op=credited&post_id=${j.post_id}&ord=${j.ord}`, { method: "PUT", headers: { "content-type": "image/webp" }, body: out });
+  const { image, credit: c } = await renderCredit(sharp, fitted, j.credit);
+  const out = await image.webp({ quality: CREDITED_QUALITY }).toBuffer();
+  const put = await call(`?op=credited&post_id=${j.post_id}&ord=${j.ord}&version=${c.version}`, { method: "PUT", headers: { "content-type": "image/webp" }, body: out });
   const pb = await put.json().catch(() => ({}));
   if (!put.ok) return `credited ${put.status} ${pb.error ?? ""}`;
   return pb.status === "already" ? "already" : "recorded";
