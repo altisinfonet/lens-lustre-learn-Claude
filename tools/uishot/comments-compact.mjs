@@ -249,16 +249,18 @@ function measureInPage({ LIMITS }) {
     }
     // (2) RUNS — longest vertical run in any column of its box, horizontal in any row.
     let vrun = 0, hrun = 0;
-    for (let x = Math.ceil(b.left); x <= b.right; x++) {
+    // Half-pixel steps along the run (and pixel centres across it): a 44 px box at a fractional
+    // offset reads 43 on an integer grid in one engine and 44 in another (Firefox, 320 px).
+    for (let x = Math.floor(b.left) + 0.5; x <= b.right; x++) {
       let run = 0;
-      for (let y = Math.max(0, Math.floor(b.top - 48)); y <= Math.min(VH - 1, b.bottom + 48); y++) {
-        if (owns(c, x, y)) { run++; vrun = Math.max(vrun, run); } else run = 0;
+      for (let y = Math.max(0, Math.floor(b.top - 48)) + 0.25; y <= Math.min(VH - 1, b.bottom + 48); y += 0.5) {
+        if (owns(c, x, y)) { run += 0.5; vrun = Math.max(vrun, run); } else run = 0;
       }
     }
-    for (let y = Math.ceil(b.top); y <= b.bottom; y++) {
+    for (let y = Math.floor(b.top) + 0.5; y <= b.bottom; y++) {
       let run = 0;
-      for (let x = Math.max(0, Math.floor(b.left - 48)); x <= Math.min(VW - 1, b.right + 48); x++) {
-        if (owns(c, x, y)) { run++; hrun = Math.max(hrun, run); } else run = 0;
+      for (let x = Math.max(0, Math.floor(b.left - 48)) + 0.25; x <= Math.min(VW - 1, b.right + 48); x += 0.5) {
+        if (owns(c, x, y)) { run += 0.5; hrun = Math.max(hrun, run); } else run = 0;
       }
     }
     /*
@@ -276,7 +278,7 @@ function measureInPage({ LIMITS }) {
     const needV = linkAbove ? 32 : LIMITS.hit;
     out.hits.push({ label: c.label, box: `${Math.round(b.width)}x${Math.round(b.height)}`, run: `${hrun}x${vrun}`, stolen, ...(linkAbove ? { linkAbove: true } : {}) });
     if (stolen > 0) fail.push(`${c.label}: ${stolen} of its own ${total} box pixels go to ${by}`);
-    if (c.need44 && (vrun < needV || hrun < LIMITS.hit)) fail.push(`${c.label}: a finger gets ${hrun} x ${vrun} px (≥ ${LIMITS.hit} x ${needV}${linkAbove ? ", a link sits right above it" : ""})`);
+    if (c.need44 && (vrun < needV - 0.5 || hrun < LIMITS.hit - 0.5)) fail.push(`${c.label}: a finger gets ${hrun} x ${vrun} px (≥ ${LIMITS.hit} x ${needV}${linkAbove ? ", a link sits right above it" : ""})`);
   }
 
   if (document.scrollingElement.scrollWidth > innerWidth + 1) fail.push(`the page scrolls sideways (${document.scrollingElement.scrollWidth} > ${innerWidth})`);
@@ -288,7 +290,11 @@ function annotate() {
   const lay = document.createElement("div");
   lay.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:2147483647";
   document.body.appendChild(lay);
+  // Only label what is on screen: a row scrolled under the pinned composer is not in the picture.
+  const view = document.querySelector("[data-comment-id]")?.closest(".overflow-y-auto")?.getBoundingClientRect()
+    ?? { top: 0, bottom: innerHeight };
   const tag = (x, y, h, text, color) => {
+    if (y < view.top || y + h > view.bottom) return;
     const line = document.createElement("div");
     line.style.cssText = `position:fixed;left:${x}px;top:${y}px;width:2px;height:${Math.max(1, h)}px;background:${color}`;
     const t = document.createElement("div");
@@ -329,6 +335,7 @@ function annotate() {
     const heart = row.querySelector("button[aria-pressed]");
     if (heart) {
       const h = heart.getBoundingClientRect();
+      if (h.top < view.top || h.bottom > view.bottom) return;
       const o = document.createElement("div");
       o.style.cssText = `position:fixed;left:${h.left}px;top:${h.top}px;width:${h.width}px;height:${h.height}px;outline:1px dashed #2f9e44`;
       lay.append(o);
