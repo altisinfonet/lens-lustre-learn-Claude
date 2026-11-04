@@ -6,7 +6,7 @@
 
 Key facts:
 
-- Audience: photographers of every level, worldwide. Membership is for adults only (18+); the age is checked at sign-up.
+- Audience: photographers of every level, worldwide. Membership is for adults only (18+); the age is checked when the account is created.
 - Main activities: posting photos to the feed, liking and commenting, entering competitions, taking courses, reading the journal.
 - Competitions: each competition has its own page with its brief, rules and dates; results are shown on the Winners page.
 - Certificates: every certificate has a verification link; the Verify page confirms whether a certificate is authentic.
@@ -15,13 +15,16 @@ Key facts:
 ## Main pages
 
 - [Home](__SITE_ORIGIN__/): What the platform offers, featured work and current competitions.
-- [Feed](__SITE_ORIGIN__/feed): The community's latest photo posts.
-- [Discover](__SITE_ORIGIN__/discover): Search photographers, posts, competitions and articles.
 - [Competitions](__SITE_ORIGIN__/competitions): Open, upcoming and past photography competitions.
 - [Winners](__SITE_ORIGIN__/winners): Winning photographs and photographers from past competitions.
 - [Journal](__SITE_ORIGIN__/journal): Articles on photography technique, gear, stories and interviews.
 - [Courses](__SITE_ORIGIN__/courses): Photography courses and learning resources.
 - [Verify a certificate](__SITE_ORIGIN__/verify): Check that a 50mm Retina World certificate is genuine.
+
+## For members (sign-in required)
+
+- [Feed](__SITE_ORIGIN__/feed): The community's latest photo posts. Visitors who are not signed in are taken to the login page.
+- [Discover](__SITE_ORIGIN__/discover): Search photographers, posts, competitions and articles. Sign-in required.
 
 ## Page addresses
 
@@ -42,8 +45,7 @@ Individual items follow fixed patterns, useful for linking:
 
 ## Policies and help
 
-- [Terms of Use](__SITE_ORIGIN__/terms-of-use): The rules for using the platform.
-- [Community Guidelines](__SITE_ORIGIN__/community-guidelines): What may and may not be posted.
+- [Terms of Use and Community Guidelines](__SITE_ORIGIN__/terms-of-use): The rules for using the platform and for what may be posted.
 - [Cookie Policy](__SITE_ORIGIN__/cookie-policy): How the website uses cookies.
 - [Help & Support](__SITE_ORIGIN__/help-support): Answers to common questions and how to contact the team.
 
