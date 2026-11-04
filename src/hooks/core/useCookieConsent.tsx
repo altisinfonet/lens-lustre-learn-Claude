@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { noThirdPartyTracking } from "@/lib/native/iosReview";
 
 /**
  * Two categories only: essential (always on) and analytics (optional, Google
@@ -23,6 +24,8 @@ interface CookieConsentContextValue {
   rejectNonEssential: () => void;
   updateConsent: (updates: Partial<Pick<CookieConsentState, "analytics">>) => void;
   hasConsent: (category: CookieCategory) => boolean;
+  /** False on the iOS app: it runs no analytics, so there is nothing to choose. */
+  cookieChoicesAvailable: boolean;
 }
 
 // v2: everyone is asked again under the new wording. An answer stored under
@@ -66,6 +69,7 @@ function saveConsent(state: CookieConsentState) {
 const CookieConsentContext = createContext<CookieConsentContextValue | null>(null);
 
 export const CookieConsentProvider = ({ children }: { children: ReactNode }) => {
+  const [noChoices] = useState(noThirdPartyTracking);
   const [initial] = useState(() => {
     dropLegacyConsent();
     return loadConsent();
@@ -103,12 +107,27 @@ export const CookieConsentProvider = ({ children }: { children: ReactNode }) => 
 
   const hasConsent = useCallback((category: CookieCategory) => {
     if (category === "essential") return true;
-    return consent[category] === true;
-  }, [consent]);
+    return !noChoices && consent[category] === true;
+  }, [consent, noChoices]);
+
+  const openPreferences = useCallback((v: boolean) => {
+    if (!noChoices) setShowPreferences(v);
+  }, [noChoices]);
 
   return (
     <CookieConsentContext.Provider
-      value={{ consent, hasConsented, showBanner, showPreferences, setShowPreferences, acceptAll, rejectNonEssential, updateConsent, hasConsent }}
+      value={{
+        consent,
+        hasConsented,
+        showBanner: !noChoices && showBanner,
+        showPreferences: !noChoices && showPreferences,
+        setShowPreferences: openPreferences,
+        acceptAll,
+        rejectNonEssential,
+        updateConsent,
+        hasConsent,
+        cookieChoicesAvailable: !noChoices,
+      }}
     >
       {children}
     </CookieConsentContext.Provider>
