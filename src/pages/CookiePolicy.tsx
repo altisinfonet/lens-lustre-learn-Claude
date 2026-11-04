@@ -5,7 +5,7 @@ import { Cookie, Shield, BarChart3, Ban, Settings } from "lucide-react";
 const headingFont = { fontFamily: "var(--font-heading)" };
 
 const CookiePolicy = () => {
-  const { setShowPreferences } = useCookieConsent();
+  const { setShowPreferences, cookieChoicesAvailable } = useCookieConsent();
 
   return (
     <>
@@ -25,6 +25,13 @@ const CookiePolicy = () => {
         </div>
 
         <div className="prose prose-sm dark:prose-invert max-w-none space-y-8">
+          {!cookieChoicesAvailable && (
+            <p className="text-foreground leading-relaxed">
+              The 50mm Retina World app for iPhone and iPad uses no analytics, advertising or
+              tracking cookies. It only keeps you signed in. The rest of this page describes
+              our website.
+            </p>
+          )}
           <p className="text-muted-foreground leading-relaxed">
             This Cookie Policy explains what cookies are, how 50mm Retina World uses them, and
             how you can control your cookie preferences. By using our platform, you acknowledge
@@ -106,13 +113,15 @@ const CookiePolicy = () => {
               You can manage your cookie preferences at any time by clicking the button below,
               or via the <strong>"Cookie Settings"</strong> link in the website footer.
             </p>
-            <button
-              onClick={() => setShowPreferences(true)}
-              className="mt-3 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:brightness-110 active:scale-[0.98] transition-all"
-            >
-              <Settings className="w-4 h-4" />
-              Open Cookie Settings
-            </button>
+            {cookieChoicesAvailable && (
+              <button
+                onClick={() => setShowPreferences(true)}
+                className="mt-3 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:brightness-110 active:scale-[0.98] transition-all"
+              >
+                <Settings className="w-4 h-4" />
+                Open Cookie Settings
+              </button>
+            )}
             <p className="text-muted-foreground leading-relaxed mt-4">
               You can also control cookies through your browser settings. Most browsers allow you
               to block or delete cookies. Note that blocking essential cookies may affect the
