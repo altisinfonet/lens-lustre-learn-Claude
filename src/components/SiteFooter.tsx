@@ -16,7 +16,7 @@ interface FooterPage {
 }
 
 const SiteFooter = () => {
-  const { setShowPreferences } = useCookieConsent();
+  const { setShowPreferences, cookieChoicesAvailable } = useCookieConsent();
 
   // dashboard-init pre-seeds ["footer-pages"] — this queryFn is a fallback only
   const { data: footerPages = [] } = useQuery<FooterPage[]>({
@@ -66,13 +66,15 @@ const SiteFooter = () => {
             EVERY screen in the app because this footer is shared. The height
             is on the tap area only: `py-0 leading-none` keeps the row from
             growing, so the footer looks identical. */}
-        <button
-          onClick={() => setShowPreferences(true)}
-          className="inline-flex min-h-11 items-center gap-1 py-0 leading-none hover:text-primary transition-colors"
-        >
-          <Cookie className="w-3 h-3" />
-          Cookies
-        </button>
+        {cookieChoicesAvailable && (
+          <button
+            onClick={() => setShowPreferences(true)}
+            className="inline-flex min-h-11 items-center gap-1 py-0 leading-none hover:text-primary transition-colors"
+          >
+            <Cookie className="w-3 h-3" />
+            Cookies
+          </button>
+        )}
 
         <span className="text-border hidden sm:inline">|</span>
 

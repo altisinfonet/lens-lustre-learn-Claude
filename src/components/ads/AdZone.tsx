@@ -35,6 +35,7 @@ import FeedVideoCard from "@/components/video/FeedVideoCard";
 import { adMedia } from "@/lib/posts/subjectMedia";
 import { rememberAdThreadSubject } from "@/lib/ads/adThreadSubject";
 import { adLink, adLinkHost } from "@/lib/ads/adLink";
+import { noThirdPartyTracking } from "@/lib/native/iosReview";
 
 /** Only the inline zones are valid here. */
 type InlineZone = Extract<AdZoneId, "sidebar" | "story-card" | "lightbox">;
@@ -89,8 +90,8 @@ const ZONE_FRAME: Record<InlineZone, { wrapper: string; image: string; aspect?: 
 
 /** AdSense loader — injected once, only when a google-mode zone needs it. */
 let adsenseScriptLoaded = false;
-const ensureAdsenseScript = (publisherId: string) => {
-  if (adsenseScriptLoaded || !publisherId) return;
+export const ensureAdsenseScript = (publisherId: string) => {
+  if (adsenseScriptLoaded || !publisherId || noThirdPartyTracking()) return;
   adsenseScriptLoaded = true;
   const s = document.createElement("script");
   s.async = true;
@@ -235,7 +236,7 @@ const AdZone = ({ zone, className, slotIndex = 0 }: AdZoneProps) => {
       if (!Number.isNaN(e.getTime()) && now > e) return false;
     }
     // renderable?
-    if (config.mode === "google") return !!config.google.adsense_slot_id.trim() && !!publisherId.trim();
+    if (config.mode === "google") return !noThirdPartyTracking() && !!config.google.adsense_slot_id.trim() && !!publisherId.trim();
     // A library picture is renderable on its own — the zone's single image may
     // be blank and that is fine.
     if (chosen) return true;
