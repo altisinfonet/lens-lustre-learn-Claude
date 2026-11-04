@@ -20,7 +20,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import sharp from "sharp";
 import { CREDIT_GEOMETRY_V5, creditGeometryV5For } from "@/lib/creditGeometry.mjs";
-import { CREDIT_FONT_FILE, renderCredit } from "../../../../tools/media-derivatives/credit-render.mjs";
+import { CREDIT_FONT_FILE, measureCredit, renderCredit } from "../../../../tools/media-derivatives/credit-render.mjs";
 
 const LINE = "© Dipannita Sen, 50mm Retina World";
 const LONG = "© Venkataraghavan C., 50mm Retina World";
@@ -57,6 +57,16 @@ describe("the one renderer — embedded font, measured in the output pixels", ()
     const readme = readFileSync(join(process.cwd(), "tools/media-derivatives/fonts/README.md"), "utf8");
     expect(readme).toContain(sum);
     expect(readFileSync(join(process.cwd(), "tools/media-derivatives/fonts/OFL.txt"), "utf8")).toMatch(/SIL Open Font License, Version 1\.1/);
+  });
+
+  it("the glyphs really ARE the committed font, on this machine too (a fallback font would be ~15 % wider)", async () => {
+    // CI 4 Nov 2026: with the typographic family names (name IDs 16/17) stripped
+    // from the subset, Linux fontconfig did not match "Fira Sans SemiBold" and
+    // Pango silently drew a fallback — every width was wrong. Fira Sans SemiBold
+    // sets this line at ≈ 182 px at 11 px; DejaVu Sans ≈ 210+.
+    const { w } = await measureCredit(sharp, LINE, 11);
+    expect(w).toBeGreaterThanOrEqual(174);
+    expect(w).toBeLessThanOrEqual(190);
   });
 
   /** A mid-grey photo with texture, so the white text + dark shadow both change pixels. */

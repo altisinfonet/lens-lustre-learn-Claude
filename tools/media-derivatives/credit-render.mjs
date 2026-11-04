@@ -41,6 +41,26 @@ async function textImage(sharp, text, px, color, alpha) {
   return { png: data, w: info.width, h: info.height };
 }
 
+/**
+ * SELF-CHECK — the committed font is really the one drawing. If the machine's
+ * fontconfig does not match it (CI, 4 Nov 2026: a subset without name IDs
+ * 16/17), Pango silently uses a fallback font and every width is wrong. The
+ * reference line at 100 px measures 984 px in Fira Sans SemiBold; anything off
+ * by more than 3 % refuses to draw rather than writing a wrong credit.
+ */
+const REFERENCE = { text: "© 50mm Retina World", px: 100, w: 984 };
+let fontChecked = null;
+export async function assertCreditFont(sharp) {
+  fontChecked ??= (async () => {
+    const t = await textImage(sharp, REFERENCE.text, REFERENCE.px, "#FFFFFF", 1);
+    if (Math.abs(t.w - REFERENCE.w) > REFERENCE.w * 0.03) {
+      throw new Error(`CREDIT-FONT-001 the credit font is not the committed Fira Sans SemiBold here (reference ${t.w} px, expected ${REFERENCE.w}) — refusing to draw`);
+    }
+    return true;
+  })();
+  return fontChecked;
+}
+
 /** The real width × height of the line at `px`. */
 export async function measureCredit(sharp, text, px) {
   const t = await textImage(sharp, text, px, "#FFFFFF", 1);
@@ -61,6 +81,7 @@ export async function creditFontPx(sharp, width, height, text) {
 
 /** Draw the v5 credit bottom-right on `input` (a path or a Buffer). */
 export async function renderCredit(sharp, input, text) {
+  await assertCreditFont(sharp);
   const upright = await sharp(input).rotate().toBuffer({ resolveWithObject: true });
   const { width, height } = upright.info;
   const { px, inset } = await creditFontPx(sharp, width, height, text);
