@@ -271,7 +271,8 @@ export interface CommentThreadProps {
  *
  * The target spacing (Instagram): name + age, the text directly under it, one
  * small grey line "Reply" 4 px under the text, 16 px to the next comment, the
- * heart centred on the right with its count under it.
+ * heart on the right, level with the name line (any comment length), its
+ * count under it.
  *
  * WHERE THE 44 px WENT: into invisible ::after regions laid out on ONE rule, so
  * that no two of them ever claim the same pixel —
@@ -840,8 +841,7 @@ const CommentThread = ({
             second cluster of emoji to read past.
           */}
           {canReact && editingId !== comment.id && (
-            <div data-comment-heart-rail="" className="relative flex shrink-0 self-center">
-
+            <div data-comment-heart-rail="" className="relative flex shrink-0 self-start">
               <button
                 type="button"
                 onClick={() => onToggleLike?.(comment.id)}
@@ -873,14 +873,19 @@ const CommentThread = ({
                   the thumb target is larger.
                 */
                 /*
-                  4 Nov 2026 (compact row): the rail is CENTRED on the comment
-                  (`self-center` on its column) and the count sits INSIDE the
-                  44 × 44 box, tiny, under a 24 px circle — Instagram's heart
-                  and count, without a second band added under the box. Square
+                  4 Nov 2026 (compact row): the heart sits at the TOP, level with
+                  the NAME line, for every comment length (Owner, reviewing a
+                  long comment: "for long comments you moved the reactions —
+                  that is wrong"; Instagram does the same). `self-start` on
+                  the rail, the 24 px circle first in the box, and `-mt-1`
+                  lifts the box 4 px into the free strip above the row so the
+                  circle's centre meets the name line's centre (checked to
+                  ±2 px by tools/uishot/comments-compact.mjs). The count sits
+                  INSIDE the 44 × 44 box, tiny, under the circle. Square
                   corners on purpose: browsers hit-test border-radius, and a
                   rounded box gave its corner pixels to the rail (measured).
                 */
-                className="group/heart flex h-11 w-11 flex-col items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:cursor-default disabled:opacity-60"
+                className="group/heart -mt-1 flex h-11 w-11 flex-col items-center justify-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:cursor-default disabled:opacity-60"
               >
                 <span className="flex h-6 w-6 items-center justify-center rounded-full transition-transform duration-150 group-hover/heart:bg-muted/50 group-active/heart:scale-90 motion-reduce:transition-none motion-reduce:group-active/heart:scale-100">
                 {comment.user_reaction && comment.user_reaction !== "like" ? (
