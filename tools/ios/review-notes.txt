@@ -3,4 +3,5 @@ Guideline 5.1.2(i): this version removes all third-party analytics and advertisi
 Guideline 2.3.6: the app has an age check and no parental controls. Members must be 18 or over.
 Where to find it: the demo account has already passed this step, so please create a new account. After the new account is confirmed, the "Let's set up your profile" screen appears. Date of Birth is required, and the screen says "18+ only. Under 18 not accepted." Choosing a date under 18 shows "Under 18 is not eligible to register." and sign-up cannot be finished.
 Our Terms of Service (https://www.50mmretina.com/page/terms-of-service), section 8 "Minimum Age Requirement and Age Verification", states the same strict 18+ rule.
-The two attached pictures show this screen. They were rendered from the app's real sign-up screen at iPad size, not captured on a device.
+Members who have already signed up, such as the demo account, see "18+ Only Restricted" beside Date of Birth in Edit Profile.
+The two attached pictures show the sign-up screen. They were rendered from the app's real sign-up screen at iPad size, not captured on a device.
