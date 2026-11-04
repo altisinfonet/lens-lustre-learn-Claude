@@ -55,6 +55,9 @@ const USER_TYPES = [
   { value: "photographer", label: "Photographer", description: "I'm a professional / aspiring pro", icon: Aperture },
 ];
 
+/** Shown to anyone under 18, who cannot finish sign-up. */
+const UNDER_18_MESSAGE = "Under 18 is not eligible to register.";
+
 interface OnboardingModalProps {
   open: boolean;
   /**
@@ -323,7 +326,7 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
   const handleFinish = async () => {
     if (!canProceed) {
       if (!dateOfBirth) toast({ title: "Please enter your date of birth", variant: "destructive" });
-      else if (!ageOk) toast({ title: "You must be at least 18 years old to join", variant: "destructive" });
+      else if (!ageOk) toast({ title: UNDER_18_MESSAGE, variant: "destructive" });
       // No photo branch here on purpose — a missing photo can no longer block
       // registration, so a toast about it would name a reason that is not the
       // reason and send the member looking for the wrong thing.
@@ -580,7 +583,8 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
                 Date of Birth <span className="text-destructive">*</span>
               </span>
               <p className="text-sm font-semibold text-foreground" data-testid="age-18-notice">18+ only. Under 18 not accepted.</p>
-              <Popover>
+              {/* modal: inside the sign-up dialog two focus traps fought in WebKit and the calendar closed at once (found 4 Nov 2026, tools/uishot/age-check-shots.mjs). */}
+              <Popover modal>
                 <PopoverTrigger asChild>
                   <button
                     type="button"
@@ -601,7 +605,7 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
                     selected={dateOfBirth}
                     onSelect={(d) => {
                       setDateOfBirth(d);
-                      if (d) setDobError(differenceInYears(new Date(), d) < 18 ? "You must be at least 18 years old" : "");
+                      if (d) setDobError(differenceInYears(new Date(), d) < 18 ? UNDER_18_MESSAGE : "");
                     }}
                     disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
                     // react-day-picker v10: `dropdown-buttons` is gone —
@@ -619,7 +623,7 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
                 </PopoverContent>
               </Popover>
               {dobError && (
-                <p className="text-[9px] text-destructive tracking-wide" style={{ fontFamily: "var(--font-heading)" }}>{dobError}</p>
+                <p className="text-sm font-semibold text-destructive" role="alert" data-testid="age-18-error">{dobError}</p>
               )}
             </div>
 
