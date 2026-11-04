@@ -45,7 +45,7 @@ BEGIN
     RAISE EXCEPTION 'PROBE FAIL C1: 20261110_0111 is not applied on this lane';
   END IF;
   -- Act as the worker, as the queue's own gate demands. Local to this transaction.
-  SELECT ur.user_id INTO _uid FROM public.user_roles ur WHERE ur.role = 'admin'::public.app_role LIMIT 1;
+  SELECT ur.user_id INTO _uid FROM public.user_roles ur WHERE ur.role::text = 'admin' LIMIT 1;
   IF _uid IS NULL THEN RAISE EXCEPTION 'PROBE FAIL C1: no admin account to act as on this lane'; END IF;
   PERFORM set_config('request.jwt.claims', json_build_object('sub', _uid, 'role', 'authenticated')::text, true);
 

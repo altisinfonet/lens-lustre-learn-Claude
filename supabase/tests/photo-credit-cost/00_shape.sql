@@ -26,11 +26,12 @@ $$;
 
 CREATE TYPE public.app_role AS ENUM ('admin', 'moderator', 'user');
 CREATE TABLE public.profiles (id uuid PRIMARY KEY, full_name text, custom_url text);
-CREATE TABLE public.user_roles (user_id uuid NOT NULL, role public.app_role NOT NULL, PRIMARY KEY (user_id, role));
+-- role is text on production (13 Oct 2026 snapshot); has_role casts, as there.
+CREATE TABLE public.user_roles (user_id uuid NOT NULL, role text NOT NULL, PRIMARY KEY (user_id, role));
 
 CREATE FUNCTION public.has_role(_user_id uuid, _role public.app_role)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO '' AS $fn$
-  SELECT EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id = _user_id AND r.role = _role)
+  SELECT EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id = _user_id AND r.role = _role::text)
 $fn$;
 CREATE FUNCTION public.video_is_converter()
 RETURNS boolean LANGUAGE sql STABLE SET search_path TO '' AS $fn$ SELECT false $fn$;
