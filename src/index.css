@@ -928,20 +928,14 @@
    * the camera line's lower half, in their own columns only; the photo's zoom
    * keeps every other pixel, and the caption keeps everything from its top down.
    * Proven every 2 px by tools/uishot/card-hits.mjs.
+   *
+   * 4 Nov 2026 (Owner, Instagram's side-to-side spacing): `.tap-44-under` is
+   * gone. Its ::after had `min-width: 44px`, which on a content-sized box
+   * reaches INTO the next control — an overlapping tap area that the gate
+   * would count as 44 wide. The row's controls are now real 44 px tall boxes
+   * (`h-11 -mt-3 pt-3`, the same as the counts since #867), sized side to side
+   * by their own padding: src/components/post/actionRowGeometry.ts.
    */
-  .tap-44-under {
-    position: relative;
-  }
-  .tap-44-under::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: -12px;
-    bottom: 0;
-    min-width: 44px;
-    background: transparent;
-  }
 }
 
 /*

@@ -12,8 +12,10 @@
  * composers, and only one of the two rows could record anything but a `like`.
  *
  * A promise a person has to keep by hand is not a design. This file is the row,
- * once, and both surfaces render it. Geometry lives here and nowhere else:
- * 24px icons in a 32px box with a 44px finger target (`.tap-44-under`), pushed
+ * once, and both surfaces render it. Geometry lives here and in
+ * actionRowGeometry.ts and nowhere else: 24px icons on a 32px row, every
+ * control a 44px-tall finger target reaching up only (ROW_TAP), content-sized
+ * side to side with Instagram's spacing (Owner report 4 Nov 2026), pushed
  * left, no divider, no text labels, and a count that disappears at zero.
  *
  * THE VISIBLE GAPS AND THE LEFT EDGE (Owner report 3 Nov 2026 ~16:20Z, "not
@@ -57,6 +59,7 @@ import { MessageCircle, Send } from "lucide-react";
 import ReactionPicker, { REACTIONS, type ReactionType } from "@/components/ReactionPicker";
 import ReactionSummaryTooltip, { type ReactionSource } from "@/components/ReactionSummaryTooltip";
 import { formatNumber } from "@/lib/postAnalytics";
+import { ROW_TAP } from "@/components/post/actionRowGeometry";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,6 +69,12 @@ import {
 /**
  * A count beside an icon. Exported because a caller that wraps its number in a
  * tooltip has to draw the number itself, and it must be the same number.
+ *
+ * Its padding IS the row's spacing (Owner report 4 Nov, Instagram's row —
+ * actionRowGeometry.ts): 3 px before the number (with the icon's own 1 px edge
+ * and the digit's side bearing, ~5 px of visible space after the icon) and
+ * 14 px after it (~16 px to the next icon's ink). The count's tap box owns both,
+ * so the visible gaps are finger target, not empty card.
  */
 export const ActionCount = ({
   children,
@@ -75,7 +84,7 @@ export const ActionCount = ({
   interactive?: boolean;
 }) => (
   <span
-    className={`pr-2 ${interactive ? "cursor-pointer " : ""}text-sm font-semibold text-foreground`}
+    className={`ps-[3px] pe-3.5 ${interactive ? "cursor-pointer " : ""}text-sm font-semibold text-foreground`}
   >
     {children}
   </span>
@@ -145,6 +154,20 @@ const PostActionRow = ({
     [reactionCounts],
   );
 
+  /*
+   * SIDE TO SIDE (Owner report 4 Nov 2026, Instagram beside it — see
+   * actionRowGeometry.ts). Every box is content-sized and abuts the next; the
+   * visible gaps are padding, owned like this:
+   *   Like icon → like count       the count (Like stops at its icon)
+   *   like count → Comment icon    the count (Comment starts at its icon)
+   *   Like → Comment, no count     split: Like pe-2 | Comment ps-2
+   *   Comment (+count) → Share     split: Comment pe-2 | Share ps-1.5
+   *   Share → share count          the count (Share stops at its icon)
+   *   after the last control       free card (Share pe-2.5 when no count)
+   */
+  const hasLikes = likeCount > 0;
+  const hasShares = shareCount > 0;
+
   return (
   <div className="select-none ps-px pe-1.5">
     <div className="flex items-center">
@@ -155,6 +178,7 @@ const PostActionRow = ({
           onReact={onReact}
           onUnreact={onUnreact}
           disabled={reactionDisabled}
+          sideClassName={hasLikes ? "ps-2.5 pe-0" : "ps-2.5 pe-2"}
         />
         {/* JUST THE NUMBER IN THE ROW. THE BREAK-UP IS ONE TAP AWAY.
 
@@ -170,7 +194,7 @@ const PostActionRow = ({
             The two emoji faces that used to sit here were also what made the
             row's spacing uneven, because they were wider than the number they
             preceded. */}
-        {likeCount > 0 && (
+        {hasLikes && (
           <ReactionSummaryTooltip reactionCounts={reactionCounts} totalCount={likeCount} source={reactionSource}>
             <ActionCount interactive>{formatNumber(likeCount)}</ActionCount>
           </ReactionSummaryTooltip>
@@ -182,7 +206,7 @@ const PostActionRow = ({
         onClick={onCommentClick}
         aria-label={commentLabel}
         title={commentLabel}
-        className="tap-44-under h-8 px-2.5 flex items-center gap-1.5 rounded-md text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
+        className={`${ROW_TAP} ${hasLikes ? "ps-0" : "ps-2"} pe-2 flex items-center gap-0.5 text-muted-foreground hover:text-foreground transition-colors`}>
         <MessageCircle className="h-6 w-6" strokeWidth={1.75} />
         {commentCount > 0 && (
           <span className="text-sm font-semibold text-foreground">{formatNumber(commentCount)}</span>
@@ -196,7 +220,7 @@ const PostActionRow = ({
             <button
               aria-label={shareLabel}
               title={shareLabel}
-              className="tap-44-under h-8 px-2.5 flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted/50 transition-colors select-none touch-manipulation">
+              className={`${ROW_TAP} ps-1.5 ${hasShares ? "pe-0" : "pe-2.5"} flex items-center justify-start text-muted-foreground hover:text-foreground transition-colors`}>
               <Send className="h-6 w-6" strokeWidth={1.75} />
             </button>
           </DropdownMenuTrigger>
@@ -204,7 +228,7 @@ const PostActionRow = ({
             {shareMenu}
           </DropdownMenuContent>
         </DropdownMenu>
-        {shareCount > 0 && (shareCountSlot ?? <ActionCount>{formatNumber(shareCount)}</ActionCount>)}
+        {hasShares && (shareCountSlot ?? <ActionCount>{formatNumber(shareCount)}</ActionCount>)}
       </div>
 
       {/* ── THE REACTION BREAKDOWN, ON THE RIGHT ──
@@ -236,8 +260,11 @@ const PostActionRow = ({
           <ReactionSummaryTooltip reactionCounts={reactionCounts} totalCount={likeCount} source={reactionSource}>
             {/* A SPAN, because ReactionSummaryTooltip's trigger is now a real
                 <button> and a <div> inside a button is invalid content. The
-                cursor and the click behaviour come from that button. */}
-            <span className="inline-flex items-center gap-2.5 pr-1.5 text-xs text-muted-foreground">
+                cursor and the click behaviour come from that button. Its
+                side padding lives here (the trigger is content-sized since
+                4 Nov): ps-2.5 pe-4 = the 10 + 16 px it always had, so the
+                break-up sits exactly where it did. */}
+            <span className="inline-flex items-center gap-2.5 ps-2.5 pe-4 text-xs text-muted-foreground">
               {breakdown.map(({ type, emoji, count }) => (
                 <span key={type} className="inline-flex items-center gap-1" title={type}>
                   <span aria-hidden className="text-[13px] leading-none">{emoji}</span>
