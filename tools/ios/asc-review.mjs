@@ -41,7 +41,7 @@ async function asc(method, path, body) {
   const text = await res.text();
   const json = text ? JSON.parse(text) : null;
   if (!res.ok) {
-    const why = (json?.errors ?? []).map((e) => `${e.code}: ${e.title}`).join("; ");
+    const why = (json?.errors ?? []).map((e) => `${e.code}: ${e.title} ${path.includes("Attachment") ? (e.detail ?? "") : ""}`).join("; ");
     throw new Error(`${method} ${path.split("?")[0]} ${res.status} ${why}`);
   }
   return json;
@@ -133,6 +133,7 @@ async function submit() {
 
   const existing = (await asc("GET", `/v1/appStoreReviewDetails/${detail.id}/appStoreReviewAttachments`)).data;
   const names = new Set();
+  for (const a of existing) console.log(`attachment ${a.attributes.fileName} ${a.attributes.assetDeliveryState?.state ?? ""} uploaded=${a.attributes.uploaded ?? ""}`);
   for (const a of existing) {
     // A half-finished upload never becomes visible to Apple: remove it and send it again.
     if (a.attributes.assetDeliveryState?.state === "FAILED" || a.attributes.uploaded === false) {
