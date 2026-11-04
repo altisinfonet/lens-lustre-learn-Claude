@@ -133,12 +133,12 @@ describe("reach and views moved off the action row entirely", () => {
     expect(fn).toMatch(/if \(!stats \|\| statsRevealed\) return false;/);
   });
 
-  it("PostMedia only skips the viewer when the tap was actually consumed", () => {
+  it("PostMedia hands the single tap to the figures on both renderers (and opens nothing — 4 Nov 2026)", () => {
     const MEDIA = read("src/components/post/PostMedia.tsx");
     expect(MEDIA).toMatch(/interceptFirstTap\?: \(\) => boolean/);
     // Both renderers — a single photograph and an album — or half the feed
-    // keeps the old behaviour and the two feel different.
-    expect((MEDIA.match(/if \(interceptFirstTap\?\.\(\)\) return;/g) ?? []).length).toBe(2);
+    // behaves differently from the other half.
+    expect((MEDIA.match(/interceptFirstTap\?\.\(\);/g) ?? []).length).toBe(2);
   });
 });
 

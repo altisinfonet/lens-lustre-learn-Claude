@@ -33,7 +33,7 @@ export async function measureCardInk(page, card) {
       if (r.width === 0 || r.height === 0) return null;
       return { x: r.left - c.left, y: r.top - c.top, w: r.width, h: r.height };
     };
-    const frame = el.querySelector(".cursor-zoom-in");
+    const frame = el.querySelector("[data-feed-photo]");
     const line = el.querySelector("[data-camera-line]");
     const camIcon = line?.querySelector("svg.lucide-camera");
     // The 2nd line (admins, opened): the panel that slid open under the button.

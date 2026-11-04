@@ -635,8 +635,9 @@ const PostCard = ({
           that never reflows.
 
           • Web: `group-hover/media`, pure CSS, no JavaScript and no click stolen.
-          • App: the FIRST tap reveals them and opens nothing; the second opens
-            the photograph, exactly as it always did. See `interceptFirstTap`. */}
+          • App: the FIRST tap reveals them. Since 4 Nov 2026 (Owner, "like
+            Instagram") no tap opens the photograph any more — pinch enlarges
+            it in place and a double-tap likes. See `interceptFirstTap`. */}
       {media.video && (
         // VID-1 / R-105: a video post is ONE 9:16 card; it replaces the photo frame, never sits beside it.
         <div className="px-0" data-testid="post-video">
@@ -648,13 +649,13 @@ const PostCard = ({
           <PostMedia
             urls={imageUrls}
             thumbUrls={thumbUrls}
-            /* RED #5 + #8 — the card already knows whose photograph this is;
-               the viewer did not. Same three fields the header link uses. */
-            author={{ userId: post.user_id, name: post.author_name ?? null, handle: post.author_handle ?? null }}
             onSlideChange={photoSetOn ? setCameraSlide : undefined}
-            onDoubleTapLike={() => {
-              if (currentUserId && !post.user_reaction) onReact(post.id, "like");
-            }}
+            /* Owner, 4 Nov 2026 — Instagram's double-tap: the SAME like the
+               like button sends (`onReact`, the prop the action row calls),
+               never a second like path. Already reacted → nothing is sent, so
+               a double-tap never un-likes. Signed out → no double-tap at all
+               (and so no heart promising a like that cannot happen). */
+            onDoubleTapLike={currentUserId ? () => { if (!post.user_reaction) onReact(post.id, "like"); } : undefined}
             interceptFirstTap={() => {
               // Only ever consumes ONE tap, and only when there is something to
               // show: a post under 24 hours old has no figures yet, and eating

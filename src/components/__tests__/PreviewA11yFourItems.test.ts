@@ -268,17 +268,20 @@ describe("item 4 — the lightbox fix is CARRIED, not rewritten", () => {
    */
   const postMedia = read("src/components/post/PostMedia.tsx");
 
-  it("the feed's own viewer is a dialog with a name", () => {
-    expect(postMedia).toMatch(/role="dialog"/);
-    expect(postMedia).toMatch(/aria-modal="true"/);
-    expect(postMedia).toMatch(/aria-label=\{author\?\.name \?/);
+  /*
+   * 4 Nov 2026 (Owner, "feed exactly like Instagram"): the feed's own viewer is
+   * GONE — a tap opens nothing, pinch enlarges in place. There is no dialog
+   * left in PostMedia to carry those labels, so the receipt is now that it
+   * stays gone (see feedNoViewerRatchet.test.ts) and that the album's own
+   * controls keep their names.
+   */
+  it("the feed has no viewer of its own any more", () => {
+    expect(postMedia).not.toMatch(/role="dialog"/);
+    expect(postMedia).not.toMatch(/aria-label="Close photo viewer"/);
   });
 
-  it("its controls are named and the photographer is a link inside it", () => {
-    expect(postMedia).toMatch(/aria-label="Close photo viewer"/);
+  it("the album's controls are still named", () => {
     expect(postMedia).toMatch(/aria-label="Previous photo"/);
     expect(postMedia).toMatch(/aria-label="Next photo"/);
-    expect(postMedia).toMatch(/ariaLabel="Download photo"/);
-    expect(postMedia).toMatch(/<ProfileLink/);
   });
 });
