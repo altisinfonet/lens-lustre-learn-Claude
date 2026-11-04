@@ -1,0 +1,41 @@
+name: iOS App Review
+
+# Manual only. Reads the App Store Connect state, or sends the iOS version for
+# review. The logs are public: tools/ios/asc-review.mjs prints states and version
+# numbers only. Secrets and inputs reach the script through `env`, never inside
+# a `run:` block (F-47).
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "read or submit"
+        type: choice
+        options: [read, submit]
+        default: read
+      expect_build:
+        description: "submit only: the build number that must be the newest valid build"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: App Store Connect
+        env:
+          ASC_ACTION: ${{ inputs.action }}
+          EXPECT_BUILD: ${{ inputs.expect_build }}
+          APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
+          APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
+          APP_STORE_KEY_BASE64: ${{ secrets.APP_STORE_KEY_BASE64 }}
+        run: node tools/ios/asc-review.mjs
