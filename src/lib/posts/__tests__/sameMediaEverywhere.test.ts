@@ -42,8 +42,8 @@ describe("subjectMedia — the one decision", () => {
 
 /** Every screen that draws a post's or an ad's video. A new one must join this list (the sweep below fails until it does). */
 const VIDEO_SURFACES: Record<string, RegExp> = {
+  // K1: the hashtag page draws its videos through this card, so it left the list.
   "src/components/post/PostCard.tsx": /<FeedVideoCard video=\{media\.video\}/,
-  "src/pages/HashtagFeed.tsx": /<FeedVideoCard video=\{media\.video\}/,
   "src/components/ads/AdZone.tsx": /<FeedVideoCard video=\{media\.video\} fillParent \/>/,
   "src/pages/AdDetail.tsx": /<FeedVideoCard video=\{media\.video\}/,
   "src/components/comments/CommentsOverlay.tsx": /<FeedVideoCard video=\{media\.video\} fillParent \/>/,

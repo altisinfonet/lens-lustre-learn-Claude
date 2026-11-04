@@ -1,138 +1,99 @@
 import { useParams, Link } from "react-router-dom";
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Hash, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { memberPath } from "@/lib/urlHelpers";
-import { fetchPostAttachments, attachmentsFor } from "@/lib/posts/postAttachments";
-import { fetchProfileMap } from "@/lib/profileMapCache";
 import { useAuth } from "@/hooks/core/useAuth";
-import RichContentRenderer from "@/components/RichContentRenderer";
-import FacebookPhotoGrid from "@/components/FacebookPhotoGrid";
-import FeedVideoCard from "@/components/video/FeedVideoCard";
-import { postMedia } from "@/lib/posts/subjectMedia";
-import type { FeedVideo } from "@/lib/video/postVideoRead";
-import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
-import UserIdentityBlock from "@/components/UserIdentityBlock";
-import PresenceAvatar from "@/components/PresenceAvatar";
+import { useBlockedUsers } from "@/hooks/core/useBlockedUsers";
+import { toast } from "@/hooks/core/use-toast";
+import { useFeedCacheUpdaters } from "@/hooks/feed/useFeedCacheUpdaters";
+import { useReactToPost, useUnreactToPost } from "@/hooks/feed/usePostReactionMutations";
+import { fetchHashtagPosts } from "@/hooks/feed/useUserPostsQuery";
+import PostCard from "@/components/post/PostCard";
+import type { ReactionType } from "@/components/ReactionPicker";
 import PageSEO from "@/components/PageSEO";
-import { PostCameraDetails } from "@/components/post/CameraDetails";
+import type { UnifiedPost } from "@/types/post";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
 
-interface HashPost {
-  id: string;
-  user_id: string;
-  content: string;
-  image_url: string | null;
-  image_urls: string[];
-  created_at: string;
-  author_name: string | null;
-  author_avatar: string | null;
-  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
-  author_handle: string | null;
-  author_badges: string[];
-  author_last_active: string | null;
-  /** VID-1: the post's playable video, when it is a video post. */
-  video: FeedVideo | null;
-}
-
+/**
+ * /hashtag/:tag — PAGE CHROME PLUS THE ONE CARD (central control K1).
+ *
+ * This page used to draw its own card, with no counts, comments or menu, so a
+ * post looked different here from the same post on the feed. It renders no post
+ * markup of its own: anything that belongs to a post goes in PostCard.
+ * HashtagFeedPostCard.test.tsx compares the two DOMs.
+ */
 const HashtagFeed = () => {
   const { tag } = useParams<{ tag: string }>();
-  const { user } = useAuth();
-  const [posts, setPosts] = useState<HashPost[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { user, loading: authLoading } = useAuth();
+  const { blockedIds } = useBlockedUsers();
+  const { removePost } = useFeedCacheUpdaters();
+  const qc = useQueryClient();
 
-  const fetchPosts = useCallback(async () => {
-    if (!tag) return;
-    setLoading(true);
+  const queryKey = useMemo(() => ["hashtag-posts", tag ?? "", user?.id ?? ""], [tag, user?.id]);
+  const { data, isPending: loading } = useQuery({
+    queryKey,
+    // Waits for the sign-in: the viewer decides the reaction shown on each card.
+    enabled: !!tag && !authLoading,
+    queryFn: () => fetchHashtagPosts(tag!, user?.id),
+  });
+  // The ⋯ menu can block an author from here, so the card has to go at once.
+  const posts = useMemo(() => (data ?? []).filter((p) => !blockedIds.has(p.user_id)), [data, blockedIds]);
 
-    // BUG-087: sanitize the URL-supplied tag to the hashtag charset — this both
-    // prevents PostgREST .or() filter injection and normalizes matching. Use a
-    // single parameterized ilike (value is not interpolated into filter syntax)
-    // that catches the tag anywhere, not only when followed by a space/end.
-    const safeTag = (tag || "").replace(/[^a-zA-Z0-9_]/g, "");
-    if (!safeTag) {
-      setPosts([]);
-      setLoading(false);
+  /** Every change a card reports lands on this page's own list. */
+  const mapPosts = useCallback(
+    (mapper: (p: UnifiedPost) => UnifiedPost) => {
+      qc.setQueryData<UnifiedPost[]>(queryKey, (old) => old?.map(mapper));
+    },
+    [qc, queryKey],
+  );
+  const patchPost = useCallback(
+    (postId: string, patch: (p: UnifiedPost) => Partial<UnifiedPost>) =>
+      mapPosts((p) => (p.id === postId ? { ...p, ...patch(p) } : p)),
+    [mapPosts],
+  );
+  const reactMutation = useReactToPost<UnifiedPost>(mapPosts);
+  const unreactMutation = useUnreactToPost<UnifiedPost>(mapPosts);
+
+  const handleReact = useCallback((postId: string, reactionType: ReactionType) => {
+    if (!user || reactMutation.isPending) return;
+    const post = posts.find((p) => p.id === postId);
+    if (!post) return;
+    reactMutation.mutate({ postId, reactionType, hadPreviousReaction: !!post.user_reaction });
+  }, [user, posts, reactMutation]);
+
+  const handleUnreact = useCallback((postId: string) => {
+    if (!user || unreactMutation.isPending) return;
+    unreactMutation.mutate(postId);
+  }, [user, unreactMutation]);
+
+  const handleDelete = useCallback(async (postId: string) => {
+    if (!user) return;
+    const { error } = await supabase.from("posts").delete().eq("id", postId).eq("user_id", user.id);
+    if (error) {
+      toast({ title: "Failed to delete post", variant: "destructive" });
       return;
     }
-    const { data } = await supabase
-      .from("posts")
-      .select("*")
-      .ilike("content", `%#${safeTag}%`)
-      .eq("privacy", "public")
-      .order("created_at", { ascending: false })
-      .limit(50);
+    qc.setQueryData<UnifiedPost[]>(queryKey, (old) => old?.filter((p) => p.id !== postId));
+    removePost(postId);
+    qc.invalidateQueries({ queryKey: ["user-wall-posts"] });
+    qc.invalidateQueries({ queryKey: ["user-own-posts"] });
+    toast({ title: "Post moved to trash" });
+  }, [user, qc, queryKey, removePost]);
 
-    if (!data || data.length === 0) {
-      setPosts([]);
-      setLoading(false);
-      return;
-    }
+  const handleCommentCountChange = useCallback((postId: string, delta: number) => {
+    patchPost(postId, (p) => ({ comment_count: Math.max(0, p.comment_count + delta) }));
+  }, [patchPost]);
 
-    const authorIds = [...new Set(data.map((p) => p.user_id))];
-    const [profileMap, adminIds, moderatedRes] = await Promise.all([
-      fetchProfileMap(authorIds),
-      getAdminIds(),
-      // BUG-119: mirror BUG-088 — hashtag results must exclude banned/suspended
-      // authors (the hashtag query only filtered privacy='public'). anon has no
-      // SELECT on the mirror's moderation flags (BUG-121), so use the anon-callable
-      // ban-aware RPC which returns the moderated subset of these author ids.
-      supabase.rpc("filter_moderated_user_ids", { _ids: authorIds } as any),
-    ]);
+  const handleShareCountChange = useCallback((postId: string, delta: number) => {
+    patchPost(postId, (p) => ({ share_count: Math.max(0, (p.share_count || 0) + delta) }));
+  }, [patchPost]);
 
-    const blockedAuthors = new Set(
-      ((moderatedRes.data as any[]) || []).map((r) => r.id),
-    );
-    const visiblePosts = data.filter((p) => !blockedAuthors.has(p.user_id));
-
-    if (visiblePosts.length === 0) {
-      setPosts([]);
-      setLoading(false);
-      return;
-    }
-
-    /**
-     * ITEM E + VID-1 — photographs and video through the one module every
-     * surface uses (postAttachments.ts), one batched call for the whole result
-     * set: the hashtag page must not show a post differently from the feed.
-     */
-    const attachments = await fetchPostAttachments(visiblePosts.map((p) => p.id));
-    const attachedById = new Map(visiblePosts.map((p) => [p.id, attachmentsFor(
-      attachments, p.id, (p as any).image_urls || (p.image_url ? [p.image_url] : []),
-    )]));
-
-    setPosts(
-      // A post whose video is not playable for this viewer is left out (null), as on the feed.
-      visiblePosts.filter((p) => attachedById.get(p.id) !== null).map((p) => ({
-        ...p,
-        ...attachedById.get(p.id)!,
-        author_name: resolveName(p.user_id, profileMap.get(p.user_id)?.full_name ?? null, adminIds),
-        author_avatar: profileMap.get(p.user_id)?.avatar_url || null,
-        author_handle: profileMap.get(p.user_id)?.custom_url ?? null,
-        author_badges: resolveBadges(p.user_id, profileMap.get(p.user_id)?.badges || [], adminIds),
-        author_last_active: profileMap.get(p.user_id)?.last_active_at ?? null,
-      }))
-    );
-    setLoading(false);
-  }, [tag]);
-
-  useEffect(() => {
-    fetchPosts();
-  }, [fetchPosts]);
-
-  const timeAgo = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "Just now";
-    if (mins < 60) return `${mins}m`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h`;
-    const days = Math.floor(hrs / 24);
-    if (days < 7) return `${days}d`;
-    return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  };
+  const handleContentChange = useCallback((postId: string, content: string) => {
+    patchPost(postId, () => ({ content }));
+  }, [patchPost]);
 
   return (
     <div className="py-3 md:py-14 max-w-2xl mx-auto">
@@ -168,60 +129,19 @@ const HashtagFeed = () => {
           </Link>
         </div>
       ) : (
-        <div className="space-y-4">
-          {posts.map((post) => (
-            <div key={post.id} className="bg-card rounded-lg shadow-sm border border-border overflow-hidden">
-              {/* Header */}
-              <div className="flex items-center gap-3 p-4 pb-2">
-                <PresenceAvatar
-                  to={memberPath(post.author_handle) ?? undefined}
-                  src={post.author_avatar}
-                  name={post.author_name}
-                  userId={post.user_id}
-                  size={40}
-                />
-                <div>
-                  <UserIdentityBlock
-                    userId={post.user_id}
-                    name={post.author_name || "Photographer"}
-                    handle={post.author_handle}
-                    nameClassName="text-sm font-semibold text-foreground hover:underline"
-                  />
-                  <span className="text-xs text-muted-foreground">{timeAgo(post.created_at)}</span>
-                </div>
-              </div>
-
-              {/* Content */}
-              {post.content && (
-                <div className="px-4 pb-2">
-                  <p className="text-[15px] leading-[1.4] whitespace-pre-wrap">
-                    <RichContentRenderer content={post.content} />
-                  </p>
-                </div>
-              )}
-
-              {/* Video, else photographs — the one answer every screen uses (src/lib/posts/subjectMedia.ts) */}
-              {(() => {
-                const media = postMedia(post);
-                return media.video ? (
-                  <div data-testid="post-video">
-                    <FeedVideoCard video={media.video} />
-                  </div>
-                ) : media.imageUrls.length > 0 ? (
-                  <>
-                    <FacebookPhotoGrid
-                      postId={post.id}
-                      urls={media.imageUrls}
-                      author={{ userId: post.user_id, name: post.author_name ?? null, handle: post.author_handle ?? null }}
-                    />
-                    {/* Camera line (switch photo_set_v2), web and app: directly under the photo. */}
-                    <PostCameraDetails postId={post.id} imageUrls={media.imageUrls} />
-                  </>
-                ) : null;
-              })()}
-            </div>
-          ))}
-        </div>
+        posts.map((post) => (
+          <PostCard
+            key={post.id}
+            post={post}
+            currentUserId={user?.id}
+            onReact={handleReact}
+            onUnreact={handleUnreact}
+            onDelete={handleDelete}
+            onCommentCountChange={handleCommentCountChange}
+            onShareCountChange={handleShareCountChange}
+            onContentChange={handleContentChange}
+          />
+        ))
       )}
     </div>
   );

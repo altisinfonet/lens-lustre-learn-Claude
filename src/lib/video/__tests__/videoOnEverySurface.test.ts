@@ -18,7 +18,8 @@ const BUILDERS = [
   "src/hooks/feed/useFeedQuery.ts",
   "src/hooks/feed/useUserPostsQuery.ts",
   "src/pages/PostDetail.tsx",
-  "src/pages/HashtagFeed.tsx",
+  // K1: the hashtag page builds nothing itself. It calls useUserPostsQuery's
+  // enrichPostRows; HashtagFeedPostCard.test.tsx holds it to that.
   // The feed's live-arrival path (handleNewPost): a video post arriving by
   // realtime showed as an empty post until a refresh (2026-10-12).
   "src/pages/Feed.tsx",

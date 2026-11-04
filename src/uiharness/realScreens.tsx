@@ -38,6 +38,7 @@ const Login = lazy(() => import("@/pages/Login"));
 /** The home page (/home for a signed-in member) — where "Ask anything" lives. */
 const Index = lazy(() => import("@/pages/Index"));
 const Feed = lazy(() => import("@/pages/Feed"));
+const HashtagFeed = lazy(() => import("@/pages/HashtagFeed"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const PostDetail = lazy(() => import("@/pages/PostDetail"));
 const NotificationSettings = lazy(() => import("@/pages/NotificationSettings"));
@@ -173,6 +174,9 @@ export const REAL_SCREENS: Record<string, () => JSX.Element> = {
 
   /** The main feed, signed in, with the awkward fixture set. */
   "screen-feed": () => screen(<Feed />, "/feed", "/feed"),
+
+  /** K1: the hashtag page, page chrome plus the feed's card. The fake backend ignores ilike, so every fixture post matches. */
+  "screen-hashtag": () => screen(<HashtagFeed />, "/hashtag/street", "/hashtag/:tag"),
 
   /** The ACCOUNT screen — About | Settings. Not the wall; see below. */
   "screen-profile": () => screen(<Profile />, "/profile", "/profile"),
