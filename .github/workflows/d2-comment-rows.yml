@@ -9,8 +9,10 @@ name: D2 · C3 comment rows only in CommentThread
 # file's baseline fails; fewer fails too until the baseline is lowered. Inline
 # `eslint-disable` comments are ignored by this config (noInlineConfig).
 #
-# The self-test step writes a real new comment list into src/ and requires
-# eslint to reject it, so a rule that stops working fails here.
+# tools/comment-rows-gate.mjs reads eslint's JSON, not just its exit code: the
+# ratchet must have read more than 0 files including every baseline file, and a
+# real new comment list must be rejected with this rule's own message. A crash,
+# a parse error or an ignored file fails. commentRowsGate.test.ts proves each.
 #
 # ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
 # ═══════════════════════════════════════════════════════════════════════════
@@ -37,16 +39,5 @@ jobs:
           node-version-file: .node-version
       - name: Clean install
         run: npm ci --no-audit --no-fund
-      - name: Ratchet (more fails; fewer fails until the baseline is lowered)
-        run: npx eslint -c eslint.comment-rows.config.js --quiet src
-      - name: Self-test (a new comment list must fail)
-        run: |
-          set -u
-          f=src/components/CommentRatchetSelfTest.tsx
-          echo 'export const A = ({ comments }) => <div>{comments.map((c) => <p key={c.id}>{c.content}</p>)}</div>;' > "$f"
-          if npx eslint -c eslint.comment-rows.config.js --quiet "$f"; then
-            echo "The ratchet let a new comment list through."
-            exit 1
-          fi
-          rm "$f"
-          echo "Self-test passed: the new list was rejected."
+      - name: Ratchet and self-test (more than 0 files read; a new list rejected by this rule)
+        run: node tools/comment-rows-gate.mjs
