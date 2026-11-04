@@ -7,6 +7,8 @@ import { differenceInYears } from "date-fns";
 
 export const MIN_AGE = 18;
 export const AGE_RULE_LINE = "18+ only. Under 18 not accepted.";
+/** Beside the date of birth where a member already has one (Owner, 4 Nov 2026). */
+export const AGE_RULE_SHORT = "18+ Only Restricted";
 export const UNDER_18_MESSAGE = "Under 18 is not eligible to register.";
 
 export function isOldEnough(dateOfBirth: Date, now: Date = new Date()): boolean {

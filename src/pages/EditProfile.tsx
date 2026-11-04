@@ -26,7 +26,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { format, differenceInYears } from "date-fns";
 import { UNDER_18_MESSAGE, isOldEnough, newestBirthMonth } from "@/lib/ageRule";
-import { AgeRuleError, AgeRuleNotice } from "@/components/AgeRuleNotice";
+import { AgeRuleBadge, AgeRuleError } from "@/components/AgeRuleNotice";
 import { normalizeFullName } from "@/lib/nameNormalize";
 import { getCaptchaToken } from "@/lib/turnstile";
 import { useT, useI18n } from "@/i18n/I18nContext";
@@ -962,10 +962,12 @@ const EditProfile = () => {
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr] gap-5">
             {/* Date of Birth picker */}
             <div className="space-y-2">
+              <div className="flex flex-wrap items-baseline gap-x-3">
               <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>
                 <CalendarIcon className="inline h-3 w-3 mr-1.5" />Date of Birth
               </label>
-              <AgeRuleNotice />
+                <AgeRuleBadge />
+              </div>
               <Popover open={dobOpen} onOpenChange={setDobOpen}>
                 <PopoverTrigger asChild>
                   <button

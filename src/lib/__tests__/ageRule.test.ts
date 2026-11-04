@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-import { AGE_RULE_LINE, UNDER_18_MESSAGE, isOldEnough } from "@/lib/ageRule";
+import { AGE_RULE_LINE, AGE_RULE_SHORT, UNDER_18_MESSAGE, isOldEnough } from "@/lib/ageRule";
 
 const NOW = new Date(2026, 10, 4);
 const ROOT = join(__dirname, "..", "..", "..");
@@ -19,6 +19,7 @@ describe("the rule", () => {
   });
   it("says it in the approved words", () => {
     expect(AGE_RULE_LINE).toBe("18+ only. Under 18 not accepted.");
+    expect(AGE_RULE_SHORT).toBe("18+ Only Restricted");
     expect(UNDER_18_MESSAGE).toBe("Under 18 is not eligible to register.");
   });
 });
@@ -39,11 +40,11 @@ describe("ratchet: every date-of-birth screen uses the one rule", () => {
       return statSync(p).isDirectory() ? walk(p) : /\.tsx$/.test(name) ? [p] : [];
     });
 
-  it("a screen with a date-of-birth picker shows AgeRuleNotice", () => {
+  it("a screen with a date-of-birth picker shows the 18+ notice or badge", () => {
     const missing = walk(join(ROOT, "src"))
       .map((f) => ({ rel: relative(ROOT, f).replace(/\\/g, "/"), text: readFileSync(f, "utf8") }))
       .filter((f) => DOB_SCREEN.test(f.text) && !f.rel.endsWith("AgeRuleNotice.tsx"))
-      .filter((f) => !f.text.includes("<AgeRuleNotice"))
+      .filter((f) => !/<AgeRule(Notice|Badge)/.test(f.text))
       .map((f) => f.rel);
     expect(missing).toEqual([]);
   });
@@ -51,7 +52,7 @@ describe("ratchet: every date-of-birth screen uses the one rule", () => {
   it("no screen keeps its own 18 check", () => {
     const own = walk(join(ROOT, "src"))
       .map((f) => ({ rel: relative(ROOT, f).replace(/\\/g, "/"), text: readFileSync(f, "utf8") }))
-      .filter((f) => /differenceInYears\([^)]*\)\s*(<|>=)\s*18/.test(f.text))
+      .filter((f) => OWN_CHECK.test(f.text))
       .map((f) => f.rel);
     expect(own).toEqual([]);
   });
