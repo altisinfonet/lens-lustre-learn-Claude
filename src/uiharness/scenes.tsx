@@ -13,6 +13,8 @@
  */
 
 import { useState, type JSX } from "react";
+import OnboardingModal from "@/components/OnboardingModal";
+import AppShell from "./AppShell";
 import ProfilePostGrid from "@/components/profile/ProfilePostGrid";
 import ImageCropModal from "@/components/admin/ImageCropModal";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -1063,4 +1065,11 @@ export const SCENES: Record<string, () => JSX.Element> = {
  * index — so the visual sweep (which reads that index) never sees them. Only
  * `tools/uishot/a11y-surfaces.mjs` opens them, by name. See realScreens.tsx.
  */
-export const A11Y_ONLY_SCENES: Record<string, () => JSX.Element> = { ...A11Y_ONLY_SCREENS };
+/** Sign-up age check, photographed for App Review (tools/uishot/age-check-shots.mjs). */
+const OnboardingAgeScene = () => (
+  <AppShell route="/" path="/" withLayout={false}>
+    <OnboardingModal open userId="scene-user" profile={null} onComplete={() => {}} />
+  </AppShell>
+);
+
+export const A11Y_ONLY_SCENES: Record<string, () => JSX.Element> = { ...A11Y_ONLY_SCREENS, "screen-onboarding-age": OnboardingAgeScene };

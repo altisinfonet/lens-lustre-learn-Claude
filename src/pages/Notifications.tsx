@@ -51,7 +51,7 @@ const bodyFont = { fontFamily: "var(--font-body)" };
 const BUCKET_ORDER: BucketKey[] = ["new", "last30", "earlier"];
 
 /** The classic row (switch off). The centre row is CentreNotificationRow. */
-function NotificationRow({
+export function NotificationRow({
   group,
   isFollowing,
   followReady,

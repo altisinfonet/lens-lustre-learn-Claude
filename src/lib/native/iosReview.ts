@@ -5,6 +5,17 @@
  *
  * Web and Android are untouched: every caller gates on isNativeIOSApp().
  */
+import { isNativeIOSApp } from "./authDeepLink";
+
+/**
+ * Apple 5.1.2(i), rejected again on 4 Nov 2026 (version 1.0 (21)): a cookie box
+ * in the app is read as tracking, however it is worded. So the iOS app runs no
+ * third-party analytics or ad scripts and asks nothing. This is the one rule:
+ * useCookieConsent, AdZone and the screens that offer cookie choices follow it.
+ */
+export function noThirdPartyTracking(): boolean {
+  return isNativeIOSApp();
+}
 
 /**
  * Notification types about money: deposits, withdrawals, gift credits,

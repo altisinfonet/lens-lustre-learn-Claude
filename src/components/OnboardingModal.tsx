@@ -8,7 +8,9 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { format, differenceInYears } from "date-fns";
+import { format } from "date-fns";
+import { UNDER_18_MESSAGE, isOldEnough, newestBirthMonth } from "@/lib/ageRule";
+import { AgeRuleError, AgeRuleNotice } from "@/components/AgeRuleNotice";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import { motion } from "framer-motion";
@@ -54,6 +56,7 @@ const USER_TYPES = [
   { value: "normal", label: "Enthusiast", description: "Photography is my hobby", icon: User },
   { value: "photographer", label: "Photographer", description: "I'm a professional / aspiring pro", icon: Aperture },
 ];
+
 
 interface OnboardingModalProps {
   open: boolean;
@@ -295,7 +298,7 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
     }
   };
 
-  const ageOk = !!dateOfBirth && differenceInYears(new Date(), dateOfBirth) >= 18;
+  const ageOk = !!dateOfBirth && isOldEnough(dateOfBirth);
   const usernameOk = alreadyClaimed || usernameStatus === "available";
   /**
    * REGISTRATION DOES NOT WAIT FOR A PHOTOGRAPH.
@@ -323,7 +326,7 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
   const handleFinish = async () => {
     if (!canProceed) {
       if (!dateOfBirth) toast({ title: "Please enter your date of birth", variant: "destructive" });
-      else if (!ageOk) toast({ title: "You must be at least 18 years old to join", variant: "destructive" });
+      else if (!ageOk) toast({ title: UNDER_18_MESSAGE, variant: "destructive" });
       // No photo branch here on purpose — a missing photo can no longer block
       // registration, so a toast about it would name a reason that is not the
       // reason and send the member looking for the wrong thing.
@@ -579,7 +582,9 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
               <span className="text-[10px] tracking-[0.2em] uppercase text-foreground font-medium block" style={{ fontFamily: "var(--font-heading)" }}>
                 Date of Birth <span className="text-destructive">*</span>
               </span>
-              <Popover>
+              <AgeRuleNotice />
+              {/* modal: inside the sign-up dialog two focus traps fought in WebKit and the calendar closed at once (found 4 Nov 2026, tools/uishot/age-check-shots.mjs). */}
+              <Popover modal>
                 <PopoverTrigger asChild>
                   <button
                     type="button"
@@ -600,7 +605,7 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
                     selected={dateOfBirth}
                     onSelect={(d) => {
                       setDateOfBirth(d);
-                      if (d) setDobError(differenceInYears(new Date(), d) < 18 ? "You must be at least 18 years old" : "");
+                      if (d) setDobError(isOldEnough(d) ? "" : UNDER_18_MESSAGE);
                     }}
                     disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
                     // react-day-picker v10: `dropdown-buttons` is gone —
@@ -611,15 +616,13 @@ const OnboardingModal = ({ open, userId, profile, onComplete, dismissible = fals
                     // 18-year floor below is still the only age rule.
                     captionLayout="dropdown"
                     startMonth={new Date(1940, 0)}
-                    endMonth={new Date(new Date().getFullYear() - 18, 11)}
+                    endMonth={newestBirthMonth()}
                     autoFocus
                     className={cn("p-3 pointer-events-auto")}
                   />
                 </PopoverContent>
               </Popover>
-              {dobError && (
-                <p className="text-[9px] text-destructive tracking-wide" style={{ fontFamily: "var(--font-heading)" }}>{dobError}</p>
-              )}
+              <AgeRuleError message={dobError} />
             </div>
 
             {/* He / She — owner's wording, 2026-08-05. See GENDER_OPTIONS. */}

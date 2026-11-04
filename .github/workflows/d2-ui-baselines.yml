@@ -1,0 +1,68 @@
+name: D2 · Shared-piece visual baselines
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING REAL. HOLDS NO SECRET. A real Chromium against the Vite
+# dev server and the harness fake backend (synthetic VITE_* values, as ui-gate).
+#
+# Central-control plan B1 (Owner, 4 Nov 2026): one change, every screen. The
+# REAL PostCard, photo grid, CommentThread, action row, user line and
+# notification rows are photographed at 320 / 390 / 1280 px on the web and in
+# the Android shell, and compared with tools/uishot/ui-baselines/. More than
+# 0.1 % of a picture changed fails. Every run also proves the comparison can
+# still see a 1 px move (the self-test in tools/uishot/ui-baselines.mjs).
+#
+# The baselines are made on THIS runner (ubuntu fonts). Every run uploads its
+# screenshots: a deliberate change takes its new PNGs from there, in the same
+# PR, after the Owner approves them.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  baselines:
+    name: Shared pieces match their baselines (web + app, 4 widths)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Clean install
+        run: npm ci --no-audit --no-fund
+      - name: Cache the Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('package-lock.json') }}
+      - name: Install the browser for Playwright (with its system libraries)
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            if npx playwright install --with-deps chromium; then exit 0; fi
+            sleep $((attempt * 15))
+          done
+          exit 1
+      - name: Photograph every shared piece and compare
+        env:
+          VITE_SUPABASE_URL: https://testprojectref0000x.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: test-publishable-key-not-real
+          VITE_SUPABASE_PROJECT_ID: testprojectref0000x
+        run: node tools/uishot/ui-baselines.mjs --out /tmp/ui-baselines --json /tmp/ui-baselines/result.json
+      - name: Upload the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-baselines
+          path: /tmp/ui-baselines
+          if-no-files-found: warn
