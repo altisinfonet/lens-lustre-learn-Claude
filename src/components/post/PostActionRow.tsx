@@ -161,8 +161,12 @@ const PostActionRow = ({
    *   Like icon → like count       the count (Like stops at its icon)
    *   like count → Comment icon    the count (Comment starts at its icon)
    *   Like → Comment, no count     split: Like pe-2 | Comment ps-2
-   *   Comment (+count) → Share     split: Comment pe-2 | Share ps-1.5
+   *   Comment (+count) → Share     split: Comment pe-1.5 | Share ps-2
+   *   Comment (no count) → Share   split: Comment pe-2 | Share ps-2
    *   Share → share count          the count (Share stops at its icon)
+   * Every box stays >= 32 wide (capture.mjs floor): Share is 8 + 24 even
+   * with its count beside it (ui-gate run 41759079521 caught 6 + 24 = 30);
+   * Comment with no count after a like count is 0 + 24 + 8.
    *   after the last control       free card (Share pe-2.5 when no count)
    */
   const hasLikes = likeCount > 0;
@@ -206,7 +210,7 @@ const PostActionRow = ({
         onClick={onCommentClick}
         aria-label={commentLabel}
         title={commentLabel}
-        className={`${ROW_TAP} ${hasLikes ? "ps-0" : "ps-2"} pe-2 flex items-center gap-0.5 text-muted-foreground hover:text-foreground transition-colors`}>
+        className={`${ROW_TAP} ${hasLikes ? "ps-0" : "ps-2"} ${commentCount > 0 ? "pe-1.5" : "pe-2"} flex items-center gap-0.5 text-muted-foreground hover:text-foreground transition-colors`}>
         <MessageCircle className="h-6 w-6" strokeWidth={1.75} />
         {commentCount > 0 && (
           <span className="text-sm font-semibold text-foreground">{formatNumber(commentCount)}</span>
@@ -220,7 +224,7 @@ const PostActionRow = ({
             <button
               aria-label={shareLabel}
               title={shareLabel}
-              className={`${ROW_TAP} ps-1.5 ${hasShares ? "pe-0" : "pe-2.5"} flex items-center justify-start text-muted-foreground hover:text-foreground transition-colors`}>
+              className={`${ROW_TAP} ps-2 ${hasShares ? "pe-0" : "pe-2.5"} flex items-center justify-start text-muted-foreground hover:text-foreground transition-colors`}>
               <Send className="h-6 w-6" strokeWidth={1.75} />
             </button>
           </DropdownMenuTrigger>
