@@ -105,6 +105,25 @@ export function fullScreenPhoto(url: string, saving = false): { shown: string; s
   return { shown: safeShown, saveAs: isSaveTargetCreditedUrl(credited) ? withCreditVersion(credited) : null };
 }
 
+/**
+ * THE ONE RULE for PAINTING a member photo URL on any surface that is not full
+ * screen (credit fix U1 — tiles, bands, thumbnails, sidebars, stories, drafts,
+ * scheduled posts): a set photo (`-l4` / `-l4f` / `-l5` / `-l5f`, also a stale
+ * pre-repoint row) → its stored CLEAN copy for `size` — never a credited file,
+ * current or retired, never a competition full size; an old / unmarked URL →
+ * itself. Empty → null. Guarded in CI by memberPhotoPaintRatchet.test.ts.
+ */
+export function memberPhotoSrc(url: string | null | undefined, size: 1080 | 600 | 320 = 1080): string | null {
+  if (!url) return null;
+  return photoSetMarker(url) ? photoSetUrl(url, size) : url;
+}
+
+/** The FALLBACK when a painted copy fails: a set photo's largest public CLEAN copy; an old URL → itself. */
+export function memberPhotoFallbackSrc(url: string | null | undefined): string | null {
+  if (!url) return null;
+  return photoSetMarker(url) ? photoSetCleanUrl(url) : url;
+}
+
 /** The copy an INLINE surface (post page grid, entry page) shows: the clean 1080 of a set photo (U4 saving: 600). */
 export function inlinePhotoUrl(url: string, v2: boolean, saving = false): string {
   return url && photoSetMarker(url) ? photoSetUrl(url, v2 && saving ? 600 : 1080) : url;

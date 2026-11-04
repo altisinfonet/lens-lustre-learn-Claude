@@ -1,3 +1,4 @@
+import { memberPhotoSrc } from "@/lib/photoProtection";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -608,7 +609,7 @@ const AdminGallery = ({ user }: { user: User | null }) => {
                   </button>
                   <span className="w-8 shrink-0 text-center text-[10px] text-muted-foreground tabular-nums" style={bodyFont}>{index + 1}</span>
                   <div className="w-12 h-12 shrink-0 rounded-sm overflow-hidden bg-muted relative">
-                    <img src={img.thumbnail_url || optimizeAdminThumbnailUrl(img.image_url)} alt={img.title} className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                    <img src={img.thumbnail_url || optimizeAdminThumbnailUrl(memberPhotoSrc(img.image_url, 600) ?? "")} alt={img.title} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                     {!img.thumbnail_url && (
                       <span className="absolute bottom-0 right-0 bg-amber-500/80 text-[6px] text-white px-0.5 leading-tight" title="No optimized thumbnail">!</span>
                     )}
@@ -716,7 +717,7 @@ const AdminGallery = ({ user }: { user: User | null }) => {
                         {selected.has(img.id) ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4 text-muted-foreground" />}
                       </button>
                       <div className="w-16 h-16 rounded-sm overflow-hidden bg-muted shrink-0 relative">
-                        <img src={img.thumbnail_url || optimizeAdminThumbnailUrl(img.image_url)} alt={img.title} className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                        <img src={img.thumbnail_url || optimizeAdminThumbnailUrl(memberPhotoSrc(img.image_url, 600) ?? "")} alt={img.title} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                         {!img.thumbnail_url && (
                           <span className="absolute bottom-0 right-0 bg-amber-500/80 text-[6px] text-white px-0.5 leading-tight" title="No thumbnail">!</span>
                         )}

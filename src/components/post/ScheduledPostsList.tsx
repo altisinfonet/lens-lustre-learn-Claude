@@ -7,6 +7,7 @@
 // Realtime: server-side filter user_id=eq.<uid>, invalidates query on change.
 
 // React 19 removed the GLOBAL JSX namespace; it now comes from react.
+import { memberPhotoSrc } from "@/lib/photoProtection";
 import type { JSX } from "react";
 import * as React from "react";
 import { format } from "date-fns";
@@ -210,7 +211,7 @@ export default function ScheduledPostsList() {
             >
               {p.image_urls?.[0] && (
                 <img
-                  src={p.image_urls[0]}
+                  src={memberPhotoSrc(p.image_urls[0], 320) ?? undefined}
                   alt=""
                   loading="lazy"
                   className="h-20 w-20 rounded-md object-cover flex-shrink-0"

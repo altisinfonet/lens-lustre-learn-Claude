@@ -1,3 +1,4 @@
+import { memberPhotoSrc } from "@/lib/photoProtection";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/core/useAuth";
@@ -38,7 +39,7 @@ const AlbumView = ({ album, onBack }: { album: PhotoAlbum; onBack: () => void })
               className="aspect-square rounded-sm overflow-hidden hover:opacity-80 transition-opacity"
             >
               <img
-                src={photo.image_url}
+                src={memberPhotoSrc(photo.image_url, 320) ?? undefined}
                 alt={photo.caption || "Album photo"}
                 className="w-full h-full object-cover"
                 loading="lazy"

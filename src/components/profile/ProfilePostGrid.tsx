@@ -62,6 +62,7 @@ import { formatClock } from "@/components/video/FeedVideoCard";
 import FeedCardWindow from "@/components/feed/FeedCardWindow";
 import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
 import { photoSetGridUrl, photoSetMarker } from "@/lib/imageLadder";
+import { memberPhotoFallbackSrc, memberPhotoSrc } from "@/lib/photoProtection";
 
 interface Props {
   posts: UnifiedPost[];
@@ -137,7 +138,29 @@ export function tileSrc(post: UnifiedPost, _photoSetV2 = false): string | null {
   if (typeof first === "string" && photoSetMarker(first)) return photoSetGridUrl(first);
   const thumb = post.thumbnail_urls?.[0];
   if (typeof thumb === "string" && thumb.length > 0) return thumb;
-  return post.image_urls?.[0] ?? null;
+  return memberPhotoSrc(post.image_urls?.[0], 600);
+}
+
+/**
+ * Credit fix U1 (review of #874): what a small tile shows when its first
+ * choice failed — a set photo's largest CLEAN public copy (never the `-l4`
+ * master with the retired big credit, never a `-l4f` full size); an old photo:
+ * its own URL, as before.
+ */
+export function tileFallbackSrc(post: UnifiedPost): string | null {
+  return memberPhotoFallbackSrc(post.image_urls?.[0]);
+}
+
+/**
+ * The SHOWCASE band's sharp photograph: a set photo's clean 1080 (after an
+ * error, its largest clean copy — the same file for every v2/v3 set but a small
+ * one); an old photo: the original, else its thumbnail (unchanged).
+ */
+export function showcaseSrc(post: UnifiedPost, failed: boolean): string | null {
+  const full = post.image_urls?.[0] ?? null;
+  const thumb = post.thumbnail_urls?.[0] ?? null;
+  if (full && photoSetMarker(full)) return failed ? memberPhotoFallbackSrc(full) : memberPhotoSrc(full, 1080);
+  return failed ? full : full ?? thumb;
 }
 
 /**
@@ -192,7 +215,7 @@ const GridTile = memo(function GridTile({ post }: { post: UnifiedPost }) {
   const [failed, setFailed] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const photoSetV2 = usePhotoSetV2();
-  const src = failed ? post.image_urls?.[0] ?? null : tileSrc(post, photoSetV2);
+  const src = failed ? tileFallbackSrc(post) : tileSrc(post, photoSetV2);
   const count = post.image_urls?.length ?? 0;
   // A video post shows its own still frame, never an empty photo tile (src/lib/posts/subjectMedia.ts).
   const { video } = postMedia(post);
@@ -281,9 +304,8 @@ const ShowcaseTile = memo(function ShowcaseTile({ post }: { post: UnifiedPost })
   // rather than tolerated. The sharp photograph has its own fallback below.
   const [backdropFailed, setBackdropFailed] = useState(false);
 
-  const full = post.image_urls?.[0] ?? null;
   const thumb = post.thumbnail_urls?.[0] ?? null;
-  const src = failed ? full : full ?? thumb;
+  const src = showcaseSrc(post, failed);
   const count = post.image_urls?.length ?? 0;
   // A video post: its still frame, whole, over a blurred copy — the band never crops (src/lib/posts/subjectMedia.ts).
   const { video } = postMedia(post);

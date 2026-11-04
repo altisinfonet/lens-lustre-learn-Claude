@@ -1,3 +1,4 @@
+import { memberPhotoSrc } from "@/lib/photoProtection";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -429,7 +430,7 @@ export default function AdminPhotoOfDay({ user }: { user: User | null }) {
                   </button>
                   <span className="w-8 shrink-0 text-center text-[10px] text-muted-foreground tabular-nums" style={bodyFont}>{index + 1}</span>
                   <div className="w-12 h-12 shrink-0 rounded-sm overflow-hidden bg-muted">
-                    <img src={optimizeAdminThumbnailUrl(p.image_url)} alt={p.title} className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                    <img src={optimizeAdminThumbnailUrl(memberPhotoSrc(p.image_url, 600) ?? "")} alt={p.title} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                   </div>
                   <div className="flex-1 min-w-0">
                     {isEditing ? (
@@ -530,7 +531,7 @@ export default function AdminPhotoOfDay({ user }: { user: User | null }) {
                         {selected.has(p.id) ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4 text-muted-foreground" />}
                       </button>
                       <div className="w-16 h-16 rounded-sm overflow-hidden bg-muted shrink-0">
-                        <img src={optimizeAdminThumbnailUrl(p.image_url)} alt={p.title} className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                        <img src={optimizeAdminThumbnailUrl(memberPhotoSrc(p.image_url, 600) ?? "")} alt={p.title} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                       </div>
                     </div>
                     <div className="flex-1 min-w-0">
