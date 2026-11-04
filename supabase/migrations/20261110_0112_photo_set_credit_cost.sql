@@ -102,7 +102,6 @@ COMMENT ON FUNCTION public.photo_set_credit_is_named(text) IS
   'Credit U3: does a post or an entry name this v3 photo? One index look-up per table. Internal.';
 
 -- ── 3. the two per-photo calls ask it ───────────────────────────────────────
--- Grants stay as 0111 set them: CREATE OR REPLACE keeps them.
 CREATE OR REPLACE FUNCTION public.photo_set_credit_target(_key text)
 RETURNS TABLE(done boolean)
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO '' AS $fn$
@@ -135,6 +134,12 @@ BEGIN
   DELETE FROM public.photo_credit_failure f WHERE f.subject = _key;
 END;
 $fn$;
+
+-- The same callers as 0111: the worker's account, never anon.
+REVOKE ALL ON FUNCTION public.photo_set_credit_target(text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.photo_set_credit_record(text, integer, boolean, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.photo_set_credit_target(text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.photo_set_credit_record(text, integer, boolean, text) TO authenticated;
 
 DO $post$
 BEGIN

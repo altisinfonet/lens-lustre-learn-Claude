@@ -58,6 +58,11 @@ BEGIN
 END;
 $fn$;
 
+REVOKE ALL ON FUNCTION public.photo_set_credit_target(text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.photo_set_credit_record(text, integer, boolean, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.photo_set_credit_target(text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.photo_set_credit_record(text, integer, boolean, text) TO authenticated;
+
 DROP FUNCTION public.photo_set_credit_is_named(text);
 DROP INDEX public.idx_competition_entries_photos_gin;
 DROP INDEX public.idx_posts_image_urls_gin;
