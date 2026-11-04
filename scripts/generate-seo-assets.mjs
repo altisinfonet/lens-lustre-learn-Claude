@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
  * Generates dist/robots.txt and dist/sitemap.xml from the build environment
- * (lane isolation, 2026-08-22).
+ * (lane isolation, 2026-08-22). Since 2026-11-04 also dist/llms.txt, the guide
+ * for AI readers (llmstxt.org format), with the same rule: full addresses on
+ * production only; every other lane gets a two-line "test copy" note.
  *
  * Both were committed with production URLs baked in. Copied unchanged to any
  * other lane they are the most damaging kind of leak in this whole change: a
@@ -71,12 +73,20 @@ if (!isProduction) {
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
       '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>\n',
   );
+  // llms.txt (the AI-reader guide) is written too, so the path does not 404,
+  // but it names this lane only and links nowhere: a test copy must never point
+  // an AI reader at the production site, nor present itself as the real one.
+  writeFileSync(
+    "dist/llms.txt",
+    "# 50mm Retina World (test copy)\n\n" +
+      `> This is a non-production copy of the site (${siteOrigin}). It is not for indexing, training or citation.\n`,
+  );
   console.log(`generate-seo-assets OK: non-production lane ${siteOrigin} — robots.txt blocks all crawling, sitemap.xml empty.`);
   process.exit(0);
 }
 
 let written = 0;
-for (const file of ["robots.txt", "sitemap.xml"]) {
+for (const file of ["robots.txt", "sitemap.xml", "llms.txt"]) {
   const template = `public/${file}`;
   if (!existsSync(template)) {
     console.error(`generate-seo-assets FAIL: ${template} missing.`);
@@ -105,6 +115,17 @@ const strayOrigins = [...new Set(sitemap.match(/https?:\/\/[a-z0-9.-]+/gi) || []
 );
 if (strayOrigins.length) {
   console.error(`generate-seo-assets FAIL: sitemap names other origins: ${strayOrigins.join(", ")}`);
+  process.exit(1);
+}
+
+// llms.txt links into this site with full addresses; one naming any other site
+// (besides the Google Play listing) would send AI readers to the wrong place.
+const llms = readFileSync("dist/llms.txt", "utf8");
+const strayLlms = [...new Set(llms.match(/https?:\/\/[a-z0-9.-]+/gi) || [])].filter(
+  (u) => !u.startsWith(displayOrigin) && u !== "https://play.google.com",
+);
+if (strayLlms.length) {
+  console.error(`generate-seo-assets FAIL: llms.txt names other origins: ${strayLlms.join(", ")}`);
   process.exit(1);
 }
 
