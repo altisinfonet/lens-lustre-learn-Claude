@@ -1,3 +1,19 @@
+Build 1.2.38 - 2026-11-05 - FIRED FROM MAIN AFTER THE FEED PHOTO RELEASE
+
+  Owner, 4 Nov: one app build after the feed work. Main now carries the
+  Instagram feed gestures (#911/#912: no viewer on tap, pinch in place,
+  double-tap like) and the one feed photo set (#910/#913: 2048/1080/600 WebP,
+  credit drawn only on save, nothing extra stored). The entry below explains
+  why run 141 was cancelled and 1.2.38 is not spent.
+
+Build 1.2.38 - 2026-11-04 - FIRED AGAIN FROM MAIN AFTER THE CREDIT RELEASE
+
+  Run 141 (41872688108, on e58212e6) started by itself when the 1.2.38 bump
+  landed, before the credit release (#901, c8839f48: the server draws the
+  credit, 22 px) reached main. It was cancelled inside build-aab, before any
+  .aab existed, so 1.2.38 is not spent. This entry fires the build on a main
+  that carries the credit release too (Owner: credit first, then Android).
+
 Build 1.2.21 (RE-CUT) - 2026-09-15 - THE BADGE LABEL ACTUALLY CLEARS THE 12PX FLOOR NOW
 
   Android Build #123 (the entry directly below this one) reached build-aab and
