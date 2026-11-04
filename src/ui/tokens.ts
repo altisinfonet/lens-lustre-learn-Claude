@@ -33,7 +33,7 @@ export const TOKENS = {
   tap: { min: 44, short: 32 },
   avatar: { xs: 24, sm: 32, md: 40, lg: 48, xl: 80 },
   type: { caption: 13, meta: 12, body: 14, name: 14 },
-  comment: { indent: 44 },
+  comment: { indent: 45 },
 } as const;
 
 const rem = (px: number) => `${px / 16}rem`;
