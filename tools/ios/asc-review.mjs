@@ -47,8 +47,16 @@ async function asc(method, path, body) {
   return json;
 }
 
-const latestVersion = async () =>
-  (await asc("GET", `/v1/apps/${APP_ID}/appStoreVersions?filter[platform]=IOS&limit=1`)).data[0];
+const EDITABLE = new Set(["REJECTED", "METADATA_REJECTED", "INVALID_BINARY", "DEVELOPER_REJECTED", "PREPARE_FOR_SUBMISSION", "READY_FOR_REVIEW", "UNRESOLVED_ISSUES"]);
+
+/** The version being worked on: the editable one, never an older live version. */
+async function latestVersion() {
+  const all = (await asc("GET", `/v1/apps/${APP_ID}/appStoreVersions?filter[platform]=IOS&limit=20`)).data;
+  for (const v of all) console.log(`version ${v.attributes.versionString} ${v.attributes.appStoreState} / ${v.attributes.appVersionState}`);
+  const found = all.find((v) => EDITABLE.has(v.attributes.appStoreState) || EDITABLE.has(v.attributes.appVersionState));
+  if (!found && process.env.ASC_ACTION === "submit") throw new Error("no editable version");
+  return found ?? all[0];
+}
 
 const validBuilds = async () =>
   (await asc("GET", `/v1/builds?filter[app]=${APP_ID}&sort=-uploadedDate&limit=5&fields[builds]=version,processingState,uploadedDate,expired`)).data;
@@ -60,14 +68,18 @@ async function ageRating() {
 
 async function read() {
   const v = await latestVersion();
-  console.log(`version ${v.attributes.versionString} state ${v.attributes.appStoreState ?? v.attributes.appVersionState}`);
   const attached = (await asc("GET", `/v1/appStoreVersions/${v.id}/build`)).data;
   console.log(`attached build ${attached?.attributes?.version ?? "none"}`);
   for (const b of await validBuilds()) {
     console.log(`build ${b.attributes.version} ${b.attributes.processingState} ${b.attributes.uploadedDate?.slice(0, 16)} expired=${b.attributes.expired}`);
   }
   const subs = (await asc("GET", `/v1/reviewSubmissions?filter[app]=${APP_ID}&limit=5`)).data;
-  for (const s of subs) console.log(`submission ${s.id} ${s.attributes.state} ${s.attributes.submittedDate?.slice(0, 16) ?? ""}`);
+  for (const s of subs) {
+    console.log(`submission ${s.id} ${s.attributes.state} ${s.attributes.submittedDate?.slice(0, 16) ?? ""}`);
+    for (const i of (await asc("GET", `/v1/reviewSubmissions/${s.id}/items`)).data) {
+      console.log(`  item ${i.attributes.state}`);
+    }
+  }
   const a = (await ageRating()).attributes;
   for (const k of ["parentalControls", "ageAssurance", "ageRatingOverride", "ageRatingOverrideV2", "kidsAgeBand"]) {
     if (k in a) console.log(`age ${k} = ${a[k]}`);
@@ -120,7 +132,15 @@ async function submit() {
   console.log("review notes updated");
 
   const existing = (await asc("GET", `/v1/appStoreReviewDetails/${detail.id}/appStoreReviewAttachments`)).data;
-  const names = new Set(existing.map((a) => a.attributes.fileName));
+  const names = new Set();
+  for (const a of existing) {
+    // A half-finished upload never becomes visible to Apple: remove it and send it again.
+    if (a.attributes.assetDeliveryState?.state === "FAILED" || a.attributes.uploaded === false) {
+      await asc("DELETE", `/v1/appStoreReviewAttachments/${a.id}`);
+    } else {
+      names.add(a.attributes.fileName);
+    }
+  }
   for (const name of ["age-check-1-18-plus-line.png", "age-check-2-under-18-refused.png"]) {
     if (!names.has(name)) await attach(detail.id, join(HERE, "review-attachments", name));
   }
@@ -135,6 +155,9 @@ async function submit() {
         relationships: { app: { data: { type: "apps", id: APP_ID } } },
       },
     })).data.id;
+  }
+  const items = (await asc("GET", `/v1/reviewSubmissions/${id}/items`)).data;
+  if (items.length === 0) {
     await asc("POST", "/v1/reviewSubmissionItems", {
       data: {
         type: "reviewSubmissionItems",
@@ -143,6 +166,12 @@ async function submit() {
           appStoreVersion: { data: { type: "appStoreVersions", id: v.id } },
         },
       },
+    });
+  }
+  // A rejected item must be marked resolved before the submission can go again.
+  for (const item of items.filter((i) => i.attributes.state === "REJECTED" || i.attributes.state === "UNRESOLVED_ISSUES")) {
+    await asc("PATCH", `/v1/reviewSubmissionItems/${item.id}`, {
+      data: { type: "reviewSubmissionItems", id: item.id, attributes: { resolved: true } },
     });
   }
   await asc("PATCH", `/v1/reviewSubmissions/${id}`, { data: { type: "reviewSubmissions", id, attributes: { submitted: true } } });
