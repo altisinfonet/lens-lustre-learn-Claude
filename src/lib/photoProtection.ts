@@ -20,7 +20,7 @@
  * members, signed-out visitors, a member whose switch answer has not arrived —
  * except admins and judges on competition entries, on the web.
  */
-import { isCreditedPhotoUrl, isRetiredCreditedUrl, isSaveTargetCreditedUrl, photoSetCleanUrl, photoSetMarker, photoSetUrl, photoSetWidth } from "@/lib/imageLadder";
+import { FEED_PHOTO_MARKER, FEED_PHOTO_SIZES, isCreditedPhotoUrl, isRetiredCreditedUrl, isSaveTargetCreditedUrl, photoSetCleanUrl, photoSetMarker, photoSetUrl, photoSetWidth } from "@/lib/imageLadder";
 import { CREDIT_GEOMETRY } from "@/lib/creditGeometry.mjs";
 import { oldPhotoCreditedUrl } from "@/lib/photoOldCredit";
 
@@ -137,6 +137,7 @@ export function inlinePhotoUrl(url: string, v2: boolean, saving = false): string
  */
 export function feedPhotoSet(url: string, saving: boolean): { src: string; srcSet: string } | null {
   if (!url || !photoSetMarker(url)) return null;
+  if (photoSetMarker(url) === FEED_PHOTO_MARKER) return feedSetSrcSet(url, saving);
   const w600 = photoSetWidth(url, 600);
   const w1080 = photoSetWidth(url, 1080);
   if (w600 === null || w1080 === null) return null;
@@ -145,4 +146,24 @@ export function feedPhotoSet(url: string, saving: boolean): { src: string; srcSe
   const s1080 = photoSetUrl(url, 1080);
   if (w1080 <= w600 || s1080 === s600) return { src: s600, srcSet: `${s600} ${w600}w` };
   return { src: s1080, srcSet: `${s600} ${w600}w, ${s1080} ${w1080}w` };
+}
+
+/**
+ * The FEED SET (`-l6`, Owner order 4 Nov 2026): every size of the ONE list
+ * (imageLadder.FEED_PHOTO_SIZES) with its real width — FEED_SIZES then gives
+ * small slots the 600, phones the 1080, big screens the 2048. src = the 1080
+ * (a browser without srcset). A small photo whose copies share a width offers
+ * that width once. `saving` → the 600 alone. Nothing here is ever credited.
+ */
+function feedSetSrcSet(url: string, saving: boolean): { src: string; srcSet: string } | null {
+  const smallest = FEED_PHOTO_SIZES[FEED_PHOTO_SIZES.length - 1];
+  const entries: { u: string; w: number }[] = [];
+  for (const size of [...FEED_PHOTO_SIZES].reverse()) {
+    const w = photoSetWidth(url, size);
+    if (w === null) return null;
+    if (!entries.some((e) => e.w >= w)) entries.push({ u: photoSetUrl(url, size), w });
+    if (saving) break;
+  }
+  const src = saving ? photoSetUrl(url, smallest) : photoSetUrl(url, 1080);
+  return { src, srcSet: entries.map((e) => `${e.u} ${e.w}w`).join(", ") };
 }

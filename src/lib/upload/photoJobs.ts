@@ -20,9 +20,9 @@
  *     re-encodes, so it re-PUTs exactly the same bytes, media_begin_upload gets
  *     the same sha256 and resolves to the same media row (no duplicate media).
  */
-import { compressImageToFiles, compressThumbnail } from "@/lib/imageCompression";
+import { feedPhotoEncoder } from "@/lib/feedPhotoEncoder";
 import { describeStoredObject, type StoredObjectFacts } from "@/lib/media/storedObject";
-import { LADDER_MARKER, RUNG_QUALITY, rungPath, rungPlan } from "@/lib/imageLadder";
+import { LADDER_MARKER, rungPath } from "@/lib/imageLadder";
 import { dimsSuffix } from "@/lib/imageFrame";
 import { cleanCopyUploadKey } from "@/lib/media/cleanCopy";
 import { backoffMs } from "@/lib/offline/outbox";
@@ -142,23 +142,12 @@ export interface EncodedPhoto {
 }
 export type PhotoEncoder = (file: File) => Promise<EncodedPhoto>;
 
-/** Today's encoder rules (imageUpload.ts): 2560 cap, 600 thumb, 1080/1440 rungs at RUNG_QUALITY. */
-export const defaultPhotoEncoder: PhotoEncoder = async (file) => {
-  const base = file.name.replace(/\.[^.]+$/, "");
-  const { webpFile, width, height } = await compressImageToFiles(file, base, { maxDimension: 2560 });
-  const { webpFile: thumb } = await compressThumbnail(file, base);
-  const rungs: { rung: number; blob: Blob }[] = [];
-  for (const rung of rungPlan(width, height)) {
-    try {
-      const r = await compressImageToFiles(file, `${base}-r${rung}`, { maxDimension: rung, webpQuality: RUNG_QUALITY });
-      rungs.push({ rung, blob: r.webpFile });
-    } catch {
-      // A rung that cannot be encoded: ship none, and no `-l3` promise (below).
-      return { full: { blob: webpFile, width, height }, thumb, rungs: [] };
-    }
-  }
-  return { full: { blob: webpFile, width, height }, thumb, rungs };
-};
+/**
+ * A feed post's encoder (Owner order, 4 Nov 2026): the ONE feed photo set —
+ * 2048 + 1080 + 600 WebP under `-l6` (imageLadder.FEED_PHOTO_SIZES), nothing
+ * credited, nothing private. Replaces the old 2560 + 1440/1080 + 600 `-l3` set.
+ */
+export const defaultPhotoEncoder: PhotoEncoder = (file) => feedPhotoEncoder(file);
 
 /** The deterministic key of slot `i` — the same on every retry and every resume. */
 export function photoObjectPath(userId: string, jobId: string, i: number, w: number, h: number, ladder: boolean, marker: string = LADDER_MARKER): string {

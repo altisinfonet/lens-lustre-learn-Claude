@@ -28,6 +28,7 @@
  */
 import { readFileSync } from "node:fs";
 import { renderCredit } from "./credit-render.mjs";
+import { isFeedPhotoSet } from "../../src/lib/feedPhotoSet.mjs";
 
 const args = process.argv.slice(2);
 const flag = (n) => args.includes(`--${n}`);
@@ -99,6 +100,9 @@ async function main() {
     if (jobs.length === 0) break;
     after = jobs[jobs.length - 1].post_id;
     for (const j of jobs) {
+      // Owner order, 4 Nov 2026: a feed set photo (-l6) is already its final set and never
+      // gets a credited copy; the SQL backfill class (0101) still lists it. Never touched.
+      if (isFeedPhotoSet(j.source_key)) { stats.feed_set_skipped = (stats.feed_set_skipped ?? 0) + 1; continue; }
       stats.photos++;
       if (dryRun) { console.log(`would make ${j.post_id} #${j.ord}`); }
       else {

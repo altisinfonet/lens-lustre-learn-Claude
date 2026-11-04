@@ -4,7 +4,7 @@ import { usePhotoDownload } from "@/hooks/core/usePhotoDownload";
 import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
 import { useDataSaver } from "@/hooks/core/useDataSaver";
 import { inlinePhotoUrl, saveAsPhotoUrl } from "@/lib/photoProtection";
-import { creditedSaveProps } from "@/lib/photoSaveTarget";
+import { photoSaveProps } from "@/lib/photoSaveTarget";
 import { useOldPhotoCreditRead, useOldPhotoCreditVersion } from "@/lib/photoOldCredit";
 import DownloadButton from "@/components/DownloadButton";
 import ProfileLink from "@/components/ProfileLink";
@@ -96,7 +96,7 @@ const FacebookPhotoGrid = ({ urls, onPhotoClick, initialIndex, author, competiti
       style={aspectRatio ? { aspectRatio } : undefined}
       onClick={() => openLightbox(index)}
     >
-      <img {...creditedSaveProps(saveAsPhotoUrl(src))} src={inlinePhotoUrl(src, v2, saving)} alt="" className={`w-full transition-transform duration-300 group-hover/photo:scale-[1.02] ${aspectRatio ? "h-full object-cover" : "object-contain max-h-[70vh]"}`} loading="lazy" />
+      <img {...photoSaveProps(src, saveAsPhotoUrl(src))} src={inlinePhotoUrl(src, v2, saving)} alt="" className={`w-full transition-transform duration-300 group-hover/photo:scale-[1.02] ${aspectRatio ? "h-full object-cover" : "object-contain max-h-[70vh]"}`} loading="lazy" />
       {overlay && (
         <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
           <span className="text-white text-3xl font-bold">+{overlay}</span>
