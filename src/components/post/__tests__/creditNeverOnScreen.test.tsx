@@ -66,6 +66,9 @@ const SHAPES: Record<string, string> = {
   "v2 -l4 large (URL = credited 2048)": `${CDN}-w2048h1365-l4.webp`,
   "v2 -l4 small 1000 px (no clean 1080)": `${CDN}-w1000h667-l4.webp`,
   "v2 -l4f competition": `${COMP}-w4000h2667-l4f.webp`,
+  // credit fix U1 (review of #874): a set name without dimensions has no srcset
+  // widths (photoSetWidth null) — PostMedia must still never paint the master.
+  "v2 -l4 without dimensions": `${CDN}-l4.webp`,
   "v3 -l5 large (URL = clean 1080)": `${CDN}-w1080h720-l5.webp`,
   "v3 -l5 small 1000 px": `${CDN}-w1000h667-l5.webp`,
   "v3 -l5 portrait": `${CDN}-w720h1080-l5.webp`,

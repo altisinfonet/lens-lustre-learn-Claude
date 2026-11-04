@@ -22,7 +22,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  BLOCK, SQUARES_PER_BLOCK, SHOWCASE_ASPECT, isShowcase, tileSrc,
+  BLOCK, SQUARES_PER_BLOCK, SHOWCASE_ASPECT, isShowcase, tileSrc, tileFallbackSrc, showcaseSrc,
 } from "@/components/profile/ProfilePostGrid";
 import type { UnifiedPost } from "@/types/post";
 
@@ -204,5 +204,44 @@ describe("the tile image source", () => {
 
   it("returns null rather than an undefined src when there is no photograph", () => {
     expect(tileSrc(post({ image_urls: [] }))).toBeNull();
+  });
+});
+
+/*
+ * CREDIT FIX U1 (review of #874): the tile FALLBACK and the SHOWCASE band
+ * painted `image_urls[0]` raw — a stale `-l4` row painted (and right-click
+ * saved) the big-credit master; a `-l4f` row painted the competition full size.
+ */
+describe("credit fix U1 · the wall never paints a credited file or a full size", () => {
+  const CDN = "https://cdn.50mmretina.com/post-images/u/posts/38f57857-0";
+  const L4 = `${CDN}-w1620h1023-l4.webp`;
+  const L4F = "https://cdn.50mmretina.com/competition-photos/u/competitions/c-w4000h3000-l4f.webp";
+  const L5 = `${CDN}-w1080h682-l5.webp`;
+  const bad = (u: string | null) => !!u && (/-l4\.webp$/.test(u) || /-l4f\.webp$/.test(u) || /-l4f-r2048\.webp$/.test(u) || /-r2048c\.webp$/.test(u));
+
+  it("tile fallback (the 320 failed): the set's clean copy, never the -l4 master / -l4f full size", () => {
+    expect(tileFallbackSrc(post({ image_urls: [L4] }))).toBe(L4.replace(/\.webp$/, "-r1080.webp"));
+    expect(tileFallbackSrc(post({ image_urls: [L4F] }))).toBe(L4F.replace(/\.webp$/, "-r1080.webp"));
+    expect(tileFallbackSrc(post({ image_urls: [L5] }))).toBe(L5);
+    expect(tileFallbackSrc(post({ image_urls: ["old.jpg"] }))).toBe("old.jpg");
+    expect(tileFallbackSrc(post({ image_urls: [] }))).toBeNull();
+  });
+
+  it("showcase band: the clean 1080 of a set photo (also after an error); old photos unchanged", () => {
+    for (const failed of [false, true]) {
+      for (const u of [L4, L4F, L5]) {
+        const got = showcaseSrc(post({ image_urls: [u], thumbnail_urls: [u.replace(/\.webp$/, "-thumb.webp")] }), failed);
+        expect(bad(got), `${u} failed=${failed} → ${got}`).toBe(false);
+      }
+      expect(showcaseSrc(post({ image_urls: [L4] }), failed)).toBe(L4.replace(/\.webp$/, "-r1080.webp"));
+      expect(showcaseSrc(post({ image_urls: [L4F] }), failed)).toBe(L4F.replace(/\.webp$/, "-r1080.webp"));
+    }
+    expect(showcaseSrc(post({ image_urls: ["old.jpg"], thumbnail_urls: ["old-t.jpg"] }), false)).toBe("old.jpg");
+    expect(showcaseSrc(post({ image_urls: [], thumbnail_urls: ["old-t.jpg"] }), false)).toBe("old-t.jpg");
+  });
+
+  it("the components use them (no raw image_urls[0] paint left in the file)", () => {
+    expect(GRID).toMatch(/tileFallbackSrc\(post\)/);
+    expect(GRID).toMatch(/showcaseSrc\(post, failed\)/);
   });
 });
