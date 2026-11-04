@@ -33,9 +33,13 @@ const ZOOM_LOCK_CLASS = "app-zoom-locked";
  *
  * judge/CinemaFullView.tsx is deliberately ABSENT: it is judge-only and has
  * carried its own wheel-driven zoom since long before this build.
+ *
+ * post/PostMedia.tsx LEFT THIS LIST on 4 Nov 2026 (Owner, "feed exactly like
+ * Instagram"): the feed photo no longer opens a viewer at all — it pinches in
+ * place through useFeedPhotoGestures. Its ratchet is
+ * src/components/post/__tests__/feedNoViewerRatchet.test.ts.
  */
 const ZOOMABLE_SURFACES = [
-  "src/components/post/PostMedia.tsx",
   "src/components/FacebookPhotoGrid.tsx",
   "src/components/Lightbox.tsx",
   "src/components/CompetitionLightbox.tsx",
@@ -172,25 +176,21 @@ describe("The global lock is app-only and its class name agrees on both sides", 
   });
 });
 
-describe("A feed photograph opens fullscreen", () => {
+/*
+ * "A feed photograph opens fullscreen" (BUILD 1055) was REVERSED by the Owner
+ * on 4 Nov 2026: the feed is "exactly like Instagram" — a tap opens nothing,
+ * pinch enlarges in place, double-tap likes. The guarantees that survive are
+ * pinned here; the no-viewer ratchet is post/__tests__/feedNoViewerRatchet.
+ */
+describe("A feed photograph's gestures (feed viewer removed 4 Nov 2026)", () => {
   const src = () => read("src/components/post/PostMedia.tsx");
+  const hook = () => read("src/components/post/useFeedPhotoGestures.tsx");
 
-  it("both the single-photo post AND the album open the viewer", () => {
-    // Before 1055 setLightboxOpen(true) did not exist anywhere in this file:
-    // the album's viewer was unreachable and the single-photo post had none.
-    const opens = src().match(/setLightboxOpen\(true\)/g) ?? [];
-    expect(opens.length).toBeGreaterThanOrEqual(2);
+  it("a single tap can never fire a like — the single tap waits out the double-tap window", () => {
+    expect(hook()).toMatch(/if \(singleTimer\.current\) \{ clearTimeout\(singleTimer\.current\); singleTimer\.current = null; \}/);
   });
 
-  it("a single tap can never fire a like", () => {
-    // The open is scheduled, and a second tap inside the window cancels it and
-    // likes instead. If these two ever come apart, tapping to view a friend's
-    // photograph starts liking it.
-    expect(src()).toContain("useTapOrDoubleTap");
-    expect(src()).toMatch(/if \(pendingRef\.current\) \{ clearTimeout\(pendingRef\.current\); pendingRef\.current = null; \}/);
-  });
-
-  it("a swipe through an album does not open the viewer", () => {
+  it("a swipe through an album is not counted as a tap", () => {
     expect(src()).toContain("swipedUntilRef");
   });
 });

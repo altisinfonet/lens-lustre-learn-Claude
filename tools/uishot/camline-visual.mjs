@@ -136,7 +136,7 @@ async function shoot(browser, s) {
     const gaps = [];
     window.__camGaps = gaps;
     const tick = () => {
-      const frame = document.querySelector("#cardwrap .cursor-zoom-in");
+      const frame = document.querySelector("#cardwrap [data-feed-photo]");
       // The ROW's layout box (the Comment button's flex row), not the button:
       // since 4 Nov every row button is a 44 px box reaching 12 px UP over the
       // photo (finger target), so its own top is 12 px above the row's.
@@ -166,7 +166,7 @@ async function shoot(browser, s) {
       button: !!l?.querySelector("button"),
       expanded: l?.querySelector("button")?.getAttribute("aria-expanded") ?? null,
       location: /Location removed|owner can hide this|Location is always removed/.test(document.body.textContent ?? ""),
-      afterPhoto: l ? !!l.previousElementSibling?.querySelector(".cursor-zoom-in") : null,
+      afterPhoto: l ? !!l.previousElementSibling?.querySelector("[data-feed-photo]") : null,
       gaps: [...new Set(window.__camGaps ?? [])],
       lastGap: (window.__camGaps ?? []).at(-1) ?? null,
       // centre-to-centre distances of the slider dots, px

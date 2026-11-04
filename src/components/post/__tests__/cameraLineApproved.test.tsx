@@ -111,7 +111,7 @@ describe("no layout shift: the line's height is held only while a NEW photo's de
     await settle();
     const held = container.querySelector("[data-camera-line-reserve]") as HTMLElement;
     expect(held).not.toBeNull();
-    expect((held.previousElementSibling as HTMLElement).querySelector(".cursor-zoom-in")).not.toBeNull();
+    expect((held.previousElementSibling as HTMLElement).querySelector("[data-feed-photo]")).not.toBeNull();
     expect(container.querySelector("[data-camera-line]")).toBeNull();
   });
   it("the read FAILED → no held gap left behind", async () => {
@@ -138,7 +138,7 @@ function expectPlaced(container: HTMLElement): HTMLElement {
   const line = container.querySelector("[data-camera-line]") as HTMLElement;
   expect(line).not.toBeNull();
   const prev = line.previousElementSibling as HTMLElement;
-  expect(prev?.querySelector(".cursor-zoom-in")).not.toBeNull();
+  expect(prev?.querySelector("[data-feed-photo]")).not.toBeNull();
   const comment = screen.getByRole("button", { name: "post.comment" });
   const caption = screen.getByText(/After the Prayer/);
   expect(before(line, comment)).toBe(true);
