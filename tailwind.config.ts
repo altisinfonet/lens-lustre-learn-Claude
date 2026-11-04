@@ -1,3 +1,4 @@
+import { tailwindFontSize, tailwindSpacing } from "./src/ui/tokens";
 import type { Config } from "tailwindcss";
 
 export default {
@@ -13,6 +14,9 @@ export default {
   		}
   	},
   	extend: {
+  		/* The one tokens file: src/ui/tokens.ts. */
+  		spacing: tailwindSpacing,
+  		fontSize: tailwindFontSize,
   		colors: {
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',

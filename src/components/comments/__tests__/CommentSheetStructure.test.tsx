@@ -244,9 +244,9 @@ describe("replies", () => {
     fireEvent.click(toggle);
 
     expect(screen.getByRole("button", { name: /hide replies/i })).toHaveAttribute("aria-expanded", "true");
-    const reply = screen.getByText("Thank you").closest("[class*='ms-11']");
+    const reply = screen.getByText("Thank you").closest("[class*='ms-comment-indent']");
     expect(reply, "the indent is what says WHICH comment a reply answers").not.toBeNull();
-    expect(container.querySelectorAll("[class*='ms-11']").length).toBeGreaterThan(0);
+    expect(container.querySelectorAll("[class*='ms-comment-indent']").length).toBeGreaterThan(0);
   });
 
   it("open by themselves when a notification points at a reply (S4-b)", () => {

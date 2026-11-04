@@ -140,9 +140,9 @@ function measureInPage({ LIMITS }) {
       return lb ? lb.bottom : rr[rr.length - 1]?.bottom;
     })() : null;
     const heart = row.querySelector("button[aria-pressed]");
-    // A reply's block is indented (ml-11 before 4 Nov, ms-11 after) inside its parent's block,
+    // A reply's block is indented (ml-11 before 4 Nov, ms-11, then the ms-comment-indent token) inside its parent's block,
     // whose first child is the parent's row.
-    const isIndent = (el) => el.classList?.contains("ml-11") || el.classList?.contains("ms-11");
+    const isIndent = (el) => el.classList?.contains("ml-11") || el.classList?.contains("ms-11") || el.classList?.contains("ms-comment-indent");
     let depth = 0;
     for (let el = row.parentElement; el; el = el.parentElement) if (isIndent(el)) depth++;
     const wrapper = isIndent(row.parentElement) ? row.parentElement : null;

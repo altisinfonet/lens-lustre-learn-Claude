@@ -492,9 +492,9 @@ const CommentThread = ({
       // cannot carry a key. Without it React re-uses the wrong node when a
       // comment is deleted mid-list.
       //
-      // `ms-11` = the parent's avatar (32) + its gap (12): a reply's avatar
+      // `ms-comment-indent` (tokens.ts) = the parent's avatar (32) + its gap (12): a reply's avatar
       // starts exactly under the text it answers. Logical, so RTL mirrors it.
-      <div key={comment.id} data-comment-block="" className={depth > 0 ? "ms-11 mt-4" : ""}>
+      <div key={comment.id} data-comment-block="" className={depth > 0 ? "ms-comment-indent mt-4" : ""}>
         <div
           data-comment-id={comment.id}
           data-comment-row=""
@@ -963,7 +963,7 @@ const CommentThread = ({
             data-comment-replies-toggle=""
             aria-expanded={repliesShown}
             onClick={() => setRepliesOpen(comment.id, !repliesShown)}
-            className={`${HIT} after:inset-x-0 after:top-0 after:-bottom-4 ms-11 mt-3 flex h-4 items-center gap-5 rounded-sm text-xs font-semibold leading-4 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background`}
+            className={`${HIT} after:inset-x-0 after:top-0 after:-bottom-4 ms-comment-indent mt-3 flex h-4 items-center gap-5 rounded-sm text-xs font-semibold leading-4 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background`}
           >
             <span aria-hidden="true" className="h-px w-6 shrink-0 bg-muted-foreground/60" />
             <span className="relative before:absolute before:inset-x-0 before:-top-3 before:bottom-0 before:content-['']">
