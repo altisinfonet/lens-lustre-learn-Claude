@@ -44,7 +44,13 @@ describe("the card says what is really happening (Owner, 4 Nov 2026: online, yet
     onlineManager.setOnline(true);
     await show(0);
     expect(screen.getByText(/Posting…/)).toBeTruthy();
+    expect(screen.getByTestId("pending-post-loader")).toBeTruthy();
     expect(screen.queryByText(/Will post when online/)).toBeNull();
+  });
+
+  it("offline: no loader, because nothing is moving", async () => {
+    await show(0);
+    expect(screen.queryByTestId("pending-post-loader")).toBeNull();
   });
 
   it("online, after a failed try: 'Trying again…'", async () => {

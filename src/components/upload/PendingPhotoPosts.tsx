@@ -7,7 +7,7 @@
  */
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { onlineManager } from "@tanstack/react-query";
-import { Clock, ImageIcon } from "lucide-react";
+import { Clock, ImageIcon, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/core/useAuth";
 import { photoJobsFor, subscribePhotoJobs, type PhotoJob } from "@/lib/upload/photoJobs";
 
@@ -49,7 +49,9 @@ export default function PendingPhotoPosts() {
           <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
             <ImageIcon className="h-3.5 w-3.5" aria-hidden="true" />
             {j.slots.length === 1 ? "1 photo" : `${j.slots.length} photos`}
-            <Clock className="h-3.5 w-3.5 ml-2" aria-hidden="true" />
+            {online
+              ? <Loader2 className="h-3.5 w-3.5 ml-2 animate-spin motion-reduce:animate-none" aria-hidden="true" data-testid="pending-post-loader" />
+              : <Clock className="h-3.5 w-3.5 ml-2" aria-hidden="true" />}
             {statusWords(online, j.attempts)}
           </p>
         </div>
