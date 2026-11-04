@@ -12,6 +12,7 @@
  *   ?admin=1     the viewer is a site admin (user_roles role = admin)
  *   ?app=1       the Android shell (window.Capacitor, set before the app loads)
  *   ?w=phone     a 390 px card (else 560 px, the desktop feed column)
+ *   ?counts=L,C,S  like / comment / share counts (default 12,3,0)
  */
 import { createRoot } from "react-dom/client";
 import { Suspense, lazy } from "react";
@@ -54,12 +55,21 @@ const camera: FakeRoute = ({ method, path, body }) => {
 };
 installFakeBackend({ routes: [camera, ...fixtureRoutes], signedIn: true });
 
+/**
+ * ?counts=L,C,S — the like / comment / share counts (default 12,3,0, the
+ * Owner's screenshot). Owner report 4 Nov: the row's side-to-side spacing must
+ * follow the digits, so the row is photographed with short, long, "12.1K" and
+ * all-zero counts too.
+ */
+const [likes, comments, shares] = (q.get("counts") ?? "12,3,0").split(",").map((n) => Number(n) || 0);
+
 /** 21 minutes old, as in the Owner's screenshot — "21m" whatever the clock says. */
 const post = (id: string, content: string, img: string) =>
   ({
     id, user_id: AUTHOR, content, image_url: img, image_urls: [img], thumbnail_urls: [img],
-    created_at: new Date(Date.now() - 21 * 60_000).toISOString(), privacy: "public", like_count: 12, comment_count: 3, share_count: 0,
-    author_name: "Dipannita Sen", author_handle: "dipannita", author_avatar: null, user_reaction: null, reaction_counts: { like: 12 }, tagged_people: [],
+    created_at: new Date(Date.now() - 21 * 60_000).toISOString(), privacy: "public", like_count: likes, comment_count: comments, share_count: shares,
+    author_name: "Dipannita Sen", author_handle: "dipannita", author_avatar: null, user_reaction: null,
+    reaction_counts: likes > 0 ? { like: likes } : {}, tagged_people: [],
   }) as unknown as UnifiedPost;
 
 // ?post=c — an ALBUM of three photos (the slider dots), with camera details on photo 1.
