@@ -5,12 +5,22 @@
  * post's idempotency key, S5); the card goes when it is published, and a
  * refusal is announced by PhotoUploadBridge.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { onlineManager } from "@tanstack/react-query";
 import { Clock, ImageIcon } from "lucide-react";
 import { useAuth } from "@/hooks/core/useAuth";
 import { photoJobsFor, subscribePhotoJobs, type PhotoJob } from "@/lib/upload/photoJobs";
 
+/** What the job is really doing now: it also waits here while online, uploading or between tries. */
+function statusWords(online: boolean, attempts: number): string {
+  if (!online) return "Will post when online";
+  return attempts > 0 ? "Trying again…" : "Posting…";
+}
+
+const isOnline = () => onlineManager.isOnline();
+
 export default function PendingPhotoPosts() {
+  const online = useSyncExternalStore((fn) => onlineManager.subscribe(fn), isOnline);
   const { user } = useAuth();
   const userId = user?.id ?? null;
   const [jobs, setJobs] = useState<PhotoJob[]>([]);
@@ -40,7 +50,7 @@ export default function PendingPhotoPosts() {
             <ImageIcon className="h-3.5 w-3.5" aria-hidden="true" />
             {j.slots.length === 1 ? "1 photo" : `${j.slots.length} photos`}
             <Clock className="h-3.5 w-3.5 ml-2" aria-hidden="true" />
-            Will post when online
+            {statusWords(online, j.attempts)}
           </p>
         </div>
       ))}

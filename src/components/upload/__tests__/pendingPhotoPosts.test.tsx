@@ -5,7 +5,8 @@
  */
 import React from "react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, cleanup } from "@testing-library/react";
+import { onlineManager } from "@tanstack/react-query";
 
 // The real job store, with the two calls the card makes wrapped so a test can
 // hold a read back or fire a job event by hand.
@@ -20,8 +21,45 @@ const { memoryUploadStore } = await import("@/lib/upload/jobStore");
 const { default: PendingPhotoPosts } = await import("@/components/upload/PendingPhotoPosts");
 
 beforeEach(() => {
+  cleanup();
   jobs.__resetPhotoJobs();
   jobs.__setPhotoStore(memoryUploadStore());
+  onlineManager.setOnline(false);
+});
+
+describe("the card says what is really happening (Owner, 4 Nov 2026: online, yet 'Will post when online')", () => {
+  const job = (attempts: number) => ({
+    id: "j1", userId: "me-1", createdAt: 1, step: "encoded" as const, slots: [{} as never], attempts, nextAt: 0,
+    post: { content: "Noir", privacy: "public", categories: [], indexingDisabled: false },
+  });
+  async function show(attempts: number) {
+    const store = memoryUploadStore<import("@/lib/upload/photoJobs").PhotoJob>();
+    jobs.__setPhotoStore(store);
+    await store.putJob(job(attempts));
+    render(<PendingPhotoPosts />);
+    await screen.findByText(/Noir/);
+  }
+
+  it("online, first try: 'Posting…'", async () => {
+    onlineManager.setOnline(true);
+    await show(0);
+    expect(screen.getByText(/Posting…/)).toBeTruthy();
+    expect(screen.queryByText(/Will post when online/)).toBeNull();
+  });
+
+  it("online, after a failed try: 'Trying again…'", async () => {
+    onlineManager.setOnline(true);
+    await show(2);
+    expect(screen.getByText(/Trying again…/)).toBeTruthy();
+    expect(screen.queryByText(/Will post when online/)).toBeNull();
+  });
+
+  it("the words follow the connection without a reload", async () => {
+    await show(0);
+    expect(screen.getByText(/Will post when online/)).toBeTruthy();
+    act(() => onlineManager.setOnline(true));
+    expect(screen.getByText(/Posting…/)).toBeTruthy();
+  });
 });
 
 describe("pending photo posts", () => {
