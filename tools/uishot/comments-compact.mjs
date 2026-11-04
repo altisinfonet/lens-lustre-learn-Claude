@@ -8,7 +8,7 @@
  *
  * Instagram's comment: avatar 32 px; name + age on line 1; the text directly
  * under it; ONE small grey line ("Reply") right under the text; the heart on
- * the right, centred on the comment, its count tiny under it; ~12–16 px to the
+ * the right, level with the NAME line, its count tiny under it; ~12–16 px to the
  * next comment; replies indented under the parent behind "View N more replies".
  *
  * This photographs the REAL surfaces (commentsharness.html: the real
@@ -20,8 +20,9 @@
  *   meta → next     the Reply line (or "View replies" line) → the next
  *                   comment's avatar top                               12–16
  *   meta → toggle   Reply line → "View N more replies" line            ≤ 16
- *   heart           the heart's centre vs the comment's centre (name
- *                   top → Reply line bottom)                           |Δ| ≤ 2
+ *   heart           the heart's mark vs the NAME line, centre to centre
+ *                   (at the top for every comment length — Owner,
+ *                   4 Nov review of a long comment)                    |Δ| ≤ 2
  *   avatar          32 (top level), 24 (reply); reply indent           44
  *   overflow        no row wider than its box (320 px, long name + link)
  *
@@ -157,14 +158,18 @@ function measureInPage({ LIMITS }) {
     if (it.replyLine && it.textLast != null) rec.textToMeta = +(it.replyLine.top - it.textLast).toFixed(1);
     if (it.identity && it.p) rec.nameToText = +(r(it.p).top - r(it.identity).bottom).toFixed(1);
     if (it.heart) {
-      const top = it.identity ? r(it.identity).top : r(it.p).top;
-      const bottom = it.replyLine ? it.replyLine.bottom : r(it.p).bottom;
-      const hc = (r(it.heart).top + r(it.heart).bottom) / 2;
-      rec.heartDelta = +(hc - (top + bottom) / 2).toFixed(1);
+      // Owner, 4 Nov (review of comments-REAL-7): the heart stays at the TOP, on the
+      // NAME line, for every comment length — not centred on a long comment.
+      // The heart's visible mark (its circle) vs the name's line box, centre to centre.
+      const nameEl = it.identity?.querySelector("a, [data-unlinked]") ?? it.identity;
+      const nl = nameEl ? lineBox(nameEl) : null;
+      const mark = it.heart.querySelector("span") ?? it.heart;
+      const mc = (r(mark).top + r(mark).bottom) / 2;
+      if (nl) rec.heartDelta = +(mc - (nl.top + nl.bottom) / 2).toFixed(1);
     }
     out.rows.push(rec);
     if (rec.textToMeta != null && rec.textToMeta > LIMITS.textToMetaMax + 0.5) fail.push(`${name}: text → Reply line ${rec.textToMeta} px (≤ ${LIMITS.textToMetaMax})`);
-    if (rec.heartDelta != null && Math.abs(rec.heartDelta) > LIMITS.heartDelta) fail.push(`${name}: heart ${rec.heartDelta} px off the comment's centre (≤ ${LIMITS.heartDelta})`);
+    if (rec.heartDelta != null && Math.abs(rec.heartDelta) > LIMITS.heartDelta) fail.push(`${name}: heart ${rec.heartDelta} px off the NAME line (≤ ${LIMITS.heartDelta}; it stays at the top for every comment length)`);
     const want = it.depth > 0 ? 24 : 32;
     if (Math.abs(ar.width - want) > 0.5) fail.push(`${name}: avatar ${ar.width} px (want ${want})`);
     if (it.depth > 0) {
