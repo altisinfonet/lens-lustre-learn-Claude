@@ -420,6 +420,15 @@ Deno.serve(async (req) => {
         referencedPaths.add(`${m5[1]}-l5${m5[2]}-r320${m5[3]}`);
         referencedPaths.add(`${m5[1]}-l5${m5[2]}-thumb${m5[3]}`);
       }
+      // Feed photo set (Owner order, 4 Nov 2026): `-l6` = the 2048 copy; its
+      // siblings `-r1080` and `-thumb` (600) are ALWAYS stored. Nothing private,
+      // nothing credited. Mirrors src/lib/imageLadder.ts FEED_PHOTO_SIZES /
+      // photoSetSiblingKeys.
+      const m6 = key.match(/^(.*)-l6(\.[a-z0-9]+)$/i);
+      if (m6) {
+        referencedPaths.add(`${m6[1]}-l6-r1080${m6[2]}`);
+        referencedPaths.add(`${m6[1]}-l6-thumb${m6[2]}`);
+      }
     }
 
     // Step 2: List all files in each bucket

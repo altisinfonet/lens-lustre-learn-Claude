@@ -3,7 +3,7 @@
  *
  * Photo plan Unit A / audit B1 + B2 + M6: "the feed never loads a credited
  * file". This page makes a photo EXACTLY as the uploader does today — the
- * real encoder (`photoSetPhotoEncoder`) and the real names (`photoObjectPath`)
+ * real v3 encoder (`encodePhotoSet`) and the real names (`photoObjectPath`)
  * of the resumable post upload — and shows it in the REAL feed card
  * (PostCard → PostMedia) with the real CSS.
  *
@@ -133,13 +133,25 @@ declare global {
 }
 
 async function main() {
-  const { photoSetPhotoEncoder } = await import("@/lib/photoSetUpload");
+  const { encodePhotoSet } = await import("@/lib/photoSetEncode");
   const { photoObjectPath } = await import("@/lib/upload/photoJobs");
-  const { rungPath } = await import("@/lib/imageLadder");
+  const { rungPath, photoSetSuffix, PHOTO_SET_V3_MARKER } = await import("@/lib/imageLadder");
   const file = await sourcePhoto();
-  // The uploader's clean files (it draws no credit: credit U3); the credited 2048
-  // is what the server's renderer makes from the private clean 2048.
-  const clean = await photoSetPhotoEncoder()(file);
+  // The v3 (`-l5`) post set — what live posts made while photo_set_v2 was on
+  // still carry (since the Owner's order of 4 Nov 2026 new feed posts are `-l6`,
+  // locked in feedPhotoSet.test.ts). Built from the REAL v3 encoder (it draws no
+  // credit: credit U3); the credited 2048 is what the server's renderer makes
+  // from the private clean 2048.
+  const v3 = await encodePhotoSet(file, false);
+  if (!v3) throw new Error("harness browser has no WebP encoder");
+  const slot = (s: string) => v3.copies.find((c) => c.slot === s)!;
+  const clean = {
+    full: { blob: slot("master").file, width: slot("master").width, height: slot("master").height },
+    thumb: slot("thumb").file,
+    rungs: v3.copies.filter((c) => c.slot === "r320").map((c) => ({ rung: c.maxDimension, blob: c.file, suffix: photoSetSuffix(c.slot) })),
+    clean: slot("clean2048").file,
+    marker: PHOTO_SET_V3_MARKER,
+  };
   const k2048 = clean.clean as Blob;
   const c2048 = window.__serverCredit
     ? new Blob([Uint8Array.from(atob(await window.__serverCredit(await b64(k2048))), (ch) => ch.charCodeAt(0))], { type: "image/webp" })

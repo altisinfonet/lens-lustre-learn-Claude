@@ -5,9 +5,11 @@
  * `photoSet` (switch on for the uploading member). Names and copies are defined
  * in imageLadder.ts (PHOTO SETS, v3); the canvas work is photoSetEncode.ts.
  *
- *   POST         encode the ORIGINAL once → CLEAN 1080 (the URL the post stores)
- *                + 600 / 320, plus a PRIVATE clean 2048
- *                `<uid>/posts/<seg>-w{W}h{H}-l5.webp` (+ -thumb, -r320)
+ *   POST         (Owner order, 4 Nov 2026 — EVERY feed post, no switch) encode
+ *                the ORIGINAL once → the FEED SET, exactly 3 WebP files:
+ *                `<uid>/posts/<seg>-w{W}h{H}-l6.webp` (2048, the URL) + `-r1080`
+ *                + `-thumb` (600). No credit, no private copy, no 320: the
+ *                credit is drawn in the browser on save (photoCreditSave.ts).
  *   COMPETITION  the full-size file exactly as today (a caller-encoded WebP that
  *                metadataFreeWebp proves clean is uploaded as is; anything else is
  *                encoded at full size, q0.92, as today) → plus
@@ -30,16 +32,17 @@ import { storageUpload } from "@/lib/storageUpload";
 import { isS3Enabled, uploadPairToS3, uploadToS3 } from "@/lib/s3Upload";
 import { compressImageToFiles } from "@/lib/imageCompression";
 import { metadataFreeWebp } from "@/lib/gpsGuard";
-import { PHOTO_SET_V3_FULL_MARKER, PHOTO_SET_V3_MARKER, photoSetSuffix } from "@/lib/imageLadder";
+import { FEED_PHOTO_MARKER, PHOTO_SET_V3_FULL_MARKER, photoSetSuffix } from "@/lib/imageLadder";
 import { dimsSuffix } from "@/lib/imageFrame";
 import { logger } from "@/lib/logger";
 import { describeStoredObject } from "@/lib/media/storedObject";
-import { encodePhotoSet, type EncodedPhotoSet, type EncodedSetCopy } from "@/lib/photoSetEncode";
+import { encodeFeedPhotoSet, encodePhotoSet, type EncodedPhotoSet, type EncodedSetCopy } from "@/lib/photoSetEncode";
+import { feedPhotoEncoder } from "@/lib/feedPhotoEncoder";
 import {
   generateImagePath, isPrivateBucket, shouldUpsert,
   type UploadWithThumbnailOptions, type UploadWithThumbnailResult,
 } from "@/lib/imageUpload";
-import type { EncodedPhoto, PhotoEncoder } from "@/lib/upload/photoJobs";
+import type { PhotoEncoder } from "@/lib/upload/photoJobs";
 
 const FILE = "src/lib/photoSetUpload.ts";
 
@@ -100,9 +103,9 @@ export async function uploadPhotoSet(
       }
       set = needWebp(await encodePhotoSet(fullFile, true)).copies;
     } else {
-      set = needWebp(await encodePhotoSet(file, false)).copies;
+      set = needWebp(await encodeFeedPhotoSet(file)).copies;
       const master = set.find((c) => c.slot === "master");
-      if (!master) throw new Error("photo set has no clean 1080 master");
+      if (!master) throw new Error("feed photo set has no 2048 master");
       fullFile = master.file;
       fullDims = { width: master.width, height: master.height };
     }
@@ -119,7 +122,7 @@ export async function uploadPhotoSet(
   // ── 2. names: the marker only if every PUBLIC sibling lands ──
   const basePath = generateImagePath({ userId, type, ext: "webp", subPath });
   const dims = dimsSuffix(fullDims.width, fullDims.height);
-  const marked = basePath.replace(/\.webp$/, `${dims}${keepFull ? PHOTO_SET_V3_FULL_MARKER : PHOTO_SET_V3_MARKER}.webp`);
+  const marked = basePath.replace(/\.webp$/, `${dims}${keepFull ? PHOTO_SET_V3_FULL_MARKER : FEED_PHOTO_MARKER}.webp`);
   const unmarked = basePath.replace(/\.webp$/, `${dims}.webp`);
   const siblingParts = siblings.map((c) => ({ path: marked.replace(/\.webp$/, `${photoSetSuffix(c.slot)}.webp`), file: c.file }));
 
@@ -213,26 +216,11 @@ export async function uploadPhotoSet(
 }
 
 /**
- * The resumable photo job's encoder for the new set (photoJobs.createPhotoJob):
- * full = the CLEAN 1080 (what the post stores), thumb = 600, rungs = the 320
- * (as planned), clean = the private clean 2048, marker `-l5`. Throws when the new encoder cannot run; the composer then
- * takes the non-resumable path, which falls back to today's set by itself.
+ * The resumable photo job's encoder — since the Owner's order of 4 Nov 2026 the
+ * SAME feed set as every other feed post (photoSetEncode.feedPhotoEncoder:
+ * 2048 + 1080 + 600 under `-l6`, nothing credited, nothing private), whatever
+ * the switch answer. Kept as a function so existing callers stay as they are.
  */
 export function photoSetPhotoEncoder(): PhotoEncoder {
-  return async (file: File): Promise<EncodedPhoto> => {
-    const { copies } = needWebp(await encodePhotoSet(file, false));
-    const master = copies.find((c) => c.slot === "master");
-    const thumb = copies.find((c) => c.slot === "thumb");
-    const clean = copies.find((c) => c.slot === "clean2048");
-    if (!master || !thumb || !clean) throw new Error("photo set is incomplete");
-    return {
-      full: { blob: master.file, width: master.width, height: master.height },
-      thumb: thumb.file,
-      rungs: copies
-        .filter((c) => c.slot === "r320")
-        .map((c) => ({ rung: c.maxDimension, blob: c.file, suffix: photoSetSuffix(c.slot) })),
-      clean: clean.file,
-      marker: PHOTO_SET_V3_MARKER,
-    };
-  };
+  return feedPhotoEncoder;
 }

@@ -6,7 +6,7 @@ import { deviceContext } from "@/lib/deviceContext";
 import { useDataSaver } from "@/hooks/core/useDataSaver";
 import { fullScreenPhoto } from "@/lib/photoProtection";
 import { useOldPhotoCreditVersion } from "@/lib/photoOldCredit";
-import { layeredStyle } from "@/lib/photoSaveTarget";
+import { feedSetSaveMenu, layeredStyle } from "@/lib/photoSaveTarget";
 
 /**
  * THE ONE ZOOMABLE PHOTOGRAPH. Build 1055.
@@ -137,6 +137,8 @@ const ZoomableImage = ({ src: given, alt = "", className, wrapperClassName = "w-
   const [saveAsFailed, setSaveAsFailed] = useState<string | null>(null);
   const layered = !!saveAs && saveAsFailed !== saveAs;
   const src = layered ? (saveAs as string) : shown;
+  // A feed set photo (-l6) has no stored credited copy: its save DRAWS the credit (photoSaveTarget).
+  const drawnSave = feedSetSaveMenu(given);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
@@ -418,6 +420,10 @@ const ZoomableImage = ({ src: given, alt = "", className, wrapperClassName = "w-
           // a large original does not repaint the whole viewer every frame —
           // SPEC §1's "no lag on high-resolution photographs".
           willChange: "transform",
+          // A feed set photo (-l6): iPhone Safari's long-press "Save to Photos"
+          // sends no contextmenu and would save the CLEAN 2048. Switch that
+          // callout off; right-click / Android long-press go to drawnSave.
+          ...(drawnSave ? { WebkitTouchCallout: "none" as const } : {}),
           // THE OPT-IN, and it is exactly one photograph wide. Everything else
           // in the app is pan-x pan-y (inside the installed app) and untouched
           // on the web. When gestures have failed we hand touch handling back
@@ -452,6 +458,7 @@ const ZoomableImage = ({ src: given, alt = "", className, wrapperClassName = "w-
           }
         }}
         {...imgProps}
+        {...(drawnSave ? { onContextMenu: (e: React.MouseEvent<HTMLImageElement>) => { imgProps?.onContextMenu?.(e); drawnSave(e); } } : {})}
       />
     </div>
   );
