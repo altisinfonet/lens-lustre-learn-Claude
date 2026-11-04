@@ -883,7 +883,7 @@ const Index = () => {
                         if (!media.imageUrls[0]) return null;
                         return (
                           <div className="h-36 md:h-44 rounded-md overflow-hidden bg-muted mb-2.5">
-                            <img loading="lazy" decoding="async" src={media.imageUrls[0]} alt="" className="w-full h-full object-cover" />
+                            <img loading="lazy" decoding="async" src={memberPhotoSrc(media.imageUrls[0], 600) ?? undefined} alt="" className="w-full h-full object-cover" />
                           </div>
                         );
                       })()}

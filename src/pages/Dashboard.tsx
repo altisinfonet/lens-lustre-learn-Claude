@@ -45,6 +45,7 @@ import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { useT } from "@/i18n/I18nContext";
+import { memberPhotoSrc } from "@/lib/photoProtection";
 /* ───── animation helpers ───── */
 /*
  * F-99 — STARTS VISIBLE, AND KEEPS ITS EXIT. A tab panel is page body: it is
@@ -471,7 +472,7 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
           {myEntries.slice(0, 4).map((entry: MyCompEntry) => (
             <Link key={entry.id} to={`/competitions/${entry.competition_slug || entry.competition_id}`} className="flex items-center gap-3 p-3 hover:bg-muted/30 transition-colors group">
               {entry.photos.length > 0 && (
-                <img src={entry.photos[0]} alt={entry.title} className="w-10 h-10 rounded-lg object-cover shrink-0 border border-border/50" loading="lazy" onContextMenu={(e) => e.preventDefault()} draggable={false} data-watermark="skip" />
+                <img src={memberPhotoSrc(entry.photos[0], 320) ?? undefined} alt={entry.title} className="w-10 h-10 rounded-lg object-cover shrink-0 border border-border/50" loading="lazy" onContextMenu={(e) => e.preventDefault()} draggable={false} data-watermark="skip" />
               )}
               <div className="flex-1 min-w-0">
                 <h4 className="text-xs font-light truncate" style={{ fontFamily: "var(--font-display)" }}>{entry.title}</h4>
@@ -928,7 +929,7 @@ const SubmissionsTab = ({ myEntries, statusFilter, setStatusFilter, statusCounts
                     {/* Show cover image or first entry photo as fallback */}
                     {(group.competition_cover || firstPhoto) ? (
                       <img
-                        src={group.competition_cover || firstPhoto}
+                        src={group.competition_cover || (memberPhotoSrc(firstPhoto, 600) ?? undefined)}
                         alt={group.competition_title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                         loading="lazy"
@@ -1044,7 +1045,7 @@ const SubmissionsTab = ({ myEntries, statusFilter, setStatusFilter, statusCounts
                   >
                     {entry.photos[0] && (
                       <img
-                        src={entry.photos[0]}
+                        src={memberPhotoSrc(entry.photos[0], 320) ?? undefined}
                         alt={entry.title}
                         className="h-12 w-12 object-cover border border-border"
                         loading="lazy"
