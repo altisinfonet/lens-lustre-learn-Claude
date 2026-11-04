@@ -194,6 +194,16 @@ export function photoSaveProps(src: string, credited: string | null | undefined)
   return drawsCreditOnSave(src) ? drawnCreditSaveProps(src) : creditedSaveProps(credited);
 }
 
+/**
+ * FULL SCREEN (ZoomableImage) of a feed set photo: the context-menu handler that
+ * replaces the browser's menu (it would save the clean 2048) with the drawn-credit
+ * save. Only the menu — full screen's pointer events belong to pinch / pan.
+ * Null for every other photo (they keep their layered credited copy).
+ */
+export function feedSetSaveMenu(src: string): ((e: React.MouseEvent<HTMLImageElement>) => void) | null {
+  return drawsCreditOnSave(src) ? (drawnCreditSaveProps(src).onContextMenu ?? null) : null;
+}
+
 function drawnCreditSaveProps(src: string): ReturnType<typeof creditedSaveProps> {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let start: { x: number; y: number } | null = null;

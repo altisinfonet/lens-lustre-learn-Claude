@@ -170,8 +170,8 @@ export type PhotoSetMarker = "-l4" | "-l4f" | "-l5" | "-l5f" | "-l6";
  */
 export const FEED_PHOTO_SIZES = [2048, 1080, 600] as const;
 export type FeedPhotoSize = (typeof FEED_PHOTO_SIZES)[number];
-/** The feed photo set's marker. */
-export const FEED_PHOTO_MARKER = "-l6";
+/** The feed photo set's marker and THE predicate every worker/route uses to refuse it (plain ESM, shared with Node). */
+export { FEED_PHOTO_MARKER, isFeedPhotoSet } from "./feedPhotoSet.mjs";
 
 /** A feed set size's slot: the largest is the URL itself, the smallest the `-thumb`, the rest `-r<size>`. */
 export function feedPhotoSlot(size: FeedPhotoSize): "master" | "thumb" | "r1080" {

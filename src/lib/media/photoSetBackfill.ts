@@ -21,7 +21,7 @@
  * The SQL (`photo_set_backfill_*`, 20261110_0101) spells the same names; the
  * fixture checks the same examples on both lane shapes.
  */
-import { PHOTO_SET_QUALITY } from "../imageLadder";
+import { PHOTO_SET_QUALITY, isFeedPhotoSet } from "../imageLadder";
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 /** post-images/<owner uuid>/[folders/]<name>.webp — nothing else is a backfill source. */
@@ -38,7 +38,8 @@ export function isBackfillSlot(s: unknown): s is BackfillSlot {
 export function isBackfillSource(key: string): boolean {
   if (!SOURCE_RE.test(key) || key.includes("..")) return false;
   if (key.split("/")[2] === "d") return false; // the S3 derivative folder
-  if (/-l(?:[45]f?|6)(?:-thumb|-r\d{3,4}c?)?\.webp$/i.test(key)) return false; // already a set (v2, v3 from Unit A, or the -l6 feed set)
+  if (isFeedPhotoSet(key)) return false; // the -l6 feed set: already final, never a backfill source
+  if (/-l[45]f?(?:-thumb|-r\d{3,4}c?)?\.webp$/i.test(key)) return false; // already a set (v2, or v3 from Unit A)
   if (/-thumb\.webp$/i.test(key) || /-l3-r\d{3,4}\.webp$/i.test(key)) return false; // a copy, not a photo
   return true;
 }

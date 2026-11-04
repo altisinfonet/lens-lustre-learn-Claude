@@ -6,7 +6,7 @@ import { deviceContext } from "@/lib/deviceContext";
 import { useDataSaver } from "@/hooks/core/useDataSaver";
 import { fullScreenPhoto } from "@/lib/photoProtection";
 import { useOldPhotoCreditVersion } from "@/lib/photoOldCredit";
-import { layeredStyle } from "@/lib/photoSaveTarget";
+import { feedSetSaveMenu, layeredStyle } from "@/lib/photoSaveTarget";
 
 /**
  * THE ONE ZOOMABLE PHOTOGRAPH. Build 1055.
@@ -137,6 +137,8 @@ const ZoomableImage = ({ src: given, alt = "", className, wrapperClassName = "w-
   const [saveAsFailed, setSaveAsFailed] = useState<string | null>(null);
   const layered = !!saveAs && saveAsFailed !== saveAs;
   const src = layered ? (saveAs as string) : shown;
+  // A feed set photo (-l6) has no stored credited copy: its save DRAWS the credit (photoSaveTarget).
+  const drawnSave = feedSetSaveMenu(given);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
@@ -452,6 +454,7 @@ const ZoomableImage = ({ src: given, alt = "", className, wrapperClassName = "w-
           }
         }}
         {...imgProps}
+        {...(drawnSave ? { onContextMenu: (e: React.MouseEvent<HTMLImageElement>) => { imgProps?.onContextMenu?.(e); drawnSave(e); } } : {})}
       />
     </div>
   );
