@@ -161,7 +161,7 @@ const CompetitionLightbox = memo(({
           {/* Next */}
           <button
             onClick={(e) => { e.stopPropagation(); onNext(); }}
-            className="absolute right-3 md:right-6 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full bg-muted/40 hover:bg-muted/70 flex items-center justify-center text-foreground transition-all"
+            className={`absolute right-3 md:right-6 ${competitionPhase === "result" ? "lg:right-[384px] xl:right-[424px]" : ""} top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full bg-muted/40 hover:bg-muted/70 flex items-center justify-center text-foreground transition-all`}
             aria-label="Next"
           >
             <ChevronRight className="h-6 w-6" />
@@ -412,7 +412,7 @@ const CompetitionLightbox = memo(({
                   </span>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4">
-                  <ImageEngagement imageType="competition_entry" imageId={current.entryId} photoIndex={current.photoIndex} />
+                  <ImageEngagement panelScrolls imageType="competition_entry" imageId={current.entryId} photoIndex={current.photoIndex} />
                 </div>
               </div>
             )}

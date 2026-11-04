@@ -1,15 +1,27 @@
-import { useState, useEffect, useCallback } from "react";
-import { Link } from "react-router-dom";
-import { Heart, ThumbsUp, Vote, MessageCircle, Send, Flag, Trash2, ChevronDown, ChevronUp, Loader2, AlertTriangle } from "lucide-react";
-import RichContentRenderer from "@/components/RichContentRenderer";
-import MentionInput from "@/components/MentionInput";
+/**
+ * Likes and comments on one PHOTOGRAPH (competition lightbox, entry card, entry
+ * page, photo viewer).
+ *
+ * The comments are a DATA ADAPTER, NOT A THIRD COMMENT LIST (central-control
+ * plan C2, 4 Nov 2026). This file used to draw its own row, with its own raw
+ * avatar, indent and tap sizes, next to the one every other surface shares
+ * (src/components/comments/CommentThread.tsx). It now keeps only what is really
+ * different about `image_comments`: scoped to one photo of an entity, no
+ * per-comment likes, one level of replies, and no editing, because this table's
+ * moderation (blocklist trigger, moderate-comment) runs on INSERT only.
+ */
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Heart, ThumbsUp, MessageCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchProfileMap } from "@/lib/profileMapCache";
 import { useAuth } from "@/hooks/core/useAuth";
+import { useProfileCore } from "@/hooks/profile/useProfileData";
 import { toast } from "@/hooks/core/use-toast";
 import { moderateComment } from "@/lib/commentModeration";
 import { motion, AnimatePresence } from "framer-motion";
-import UserIdentityBlock from "@/components/UserIdentityBlock";
+import CommentThread from "@/components/comments/CommentThread";
+import CommentComposer from "@/components/comments/CommentComposer";
+import { toThread, type ImageComment } from "@/components/comments/imageCommentThread";
 import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
 import { convertEmojiShortcuts } from "@/lib/emoji";
 
@@ -19,6 +31,8 @@ interface Props {
   /** Per-photo scoping. Defaults to 0 when omitted (single-photo entities). */
   photoIndex?: number;
   compact?: boolean;
+  /** The surface around this already scrolls (the lightbox panel), so the thread takes its full height. */
+  panelScrolls?: boolean;
 }
 
 interface Reaction {
@@ -27,43 +41,24 @@ interface Reaction {
   userReacted: boolean;
 }
 
-interface Comment {
-  id: string;
-  user_id: string;
-  content: string;
-  parent_id: string | null;
-  created_at: string;
-  profile_name: string | null;
-  avatar_url: string | null;
-  /** F-95 — the name-URL handle, carried beside the name it belongs to. */
-  author_handle: string | null;
-  badges: string[];
-  is_pinned?: boolean;
-  is_admin_seed?: boolean;
-  replies?: Comment[];
-}
-
 const REACTION_CONFIG = [
   { type: "like", icon: ThumbsUp, label: "Like", activeClass: "text-primary" },
   { type: "love", icon: Heart, label: "Love", activeClass: "text-destructive" },
 ];
 
-const ImageEngagement = ({ imageType, imageId, photoIndex = 0, compact }: Props) => {
+const ImageEngagement = ({ imageType, imageId, photoIndex = 0, panelScrolls = false }: Props) => {
   const { user } = useAuth();
+  const { data: viewer } = useProfileCore(user?.id);
   const [reactions, setReactions] = useState<Record<string, Reaction>>({});
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [comments, setComments] = useState<ImageComment[]>([]);
+  const threadComments = useMemo(() => comments.map(toThread), [comments]);
   const [showComments, setShowComments] = useState(false);
   /** `true` while the comments panel's height animation is moving. The clip on
    *  that panel is bound to it, so it stops clipping the @mention list once the
    *  panel has arrived — see the note on the box, and the longer one in
    *  PostCommentsSection.tsx. */
   const [commentsRolling, setCommentsRolling] = useState(true);
-  const [newComment, setNewComment] = useState("");
-  const [replyTo, setReplyTo] = useState<string | null>(null);
-  const [replyText, setReplyText] = useState("");
   const [posting, setPosting] = useState(false);
-  const [reportingId, setReportingId] = useState<string | null>(null);
-  const [reportReason, setReportReason] = useState("");
   const [commentCount, setCommentCount] = useState(0);
 
   const fetchReactions = useCallback(async () => {
@@ -117,8 +112,8 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, compact }: Props)
     }));
 
     // Build thread tree
-    const rootComments: Comment[] = [];
-    const replyMap = new Map<string, Comment[]>();
+    const rootComments: ImageComment[] = [];
+    const replyMap = new Map<string, ImageComment[]>();
     for (const c of withProfiles) {
       if (c.parent_id) {
         if (!replyMap.has(c.parent_id)) replyMap.set(c.parent_id, []);
@@ -171,18 +166,19 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, compact }: Props)
     }));
   };
 
-  const submitComment = async (content: string, parentId: string | null = null) => {
-    if (!user) { toast({ title: "Please login to comment" }); return; }
+  /** true when the comment was saved, so the composer knows to clear. */
+  const submitComment = async (content: string, parentId: string | null = null): Promise<boolean> => {
+    if (!user) { toast({ title: "Please login to comment" }); return false; }
     // Trailing emoji shortcut (`... <3` with nothing after it) — the case the
     // typing-time conversion in MentionInput cannot see. See src/lib/emoji.ts.
     const trimmed = convertEmojiShortcuts(content.trim());
-    if (!trimmed) return;
+    if (!trimmed) return false;
 
     // Client-side moderation
     const modResult = moderateComment(trimmed);
     if (!modResult.allowed) {
       toast({ title: "Comment blocked", description: modResult.reason, variant: "destructive" });
-      return;
+      return false;
     }
 
     setPosting(true);
@@ -198,9 +194,6 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, compact }: Props)
     if (error) {
       toast({ title: "Failed to post comment", description: error.message, variant: "destructive" });
     } else {
-      setNewComment("");
-      setReplyText("");
-      setReplyTo(null);
       fetchComments();
 
       // Trigger AI moderation in background (non-blocking)
@@ -211,26 +204,21 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, compact }: Props)
       }
     }
     setPosting(false);
+    return !error;
   };
 
-  const reportComment = async (commentId: string) => {
+  const reportComment = async (commentId: string, reason: string) => {
     if (!user) return;
-    if (!reportReason.trim()) {
-      toast({ title: "Please select a reason", variant: "destructive" });
-      return;
-    }
     const { error } = await supabase.from("comment_reports").insert({
       comment_id: commentId,
       reporter_id: user.id,
-      reason: reportReason,
+      reason,
     });
     if (error) {
       toast({ title: "Report failed", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Report submitted", description: "Admin will review this comment." });
     }
-    setReportingId(null);
-    setReportReason("");
   };
 
   const deleteComment = async (commentId: string) => {
@@ -240,110 +228,6 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, compact }: Props)
       fetchComments();
     }
   };
-
-  const timeAgo = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins}m`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h`;
-    const days = Math.floor(hrs / 24);
-    if (days < 30) return `${days}d`;
-    return new Date(dateStr).toLocaleDateString();
-  };
-
-  const renderComment = (comment: Comment, isReply = false) => (
-    <div key={comment.id} className={`${isReply ? "ml-6 border-l border-border/50 pl-3" : ""} ${comment.is_pinned ? "bg-primary/5 rounded-sm p-1.5 -mx-1.5" : ""}`}>
-      <div className="group flex gap-2 py-2">
-        <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0 text-[9px] font-medium text-muted-foreground uppercase">
-          {comment.avatar_url ? (
-            <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={comment.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" />
-          ) : (
-            comment.profile_name?.[0] || "?"
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <UserIdentityBlock
-              userId={comment.user_id}
-              name={comment.profile_name}
-              handle={comment.author_handle}
-              nameClassName="text-[10px] font-medium hover:text-primary hover:underline transition-colors"
-            />
-            <span className="text-[9px] text-muted-foreground">{timeAgo(comment.created_at)}</span>
-            {comment.is_pinned && <span className="text-[8px] text-primary">📌</span>}
-            {comment.is_admin_seed && <span className="text-[8px] text-primary/70">★</span>}
-          </div>
-          <p className="text-xs text-foreground/90 mt-0.5 break-words" style={{ fontFamily: "var(--font-body)" }}>
-            <RichContentRenderer content={comment.content} />
-          </p>
-          <div className="flex items-center gap-3 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            {user && !isReply && (
-              <button onClick={() => setReplyTo(replyTo === comment.id ? null : comment.id)}
-                className="text-[9px] text-muted-foreground hover:text-primary transition-colors">
-                Reply
-              </button>
-            )}
-            {user && comment.user_id !== user.id && (
-              <button onClick={() => setReportingId(comment.id)}
-                className="text-[9px] text-muted-foreground hover:text-destructive transition-colors flex items-center gap-0.5">
-                <Flag className="h-2.5 w-2.5" /> Report
-              </button>
-            )}
-            {user && comment.user_id === user.id && (
-              <button onClick={() => deleteComment(comment.id)}
-                className="text-[9px] text-muted-foreground hover:text-destructive transition-colors flex items-center gap-0.5">
-                <Trash2 className="h-2.5 w-2.5" /> Delete
-              </button>
-            )}
-          </div>
-
-          {/* Report Modal */}
-          {reportingId === comment.id && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-2 p-2 border border-border rounded-sm space-y-2">
-              <span className="text-[9px] text-muted-foreground uppercase tracking-wider" style={{ fontFamily: "var(--font-heading)" }}>Report reason</span>
-              <div className="flex flex-wrap gap-1.5">
-                {["Inappropriate", "Spam", "Harassment", "Nudity", "Hate Speech"].map(r => (
-                  <button key={r} onClick={() => setReportReason(r)}
-                    className={`text-[9px] px-2 py-1 border rounded-sm transition-all ${reportReason === r ? "border-destructive text-destructive bg-destructive/5" : "border-border text-muted-foreground"}`}>
-                    {r}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => reportComment(comment.id)}
-                  className="text-[9px] px-3 py-1 bg-destructive text-destructive-foreground rounded-sm hover:opacity-90">
-                  Submit Report
-                </button>
-                <button onClick={() => { setReportingId(null); setReportReason(""); }}
-                  className="text-[9px] px-3 py-1 border border-border rounded-sm text-muted-foreground">
-                  Cancel
-                </button>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Reply Input */}
-          {replyTo === comment.id && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-2 flex gap-2">
-              <MentionInput
-                value={replyText}
-                onChange={setReplyText}
-                onSubmit={() => submitComment(replyText, comment.id)}
-                placeholder="Write a reply…"
-                disabled={posting}
-                className="bg-transparent border-b border-border focus:border-primary rounded-none px-0 text-xs"
-              />
-            </motion.div>
-          )}
-        </div>
-      </div>
-
-      {/* Replies */}
-      {comment.replies?.map(reply => renderComment(reply, true))}
-    </div>
-  );
 
   return (
     <div className="w-full">
@@ -399,31 +283,44 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, compact }: Props)
             onAnimationComplete={() => setCommentsRolling(false)}
             className={`mt-2 ${commentsRolling ? "overflow-hidden" : ""}`}
           >
-            {/* New Comment Input */}
+            {/* New Comment Input: the one shared composer */}
             {user ? (
-              <div className="flex gap-2 mb-3">
-                <MentionInput
-                  value={newComment}
-                  onChange={setNewComment}
-                  onSubmit={() => submitComment(newComment)}
-                  placeholder="Add a comment…"
-                  disabled={posting}
+              <div className="mb-3">
+                <CommentComposer
+                  currentUserId={user.id}
+                  viewer={viewer ?? null}
+                  submitting={posting}
                   maxLength={2200}
-                  className="bg-transparent border-b border-border focus:border-primary rounded-none px-0 text-xs"
+                  onSubmit={(content) => submitComment(content)}
                 />
               </div>
             ) : (
               <p className="text-[10px] text-muted-foreground mb-3 italic">Login to comment</p>
             )}
 
-            {/* Comments List */}
-            <div className="max-h-64 overflow-y-auto space-y-0.5 pr-1">
-              {comments.length === 0 ? (
-                <p className="text-[10px] text-muted-foreground py-2">No comments yet. Be the first!</p>
-              ) : (
-                comments.map(c => renderComment(c))
-              )}
-            </div>
+            {/* Comments List: the one shared thread. -mx-3 takes back its own side padding. */}
+            {comments.length === 0 ? (
+              <p className="text-[10px] text-muted-foreground py-2">No comments yet. Be the first!</p>
+            ) : (
+              <div className={panelScrolls ? "-mx-3" : "-mx-3 max-h-64 overflow-y-auto"}>
+                <CommentThread
+                  comments={threadComments}
+                  loading={false}
+                  currentUserId={user?.id ?? null}
+                  viewer={viewer ?? null}
+                  isAdmin={false}
+                  submitting={posting}
+                  maxLength={2200}
+                  maxReplyDepth={1}
+                  hideComposer
+                  features={{ reactions: false, pinning: false, reporting: true, sorting: false, editing: false }}
+                  onAdd={(content, parentId) => submitComment(content, parentId)}
+                  onEdit={async () => false}
+                  onDelete={deleteComment}
+                  onReport={reportComment}
+                />
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

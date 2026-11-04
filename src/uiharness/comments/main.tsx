@@ -12,11 +12,15 @@
  *   ?surface=entry   the REAL CommentsSection (competition entry / journal
  *                    article), reading the `comments` table — the surface that
  *                    used to draw its own bubble row.
+ *   ?surface=image   the REAL ImageEngagement (EntryCard, EntryDetail, Lightbox,
+ *                    MyPhotos), reading `image_comments`
+ *   ?surface=lightbox  the REAL CompetitionLightbox with its comments panel
+ *                    (the panel shows in the "result" phase only)
  *   ?thread=owner|replies|long   which comments (see THREADS below)
  *   ?app=1           the Android shell (window.Capacitor, set before the app loads)
  */
 import { createRoot } from "react-dom/client";
-import { Suspense, lazy, useEffect } from "react";
+import { Suspense, lazy, useEffect, type ComponentProps } from "react";
 import { installFakeBackend, HARNESS_USER_ID, type FakeRoute } from "../fakeBackend";
 import { fixtureRoutes } from "../fixtureRoutes";
 import "../../index.css";
@@ -119,6 +123,15 @@ const comments: FakeRoute = ({ method, path, params }) => {
         .filter((x) => !mineOnly || x.user_id === HARNESS_USER_ID),
     };
   }
+  // A photograph's thread (ImageEngagement): `image_comments`, no per-comment likes.
+  if (path === "/rest/v1/image_comments") {
+    return {
+      body: ROWS.map((r) => ({
+        id: r.id, user_id: r.user_id, content: r.content, created_at: r.created_at, parent_id: r.parent_id, is_pinned: false, is_admin_seed: false,
+      })),
+    };
+  }
+  if (path === "/rest/v1/image_reactions") return { body: [] };
   if (path === "/rest/v1/profiles_public_data") {
     const want = idsIn(params, "id");
     const mine = PEOPLE.filter((p) => !want || want.has(p.id));
@@ -150,6 +163,14 @@ const post = {
 const AppShell = lazy(() => import("../AppShell"));
 const CommentsOverlay = lazy(() => import("@/components/comments/CommentsOverlay"));
 const CommentsSection = lazy(() => import("@/components/CommentsSection"));
+const ImageEngagement = lazy(() => import("@/components/ImageEngagement"));
+const CompetitionLightbox = lazy(() => import("@/components/CompetitionLightbox"));
+
+const LIGHTBOX_PHOTOS = [{
+  entryId: ENTRY_ID, entryTitle: "Mossy Roots", photographerName: "Dipannita Sen", photographerHandle: "dipannita",
+  photoUrl: PHOTO, thumbnailUrl: PHOTO, photoIndex: 0, totalPhotos: 1, voteCount: 12, userVoted: false, userId: OWNER_ID,
+}] satisfies ComponentProps<typeof CompetitionLightbox>["images"];
+const nothing = () => {};
 
 /** Opens the overlay the way a feed card's comment button does. */
 function OpenOnMount() {
@@ -164,7 +185,16 @@ createRoot(document.getElementById("root")!).render(
   <Suspense fallback={<p>loading…</p>}>
     <AppShell route="/feed" path="/feed" withLayout={false}>
       <CommentsOverlayProvider>
-        {surface === "entry" ? (
+        {surface === "lightbox" ? (
+          <CompetitionLightbox
+            images={LIGHTBOX_PHOTOS} currentIndex={0} isOpen onClose={nothing} onPrev={nothing} onNext={nothing} onVote={nothing}
+            competitionPhase="result"
+          />
+        ) : surface === "image" ? (
+          <div id="entrywrap" style={{ maxWidth: 720, margin: "0 auto", padding: 16 }}>
+            <ImageEngagement imageType="competition_entry" imageId={ENTRY_ID} />
+          </div>
+        ) : surface === "entry" ? (
           <div id="entrywrap" style={{ maxWidth: 720, margin: "0 auto", padding: 16 }}>
             <CommentsSection entryId={ENTRY_ID} />
           </div>
