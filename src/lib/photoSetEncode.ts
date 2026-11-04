@@ -17,7 +17,7 @@
  * falls back to today's set, so a post is never lost to this encoder.
  */
 import { decodeImageForCanvas } from "@/lib/imageCompression";
-import { photoSetPlan, photoSetSuffix, type PhotoSetCopy } from "@/lib/imageLadder";
+import { feedPhotoPlan, photoSetPlan, photoSetSuffix, type PhotoSetCopy } from "@/lib/imageLadder";
 
 export interface EncodedSetCopy extends PhotoSetCopy {
   file: File;
@@ -53,13 +53,22 @@ const WEBP = "image/webp";
 
 /** Null = this browser cannot make the set (no real WebP encoder); use today's path. */
 export async function encodePhotoSet(file: File, keepFull: boolean): Promise<EncodedPhotoSet | null> {
+  return encodeCopies(file, (w, h) => photoSetPlan(w, h, keepFull));
+}
+
+/** The FEED photo set (imageLadder.FEED_PHOTO_SIZES: 2048 / 1080 / 600, all clean) from one decode. Null = no real WebP encoder. */
+export async function encodeFeedPhotoSet(file: File): Promise<EncodedPhotoSet | null> {
+  return encodeCopies(file, () => feedPhotoPlan());
+}
+
+async function encodeCopies(file: File, plan: (width: number, height: number) => PhotoSetCopy[]): Promise<EncodedPhotoSet | null> {
   const img = await decodeImageForCanvas(file);
   const source = { width: img.width, height: img.height };
   if (!(source.width > 0 && source.height > 0)) throw new Error("decoded image has no size");
   const base = file.name.replace(/\.[^.]+$/, "") || "photo";
   const copies: EncodedSetCopy[] = [];
   try {
-    for (const c of photoSetPlan(source.width, source.height, keepFull)) {
+    for (const c of plan(source.width, source.height)) {
       const { width, height } = fitInside(source.width, source.height, c.maxDimension);
       const canvas = document.createElement("canvas");
       canvas.width = width;

@@ -290,7 +290,10 @@ export async function uploadImageWithThumbnail(
   // U1b: the new set, only when the caller says photo_set_v2 is on. Loaded on
   // demand so the switch-off path does not even fetch it. `null` = the new
   // encoder could not run on this photo/device: today's path below, unchanged.
-  if (opts.photoSet && (opts.type === "post" || opts.type === "competition")) {
+  // FEED POSTS (Owner order, 4 Nov 2026): ALWAYS the feed set — 2048 + 1080 + 600
+  // under `-l6`, whatever the switch says (imageLadder.FEED_PHOTO_SIZES). The
+  // code below is then only the fallback for a device whose encoder refuses.
+  if (opts.type === "post" || (opts.photoSet && opts.type === "competition")) {
     const { uploadPhotoSet } = await import("@/lib/photoSetUpload");
     const v2 = await uploadPhotoSet(opts);
     if (v2) return v2;

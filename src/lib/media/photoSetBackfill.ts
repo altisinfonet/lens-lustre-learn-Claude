@@ -38,7 +38,7 @@ export function isBackfillSlot(s: unknown): s is BackfillSlot {
 export function isBackfillSource(key: string): boolean {
   if (!SOURCE_RE.test(key) || key.includes("..")) return false;
   if (key.split("/")[2] === "d") return false; // the S3 derivative folder
-  if (/-l[45]f?(?:-thumb|-r\d{3,4}c?)?\.webp$/i.test(key)) return false; // already a set (v2, or v3 from Unit A)
+  if (/-l(?:[45]f?|6)(?:-thumb|-r\d{3,4}c?)?\.webp$/i.test(key)) return false; // already a set (v2, v3 from Unit A, or the -l6 feed set)
   if (/-thumb\.webp$/i.test(key) || /-l3-r\d{3,4}\.webp$/i.test(key)) return false; // a copy, not a photo
   return true;
 }

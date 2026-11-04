@@ -144,7 +144,41 @@ export function rungWidthFor(rung: number, w: number, h: number): number {
  * are untouched by all of this.
  */
 export type PhotoSetSize = 2048 | 1080 | 600 | 320;
-export type PhotoSetMarker = "-l4" | "-l4f" | "-l5" | "-l5f";
+export type PhotoSetMarker = "-l4" | "-l4f" | "-l5" | "-l5f" | "-l6";
+
+/**
+ * ═════════════════════════════════════════════════════════════════════════════
+ * FEED PHOTO SET — `-l6` (Owner order, 4 Nov 2026). THE CODE PATH FOR EVERY
+ * FEED POST: no switch decides it (photo_set_v2 still decides competition only).
+ * ═════════════════════════════════════════════════════════════════════════════
+ *
+ * EXACTLY THREE stored WebP files, the sizes below — THE ONE LIST. The uploader
+ * (photoSetUpload / photoJobs), the display (photoProtection.feedPhotoSet: srcset
+ * 600 small · 1080 phones · 2048 big screens), the URL helper and the deletion
+ * derivation all read it; change a number here and every one follows.
+ *
+ *   `…-w{W}h{H}-l6.webp`        the 2048 copy (long edge ≤ 2048; a smaller photo
+ *                               its own size — never upscaled). W×H = THIS file.
+ *   `…-w{W}h{H}-l6-r1080.webp`  the 1080 copy — ALWAYS stored (a small photo's
+ *                               1080 is its own size), so siblings never depend
+ *                               on dimensions
+ *   `…-w{W}h{H}-l6-thumb.webp`  the 600 copy (recorded in thumbnail_urls too)
+ *
+ * NO CREDIT IS STORED, anywhere: no `-r2048c`, no private clean 2048, no 320,
+ * no 1440, no 2560 "original". The credit is drawn in the BROWSER at the moment
+ * someone saves the photo (src/lib/photoCreditSave.ts, CREDIT_GEOMETRY_V5).
+ */
+export const FEED_PHOTO_SIZES = [2048, 1080, 600] as const;
+export type FeedPhotoSize = (typeof FEED_PHOTO_SIZES)[number];
+/** The feed photo set's marker. */
+export const FEED_PHOTO_MARKER = "-l6";
+
+/** A feed set size's slot: the largest is the URL itself, the smallest the `-thumb`, the rest `-r<size>`. */
+export function feedPhotoSlot(size: FeedPhotoSize): "master" | "thumb" | "r1080" {
+  if (size === FEED_PHOTO_SIZES[0]) return "master";
+  if (size === FEED_PHOTO_SIZES[FEED_PHOTO_SIZES.length - 1]) return "thumb";
+  return `r${size}` as "r1080";
+}
 
 /** v2 (read only): posts, the URL is the credited 2048 copy. */
 export const PHOTO_SET_MARKER = "-l4";
@@ -200,6 +234,11 @@ export function photoSetPlan(width: number, height: number, keepFull: boolean): 
   return plan;
 }
 
+/** The feed set's three copies (FEED_PHOTO_SIZES), largest first; all clean, all public. */
+export function feedPhotoPlan(): PhotoSetCopy[] {
+  return FEED_PHOTO_SIZES.map((size) => ({ slot: feedPhotoSlot(size), maxDimension: size, quality: PHOTO_SET_QUALITY[size], credit: false }));
+}
+
 /** The file-name suffix of a slot ("" for the URL itself). */
 export function photoSetSuffix(slot: PhotoSetSlot): string {
   if (slot === "master") return "";
@@ -209,8 +248,14 @@ export function photoSetSuffix(slot: PhotoSetSlot): string {
   return `-${slot}`;
 }
 
-const SET_RE = /^(.*)-w(\d{1,6})h(\d{1,6})(-l[45]f?)(?:-thumb|-r\d{3,4}c?)?(\.[a-z0-9]+)((?:[?#].*)?)$/i;
-const SET_NODIMS_RE = /^(.*)(-l[45]f?)(?:-thumb|-r\d{3,4}c?)?(\.[a-z0-9]+)((?:[?#].*)?)$/i;
+const SET_RE = /^(.*)-w(\d{1,6})h(\d{1,6})(-l[45]f?|-l6)(?:-thumb|-r\d{3,4}c?)?(\.[a-z0-9]+)((?:[?#].*)?)$/i;
+const SET_NODIMS_RE = /^(.*)(-l[45]f?|-l6)(?:-thumb|-r\d{3,4}c?)?(\.[a-z0-9]+)((?:[?#].*)?)$/i;
+
+/** A feed set (`-l6`) copy for `size`: the smallest stored size that covers it (320 → the 600). */
+function feedSetSuffix(size: PhotoSetSize): string {
+  const covering = [...FEED_PHOTO_SIZES].reverse().find((s) => s >= size) ?? FEED_PHOTO_SIZES[0];
+  return photoSetSuffix(feedPhotoSlot(covering));
+}
 const L3_RE = /^(.*?)(?:-w(\d{1,6})h(\d{1,6}))?-l3(?:-thumb|-r\d{3,4})?(\.[a-z0-9]+)((?:[?#].*)?)$/i;
 
 /** The set marker when the URL (or one of its siblings) belongs to a photo set. */
@@ -256,9 +301,10 @@ export function photoSetCleanUrl(url: string): string {
     const bare = SET_NODIMS_RE.exec(url);
     if (!bare) return url;
     const [, stem, marker, ext, tail] = bare;
-    return marker.toLowerCase() === "-l5" ? `${stem}${marker}${ext}${tail}` : `${stem}${marker}-thumb${ext}${tail}`;
+    const m = marker.toLowerCase();
+    return m === "-l5" || m === "-l6" ? `${stem}${marker}${ext}${tail}` : `${stem}${marker}-thumb${ext}${tail}`;
   }
-  if (s.marker === "-l5") return s.at("");
+  if (s.marker === "-l5" || s.marker === "-l6") return s.at(""); // -l6: the 2048 itself is clean
   if (s.marker === "-l5f") return s.at("-r1080");
   return s.long > 1080 ? s.at("-r1080") : s.at("-thumb");
 }
@@ -281,6 +327,7 @@ export function photoSetCleanUrl(url: string): string {
  */
 export function photoSetUrl(storedUrl: string, size: PhotoSetSize): string {
   const s = parseSet(storedUrl);
+  if (s?.marker === "-l6") return s.at(feedSetSuffix(size)); // feed set: 2048 the URL · 1080 · 600 (320 → 600)
   if (s) {
     const v3 = s.marker === "-l5" || s.marker === "-l5f";
     if (size === 2048) return v3 ? s.at(CREDITED_SUFFIX) : photoSetCleanUrl(storedUrl); // v2: never the retired credit
@@ -295,6 +342,7 @@ export function photoSetUrl(storedUrl: string, size: PhotoSetSize): string {
     // a v2 set answers with its thumb at every size (never the retired credit).
     const [, stem, marker, ext, tail] = bare;
     const m = marker.toLowerCase();
+    if (m === "-l6") return `${stem}${marker}${ext}${tail}`; // no dimensions: the URL itself (clean), never a guessed sibling
     if (size === 2048 && (m === "-l5" || m === "-l5f")) return `${stem}${marker}${CREDITED_SUFFIX}${ext}${tail}`;
     return m === "-l5" ? `${stem}${marker}${ext}${tail}` : `${stem}${marker}-thumb${ext}${tail}`;
   }
@@ -314,14 +362,15 @@ export function photoSetUrl(storedUrl: string, size: PhotoSetSize): string {
  * The real width of the copy photoSetUrl(url, size) names, for srcset `w`
  * descriptors. Null when the URL is not a set with dimensions.
  */
-export function photoSetWidth(url: string, size: 1080 | 600 | 320): number | null {
+export function photoSetWidth(url: string, size: PhotoSetSize): number | null {
   const s = parseSet(url);
   if (!s || !(s.w > 0 && s.h > 0)) return null;
   const chosen = photoSetUrl(url, size);
   const cap = /-thumb\.[a-z0-9]+(?:[?#]|$)/i.test(chosen) ? 600
     : /-r320\.[a-z0-9]+(?:[?#]|$)/i.test(chosen) ? 320
       : /-r1080\.[a-z0-9]+(?:[?#]|$)/i.test(chosen) ? 1080
-        : s.long; // the URL itself (a v3 post's clean 1080, or a small set's own size)
+        : /-r2048c?\.[a-z0-9]+(?:[?#]|$)/i.test(chosen) ? 2048
+          : s.long; // the URL itself (a v3 post's clean 1080, a feed set's 2048, or a small set's own size)
   return s.long <= cap ? s.w : Math.max(1, Math.round((cap * s.w) / s.long));
 }
 
@@ -378,6 +427,8 @@ export function photoSetBlurUrl(url: string): string | null {
 export function photoSetSiblingKeys(key: string): string[] {
   const s = parseSet(key);
   if (!s) return [];
+  // Feed set: every size but the URL and the thumb — unconditionally (always stored).
+  if (s.marker === "-l6") return FEED_PHOTO_SIZES.map(feedPhotoSlot).filter((sl) => sl !== "master" && sl !== "thumb").map((sl) => s.at(photoSetSuffix(sl)));
   const out: string[] = [];
   if (s.marker === "-l5" || s.marker === "-l5f") {
     out.push(s.at(CREDITED_SUFFIX));

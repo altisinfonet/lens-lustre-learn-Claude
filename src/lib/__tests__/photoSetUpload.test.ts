@@ -1,15 +1,16 @@
 /**
  * Photo plan U1b — the upload path behind switch `photo_set_v2`.
  *
- *   switch ON  (caller passes `photoSet`), Unit A v3: posts store a CLEAN 1080 (the URL) + 600 / 320 (the server draws -r2048c)
- *              under `-l5` (+ a private clean 2048); competition keeps today's full-size file and adds
- *              clean 1080 / 600 / 320 under `-l5f`.
- *   switch OFF (no `photoSet`): exactly today's calls, names and files.
+ *   POSTS (Owner order, 4 Nov 2026): ALWAYS the feed set `-l6` (2048 + 1080 + 600),
+ *              whatever the switch — locked in feedPhotoSet.test.ts. Here: its
+ *              fallbacks (the encoder refuses → today's `-l3` set; a sibling fails → unmarked).
+ *   COMPETITION, switch ON (caller passes `photoSet`), Unit A v3: today's full-size file + clean
+ *              1080 / 600 / 320 under `-l5f`. Switch OFF: exactly today's calls, names and files.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { photoSetPlan } from "@/lib/imageLadder";
+import { feedPhotoPlan, photoSetPlan } from "@/lib/imageLadder";
 
 const compressImageToFiles = vi.fn(async (_f: File, name: string, opts?: { maxDimension?: number }) => {
   const max = opts?.maxDimension ?? Infinity;
@@ -29,7 +30,16 @@ const encodePhotoSet = vi.fn(async (_file: File, keepFull: boolean) => {
   });
   return { source: src, copies };
 });
-vi.mock("@/lib/photoSetEncode", () => ({ encodePhotoSet }));
+const encodeFeedPhotoSet = vi.fn(async (_file: File) => {
+  const src = { width: 4000, height: 3000 };
+  const copies = feedPhotoPlan().map((c) => {
+    const r = Math.min(1, c.maxDimension / Math.max(src.width, src.height));
+    const width = Math.round(src.width * r), height = Math.round(src.height * r);
+    return { ...c, width, height, file: new File([new Uint8Array(c.maxDimension)], `${c.slot}.webp`, { type: "image/webp" }) };
+  });
+  return { source: src, copies };
+});
+vi.mock("@/lib/photoSetEncode", () => ({ encodePhotoSet, encodeFeedPhotoSet }));
 
 vi.mock("@/lib/s3Upload", () => ({ isS3Enabled: async () => false, uploadPairToS3: vi.fn(), uploadToS3: vi.fn() }));
 const storageUpload = vi.fn(async (_b: string, p: string, _f: unknown, _o?: unknown) => ({ url: `https://cdn/${p}`, path: p }));
@@ -48,13 +58,15 @@ beforeEach(() => {
   compressImageToFiles.mockClear();
   compressThumbnail.mockClear();
   encodePhotoSet.mockClear();
+  encodeFeedPhotoSet.mockClear();
   storageUpload.mockReset();
   storeCleanCopy.mockClear();
   storageUpload.mockImplementation(async (_b: string, p: string) => ({ url: `https://cdn/${p}`, path: p }));
 });
 
-describe("switch OFF — today's behaviour, unchanged", () => {
-  it("a post without photoSet: 2560 cap, 600 thumb, 1080/1440 rungs under -l3; the new encoder is never used", async () => {
+describe("posts — the feed set's fallbacks (the post is never lost)", () => {
+  it("the feed encoder refusing: today's -l3 set (2560 cap, 600 thumb, 1080/1440 rungs)", async () => {
+    encodeFeedPhotoSet.mockRejectedValueOnce(new Error("Canvas 2D context unavailable"));
     const { uploadImageWithThumbnail } = await import("@/lib/imageUpload");
     const r = await uploadImageWithThumbnail({ bucket: "post-images", file: jpeg(), type: "post", userId: "u1", cacheControl: "3600" });
     expect(encodePhotoSet).not.toHaveBeenCalled();
@@ -73,6 +85,35 @@ describe("switch OFF — today's behaviour, unchanged", () => {
     expect(r.url).toMatch(/-l3\.webp$/);
   });
 
+  it("a browser without a WebP encoder (encodeFeedPhotoSet → null): today's set; the job encoder throws so the composer uses today's path", async () => {
+    encodeFeedPhotoSet.mockResolvedValueOnce(null as never);
+    const { uploadImageWithThumbnail } = await import("@/lib/imageUpload");
+    const r = await uploadImageWithThumbnail({ bucket: "post-images", file: jpeg(), type: "post", userId: "u1", photoSet: true });
+    expect(r.url).toMatch(/-l3\.webp$/);
+    encodeFeedPhotoSet.mockResolvedValueOnce(null as never);
+    const { photoSetPhotoEncoder } = await import("@/lib/photoSetUpload");
+    await expect(photoSetPhotoEncoder()(jpeg())).rejects.toThrow(/WebP/);
+  });
+
+  it("a sibling that fails to upload: the marker comes off, the post still succeeds with the 2048 + thumb", async () => {
+    storageUpload.mockImplementation(async (_b: string, p: string) => {
+      if (/-r1080\.webp$/.test(p)) throw new Error("Failed to fetch");
+      return { url: `https://cdn/${p}`, path: p };
+    });
+    const { uploadImageWithThumbnail } = await import("@/lib/imageUpload");
+    const r = await uploadImageWithThumbnail({ bucket: "post-images", file: jpeg(), type: "post", userId: "u1" });
+    expect(r.url).toMatch(/-w2048h1536\.webp$/);
+    expect(r.thumbnailUrl).toMatch(/-w2048h1536-thumb\.webp$/);
+    expect(storeCleanCopy).not.toHaveBeenCalled();
+  });
+
+  it("other image types ignore photoSet (profile / admin uploads unchanged)", async () => {
+    const { uploadImageWithThumbnail } = await import("@/lib/imageUpload");
+    await uploadImageWithThumbnail({ bucket: "avatars", file: jpeg(), type: "featured", userId: "u1", photoSet: true });
+    expect(encodePhotoSet).not.toHaveBeenCalled();
+    expect(encodeFeedPhotoSet).not.toHaveBeenCalled();
+  });
+
   it("photoSetOption(false, …) adds NOTHING to the call (no key at all)", async () => {
     const { photoSetOption } = await import("@/lib/photoSetUpload");
     expect(photoSetOption(false)).toEqual({});
@@ -81,85 +122,6 @@ describe("switch OFF — today's behaviour, unchanged", () => {
   });
 });
 
-describe("switch ON — posts", () => {
-  it("Unit A + credit U3: the post's URL is the CLEAN 1080 (-l5); nothing credited is uploaded; the clean 2048 goes to the private route AFTER the public files", async () => {
-    const { uploadImageWithThumbnail } = await import("@/lib/imageUpload");
-    const r = await uploadImageWithThumbnail({ bucket: "post-images", file: jpeg(), type: "post", userId: "u1", cacheControl: "3600", photoSet: true });
-    expect(encodePhotoSet).toHaveBeenCalledTimes(1);
-    expect(encodePhotoSet.mock.calls[0][1]).toBe(false);
-    // today's encoder is not used at all for this photo
-    expect(compressImageToFiles).not.toHaveBeenCalled();
-    expect(compressThumbnail).not.toHaveBeenCalled();
-    expect(paths().map(seg)).toEqual([
-      // the PUBLIC siblings land FIRST: the -l5 name is only published with its files in the store
-      "<seg>-w1080h810-l5-r320.webp",
-      "<seg>-w1080h810-l5.webp",
-      "<seg>-w1080h810-l5-thumb.webp",
-    ]);
-    expect(r.url).toMatch(/-w1080h810-l5\.webp$/);
-    expect(r.thumbnailUrl).toMatch(/-w1080h810-l5-thumb\.webp$/);
-    // the URL's file is the CLEAN 1080 copy
-    const master = storageUpload.mock.calls.find((c) => /-l5\.webp$/.test(c[1] as string))![2] as File;
-    expect(master.name).toBe("master.webp");
-    expect(paths().some((p) => /-r2048c\.webp$/.test(p))).toBe(false);
-    expect(r.stored).toEqual({ dims: { width: 1080, height: 810 } });
-    // the private clean 2048 is never a public upload; it goes to /api/media/clean-copy
-    expect(paths().some((p) => /-r2048\.webp$/.test(p))).toBe(false);
-    expect(storeCleanCopy).toHaveBeenCalledTimes(1);
-    expect(storeCleanCopy.mock.invocationCallOrder[0]).toBeGreaterThan(Math.max(...storageUpload.mock.invocationCallOrder));
-    expect(String(storeCleanCopy.mock.calls[0][0])).toMatch(/^post-images\/u1\/posts\/.*-w1080h810-l5\.webp$/);
-    expect((storeCleanCopy.mock.calls[0][1] as File).name).toBe("clean2048.webp");
-  });
-
-  it("a sibling that fails to upload: the marker comes off, the post still succeeds with the clean 1080 + thumb (no clean copy sent)", async () => {
-    storageUpload.mockImplementation(async (_b: string, p: string) => {
-      if (/-r320\.webp$/.test(p)) throw new Error("Failed to fetch");
-      return { url: `https://cdn/${p}`, path: p };
-    });
-    const { uploadImageWithThumbnail } = await import("@/lib/imageUpload");
-    const r = await uploadImageWithThumbnail({ bucket: "post-images", file: jpeg(), type: "post", userId: "u1", photoSet: true });
-    expect(r.url).toMatch(/-w1080h810\.webp$/);
-    expect(r.thumbnailUrl).toMatch(/-w1080h810-thumb\.webp$/);
-    expect(r.url).not.toMatch(/-l[45]/);
-    expect(storeCleanCopy).not.toHaveBeenCalled();
-  });
-
-  it("the private clean copy being refused never costs the post", async () => {
-    storeCleanCopy.mockRejectedValueOnce(new Error("network down"));
-    const { uploadImageWithThumbnail } = await import("@/lib/imageUpload");
-    const r = await uploadImageWithThumbnail({ bucket: "post-images", file: jpeg(), type: "post", userId: "u1", photoSet: true });
-    expect(r.url).toMatch(/-w1080h810-l5\.webp$/);
-  });
-
-  it("the new encoder failing falls back to today's set (the post is never lost)", async () => {
-    encodePhotoSet.mockRejectedValueOnce(new Error("Canvas 2D context unavailable"));
-    const { uploadImageWithThumbnail } = await import("@/lib/imageUpload");
-    const r = await uploadImageWithThumbnail({ bucket: "post-images", file: jpeg(), type: "post", userId: "u1", photoSet: true });
-    expect(compressImageToFiles.mock.calls[0][2]).toEqual({ maxDimension: 2560 });
-    expect(r.url).toMatch(/-l3\.webp$/);
-  });
-
-  it("U2: a browser without a WebP encoder (encodePhotoSet → null) falls back to today's set", async () => {
-    encodePhotoSet.mockResolvedValueOnce(null as never);
-    const { uploadImageWithThumbnail } = await import("@/lib/imageUpload");
-    const r = await uploadImageWithThumbnail({ bucket: "post-images", file: jpeg(), type: "post", userId: "u1", photoSet: true });
-    expect(compressImageToFiles.mock.calls[0][2]).toEqual({ maxDimension: 2560 });
-    expect(r.url).toMatch(/-l3\.webp$/);
-    expect(r.url).not.toMatch(/-l4/);
-  });
-
-  it("U2: the queued-upload encoder throws on null too, so the composer uses today's path", async () => {
-    encodePhotoSet.mockResolvedValueOnce(null as never);
-    const { photoSetPhotoEncoder } = await import("@/lib/photoSetUpload");
-    await expect(photoSetPhotoEncoder()(jpeg())).rejects.toThrow(/WebP/);
-  });
-
-  it("other image types ignore photoSet (profile / admin uploads unchanged)", async () => {
-    const { uploadImageWithThumbnail } = await import("@/lib/imageUpload");
-    await uploadImageWithThumbnail({ bucket: "avatars", file: jpeg(), type: "featured", userId: "u1", photoSet: true });
-    expect(encodePhotoSet).not.toHaveBeenCalled();
-  });
-});
 
 describe("switch ON — competition entries", () => {
   // 64×48 WebP from sharp: a file the caller already encoded at full size.
@@ -216,15 +178,3 @@ describe("callers: the switch decides, and OFF adds nothing", () => {
   });
 });
 
-describe("the photo-job encoder (resumable posts) makes the same set", () => {
-  it("Unit A + credit U3: full = CLEAN 1080, thumb = 600, rungs = 320 only, clean = private 2048, marker -l5", async () => {
-    const { photoSetPhotoEncoder } = await import("@/lib/photoSetUpload");
-    const e = await photoSetPhotoEncoder()(jpeg());
-    expect(e.marker).toBe("-l5");
-    expect(e.full).toMatchObject({ width: 1080, height: 810 });
-    expect((e.full.blob as File).name).toBe("master.webp");
-    expect(e.rungs.map((r) => [r.rung, r.suffix])).toEqual([[320, "-r320"]]);
-    expect((e.thumb as File).name).toBe("thumb.webp");
-    expect((e.clean as File).name).toBe("clean2048.webp");
-  });
-});
