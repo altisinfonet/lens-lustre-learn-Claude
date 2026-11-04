@@ -36,6 +36,7 @@ import { chromium, firefox, webkit } from "playwright";
 import { PNG } from "pngjs";
 import sharp from "sharp";
 import { creditFontPx, measureCredit as measureLine, renderCredit } from "../media-derivatives/credit-render.mjs";
+import { creditSeen, lineBox } from "./credit-guard.mjs";
 
 const arg = (n, d) => { const i = process.argv.indexOf(n); return i > -1 ? process.argv[i + 1] : d; };
 const OUT = arg("--out", null);
@@ -47,8 +48,6 @@ const BASE = arg("--base", null) || `http://127.0.0.1:${PORT}`;
 const CHANNEL = 40;
 /** Two pictures "match" when at most this share of pixels differ (resampling noise). */
 const SHARE = 0.002;
-/** The credited reference must differ from the clean one in at least this many pixels. */
-const CREDIT_MIN_PIXELS = 40;
 const CREDIT_LINE = "© Dipannita Sen, 50mm Retina World";
 /** The server's path, on bytes the harness hands over: credit-render.mjs, then the workers' WebP. */
 async function serverCredit(b64) {
@@ -85,13 +84,13 @@ const name = (u) => u.split("/").pop();
 const bare = (u) => (typeof u === "string" ? u.replace(/\?.*$/, "") : u);
 
 /** Pixel comparison of two PNG buffers of the same size. */
-function diff(aBuf, bBuf, channel = CHANNEL) {
+function diff(aBuf, bBuf) {
   const a = PNG.sync.read(aBuf);
   const b = PNG.sync.read(bBuf);
   if (a.width !== b.width || a.height !== b.height) return { same: false, differing: Infinity, why: `size ${a.width}x${a.height} vs ${b.width}x${b.height}` };
   let n = 0;
   for (let i = 0; i < a.data.length; i += 4) {
-    if (Math.abs(a.data[i] - b.data[i]) > channel || Math.abs(a.data[i + 1] - b.data[i + 1]) > channel || Math.abs(a.data[i + 2] - b.data[i + 2]) > channel) n++;
+    if (Math.abs(a.data[i] - b.data[i]) > CHANNEL || Math.abs(a.data[i + 1] - b.data[i + 1]) > CHANNEL || Math.abs(a.data[i + 2] - b.data[i + 2]) > CHANNEL) n++;
   }
   const share = n / (a.width * a.height);
   return { same: share <= SHARE, differing: n, why: `${n} px differ (${(share * 100).toFixed(3)} %)` };
@@ -257,6 +256,19 @@ if (!process.argv.includes("--skip-feed") && !ONLY_CREDIT) {
     await r.ctx.close();
   }
   await browser.close();
+}
+
+/** The guard, with the renderer's box for the file now in `img` and the photo's place inside the element. */
+async function creditOnScreen(cleanRef, creditRef, img) {
+  const { nw, nh, photo } = await img.evaluate((i) => {
+    const r = i.getBoundingClientRect();
+    const k = Math.min(r.width / i.naturalWidth, r.height / i.naturalHeight);
+    const w = (i.naturalWidth * k) / r.width, h = (i.naturalHeight * k) / r.height;
+    return { nw: i.naturalWidth, nh: i.naturalHeight, photo: { x: (1 - w) / 2, y: (1 - h) / 2, w, h } };
+  });
+  const { px, inset } = await creditFontPx(sharp, nw, nh, CREDIT_LINE);
+  const m = await measureLine(sharp, CREDIT_LINE, px);
+  return creditSeen(cleanRef, creditRef, lineBox(nw, nh, { left: nw - inset - m.w, top: nh - inset - m.h, textW: m.w, textH: m.h }), photo);
 }
 
 // ── 1b. BEFORE THE SWEEP: no credited file yet. A right-click must leave the
@@ -429,10 +441,9 @@ for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
       if (!vsClean.same) fail(row, `the screen is not the clean copy: ${vsClean.why}`);
       if (!retired) {
         const creditRef = await draw(facts.src);
-        // v5 is faint and small on a scaled-down photo: any real change counts here.
-        const vsCredit = diff(cleanRef, creditRef, 12);
-        row.cleanVsCredited = vsCredit.why;
-        if (vsCredit.differing < CREDIT_MIN_PIXELS) fail(row, `the credited file looks like the clean one here (${vsCredit.why}) — the check would be vacuous`);
+        const seen = await creditOnScreen(cleanRef, creditRef, img);
+        row.cleanVsCredited = seen.why;
+        if (!seen.seen) fail(row, `the credited file shows no credit here (${seen.why}) — the check would be vacuous`);
       }
       if (r.errors.length) row.errors = r.errors;
       await r.ctx.close();
