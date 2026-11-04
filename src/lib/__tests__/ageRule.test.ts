@@ -23,7 +23,15 @@ describe("the rule", () => {
   });
 });
 
+const OWN_CHECK = /differenceInYears\(.*\)\s*(<|>=|>)\s*18\b/;
+const DOB_SCREEN = /Date of Birth|date_of_birth[\s\S]*<Calendar|<Calendar[\s\S]*date_of_birth/;
+
 describe("ratchet: every date-of-birth screen uses the one rule", () => {
+  it("the checks catch the shapes they exist for", () => {
+    expect(OWN_CHECK.test("differenceInYears(new Date(), d) < 18")).toBe(true);
+    expect(DOB_SCREEN.test("x.date_of_birth; <Calendar />")).toBe(true);
+  });
+
   const walk = (dir: string): string[] =>
     readdirSync(dir).flatMap((name) => {
       const p = join(dir, name);
@@ -31,10 +39,10 @@ describe("ratchet: every date-of-birth screen uses the one rule", () => {
       return statSync(p).isDirectory() ? walk(p) : /\.tsx$/.test(name) ? [p] : [];
     });
 
-  it("a screen that saves date_of_birth or says Date of Birth shows AgeRuleNotice", () => {
+  it("a screen with a date-of-birth picker shows AgeRuleNotice", () => {
     const missing = walk(join(ROOT, "src"))
       .map((f) => ({ rel: relative(ROOT, f).replace(/\\/g, "/"), text: readFileSync(f, "utf8") }))
-      .filter((f) => /Date of Birth/.test(f.text) && !f.rel.endsWith("AgeRuleNotice.tsx"))
+      .filter((f) => DOB_SCREEN.test(f.text) && !f.rel.endsWith("AgeRuleNotice.tsx"))
       .filter((f) => !f.text.includes("<AgeRuleNotice"))
       .map((f) => f.rel);
     expect(missing).toEqual([]);
