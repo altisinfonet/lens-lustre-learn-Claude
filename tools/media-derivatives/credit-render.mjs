@@ -9,8 +9,10 @@
  *   renderCredit(sharp, input, text) → {
  *     image   a sharp pipeline: the photo with the credit (encode it as you like),
  *     width, height,
- *     credit  { version: 5, fontPx, textW, textH, left, top, inset }
+ *     credit  { version: 5, drawn, fontPx, textW, textH, left, top, inset, fallbackChars }
  *   }
+ * drawn = false: the photo is too small for the line and comes back unmarked.
+ * fallbackChars: characters the committed font lacks (see fonts/README.md).
  *
  * The photo is NEVER resized here: the caller decides the file's size (2048 for
  * a new photo, the clean 1080 for a rectified one, ≤ 2048 for an old one). The
@@ -25,13 +27,24 @@ import { CREDIT_GEOMETRY_V5 as G, creditGeometryV5For } from "../../src/lib/cred
 
 export const CREDIT_FONT_FILE = join(dirname(fileURLToPath(import.meta.url)), "fonts", "FiraSans-SemiBold-latin.ttf");
 
-const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/** One line of plain text: control characters, line breaks and broken surrogates would stop Pango or wrap the line. */
+const oneLine = (s) => String(s).replace(/\p{Cs}/gu, "").normalize("NFC").replace(/[\p{Cc}\p{Zl}\p{Zp}]+/gu, " ").replace(/ {2,}/g, " ").trim();
+
+/** The Unicode ranges kept in the font subset (fonts/README.md). */
+const COVERED = /[ -~ -ɏḀ-ỿ‐-‧‰-›€™]/u;
+
+/** How many characters of the line the committed font cannot draw (Pango takes those from the machine's fonts). */
+export function creditFallbackChars(text) {
+  return [...oneLine(text)].filter((c) => !COVERED.test(c)).length;
+}
 
 /** The credit line as a transparent PNG at `px`, `color` at `alpha` (0..1) — real glyphs, real box. */
 async function textImage(sharp, text, px, color, alpha) {
   const { data, info } = await sharp({
     text: {
-      text: `<span foreground="${color}" fgalpha="${Math.round(alpha * 100)}%">${esc(text)}</span>`,
+      text: `<span foreground="${color}" fgalpha="${Math.round(alpha * 100)}%">${esc(oneLine(text))}</span>`,
       font: `${G.fontFamily} ${G.fontStyle} ${px}px`,
       fontfile: CREDIT_FONT_FILE,
       dpi: 72,
@@ -86,9 +99,21 @@ export async function renderCredit(sharp, input, text) {
   const { width, height } = upright.info;
   const { px, inset } = await creditFontPx(sharp, width, height, text);
   const fill = await textImage(sharp, text, px, "#FFFFFF", G.fillAlpha);
-  const shadowText = await textImage(sharp, text, px, "#000000", G.shadowAlpha);
   // room for the blur to spread before it is composited
   const pad = Math.max(2, Math.ceil(px * 0.5));
+  const fallbackChars = creditFallbackChars(text);
+  // A photo too small for the line, even at the smallest size: keep it clean and
+  // say so. A clipped credit looks broken, and sharp refuses an overlay larger
+  // than the photo, which would stop a whole batch.
+  if (fill.w > Math.floor(width * G.maxLinePct) || fill.w + 2 * pad > width || fill.h + 2 * pad > height) {
+    return {
+      image: sharp(upright.data),
+      width,
+      height,
+      credit: { version: G.version, drawn: false, fontPx: px, textW: fill.w, textH: fill.h, left: 0, top: 0, inset, fallbackChars },
+    };
+  }
+  const shadowText = await textImage(sharp, text, px, "#000000", G.shadowAlpha);
   const shadow = await sharp(shadowText.png)
     .extend({ top: pad, bottom: pad, left: pad, right: pad, background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .blur(Math.max(0.4, px * G.shadowBlurEm))
@@ -101,5 +126,5 @@ export async function renderCredit(sharp, input, text) {
     { input: shadow, left: Math.max(0, left - pad), top: Math.max(0, top - pad + drop) },
     { input: fill.png, left, top },
   ]);
-  return { image, width, height, credit: { version: G.version, fontPx: px, textW: fill.w, textH: fill.h, left, top, inset } };
+  return { image, width, height, credit: { version: G.version, drawn: true, fontPx: px, textW: fill.w, textH: fill.h, left, top, inset, fallbackChars } };
 }

@@ -127,4 +127,55 @@ describe("the one renderer — embedded font, measured in the output pixels", ()
     const b = await (await renderCredit(sharp, clean, LINE)).image.raw().toBuffer();
     expect(Buffer.compare(a, b)).toBe(0);
   });
+
+  // Review of #876, 4 Nov 2026: sharp refuses an overlay larger than the photo,
+  // so a tiny photo threw and would have stopped a whole redraw batch.
+  for (const [w, h] of [[100, 100], [140, 80], [12, 12], [5000, 20]] as const) {
+    it(`${w}×${h}: a photo too small for the line keeps its pixels and says so, it never throws`, async () => {
+      const clean = await photo(w, h);
+      const r = await renderCredit(sharp, clean, LONG);
+      expect(r.credit.drawn).toBe(false);
+      expect([r.width, r.height]).toEqual([w, h]);
+      const box = await inkBox(clean, await r.image.png().toBuffer(), w, h);
+      expect(box.x1).toBe(-1); // no pixel changed
+    });
+  }
+
+  it("a normal photo reports drawn: true", async () => {
+    const r = await renderCredit(sharp, await photo(1080, 682), LINE);
+    expect(r.credit.drawn).toBe(true);
+  });
+
+  it("the drawn pixels are the approved look: white ≈ 0.32 over a soft dark shadow (measured, not the constants)", async () => {
+    const raw = Buffer.alloc(2048 * 2048 * 3, 100);
+    const clean = await sharp(raw, { raw: { width: 2048, height: 2048, channels: 3 } }).png().toBuffer();
+    const r = await renderCredit(sharp, clean, LINE);
+    const px = await r.image.removeAlpha().raw().toBuffer();
+    let hi = 0, lo = 255;
+    for (let i = 0; i < px.length; i += 3) { if (px[i] > hi) hi = px[i]; if (px[i] < lo) lo = px[i]; }
+    // full white at 0.32 over grey 100 is 150; with the shadow beneath it, a little less
+    expect(hi).toBeGreaterThanOrEqual(125);
+    expect(hi).toBeLessThanOrEqual(151);
+    expect(lo).toBeLessThan(97);
+  });
+
+  it("markup characters in a name draw as text", async () => {
+    const r = await renderCredit(sharp, await photo(1080, 682), "© A&B <Studio>, 50mm Retina World");
+    expect(r.credit.drawn).toBe(true);
+    expect(r.credit.textW).toBeGreaterThan(100);
+  });
+
+  it("a control character or a line break in a name cannot break the line", async () => {
+    const one = await measureCredit(sharp, "© Asha Sen, 50mm Retina World", 11);
+    expect(await measureCredit(sharp, "© Asha\nSen,\u0000 50mm\r\nRetina\tWorld", 11)).toEqual(one);
+    expect(await measureCredit(sharp, "© Asha Sen\uD800, 50mm Retina World", 11)).toEqual(one);
+  });
+
+  it("a name the font does not cover still draws, and the result says how many characters used a fallback font", async () => {
+    const latin = await renderCredit(sharp, await photo(1080, 682), "© René Sen, 50mm Retina World");
+    expect(latin.credit.fallbackChars).toBe(0);
+    const other = await renderCredit(sharp, await photo(1080, 682), "© 王小明, 50mm Retina World");
+    expect(other.credit.drawn).toBe(true);
+    expect(other.credit.fallbackChars).toBe(3);
+  });
 });

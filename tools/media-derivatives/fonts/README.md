@@ -16,6 +16,6 @@ machine draws the same glyphs at the same measured width.
     - U+2010–2027, U+2030–203A
     - U+20AC, U+2122
 
-    A character outside these ranges, such as a name in another script, is drawn by Pango from the machine's fallback fonts.
+    A character outside these ranges, such as a name in another script, is drawn by Pango from the machine's fallback fonts, so that part of a line can differ between machines. `renderCredit` reports the count as `credit.fallbackChars`, so a census can list those files.
 
 `src/lib/media/__tests__/creditRenderV5.test.ts` checks the sha256 above against the committed file, so the font cannot change silently.
