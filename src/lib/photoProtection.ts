@@ -20,7 +20,7 @@
  * members, signed-out visitors, a member whose switch answer has not arrived —
  * except admins and judges on competition entries, on the web.
  */
-import { isCreditedPhotoUrl, photoSetCleanUrl, photoSetMarker, photoSetUrl, photoSetWidth } from "@/lib/imageLadder";
+import { isCreditedPhotoUrl, isRetiredCreditedUrl, isSaveTargetCreditedUrl, photoSetCleanUrl, photoSetMarker, photoSetUrl, photoSetWidth } from "@/lib/imageLadder";
 import { CREDIT_GEOMETRY } from "@/lib/creditGeometry.mjs";
 import { oldPhotoCreditedUrl } from "@/lib/photoOldCredit";
 
@@ -78,7 +78,9 @@ export function saveAsPhotoUrl(url: string): string | null {
  *   `shown`   what the member SEES: the set's largest public CLEAN copy (U4
  *             "Save mobile data" on mobile data: the 600). Never credited.
  *   `saveAs`  the file the web context menu ("save image as", "copy image
- *             address") gets: the credited 2048. An OLD (unmarked) photo:
+ *             address") gets: the credited 2048 of a v3 (`-l5`/`-l5f`) set;
+ *             a v2 (`-l4`/`-l4f`) set: null — its credited files carry the
+ *             retired first credit (credit fix U1). An OLD (unmarked) photo:
  *             its credited copy when the lookup found one (20261110_0109,
  *             photoOldCredit.ts — the screen still shows the URL itself);
  *             else null (the URL itself is both).
@@ -89,7 +91,7 @@ export function fullScreenPhoto(url: string, saving = false): { shown: string; s
   if (!url) return { shown: url, saveAs: null };
   if (!photoSetMarker(url)) {
     const old = oldPhotoCreditedUrl(url);
-    return { shown: url, saveAs: old ? withCreditVersion(old) : null };
+    return { shown: url, saveAs: old && !isRetiredCreditedUrl(old) ? withCreditVersion(old) : null };
   }
   const credited = photoSetUrl(url, 2048);
   const shown = saving ? photoSetUrl(url, 600) : photoSetCleanUrl(url);
@@ -97,7 +99,10 @@ export function fullScreenPhoto(url: string, saving = false): { shown: string; s
   // never names a credited file); if a naming rule ever broke that, show the
   // 600 thumb rather than paint a credit.
   const safeShown = isCreditedPhotoUrl(shown) ? photoSetUrl(url, 600) : shown;
-  return { shown: safeShown, saveAs: isCreditedPhotoUrl(credited) ? withCreditVersion(credited) : null };
+  // Credit fix U1: only a CURRENT credited copy (`-r2048c`) is a save target. A
+  // v2 set (a stale `-l4` / `-l4f` row) has none → null: the clean copy shown
+  // is what "save image" gets, never the retired big credit.
+  return { shown: safeShown, saveAs: isSaveTargetCreditedUrl(credited) ? withCreditVersion(credited) : null };
 }
 
 /** The copy an INLINE surface (post page grid, entry page) shows: the clean 1080 of a set photo (U4 saving: 600). */

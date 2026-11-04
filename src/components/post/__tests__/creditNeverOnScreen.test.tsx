@@ -197,9 +197,13 @@ describe("Unit A · full screen paints a clean copy; the context menu gets the c
         const shown = painted(img);
         expect(shown, `${shape}: something is painted`).not.toBe("");
         expect(credited(shown), `${shape} · ${v.name}: full screen paints ${shown.split("/").pop()}`).toBe(false);
-        // right-click / copy image address act on the <img>'s own source:
+        // right-click / copy image address act on the <img>'s own source: the
+        // CURRENT credited copy for a v3 set; for a v2 set (a stale -l4/-l4f row)
+        // the clean copy — never its retired big-credit file (credit fix U1).
         const target = img.getAttribute("src") ?? "";
-        expect(credited(target), `${shape}: the context-menu file ${target.split("/").pop()} carries the credit`).toBe(true);
+        const v3 = /-l5f?\.webp$/.test(url);
+        expect(credited(target), `${shape}: the context-menu file ${target.split("/").pop()}`).toBe(v3);
+        if (v3) expect(/-r2048c\.webp$/.test(target.replace(/[?#].*$/, ""))).toBe(true);
         // never a competition full size, painted or saved
         expect(/-l[45]f\.webp$/.test(shown) || /-l[45]f\.webp$/.test(target), `${shape}: full size reached full screen`).toBe(false);
         // the credited file fails → the clean copy is shown plainly, never an empty viewer

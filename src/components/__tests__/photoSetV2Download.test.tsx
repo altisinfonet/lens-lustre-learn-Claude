@@ -178,21 +178,23 @@ describe("admins and judges keep download on competition entries (switch ON)", (
 });
 
 describe("web full screen shows the 2048 copy (switch ON); old photos unchanged", () => {
-  it("competition -l4f → its -r2048 copy, never the full-size file", async () => {
+  // Credit fix U1: a v2 set's credited files (-l4f-r2048, the -l4 master) carry
+  // the retired big credit — full screen holds the CLEAN copy, never those.
+  it("competition -l4f → its clean -r1080 (never the retired -r2048, never the full-size file)", async () => {
     wrap(<ZoomableImage src={L4F} />);
     await settle();
-    expect((document.querySelector("img") as HTMLImageElement).getAttribute("src")).toBe(L4F_2048);
+    expect((document.querySelector("img") as HTMLImageElement).getAttribute("src")).toBe(L4F_1080);
   });
 
-  it("post -l4 → the URL itself (it IS the credited 2048 copy)", async () => {
+  it("post -l4 (a stale pre-repoint row) → its clean -r1080, never the -l4 master", async () => {
     wrap(<PostMedia urls={[L4]} />);
     await settle();
     await openFeedViewer();
     await settle();
-    expect(fullScreenImg()?.getAttribute("src")).toBe(withCreditVersion(`${L4}`));
+    expect(fullScreenImg()?.getAttribute("src")).toBe(L4_1080);
   });
 
-  it("entry grid opened full screen → -r2048; inline grid photo → -r1080 (inline keeps 1080)", async () => {
+  it("entry grid opened full screen → clean -r1080; inline grid photo → -r1080 (inline keeps 1080)", async () => {
     roles = [];
     wrap(<FacebookPhotoGrid urls={[L4F, L4F2]} competitionEntry />);
     await settle();
@@ -201,7 +203,8 @@ describe("web full screen shows the 2048 copy (switch ON); old photos unchanged"
     expect(inline).not.toContain(L4F);
     fireEvent.click(document.querySelectorAll(".cursor-pointer")[0] as HTMLElement);
     await settle();
-    expect(fullScreenImg()?.getAttribute("src")).toBe(L4F_2048);
+    expect(fullScreenImg()?.getAttribute("src")).toBe(L4F_1080);
+    expect(fullScreenImg()?.getAttribute("src")).not.toBe(L4F_2048);
   });
 
   it("an old photo keeps today's full-screen source", async () => {
@@ -343,13 +346,19 @@ describe("Unit B · no download icon for anyone but admins/judges on competition
 describe("switch OFF · which copy is shown (Unit A)", () => {
   beforeEach(() => { switchOn = false; });
 
+  // A CURRENT (v3 -l5f) set: the credited -r2048c is under the context menu. (A
+  // v2 set has no save target since credit fix U1 — see the block above.)
+  const L5F = `${ENTRY}-w4000h3000-l5f.webp`;
+  const L5F_CRED = withCreditVersion(`${ENTRY}-w4000h3000-l5f-r2048c.webp`);
+  const L5F_1080 = `${ENTRY}-w4000h3000-l5f-r1080.webp`;
+
   it("feed full screen paints the CLEAN copy; the credited file is only under the context menu", async () => {
-    wrap(<PostMedia urls={[L4F]} />);
+    wrap(<PostMedia urls={[L5F]} />);
     await settle();
     await openFeedViewer();
     await settle();
-    expect(fullScreenImg()?.getAttribute("src")).toBe(L4F_2048);
-    expect(fullScreenImg()?.style.backgroundImage).toContain(L4F_1080);
+    expect(fullScreenImg()?.getAttribute("src")).toBe(L5F_CRED);
+    expect(fullScreenImg()?.style.backgroundImage).toContain(L5F_1080);
   });
 
   it("photo grid (post): the inline copy is the clean 1080", async () => {
@@ -359,10 +368,18 @@ describe("switch OFF · which copy is shown (Unit A)", () => {
   });
 
   it("ZoomableImage: a set photo paints its clean copy whatever the switch says (Unit A)", async () => {
+    wrap(<ZoomableImage src={L5F} />);
+    await settle();
+    const img = document.querySelector("img") as HTMLImageElement;
+    expect(img.getAttribute("src")).toBe(L5F_CRED);
+    expect(img.style.backgroundImage).toContain(L5F_1080);
+  });
+
+  it("ZoomableImage: a v2 -l4f set paints its clean copy and hands NO retired credited file (credit fix U1)", async () => {
     wrap(<ZoomableImage src={L4F} />);
     await settle();
     const img = document.querySelector("img") as HTMLImageElement;
-    expect(img.getAttribute("src")).toBe(L4F_2048);
-    expect(img.style.backgroundImage).toContain(L4F_1080);
+    expect(img.getAttribute("src")).toBe(L4F_1080);
+    expect(img.style.backgroundImage).toBe("");
   });
 });

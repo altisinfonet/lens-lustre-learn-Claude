@@ -34,11 +34,11 @@ describe("U5 backfill keys — the -l4 set written BESIDE an old photo", () => {
     expect(a).not.toBe(b);
   });
 
-  it("the new name is a v2 name the display code reads (marker, siblings, 2048 = the URL)", () => {
+  it("the new name is a v2 name the display code reads (marker, siblings; 2048 = the clean 1080 since credit fix U1)", () => {
     const k = backfillMasterKey(`post-images/${O}/posts/1793596625316-1tjg4vg9wsa-w2170h1479-l3.webp`, 2048, 1396);
     expect(k).toBe(`post-images/${O}/posts/1793596625316-1tjg4vg9wsa-w2170h1479-l3-w2048h1396-l4.webp`);
     expect(photoSetMarker(k)).toBe("-l4");
-    expect(photoSetUrl(k, 2048)).toBe(k);
+    expect(photoSetUrl(k, 2048)).toBe(backfillSlotKey(k, "r1080"));
     expect(photoSetUrl(k, 1080)).toBe(backfillSlotKey(k, "r1080"));
     expect(photoSetUrl(k, 600)).toBe(backfillSlotKey(k, "thumb"));
     expect(photoSetUrl(k, 320)).toBe(backfillSlotKey(k, "r320"));
