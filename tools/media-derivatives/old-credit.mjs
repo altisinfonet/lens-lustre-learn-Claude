@@ -24,6 +24,7 @@
  */
 import { readFileSync } from "node:fs";
 import { creditSvg } from "./credit-svg.mjs";
+import { OLD_CREDIT_MAX_SOURCE_BYTES, laneSources, readCapped, sourceAllowed } from "./old-credit-source.mjs";
 
 const args = process.argv.slice(2);
 const flag = (n) => args.includes(`--${n}`);
@@ -34,11 +35,8 @@ const max = Number(opt("max", "0")) || 0;
 /** Same quality as the uploader's credited 2048 copy (imageLadder.PHOTO_SET_QUALITY[2048]). */
 const CREDITED_QUALITY = 85;
 const LONG_EDGE = 2048;
-/** The originals come only from these hosts (the SQL classes them the same way). */
-const SOURCE_RE = /^https:\/\/(cdn(-staging)?\.50mmretina\.com\/(post-images|avatars)\/|[a-z0-9]{20}\.supabase\.co\/storage\/v1\/object\/public\/)/;
-
-if (!/^https:\/\/[a-z0-9.-]+$/.test(site)) {
-  console.error("usage: --site https://<lane site origin> (the Pages host that serves /api/media/photoset/oldcredit)");
+if (!/^https:\/\/[a-z0-9.-]+$/.test(site) || !laneSources(site)) {
+  console.error("usage: --site https://www.50mmretina.com | https://staging.50mmretina.com (the lane's Pages host that serves /api/media/photoset/oldcredit)");
   process.exit(2);
 }
 const jwt = (process.env.MEDIA_WORKER_JWT || (process.env.MEDIA_WORKER_JWT_FILE ? readFileSync(process.env.MEDIA_WORKER_JWT_FILE, "utf8") : "")).trim();
@@ -53,10 +51,13 @@ async function call(query, init = {}) {
 const post = (body) => call("", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
 async function credit(sharp, j) {
-  if (!SOURCE_RE.test(j.src_url)) return "source host not allowed";
+  // Only this lane's CDN / own Supabase project, and never more than 40 MB (review of #869).
+  if (!sourceAllowed(j.src_url, site)) return "source host not allowed (not this lane)";
   const src = await fetch(j.src_url, { signal: AbortSignal.timeout(60_000) });
   if (!src.ok) return `source ${src.status}`;
-  const input = Buffer.from(await src.arrayBuffer());
+  const read = await readCapped(src, OLD_CREDIT_MAX_SOURCE_BYTES);
+  if (!read.ok) return `source skipped: ${read.reason}`;
+  const input = Buffer.from(read.bytes);
   const upright = await sharp(input).rotate()
     .resize({ width: LONG_EDGE, height: LONG_EDGE, fit: "inside", withoutEnlargement: true })
     .toBuffer({ resolveWithObject: true });
@@ -90,8 +91,10 @@ async function main() {
       seen.add(`${j.post_id}#${j.ord}`);
       stats.photos++;
       if (dryRun) {
+        if (!sourceAllowed(j.src_url, site)) { stats.not_this_lane = (stats.not_this_lane ?? 0) + 1; continue; }
         const h = await fetch(j.src_url, { method: "HEAD", signal: AbortSignal.timeout(30_000) }).catch(() => null);
         const n = Number(h?.headers.get("content-length") ?? "0");
+        if (n > OLD_CREDIT_MAX_SOURCE_BYTES) stats.too_large = (stats.too_large ?? 0) + 1;
         if (n > 0) stats.source_bytes += n; else stats.unknown_size++;
         continue;
       }
