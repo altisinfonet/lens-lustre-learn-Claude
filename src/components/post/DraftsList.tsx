@@ -17,6 +17,7 @@
  * carries `expiring_at IS NULL`, so a draft on its way out disappears from this
  * list BEFORE its images are deleted. Nobody opens a draft to find blank photos.
  */
+import { memberPhotoSrc } from "@/lib/photoProtection";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -64,7 +65,7 @@ export default function DraftsList({ open, onOpenChange, onResume }: DraftsListP
           {drafts.map((d) => {
             const daysLeft = draftDaysLeft(d.updated_at);
             const lastDay = daysLeft <= 1;
-            const cover = d.thumbnail_urls?.[0] ?? d.image_urls?.[0] ?? d.image_url ?? null;
+            const cover = d.thumbnail_urls?.[0] ?? memberPhotoSrc(d.image_urls?.[0] ?? d.image_url, 320);
 
             return (
               <li key={d.id} className="flex items-center gap-3 py-3">

@@ -287,8 +287,13 @@ for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
   // "old": a photo posted before the New Photos plan (unmarked URL) — its save
   // target is the credited copy the lookup names (20261110_0109), exactly like
   // a new photo's; the screen shows the original.
+  // "legacy" (a stale v2 `-l4` row, credit fix U1 — Owner 4 Nov "very big
+  // credit"): its credited file is the master with the RETIRED big credit, so a
+  // right-click — feed or full screen — must NEVER reach it; the clean copy is
+  // what the browser saves.
   for (const shape of ["v3", "legacy", "old"]) {
     const row = { part: "full screen", engine, shape, ok: true };
+    const retired = shape === "legacy";
     try {
       const r = await open(browser, { vp: "desktop", dpr: 2, viewer: "out", size: "large", shape });
       await r.page.evaluate(() => {
@@ -318,9 +323,11 @@ for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
         fr.contextMenuTarget = ftarget;
         const same = diff(before, after);
         fr.screenBeforeVsAfter = same.why;
-        if (!ftarget || !r.credited.includes(ftarget)) fail(fr, `feed right-click target is ${ftarget} — not the credited file`);
+        if (retired) {
+          if (!ftarget || r.credited.includes(ftarget)) fail(fr, `feed right-click target is ${ftarget} — the retired -l4 credited file (or nothing)`);
+        } else if (!ftarget || !r.credited.includes(ftarget)) fail(fr, `feed right-click target is ${ftarget} — not the credited file`);
         if (!same.same) fail(fr, `the feed card's pixels changed at the right-click: ${same.why}`);
-        if (ftarget && r.store[ftarget]?.twin) {
+        if (!retired && ftarget && r.store[ftarget]?.twin) {
           fr.creditInSavedFile = await measureCredit(r.store[ftarget].b64, r.store[ftarget].twin);
           creditFail(fr, fr.creditInSavedFile);
           if (OUT) await corner(r.store[ftarget].b64, join(OUT, `saved-feed-${engine}-${shape}.png`));
@@ -332,12 +339,13 @@ for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
         await r.page.evaluate(() => { window.__ctx = null; });
       }
       await r.page.click("#cardwrap .cursor-zoom-in");
-      const sel = "[role=dialog] img[data-photo-shown]";
+      // A v2 set has no save target: the viewer holds the clean copy plainly (no layer).
+      const sel = retired ? "[role=dialog] img[src*='-l4-']" : "[role=dialog] img[data-photo-shown]";
       await r.page.waitForSelector(sel, { timeout: 20_000 });
       await r.page.waitForFunction((s) => { const i = document.querySelector(s); return i && i.complete && i.naturalWidth > 0; }, sel, { timeout: 30_000 });
       await r.page.waitForTimeout(1500); // the CSS background (clean copy) paints
       const img = await r.page.$(sel);
-      const facts = await img.evaluate((i) => ({ src: i.currentSrc || i.src, shown: i.getAttribute("data-photo-shown") }));
+      const facts = await img.evaluate((i) => ({ src: i.currentSrc || i.src, shown: i.getAttribute("data-photo-shown") || i.currentSrc || i.src }));
       facts.src = bare(facts.src); facts.shown = bare(facts.shown);
       row.contextFile = name(facts.src);
       row.shownFile = name(facts.shown);
@@ -347,8 +355,10 @@ for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
       await r.page.waitForTimeout(300);
       const target = bare(await r.page.evaluate(() => window.__ctx));
       row.contextMenuTarget = target;
-      if (!target || !r.credited.includes(target)) fail(row, `right-click target is ${target} — not the credited file`);
-      if (target && r.store[target]?.twin) {
+      if (retired) {
+        if (!target || r.credited.includes(target)) fail(row, `right-click target is ${target} — the retired -l4 credited file (or nothing)`);
+      } else if (!target || !r.credited.includes(target)) fail(row, `right-click target is ${target} — not the credited file`);
+      if (!retired && target && r.store[target]?.twin) {
         row.creditInSavedFile = await measureCredit(r.store[target].b64, r.store[target].twin);
         creditFail(row, row.creditInSavedFile);
         if (OUT) await corner(r.store[target].b64, join(OUT, `saved-full-screen-${engine}-${shape}.png`));
@@ -373,13 +383,15 @@ for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
         return img.screenshot();
       };
       const cleanRef = await draw(facts.shown);
-      const creditRef = await draw(facts.src);
       const vsClean = diff(onScreen, cleanRef);
-      const vsCredit = diff(cleanRef, creditRef);
       row.onScreenVsClean = vsClean.why;
-      row.cleanVsCredited = vsCredit.why;
       if (!vsClean.same) fail(row, `the screen is not the clean copy: ${vsClean.why}`);
-      if (vsCredit.differing < CREDIT_MIN_PIXELS) fail(row, `the credited file looks like the clean one here (${vsCredit.why}) — the check would be vacuous`);
+      if (!retired) {
+        const creditRef = await draw(facts.src);
+        const vsCredit = diff(cleanRef, creditRef);
+        row.cleanVsCredited = vsCredit.why;
+        if (vsCredit.differing < CREDIT_MIN_PIXELS) fail(row, `the credited file looks like the clean one here (${vsCredit.why}) — the check would be vacuous`);
+      }
       if (r.errors.length) row.errors = r.errors;
       await r.ctx.close();
     } catch (e) {

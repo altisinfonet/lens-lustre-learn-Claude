@@ -25,8 +25,9 @@ describe("fullScreenPhoto / inlinePhotoUrl (Unit A: the copy is chosen by the fi
   const L5 = `${CDN}-w1080h720-l5.webp`;
   const L5F = `${CDN}-w4000h3000-l5f.webp`;
   it("full screen PAINTS a clean copy; the context-menu file is the credited 2048; never a full size", () => {
-    expect(fullScreenPhoto(L4)).toEqual({ shown: `${CDN}-w2048h1365-l4-r1080.webp`, saveAs: withCreditVersion(`${L4}`) });
-    expect(fullScreenPhoto(L4F)).toEqual({ shown: `${CDN}-w4000h3000-l4f-r1080.webp`, saveAs: withCreditVersion(`${CDN}-w4000h3000-l4f-r2048.webp`) });
+    // credit fix U1: a v2 (-l4 / -l4f) set has NO save target (its credited files carry the retired big credit)
+    expect(fullScreenPhoto(L4)).toEqual({ shown: `${CDN}-w2048h1365-l4-r1080.webp`, saveAs: null });
+    expect(fullScreenPhoto(L4F)).toEqual({ shown: `${CDN}-w4000h3000-l4f-r1080.webp`, saveAs: null });
     expect(fullScreenPhoto(L5)).toEqual({ shown: L5, saveAs: withCreditVersion(`${CDN}-w1080h720-l5-r2048c.webp`) });
     expect(fullScreenPhoto(L5F)).toEqual({ shown: `${CDN}-w4000h3000-l5f-r1080.webp`, saveAs: withCreditVersion(`${CDN}-w4000h3000-l5f-r2048c.webp`) });
   });
@@ -38,7 +39,7 @@ describe("fullScreenPhoto / inlinePhotoUrl (Unit A: the copy is chosen by the fi
     }
   });
   it("v4 URL version (raised after the v4 production redraw): every credited URL the web loads carries ?cv=4, so no browser or CDN cache serves the v3 credit", () => {
-    for (const u of [L4, L4F, L5, L5F]) expect(fullScreenPhoto(u).saveAs).toMatch(/\.webp\?cv=4$/);
+    for (const u of [L5, L5F]) expect(fullScreenPhoto(u).saveAs).toMatch(/\.webp\?cv=4$/);
     // the copy painted on screen never carries it (it is not a credited file)
     for (const u of [L4, L4F, L5, L5F]) expect(fullScreenPhoto(u).shown).not.toMatch(/cv=/);
   });

@@ -124,8 +124,14 @@ export function rungWidthFor(rung: number, w: number, h: number): number {
  *   siblings `-l4-r1080` (long > 1080), `-l4-thumb`, `-l4-r320` (long > 320).
  *   `-l4f`: the URL is the full size; `-l4f-r2048` credited, `-l4f-r1080`
  *   (long > 1080), thumb, r320. These names are still read (and rectified by
- *   the backfill); the URL helper never offers a credited `-l4` file for any
- *   size but 2048.
+ *   the backfill).
+ *   RETIRED CREDIT (credit fix U1, Owner 4 Nov 2026 "very big credit"): both v2
+ *   credited files — the `-l4` master and `-l4f-r2048` — carry the FIRST credit
+ *   geometry (≈50 px, more than half the width). They are never a save target
+ *   and never shown: the URL helper answers every size of a v2 set, 2048
+ *   included, with its CLEAN copy. A stale client row that still names a `-l4`
+ *   URL (posts were repointed by 20261110_0107) therefore saves the clean copy,
+ *   never the big credit. The sibling list (deletion safety) still names them.
  *
  * The marker is a PROMISE, published only after every planned PUBLIC sibling is
  * in the store (the uploader strips it on any failure, exactly like `-l3`).
@@ -242,7 +248,15 @@ function parseSet(url: string): ParsedSet | null {
  */
 export function photoSetCleanUrl(url: string): string {
   const s = parseSet(url);
-  if (!s) return url;
+  if (!s) {
+    // A set marker without dimensions (never written): its own URL only for `-l5`
+    // (clean by construction), else its thumb — the same answer photoSetUrl
+    // gives below 2048; never the retired credited `-l4` master (credit fix U1).
+    const bare = SET_NODIMS_RE.exec(url);
+    if (!bare) return url;
+    const [, stem, marker, ext, tail] = bare;
+    return marker.toLowerCase() === "-l5" ? `${stem}${marker}${ext}${tail}` : `${stem}${marker}-thumb${ext}${tail}`;
+  }
   if (s.marker === "-l5") return s.at("");
   if (s.marker === "-l5f") return s.at("-r1080");
   return s.long > 1080 ? s.at("-r1080") : s.at("-thumb");
@@ -250,13 +264,14 @@ export function photoSetCleanUrl(url: string): string {
 
 /**
  * THE URL HELPER — the stored copy that best serves `size`, from the URL alone.
- * Never offers a file that was not stored, and NEVER a credited file for any
- * size but 2048 (only full screen asks for 2048):
+ * Never offers a file that was not stored, NEVER a credited file for any size
+ * but 2048 (only full screen asks for 2048), and NEVER a retired v2 credited
+ * file at all (credit fix U1):
  *
  *   v3 `-l5`   2048 → `-r2048c` · 1080 → the URL · 600 → `-thumb` · 320 → `-r320` (else the URL)
  *   v3 `-l5f`  2048 → `-r2048c` · 1080 → `-r1080` · 600 → `-thumb` · 320 → `-r320` (else `-r1080`)
- *   v2 `-l4`   2048 → the URL · 1080 → `-r1080` (else the thumb) · 600 → `-thumb` · 320 → `-r320` (else the thumb)
- *   v2 `-l4f`  2048 → `-r2048` · 1080 → `-r1080` (else the thumb) · 600 / 320 as `-l4`
+ *   v2 `-l4`   2048 → the clean copy (`-r1080`, else the thumb) · 1080 the same · 600 → `-thumb` · 320 → `-r320` (else the thumb)
+ *   v2 `-l4f`  2048 / 1080 → `-r1080` (else the thumb) · 600 / 320 as `-l4`
  *   old `-l3`  2048 → the URL · 1080 → `-r1080` · 600 and 320 → `-thumb`
  *   unmarked   the URL itself for every size (its thumbnail lives in
  *              `thumbnail_urls`, not in its name)
@@ -267,7 +282,7 @@ export function photoSetUrl(storedUrl: string, size: PhotoSetSize): string {
   const s = parseSet(storedUrl);
   if (s) {
     const v3 = s.marker === "-l5" || s.marker === "-l5f";
-    if (size === 2048) return v3 ? s.at(CREDITED_SUFFIX) : s.marker === "-l4f" ? s.at("-r2048") : s.at("");
+    if (size === 2048) return v3 ? s.at(CREDITED_SUFFIX) : photoSetCleanUrl(storedUrl); // v2: never the retired credit
     if (size === 600) return s.at("-thumb");
     if (size === 1080) return photoSetCleanUrl(storedUrl);
     return s.long > 320 ? s.at("-r320") : v3 ? photoSetCleanUrl(storedUrl) : s.at("-thumb");
@@ -275,12 +290,12 @@ export function photoSetUrl(storedUrl: string, size: PhotoSetSize): string {
   const bare = SET_NODIMS_RE.exec(storedUrl);
   if (bare) {
     // A set marker without dimensions is never written; never guess at siblings.
-    // Only the 2048 answer can be honest (the credited copy always exists).
+    // Only the v3 2048 answer can be honest (its credited copy always exists);
+    // a v2 set answers with its thumb at every size (never the retired credit).
     const [, stem, marker, ext, tail] = bare;
     const m = marker.toLowerCase();
-    if (size !== 2048) return m === "-l5" ? `${stem}${marker}${ext}${tail}` : `${stem}${marker}-thumb${ext}${tail}`;
-    if (m === "-l5" || m === "-l5f") return `${stem}${marker}${CREDITED_SUFFIX}${ext}${tail}`;
-    return m === "-l4f" ? `${stem}${marker}-r2048${ext}${tail}` : `${stem}${marker}${ext}${tail}`;
+    if (size === 2048 && (m === "-l5" || m === "-l5f")) return `${stem}${marker}${CREDITED_SUFFIX}${ext}${tail}`;
+    return m === "-l5" ? `${stem}${marker}${ext}${tail}` : `${stem}${marker}-thumb${ext}${tail}`;
   }
   const l3 = L3_RE.exec(storedUrl);
   if (l3 && hasLadderMarker(storedUrl)) {
@@ -309,13 +324,28 @@ export function photoSetWidth(url: string, size: 1080 | 600 | 320): number | nul
   return s.long <= cap ? s.w : Math.max(1, Math.round((cap * s.w) / s.long));
 }
 
-/** True when the file a URL names carries the credit (a full-screen-only file). */
+/**
+ * True when the file a URL names carries ANY credit — current or retired. Such
+ * a file is never PAINTED on screen. Whether it may be a SAVE target is a
+ * separate question: isSaveTargetCreditedUrl.
+ */
 export function isCreditedPhotoUrl(url: string): boolean {
-  const s = parseSet(url);
+  return isSaveTargetCreditedUrl(url) || isRetiredCreditedUrl(url);
+}
+
+/**
+ * Credit fix U1: a v2 credited file — the `-l4` master (with or without
+ * dimensions in the name) or `-l4f-r2048` — carrying the FIRST, big credit.
+ * Never a save target, never shown.
+ */
+export function isRetiredCreditedUrl(url: string): boolean {
   const path = url.replace(/[?#].*$/, "");
-  if (/-l[45]f?-r2048c\.[a-z0-9]+$/i.test(path)) return true;
-  if (/-l4f-r2048\.[a-z0-9]+$/i.test(path)) return true;
-  return !!s && s.marker === "-l4" && /-l4\.[a-z0-9]+$/i.test(path);
+  return /-l4(?:f-r2048)?\.[a-z0-9]+$/i.test(path);
+}
+
+/** The ONLY credited files a web "save image" may get: the v3 credited copy `-r2048c`. */
+export function isSaveTargetCreditedUrl(url: string): boolean {
+  return /-l[45]f?-r2048c\.[a-z0-9]+$/i.test(url.replace(/[?#].*$/, ""));
 }
 
 /**

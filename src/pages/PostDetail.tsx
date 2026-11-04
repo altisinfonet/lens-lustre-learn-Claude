@@ -32,6 +32,7 @@ import { useReactToPost, useUnreactToPost } from "@/hooks/feed/usePostReactionMu
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import PageSEO from "@/components/PageSEO";
 import { avatarInitial } from "@/lib/displayName";
+import { memberPhotoSrc } from "@/lib/photoProtection";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -385,7 +386,8 @@ const PostDetail = () => {
     thumbnail_urls: [],
     is_liked: post.user_reaction !== null,
   };
-  const ogImage = allImages[0] || undefined;
+  // Credit fix U1: a set photo's share image is its clean copy, never its own (credited) URL.
+  const ogImage = memberPhotoSrc(allImages[0], 1080) || undefined;
   const ogDescription = post.content?.slice(0, 160) || "A post on 50mm Retina World";
 
   return (
