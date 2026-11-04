@@ -192,22 +192,20 @@ describe("APP (Android shell)", () => {
     expect(screen.queryByText(/camera/i)).toBeNull();
   });
 
-  it("full screen: no camera ⓘ and no sheet — one design, the line under the photo (audit H1)", async () => {
+  it("no full screen and no camera ⓘ / sheet — one design, the line under the photo (audit H1; feed viewer removed 4 Nov 2026)", async () => {
     setApp(true);
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       wrap(card(post()));
       await settle();
-      const frame = document.querySelector(".cursor-zoom-in") as HTMLElement;
-      // The first tap may reveal the reach figures (interceptFirstTap); taps are
-      // resolved after the 300 ms double-tap window.
-      for (let i = 0; i < 2 && !screen.queryByRole("dialog", { name: /full size/ }); i++) {
+      const frame = document.querySelector("[data-feed-photo]") as HTMLElement;
+      // Taps are resolved after the 300 ms double-tap window; none opens anything.
+      for (let i = 0; i < 2; i++) {
         fireEvent.click(frame);
         await act(async () => { vi.advanceTimersByTime(400); });
       }
-      const viewer = await screen.findByRole("dialog", { name: /full size/ });
-      expect(within(viewer).queryByRole("button", { name: "Camera details" })).toBeNull();
-      expect(screen.queryByRole("dialog", { name: "Camera details" })).toBeNull();
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Camera details" })).toBeNull();
     } finally {
       vi.useRealTimers();
     }

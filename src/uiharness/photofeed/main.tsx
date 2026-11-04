@@ -31,11 +31,12 @@
  *                 post_photo_credit_for (20261110_0109)
  *   ?admin=1      the viewer is a site admin (user_roles role = admin)
  *   ?app=1        the Android shell (window.Capacitor, set before the app loads)
+ *   ?grid=1       also the post's photo grid (#gridwrap), whose tap opens full screen
  *   ?viewer=err   signed out, and the first feed copy requested fails (404):
  *                 the image-error fallback must be clean too (tools side)
  */
 import { createRoot } from "react-dom/client";
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useState } from "react";
 import { installFakeBackend, HARNESS_USER_ID, type FakeRoute } from "../fakeBackend";
 import { fixtureRoutes } from "../fixtureRoutes";
 import "../../index.css";
@@ -198,13 +199,32 @@ async function main() {
 
   const AppShell = lazy(() => import("../AppShell"));
   const PostCard = lazy(() => import("@/components/post/PostCard"));
+  const FacebookPhotoGrid = lazy(() => import("@/components/FacebookPhotoGrid"));
+  /** The card keeps its own like state, as the feed does — so a double-tap shows the like land (feed gestures, 4 Nov 2026). */
+  const Card = () => {
+    const [p, setP] = useState(post);
+    return (
+      <PostCard
+        post={p}
+        currentUserId={viewer === "out" ? undefined : HARNESS_USER_ID}
+        onReact={(_, type) => setP((c) => ({ ...c, user_reaction: type, like_count: c.like_count + 1, reaction_counts: { ...c.reaction_counts, [type]: (c.reaction_counts[type] ?? 0) + 1 } }))}
+        onUnreact={() => setP(post)}
+      />
+    );
+  };
   createRoot(document.getElementById("root")!).render(
     <Suspense fallback={<p>loading…</p>}>
       <AppShell route="/feed" path="/feed" withLayout={false}>
         <CommentsOverlayProvider>
           <div id="cardwrap" style={{ width: phone ? 390 : 560, margin: phone ? "0" : "16px auto", background: "hsl(var(--card))" }}>
-            <PostCard post={post} currentUserId={viewer === "out" ? undefined : HARNESS_USER_ID} onReact={() => {}} onUnreact={() => {}} />
+            <Card />
           </div>
+          {/* ?grid=1: the post's photo grid, the full-screen path photo-feed-credit.mjs checks (the feed photo opens no viewer since 4 Nov 2026). */}
+          {q.get("grid") === "1" && (
+            <div id="gridwrap" style={{ width: phone ? 390 : 560, margin: phone ? "0" : "16px auto" }}>
+              <FacebookPhotoGrid urls={[url]} />
+            </div>
+          )}
         </CommentsOverlayProvider>
       </AppShell>
     </Suspense>,

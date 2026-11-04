@@ -81,10 +81,18 @@ function wrap(node: ReactNode) {
   );
 }
 const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 30)); });
-/** A feed photo opens on a SINGLE tap, which waits out the 300 ms double-tap window. */
-const openFeedViewer = async () => {
-  fireEvent.click(document.querySelector(".cursor-zoom-in") as HTMLElement);
+/**
+ * A SINGLE tap on a feed photo, waited out past the 300 ms double-tap window.
+ * Since 4 Nov 2026 it opens nothing (Owner, feed "like Instagram").
+ */
+const tapFeedPhoto = async () => {
+  fireEvent.click(document.querySelector("[data-feed-photo]") as HTMLElement);
   await act(async () => { await new Promise((r) => setTimeout(r, 400)); });
+};
+/** A post photo full screen — now opened from the post's photo grid (same `originalFor` → ZoomableImage path the feed viewer used). */
+const openGridViewer = async () => {
+  fireEvent.click(document.querySelector(".group\\/photo") as HTMLElement);
+  await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
 };
 const setApp = (on: boolean) => {
   (globalThis as { Capacitor?: unknown }).Capacitor = on ? { isNativePlatform: () => true } : undefined;
@@ -105,24 +113,23 @@ beforeEach(() => {
 afterEach(() => { setApp(false); __resetPhotoSaveGuardForTests(); });
 
 describe("members: no download anywhere they see photos (switch ON)", () => {
-  it("feed single photo: no download button on the card or in full screen", async () => {
+  it("feed single photo: no download button on the card, and a tap opens no full screen", async () => {
     wrap(<PostMedia urls={[L4]} />);
     await settle();
     expect(downloadButtons()).toHaveLength(0);
-    await openFeedViewer();
+    await tapFeedPhoto();
     await settle();
-    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(downloadButtons()).toHaveLength(0);
-    // The toolbar is not left empty: Close is still there and still reachable.
-    expect(screen.getByRole("button", { name: /close photo viewer/i })).toBeTruthy();
   });
 
-  it("feed album: no download button on the card or in full screen", async () => {
+  it("feed album: no download button on the card, and a tap opens no full screen", async () => {
     wrap(<PostMedia urls={[L4, L4B]} />);
     await settle();
     expect(downloadButtons()).toHaveLength(0);
-    await openFeedViewer();
+    await tapFeedPhoto();
     await settle();
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(downloadButtons()).toHaveLength(0);
   });
 
@@ -187,9 +194,9 @@ describe("web full screen shows the 2048 copy (switch ON); old photos unchanged"
   });
 
   it("post -l4 (a stale pre-repoint row) → its clean -r1080, never the -l4 master", async () => {
-    wrap(<PostMedia urls={[L4]} />);
+    wrap(<FacebookPhotoGrid urls={[L4]} />);
     await settle();
-    await openFeedViewer();
+    await openGridViewer();
     await settle();
     expect(fullScreenImg()?.getAttribute("src")).toBe(L4_1080);
   });
@@ -282,15 +289,16 @@ const viewers = [
 ] as const;
 describe("Unit B · no download icon for anyone but admins/judges on competition entries — whatever the switch says", () => {
   for (const v of viewers) {
-    it(`${v.name}: feed single photo (old and new) + full screen — no download`, async () => {
+    it(`${v.name}: feed single photo (old and new) — no download, and a tap opens no full screen`, async () => {
       switchOn = v.on; signedIn = v.signed;
       for (const url of [OLD, L4F]) {
         const { unmount } = wrap(<PostMedia urls={[url]} />);
         await settle();
         expect(downloadButtons(), url).toHaveLength(0);
-        await openFeedViewer();
+        await tapFeedPhoto();
         await settle();
-        expect(within(screen.getByRole("dialog")).queryAllByRole("button", { name: /download photo/i }), url).toHaveLength(0);
+        expect(screen.queryByRole("dialog"), url).toBeNull();
+        expect(downloadButtons(), url).toHaveLength(0);
         unmount();
       }
     });
@@ -352,10 +360,10 @@ describe("switch OFF · which copy is shown (Unit A)", () => {
   const L5F_CRED = withCreditVersion(`${ENTRY}-w4000h3000-l5f-r2048c.webp`);
   const L5F_1080 = `${ENTRY}-w4000h3000-l5f-r1080.webp`;
 
-  it("feed full screen paints the CLEAN copy; the credited file is only under the context menu", async () => {
-    wrap(<PostMedia urls={[L5F]} />);
+  it("post photo full screen paints the CLEAN copy; the credited file is only under the context menu", async () => {
+    wrap(<FacebookPhotoGrid urls={[L5F]} />);
     await settle();
-    await openFeedViewer();
+    await openGridViewer();
     await settle();
     expect(fullScreenImg()?.getAttribute("src")).toBe(L5F_CRED);
     expect(fullScreenImg()?.style.backgroundImage).toContain(L5F_1080);

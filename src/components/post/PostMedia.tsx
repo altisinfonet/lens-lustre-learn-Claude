@@ -11,15 +11,13 @@
  * which is exactly what stopped the notification bell being enlarged in the
  * same pass. The glyphs inside are unchanged.
  */
-import { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
+import { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { CDN_HOST as LANE_CDN_HOST, SITE_ORIGIN } from "@/lib/env";
-import { X, ChevronLeft, ChevronRight, Heart } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { usePhotoDownload } from "@/hooks/core/usePhotoDownload";
 import DownloadButton from "@/components/DownloadButton";
-import ProfileLink from "@/components/ProfileLink";
-import type { PhotoAuthor } from "@/components/FacebookPhotoGrid";
-import ZoomableImage from "@/components/media/ZoomableImage";
-import { ladderFor, originalFor } from "@/lib/media/resolvedMedia";
+import { useFeedPhotoGestures } from "@/components/post/useFeedPhotoGestures";
+import { ladderFor } from "@/lib/media/resolvedMedia";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import { frameAspectFor, frameAspectForUrls, parseImageDims } from "@/lib/imageFrame";
 import { hasLadderMarker, isSaveTargetCreditedUrl, photoSetBlurUrl, photoSetCleanUrl, photoSetMarker, rungPath, rungPlan, rungWidthFor } from "@/lib/imageLadder";
@@ -39,36 +37,26 @@ interface PostMediaProps {
    * NEVER GUESSES a thumbnail address again.
    */
   thumbUrls?: (string | null | undefined)[];
+  /**
+   * DOUBLE-TAP / DOUBLE-CLICK on the photograph (Owner, 4 Nov 2026: like
+   * Instagram). Called once per double-tap; a heart bursts on the photo only
+   * when this is given. PostCard passes its one like action here.
+   */
   onDoubleTapLike?: () => void;
   /**
-   * FIRST TAP ON THE PHOTOGRAPH, on a touch screen.
+   * A SINGLE TAP ON THE PHOTOGRAPH.
    *
-   * Owner's decision, 2026-08-15, from three options: the first tap reveals
-   * the reach/viewed figures and does NOTHING ELSE; a second tap opens the
-   * photograph as it always did. Return `true` to say "I consumed this tap" —
-   * the viewer then stays shut. Returning false (or omitting the prop) leaves
-   * the old behaviour exactly as it was, which is what the web pointer path
-   * uses, because there the figures appear on hover and never steal a click.
+   * Owner's decision, 2026-08-15: the first tap reveals the reach/viewed
+   * figures. Since 4 Nov 2026 a tap opens nothing at all (there is no feed
+   * viewer), so this is the only thing a single tap can do. The boolean answer
+   * ("I consumed this tap") is kept for the caller's own bookkeeping.
    */
   interceptFirstTap?: () => boolean;
-  /**
-   * The photograph's author, for the fullscreen viewer — RED #5 and #8.
-   * PostMedia carries its own copy of the viewer (the Auditor measured the one
-   * in FacebookPhotoGrid; this one had the identical defect), so it takes the
-   * identical prop rather than growing a second shape for the same fact.
-   */
-  author?: PhotoAuthor;
   /**
    * Photo plan U2 (switch `photo_set_v2`, given only while it is on): which
    * photo of an album is showing, so the card's camera line/strip can follow it.
    */
   onSlideChange?: (index: number) => void;
-  /**
-   * Photo plan U2 (app, switch on): an extra control in the full-screen
-   * viewer's top bar for the photo at `index` — the camera-details ⓘ.
-   * Absent ⇒ the viewer renders exactly as before.
-   */
-  viewerAction?: (index: number) => ReactNode;
 }
 
 /**
@@ -94,7 +82,7 @@ interface PostMediaProps {
  * A photo WITH dimensions in its name is never measured, so new posts still
  * have zero reflow.
  */
-const PostMedia = ({ urls, thumbUrls, onDoubleTapLike, interceptFirstTap, author, onSlideChange, viewerAction }: PostMediaProps) => {
+const PostMedia = ({ urls, thumbUrls, onDoubleTapLike, interceptFirstTap, onSlideChange }: PostMediaProps) => {
   const first = urls[0];
   // One frame per card, taken from the first photo — see src/lib/imageFrame.ts.
   // An album must not resize between slides: the buttons would move under the
@@ -120,14 +108,14 @@ const PostMedia = ({ urls, thumbUrls, onDoubleTapLike, interceptFirstTap, author
 
   const frameAspect = measuredAspect ?? declaredAspect;
   if (urls.length === 1) {
-    return <SingleImagePost src={first} thumb={thumbUrls?.[0]} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} interceptFirstTap={interceptFirstTap} author={author} viewerAction={viewerAction} />;
+    return <SingleImagePost src={first} thumb={thumbUrls?.[0]} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} interceptFirstTap={interceptFirstTap} />;
   }
-  return <AlbumCarousel urls={urls} thumbUrls={thumbUrls} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} interceptFirstTap={interceptFirstTap} author={author} onSlideChange={onSlideChange} viewerAction={viewerAction} />;
+  return <AlbumCarousel urls={urls} thumbUrls={thumbUrls} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} interceptFirstTap={interceptFirstTap} onSlideChange={onSlideChange} />;
 };
 
 /* ── Supabase render-endpoint helpers ──
  * Phase 1: bandwidth fix. Feed/Wall thumbnails use Supabase image transform
- * (LQIP 32px + responsive srcset 480/800/1200). Lightbox + download still use
+ * (LQIP 32px + responsive srcset 480/800/1200). Download still uses
  * the original URL passed in via props — never transformed here.
  *
  * Edge cases handled:
@@ -263,7 +251,7 @@ function buildLqipUrl(url: string): string {
  * pre-2026-08-07 behaviour: heavier, never broken.
  *
  * GIF/SVG originals never swap to a thumbnail (it would freeze the animation).
- * The lightbox is unaffected: it receives the original `urls` prop directly.
+ * Download is unaffected: it receives the original `urls` prop directly.
  */
 function usableThumb(thumb: string | null | undefined, original: string): string | null {
   if (!thumb || typeof thumb !== "string") return null;
@@ -602,105 +590,38 @@ const ProgressiveImage = ({
   );
 };
 
-/* ── Double Tap Heart Animation ── */
-const DoubleTapHeart = ({ x, y }: { x: number; y: number }) => (
-  <motion.div initial={{ opacity: 1, scale: 0.5 }} animate={{ opacity: 0, scale: 1.6 }} transition={{ duration: 0.45 }} className="absolute z-20 pointer-events-none" style={{ left: x - 24, top: y - 24 }}>
-    <Heart className="h-12 w-12 text-white fill-white drop-shadow-lg" />
-  </motion.div>
-);
-
-/* ── Tap / Double-Tap Hook ──
+/* ── Gestures ──
  *
- * BUILD 1055. This used to be `useDoubleTap`: one tap did nothing at all, two
- * taps liked the post. The owner asked for a feed photograph to open
- * fullscreen on a tap, so this now has to separate two gestures that begin
- * identically — and a single tap must NEVER be able to fire a like.
- *
- * THE 300ms IS A REAL COST, NOT AN OVERSIGHT. A single tap cannot be resolved
- * until the double-tap window has passed, because until then it might be the
- * first half of a like. So opening the viewer is deliberately deferred by
- * 300ms — the same threshold the double-tap already used before this build.
- * The alternative, acting on the first tap immediately, would open the viewer
- * underneath every like a member gives their friends' photographs. Nobody
- * would call that faster.
- *
- * The timer is cleared on unmount: a post scrolled out of the feed inside the
- * window must not open a viewer for a photograph that is no longer on screen.
+ * Owner order, 4 Nov 2026 — "exactly like Instagram": a tap opens NOTHING (the
+ * feed viewer that BUILD 1055 added is gone, web and app), a double-tap likes
+ * with a heart, two fingers pinch the photograph in place. All of it lives in
+ * the ONE shared hook, src/components/post/useFeedPhotoGestures.tsx; both
+ * renderers below use it and neither has a tap or touch handler of its own.
+ * `touch-action: pan-x pan-y` on the frame keeps one-finger scrolling with the
+ * browser and stops the browser's own pinch/double-tap page zoom from starting
+ * on a photograph (the app already sets the same rule on <html>).
  */
-function useTapOrDoubleTap(
-  onDoubleTap?: (x: number, y: number) => void,
-  onSingleTap?: () => void,
-) {
-  const lastTapRef = useRef(0);
-  const pendingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => () => { if (pendingRef.current) clearTimeout(pendingRef.current); }, []);
-
-  const handleTap = useCallback(
-    (e: React.MouseEvent | React.TouchEvent) => {
-      const now = Date.now();
-      if (now - lastTapRef.current < 300) {
-        // Second tap inside the window — this was a like all along. Cancel the
-        // open that the first tap scheduled.
-        if (pendingRef.current) { clearTimeout(pendingRef.current); pendingRef.current = null; }
-        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-        let clientX: number, clientY: number;
-        if ("touches" in e) { clientX = e.changedTouches?.[0]?.clientX ?? 0; clientY = e.changedTouches?.[0]?.clientY ?? 0; }
-        else { clientX = e.clientX; clientY = e.clientY; }
-        onDoubleTap?.(clientX - rect.left, clientY - rect.top);
-        lastTapRef.current = 0;
-        return;
-      }
-      lastTapRef.current = now;
-      if (!onSingleTap) return;
-      if (pendingRef.current) clearTimeout(pendingRef.current);
-      pendingRef.current = setTimeout(() => { pendingRef.current = null; onSingleTap(); }, 300);
-    },
-    [onDoubleTap, onSingleTap],
-  );
-  return handleTap;
-}
+const FRAME_TOUCH = { touchAction: "pan-x pan-y" } as const;
 
 /* ── Single Image ── */
-const SingleImagePost = ({ src, thumb, frameAspect, onNaturalSize, onDoubleTapLike, interceptFirstTap, author, viewerAction }: { src: string; thumb?: string | null; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void; interceptFirstTap?: () => boolean; author?: PhotoAuthor; viewerAction?: (index: number) => ReactNode }) => {
-  const [heart, setHeart] = useState<{ x: number; y: number; id: number } | null>(null);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
+const SingleImagePost = ({ src, thumb, frameAspect, onNaturalSize, onDoubleTapLike, interceptFirstTap }: { src: string; thumb?: string | null; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void; interceptFirstTap?: () => boolean }) => {
   // U3: posts are member photos — with photo_set_v2 on, nobody is offered download. Off: today.
   const { canDownload, downloading, download } = usePhotoDownload(false);
-
-  const handleTap = useTapOrDoubleTap(
-    (x, y) => {
-      setHeart({ x, y, id: Date.now() });
-      onDoubleTapLike?.();
-    },
-    // BUILD 1055 — a single-photo feed post had NO fullscreen viewer at all
-    // before this build. Tapping it did nothing; only a double tap registered.
-    useCallback(() => {
-      // The first tap belongs to the figures, not the viewer. See
-      // `interceptFirstTap` on PostMediaProps.
-      if (interceptFirstTap?.()) return;
-      setLightboxOpen(true);
-    }, [interceptFirstTap]),
-  );
+  // A single tap only ever reveals the figures (see `interceptFirstTap`); it opens nothing.
+  const gestures = useFeedPhotoGestures({ onDoubleTap: onDoubleTapLike, onSingleTap: useCallback(() => { interceptFirstTap?.(); }, [interceptFirstTap]) });
 
   return (
-    <>
-      <div className="relative group/img w-full overflow-hidden rounded-sm bg-muted/30 cursor-zoom-in" style={{ aspectRatio: String(frameAspect) }} onClick={handleTap}>
-        <ProgressiveImage src={src} thumb={thumb} onNaturalSize={onNaturalSize} />
-        <AnimatePresence>{heart && <DoubleTapHeart key={heart.id} x={heart.x} y={heart.y} />}</AnimatePresence>
-        {canDownload && (
-          <DownloadButton
-            downloading={downloading === src}
-            onClick={(e) => { e.stopPropagation(); download(src); }}
-            className="absolute bottom-3 right-3 grid h-11 w-11 place-items-center rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-card shadow-sm"
-          />
-        )}
-      </div>
-      {/* The viewer is handed the ORIGINAL url, never the 800px render copy
-          the card displays. Zooming a downscaled thumbnail would magnify the
-          downscale, which is the opposite of the point. */}
-      <CarouselLightbox urls={[src]} currentIndex={lightboxOpen ? 0 : null} onClose={() => setLightboxOpen(false)} onNavigate={() => {}} author={author} viewerAction={viewerAction} />
-    </>
+    <div ref={gestures.frameRef} data-feed-photo="" className="relative group/img w-full overflow-hidden rounded-sm bg-muted/30 select-none" style={{ aspectRatio: String(frameAspect), ...FRAME_TOUCH }} onClick={gestures.onClick}>
+      <ProgressiveImage src={src} thumb={thumb} onNaturalSize={onNaturalSize} />
+      {gestures.heart}
+      {canDownload && (
+        <DownloadButton
+          downloading={downloading === src}
+          onClick={(e) => { e.stopPropagation(); download(src); }}
+          className="absolute bottom-3 right-3 grid h-11 w-11 place-items-center rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-card shadow-sm"
+        />
+      )}
+    </div>
   );
 };
 
@@ -711,34 +632,25 @@ function preloadImage(url: string | undefined) { if (!url) return; const img = n
 const SWIPE_THRESHOLD = 50;
 const SWIPE_VELOCITY = 300;
 
-const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTapLike, interceptFirstTap, author, onSlideChange, viewerAction }: { urls: string[]; thumbUrls?: (string | null | undefined)[]; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void; interceptFirstTap?: () => boolean; author?: PhotoAuthor; onSlideChange?: (index: number) => void; viewerAction?: (index: number) => ReactNode }) => {
+const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTapLike, interceptFirstTap, onSlideChange }: { urls: string[]; thumbUrls?: (string | null | undefined)[]; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void; interceptFirstTap?: () => boolean; onSlideChange?: (index: number) => void }) => {
   const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState(0);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [heart, setHeart] = useState<{ x: number; y: number; id: number } | null>(null);
   const { canDownload, downloading, download } = usePhotoDownload(false); // U3: see SingleImagePost
 
   /**
-   * A swipe ends in a click event. Without this the member would flick to the
-   * next photograph and the viewer would open on top of it — the album would
-   * be effectively unswipeable. Set by handleDragEnd, checked by the tap.
+   * A swipe ends in a click event. Without this a member flicking to the next
+   * photograph would have that flick counted as the "reveal" tap. Set by
+   * handleDragEnd, checked by the tap.
    */
   const swipedUntilRef = useRef(0);
 
-  const handleTap = useTapOrDoubleTap(
-    (x, y) => {
-      setHeart({ x, y, id: Date.now() });
-      onDoubleTapLike?.();
-    },
-    useCallback(() => {
+  const gestures = useFeedPhotoGestures({
+    onDoubleTap: onDoubleTapLike,
+    onSingleTap: useCallback(() => {
       if (Date.now() < swipedUntilRef.current) return;
-      // The first tap belongs to the figures, not the viewer — but only after
-      // the swipe guard above, or a member paging through an album would have
-      // their swipe counted as the "reveal" tap.
-      if (interceptFirstTap?.()) return;
-      setLightboxOpen(true);
+      interceptFirstTap?.();
     }, [interceptFirstTap]),
-  );
+  });
 
   useEffect(() => {
     preloadImage(urls[(current + 1) % urls.length]);
@@ -753,13 +665,16 @@ const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTa
     setCurrent((c) => { if (newDir > 0) return c < urls.length - 1 ? c + 1 : 0; return c > 0 ? c - 1 : urls.length - 1; });
   }, [urls.length]);
 
+  const { pinchActive } = gestures;
   const handleDragEnd = useCallback((_: unknown, info: PanInfo) => {
     const { offset, velocity } = info;
     // Anything past a few pixels was a drag, not a tap — even if it did not
     // travel far enough to page. The window covers the click that follows.
     if (Math.abs(offset.x) > 5) swipedUntilRef.current = Date.now() + 400;
+    // The first finger of a pinch also drags the slide; a pinch never pages.
+    if (pinchActive()) return;
     if (Math.abs(offset.x) > SWIPE_THRESHOLD || Math.abs(velocity.x) > SWIPE_VELOCITY) navigate(offset.x < 0 ? 1 : -1);
-  }, [navigate]);
+  }, [navigate, pinchActive]);
 
   const slideVariants = {
     enter: (d: number) => ({ x: d > 0 ? "100%" : "-100%", opacity: 0.5 }),
@@ -768,148 +683,50 @@ const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTa
   };
 
   return (
-    <>
-      <div className="relative group/album w-full overflow-hidden rounded-sm bg-muted/30 cursor-zoom-in" style={{ aspectRatio: String(frameAspect) }} onClick={handleTap}>
-        <AnimatePresence initial={false} custom={direction} mode="popLayout">
-          <motion.div key={current} custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3, ease: "easeOut" }} drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.15} onDragEnd={handleDragEnd} className="absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing">
-            {/* Only slide 0 may set the frame — an album has ONE shape and it
-                belongs to the first photo. Swiping must never resize the card. */}
-            <ProgressiveImage src={urls[current]} thumb={thumbUrls?.[current]} onNaturalSize={current === 0 ? onNaturalSize : undefined} />
-          </motion.div>
-        </AnimatePresence>
-        <AnimatePresence>{heart && <DoubleTapHeart key={heart.id} x={heart.x} y={heart.y} />}</AnimatePresence>
-
-        {/* F-D3-10: named like the lightbox's own arrows (axe button-name). */}
-        <button onClick={(e) => { e.stopPropagation(); navigate(-1); }} aria-label="Previous photo" className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-11 w-11 rounded-full bg-card/70 backdrop-blur-sm flex items-center justify-center text-foreground opacity-0 group-hover/album:opacity-100 transition-opacity shadow-sm">
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        <button onClick={(e) => { e.stopPropagation(); navigate(1); }} aria-label="Next photo" className="absolute right-2 top-1/2 -translate-y-1/2 z-10 h-11 w-11 rounded-full bg-card/70 backdrop-blur-sm flex items-center justify-center text-foreground opacity-0 group-hover/album:opacity-100 transition-opacity shadow-sm">
-          <ChevronRight className="h-4 w-4" />
-        </button>
-
-        <div className="absolute top-3 right-3 z-10 px-2 py-0.5 rounded-full bg-black/50 text-white text-xs font-medium">{current + 1}/{urls.length}</div>
-
-        {canDownload && (
-          <DownloadButton
-            downloading={downloading === urls[current]}
-            onClick={(e) => { e.stopPropagation(); download(urls[current]); }}
-            className="absolute bottom-3 right-3 grid h-11 w-11 place-items-center rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/album:opacity-100 transition-opacity hover:bg-card shadow-sm z-10"
-          />
-        )}
-
-        {/* THE DOTS ARE AN INDICATOR, CLOSE TOGETHER (Owner, 3 Nov 2026: "the
-            slider dots have a huge gap"). From 16 Aug (5c4420ae) each dot sat in
-            its own 44x32 tap box with no gap, so the dots were 44px apart. The
-            album is already navigable without them — Previous / Next buttons
-            (44px, keyboard and screen reader), the "1/3" counter and swipe — so
-            the dots go back to what Instagram draws: 6px / 8px dots, 6px apart,
-            centre line 16px above the image edge as before, hidden from
-            assistive tech (the counter says the same thing), no tap target. */}
-        <div data-slider-dots="" aria-hidden="true" className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 flex h-2 items-center gap-1.5 z-10">
-          {urls.map((_, i) => (
-            <span key={i} className={`rounded-full transition-all ${i === current ? "w-2 h-2 bg-white" : "w-1.5 h-1.5 bg-white/50"}`} />
-          ))}
-        </div>
-      </div>
-
-      <CarouselLightbox urls={urls} currentIndex={lightboxOpen ? current : null} onClose={() => setLightboxOpen(false)} onNavigate={setCurrent} author={author} viewerAction={viewerAction} />
-    </>
-  );
-};
-
-/* ── Full-screen Lightbox ── */
-interface CarouselLightboxProps { urls: string[]; currentIndex: number | null; onClose: () => void; onNavigate: (index: number) => void; author?: PhotoAuthor; viewerAction?: (index: number) => ReactNode; }
-
-const CarouselLightbox = ({ urls, currentIndex, onClose, onNavigate, author, viewerAction }: CarouselLightboxProps) => {
-  const isOpen = currentIndex !== null;
-  const { canDownload, downloading, download } = usePhotoDownload(false); // U3: see SingleImagePost
-  const [zoomed, setZoomed] = useState(false);
-
-  const goPrev = useCallback(() => { if (currentIndex === null) return; onNavigate(currentIndex > 0 ? currentIndex - 1 : urls.length - 1); }, [currentIndex, urls.length, onNavigate]);
-  const goNext = useCallback(() => { if (currentIndex === null) return; onNavigate(currentIndex < urls.length - 1 ? currentIndex + 1 : 0); }, [currentIndex, urls.length, onNavigate]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    document.body.style.overflow = "hidden";
-    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); if (e.key === "ArrowLeft") goPrev(); if (e.key === "ArrowRight") goNext(); };
-    window.addEventListener("keydown", handleKey);
-    return () => { document.body.style.overflow = ""; window.removeEventListener("keydown", handleKey); };
-  }, [isOpen, onClose, goPrev, goNext]);
-
-  return (
-    <AnimatePresence>
-      {isOpen && currentIndex !== null && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}
-          /* ⚠ Dialog semantics — the same repair as FacebookPhotoGrid's copy of
-             this viewer, made in the same commit. Measured by the Auditor on the
-             deployed preview: a fixed overlay with no role, no aria-modal and no
-             accessible name, so a screen reader kept walking the feed behind an
-             open photograph. See the long note there for why aria-modal alone is
-             the right instrument. */
-          role="dialog"
-          aria-modal="true"
-          aria-label={author?.name ? `Photograph by ${author.name} — full size` : "Photograph — full size"}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-sm" onClick={onClose}>
-          {/* RED #5 + #8 — the name comes FIRST in the dialog, before the
-              chrome, so it is what a reader announces and what the first Tab
-              reaches. Top-left, in open space: nothing sits above it, so the
-              44px region can only grow into emptiness (F-109). */}
-          {author?.name && (
-            <div className="absolute top-4 left-4 z-10 max-w-[60vw]" onClick={(e) => e.stopPropagation()}>
-              <ProfileLink
-                userId={author.userId}
-                handle={author.handle}
-                className="inline-flex items-center tap-44-down text-sm text-white/90 hover:text-white underline-offset-4 hover:underline truncate"
-              >
-                {author.name}
-              </ProfileLink>
-            </div>
-          )}
-          <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
-            <span className="text-sm text-white/60 mr-2">{currentIndex + 1} / {urls.length}</span>
-            {/* U3: no download with photo_set_v2 on; the counter, the ⓘ action
-                and Close keep their order, so focus is name → ⓘ → Close. */}
-            {canDownload && (
-              <DownloadButton
-                downloading={downloading === urls[currentIndex]}
-                onClick={(e) => { e.stopPropagation(); download(urls[currentIndex]); }}
-                className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors disabled:opacity-60"
-                iconSize="h-5 w-5"
-                ariaLabel="Download photo"
-              />
-            )}
-            {viewerAction?.(currentIndex)}
-            <button onClick={onClose} aria-label="Close photo viewer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          {urls.length > 1 && !zoomed && (
-            <>
-              <button onClick={(e) => { e.stopPropagation(); goPrev(); }} aria-label="Previous photo" className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all">
-                <ChevronLeft className="h-6 w-6" />
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); goNext(); }} aria-label="Next photo" className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all">
-                <ChevronRight className="h-6 w-6" />
-              </button>
-            </>
-          )}
-          {/* BUILD 1055 — see the note in FacebookPhotoGrid: the transform
-              lives on the photograph, the chrome above are siblings, and the
-              entry animation is opacity only so nothing competes with the
-              gesture for the scale property. */}
-          <AnimatePresence mode="wait">
-            <motion.div key={currentIndex} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0 flex items-center justify-center">
-              <ZoomableImage
-                src={originalFor(urls[currentIndex])}
-                className="max-w-[95vw] max-h-[92vh] object-contain rounded-sm shadow-2xl"
-                onZoomChange={setZoomed}
-              />
-            </motion.div>
-          </AnimatePresence>
+    <div ref={gestures.frameRef} data-feed-photo="" className="relative group/album w-full overflow-hidden rounded-sm bg-muted/30 select-none" style={{ aspectRatio: String(frameAspect), ...FRAME_TOUCH }} onClick={gestures.onClick}>
+      <AnimatePresence initial={false} custom={direction} mode="popLayout">
+        <motion.div key={current} custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3, ease: "easeOut" }} drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.15} onDragEnd={handleDragEnd} className="absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing">
+          {/* Only slide 0 may set the frame — an album has ONE shape and it
+              belongs to the first photo. Swiping must never resize the card. */}
+          <ProgressiveImage src={urls[current]} thumb={thumbUrls?.[current]} onNaturalSize={current === 0 ? onNaturalSize : undefined} />
         </motion.div>
+      </AnimatePresence>
+      {gestures.heart}
+
+      {/* F-D3-10: named buttons (axe button-name). */}
+      <button onClick={(e) => { e.stopPropagation(); navigate(-1); }} aria-label="Previous photo" className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-11 w-11 rounded-full bg-card/70 backdrop-blur-sm flex items-center justify-center text-foreground opacity-0 group-hover/album:opacity-100 transition-opacity shadow-sm">
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      <button onClick={(e) => { e.stopPropagation(); navigate(1); }} aria-label="Next photo" className="absolute right-2 top-1/2 -translate-y-1/2 z-10 h-11 w-11 rounded-full bg-card/70 backdrop-blur-sm flex items-center justify-center text-foreground opacity-0 group-hover/album:opacity-100 transition-opacity shadow-sm">
+        <ChevronRight className="h-4 w-4" />
+      </button>
+
+      <div data-pinch-hide="" className="absolute top-3 right-3 z-10 px-2 py-0.5 rounded-full bg-black/50 text-white text-xs font-medium">{current + 1}/{urls.length}</div>
+
+      {canDownload && (
+        <DownloadButton
+          downloading={downloading === urls[current]}
+          onClick={(e) => { e.stopPropagation(); download(urls[current]); }}
+          className="absolute bottom-3 right-3 grid h-11 w-11 place-items-center rounded-full bg-card/80 backdrop-blur-sm text-foreground opacity-0 group-hover/album:opacity-100 transition-opacity hover:bg-card shadow-sm z-10"
+        />
       )}
-    </AnimatePresence>
+
+      {/* THE DOTS ARE AN INDICATOR, CLOSE TOGETHER (Owner, 3 Nov 2026: "the
+          slider dots have a huge gap"). From 16 Aug (5c4420ae) each dot sat in
+          its own 44x32 tap box with no gap, so the dots were 44px apart. The
+          album is already navigable without them — Previous / Next buttons
+          (44px, keyboard and screen reader), the "1/3" counter and swipe — so
+          the dots go back to what Instagram draws: 6px / 8px dots, 6px apart,
+          centre line 16px above the image edge as before, hidden from
+          assistive tech (the counter says the same thing), no tap target. */}
+      <div data-slider-dots="" aria-hidden="true" className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 flex h-2 items-center gap-1.5 z-10">
+        {urls.map((_, i) => (
+          <span key={i} className={`rounded-full transition-all ${i === current ? "w-2 h-2 bg-white" : "w-1.5 h-1.5 bg-white/50"}`} />
+        ))}
+      </div>
+    </div>
   );
 };
 
 export default PostMedia;
+

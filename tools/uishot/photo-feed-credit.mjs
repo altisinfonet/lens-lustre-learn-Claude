@@ -149,7 +149,7 @@ async function corner(b64, out) {
   await sharp(buf).extract({ left: m.width - w, top: m.height - h, width: w, height: h }).resize({ width: w * 3, kernel: "nearest" }).png().toFile(out);
 }
 
-async function open(browser, { vp, dpr, viewer, size, shape, admin = false, app = false, noCredited = false }) {
+async function open(browser, { vp, dpr, viewer, size, shape, admin = false, app = false, noCredited = false, grid = false }) {
   const ctx = await browser.newContext({ viewport: VIEWPORTS[vp], deviceScaleFactor: dpr, colorScheme: "dark", reducedMotion: "reduce" });
   const page = await ctx.newPage();
   const errors = [];
@@ -171,6 +171,7 @@ async function open(browser, { vp, dpr, viewer, size, shape, admin = false, app 
   const qs = new URLSearchParams({
     viewer, ...(vp === "phone" ? { w: "phone" } : {}), ...(size === "small" ? { small: "1" } : {}),
     ...(shape === "legacy" ? { legacy: "1" } : {}), ...(shape === "old" ? { old: "1" } : {}), ...(admin ? { admin: "1" } : {}), ...(app ? { app: "1" } : {}),
+    ...(grid ? { grid: "1" } : {}),
   });
   await page.goto(`${BASE}/photofeedharness.html?${qs}`, { timeout: 180_000 });
   await page.waitForFunction(() => window.__photoReady === true, null, { timeout: 120_000 });
@@ -348,7 +349,10 @@ for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
     const row = { part: "full screen", engine, shape, ok: true };
     const retired = shape === "legacy";
     try {
-      const r = await open(browser, { vp: "desktop", dpr: 2, viewer: "out", size: "large", shape });
+      // grid: the post's photo grid sits under the card — since 4 Nov 2026 the
+      // FEED photo opens no viewer (Owner: like Instagram), so full screen is
+      // opened from the grid (same originalFor → ZoomableImage path).
+      const r = await open(browser, { vp: "desktop", dpr: 2, viewer: "out", size: "large", shape, grid: true });
       await r.page.evaluate(() => {
         window.__ctx = null;
         document.addEventListener("contextmenu", (e) => {
@@ -360,8 +364,8 @@ for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
       // credited copy, and the card's pixels do not change.
       {
         const fr = { part: "feed right-click", engine, shape, ok: true };
-        const card = await r.page.$("#cardwrap .cursor-zoom-in");
-        const fimg = await r.page.$("#cardwrap .cursor-zoom-in img:not([aria-hidden])");
+        const card = await r.page.$("#cardwrap [data-feed-photo]");
+        const fimg = await r.page.$("#cardwrap [data-feed-photo] img:not([aria-hidden])");
         const before = await card.screenshot();
         const fb = await fimg.boundingBox();
         // a real user: the mouse comes onto the photo, rests, then right-clicks
@@ -391,7 +395,7 @@ for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
         if (ftarget) console.log(`    context-menu target URL: ${ftarget}`);
         await r.page.evaluate(() => { window.__ctx = null; });
       }
-      await r.page.click("#cardwrap .cursor-zoom-in");
+      await r.page.click("#gridwrap .group\\/photo");
       // A v2 set has no save target: the viewer holds the clean copy plainly (no layer).
       const sel = retired ? "[role=dialog] img[src*='-l4-']" : "[role=dialog] img[data-photo-shown]";
       await r.page.waitForSelector(sel, { timeout: 20_000 });
