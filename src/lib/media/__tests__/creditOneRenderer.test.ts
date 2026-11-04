@@ -29,7 +29,13 @@ const FILLTEXT_ALLOWED: Record<string, string> = {
   "src/lib/certificateCanvas.ts": "competition certificates",
   "src/lib/deviceFingerprint.ts": "a canvas fingerprint, never shown or stored as a picture",
   "tools/uishot/app-video-cors-journey.mjs": "a test tool's throwaway video frame, never a member photo",
+  // Owner order, 4 Nov 2026: a FEED photo's credit is never stored — it is drawn in
+  // the browser at save time. This is the ONE browser file that may draw it, from
+  // the same geometry (CREDIT_GEOMETRY_V5) and the same committed font as the
+  // server renderer (asserted below).
+  [THE_BROWSER_DRAWER_PATH()]: "THE save-time credit for feed photos (one geometry, one font)",
 };
+function THE_BROWSER_DRAWER_PATH(): string { return "src/lib/photoCreditSave.ts"; }
 
 /** The only files that may import the renderer: every worker that draws, plus the check that measures it. */
 const RENDERER_USERS = [
@@ -83,6 +89,13 @@ describe("the credit has ONE renderer", () => {
   it("every worker and the check import the renderer; the retired file is gone", () => {
     for (const u of RENDERER_USERS) expect(IMPORTS_RENDERER.test(files.find((f) => f.path === u)!.text), u).toBe(true);
     expect(existsSync(join(ROOT, "tools/media-derivatives/credit-svg.mjs"))).toBe(false);
+  });
+
+  it("the browser's save-time credit uses the ONE geometry and the server's committed font", () => {
+    const text = files.find((f) => f.path === THE_BROWSER_DRAWER_PATH())!.text;
+    expect(text).toMatch(/creditGeometryV5For\(/);
+    expect(text).toMatch(/from "@\/lib\/creditGeometry\.mjs"/);
+    expect(text).toMatch(/tools\/media-derivatives\/fonts\/FiraSans-SemiBold-latin\.ttf\?url/);
   });
 
   it("an allowed canvas must really be one (a stale entry fails, so the list only shrinks)", () => {

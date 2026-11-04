@@ -25,7 +25,7 @@ import { useNetworkQuality } from "@/hooks/core/useNetworkQuality";
 import { useDataSaver } from "@/hooks/core/useDataSaver";
 import { feedPhotoSet, memberPhotoSrc, saveAsPhotoUrl } from "@/lib/photoProtection";
 import { useOldPhotoCreditVersion } from "@/lib/photoOldCredit";
-import { creditedSaveProps } from "@/lib/photoSaveTarget";
+import { photoSaveProps } from "@/lib/photoSaveTarget";
 
 interface PostMediaProps {
   urls: string[];
@@ -319,7 +319,7 @@ function intrinsicFromName(url: string): { w: number; h: number } | null {
   // The uploader bakes the size into the filename: `…-w1920h1280.webp`, and
   // `…-w1920h1280-thumb.webp` for its 600px copy. Without those numbers there
   // are no width descriptors and srcset cannot be built at all.
-  const m = url.match(/-w(\d+)h(\d+)(?:-l3|-l[45]f?)?(?:-thumb)?\.[a-z0-9]+(?:[?#]|$)/i);
+  const m = url.match(/-w(\d+)h(\d+)(?:-l3|-l[45]f?|-l6)?(?:-thumb)?\.[a-z0-9]+(?:[?#]|$)/i);
   if (!m) return null;
   const w = Number(m[1]);
   const h = Number(m[2]);
@@ -519,7 +519,7 @@ const ProgressiveImage = ({
   // makes this photo re-render then.
   useOldPhotoCreditVersion();
   const saveTarget = saveAsPhotoUrl(src);
-  const saveProps = useMemo(() => creditedSaveProps(saveTarget), [saveTarget]);
+  const saveProps = useMemo(() => photoSaveProps(src, saveTarget), [src, saveTarget]); // -l6: credit drawn on save
 
   return (
     <>

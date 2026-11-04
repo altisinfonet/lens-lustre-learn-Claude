@@ -25,6 +25,7 @@
  * <html>), so nothing is armed there.
  */
 import { PHOTO_SAVE_GUARD_CLASS } from "@/lib/native/photoSaveGuard";
+import { drawsCreditOnSave } from "@/lib/photoCreditSave";
 
 /** Moves the <img>'s own picture (the credited file) completely outside its box. */
 export const CREDIT_HIDDEN_POSITION = "-100000px -100000px";
@@ -170,5 +171,67 @@ export function creditedSaveProps(credited: string | null | undefined): {
     // Keyboard menu key / Shift+F10, or a browser without pointer events: arm now
     // (the menu is already opening; the next one gets the credited file).
     onContextMenu: (e) => armCreditedSave(e.currentTarget, credited),
+  };
+}
+
+/**
+ * A touch held this long without moving saves a feed-set photo (the browsers'
+ * own long-press menu opens at ≈ 500 ms; Android fires `contextmenu` first and
+ * that one saves instead, so a long-press saves once).
+ */
+export const SAVE_LONG_PRESS_MS = 600;
+
+/**
+ * THE ONE CHOICE of save behaviour for a photo <img> (feed, post page grid):
+ *   · a FEED SET photo (`-l6`) → the credit is DRAWN at save time
+ *     (photoCreditSave.savePhotoWithCredit): right-click / the long-press menu
+ *     is replaced by that download, so the browser never saves the clean file;
+ *   · any other photo → creditedSaveProps(credited), exactly as before.
+ * In the installed app (AppPhotoSaveGuard) nothing is armed and nothing saved:
+ * "App: no download at all" (Owner decision 3) stands.
+ */
+export function photoSaveProps(src: string, credited: string | null | undefined): ReturnType<typeof creditedSaveProps> {
+  return drawsCreditOnSave(src) ? drawnCreditSaveProps(src) : creditedSaveProps(credited);
+}
+
+/**
+ * FULL SCREEN (ZoomableImage) of a feed set photo: the context-menu handler that
+ * replaces the browser's menu (it would save the clean 2048) with the drawn-credit
+ * save. Only the menu — full screen's pointer events belong to pinch / pan.
+ * Null for every other photo (they keep their layered credited copy).
+ */
+export function feedSetSaveMenu(src: string): ((e: React.MouseEvent<HTMLImageElement>) => void) | null {
+  return drawsCreditOnSave(src) ? (drawnCreditSaveProps(src).onContextMenu ?? null) : null;
+}
+
+function drawnCreditSaveProps(src: string): ReturnType<typeof creditedSaveProps> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let start: { x: number; y: number } | null = null;
+  let savedAt = 0;
+  const clear = () => { if (timer) clearTimeout(timer); timer = null; start = null; };
+  const save = () => {
+    clear();
+    if (saveGuardOn() || Date.now() - savedAt < 1500) return; // one gesture, one file
+    savedAt = Date.now();
+    void import("@/lib/photoCreditSave").then((m) => m.savePhotoWithCredit(src));
+  };
+  return {
+    onPointerDown: (e) => {
+      if (e.pointerType === "mouse" || e.pointerType === "pen") return; // the right button opens `contextmenu`
+      // iOS opens its own "Save to Photos" callout instead of `contextmenu`: switch it off for this photo.
+      try { e.currentTarget.style.setProperty("-webkit-touch-callout", "none"); } catch { /* not WebKit */ }
+      clear();
+      start = { x: e.clientX, y: e.clientY };
+      timer = setTimeout(save, SAVE_LONG_PRESS_MS);
+    },
+    onPointerMove: (e) => { if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 10) clear(); },
+    onPointerUp: clear,
+    onPointerCancel: clear,
+    onPointerLeave: clear,
+    onContextMenu: (e) => {
+      if (saveGuardOn()) return; // the app's guard owns this event
+      e.preventDefault(); // the browser's menu would save the CLEAN file
+      save();
+    },
   };
 }

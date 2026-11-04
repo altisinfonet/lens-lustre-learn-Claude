@@ -517,6 +517,13 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     resolution:
       "Nothing a member sees changes. One-off: a lost connection. Many: check the lane's Pages MEDIA R2 binding (a 503 MEDIA-ENV-001 from /api/media/clean-copy) or the route's refusal code in `reason`.",
   },
+  {
+    code: "FILE-5016",
+    severity: "warn",
+    description: "Saving a feed photo with its credit (drawn in the browser at save time, Owner order 4 Nov 2026) failed, so nothing was saved.",
+    resolution:
+      "A 'Failed to fetch' / TypeError in `reason` means the public media host did not allow CORS for the page's origin (detail.origin) — add that origin to the media bucket's CORS rules. A photo fetch status means the 2048 copy is missing. Otherwise the device's canvas refused (very old browser or memory).",
+  },
 
   // ── STORY ─────────────────────────────────────────────────────────────────
   {

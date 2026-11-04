@@ -11,6 +11,8 @@
  *              member's post-images folder — never a `-l4` / `-l4f` copy, never the
  *              S3 derivative folder (/d/)
  */
+import { isFeedPhotoSet } from "../feedPhotoSet.mjs";
+
 export type RetireKind = "comp_full" | "post_old";
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
@@ -21,6 +23,6 @@ const V2_COPY_RE = /-l4f?(?:-thumb|-r\d{3,4})?\.webp$/i;
 export function isRetireKey(kind: RetireKind, key: string): boolean {
   if (typeof key !== "string" || key.includes("..")) return false;
   if (kind === "comp_full") return COMP_FULL_RE.test(key);
-  if (kind === "post_old") return POST_RE.test(key) && !V2_COPY_RE.test(key) && key.split("/")[2] !== "d";
+  if (kind === "post_old") return POST_RE.test(key) && !V2_COPY_RE.test(key) && !isFeedPhotoSet(key) && key.split("/")[2] !== "d"; // -l6: a live feed set, never retired
   return false;
 }

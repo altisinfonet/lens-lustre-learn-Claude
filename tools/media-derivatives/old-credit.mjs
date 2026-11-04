@@ -26,6 +26,7 @@
  */
 import { readFileSync } from "node:fs";
 import { renderCredit } from "./credit-render.mjs";
+import { isFeedPhotoSet } from "../../src/lib/feedPhotoSet.mjs";
 import { reportFailure, sweepExitCode, sweepSummary } from "./credit-failure.mjs";
 import { OLD_CREDIT_MAX_SOURCE_BYTES, laneSources, readCapped, sourceAllowed } from "./old-credit-source.mjs";
 
@@ -98,6 +99,9 @@ async function main() {
       if (max && stats.photos >= max) break;
       if (seen.has(`${j.post_id}#${j.ord}`)) continue;
       seen.add(`${j.post_id}#${j.ord}`);
+      // Owner order, 4 Nov 2026: a feed set photo (-l6) never gets a stored credit
+      // (it is drawn on save). The SQL class still lists it; never drawn, never failed.
+      if (isFeedPhotoSet(j.src_url)) { stats.feed_set_skipped = (stats.feed_set_skipped ?? 0) + 1; continue; }
       stats.photos++;
       if (dryRun) {
         if (!sourceAllowed(j.src_url, site)) { stats.not_this_lane = (stats.not_this_lane ?? 0) + 1; continue; }
