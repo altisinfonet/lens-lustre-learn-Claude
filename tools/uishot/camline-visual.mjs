@@ -32,6 +32,7 @@ import { chromium } from "playwright";
 import { measureCardInk } from "./card-ink.mjs";
 import { checkCardHits } from "./card-hits.mjs";
 import { measureRowInk, rowInkChecks } from "./row-ink.mjs";
+import { comparePixels } from "./pixel-compare.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BASELINE = join(here, "camline-baseline");
@@ -107,33 +108,8 @@ const SCENES = [
   ["web-desktop-counts-823-50-17", "post=a&off=1&counts=823,50,17", DESKTOP, false],
   ["app-phone-counts-823-50-17", "post=a&off=1&w=phone&app=1&counts=823,50,17", PHONE, false],
 ].map(([name, query, viewport, open]) => ({ name, query, viewport, open }));
-
-/**
- * Pixel comparison, done by the browser itself (no image library to install):
- * both PNGs are decoded into canvases and every pixel is compared.
- */
-let comparePage = null;
-async function diff(aBuf, bBuf) {
-  return comparePage.evaluate(async ({ a, b, channel, share }) => {
-    const decode = async (b64) => {
-      const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
-      const c = new OffscreenCanvas(bmp.width, bmp.height);
-      const ctx = c.getContext("2d");
-      ctx.drawImage(bmp, 0, 0);
-      return { w: bmp.width, h: bmp.height, d: ctx.getImageData(0, 0, bmp.width, bmp.height).data };
-    };
-    const x = await decode(a);
-    const y = await decode(b);
-    if (x.w !== y.w || x.h !== y.h) return { same: false, why: `size ${x.w}x${x.h} vs ${y.w}x${y.h}` };
-    let bad = 0;
-    for (let i = 0; i < x.d.length; i += 4) {
-      if (Math.abs(x.d[i] - y.d[i]) > channel || Math.abs(x.d[i + 1] - y.d[i + 1]) > channel
-        || Math.abs(x.d[i + 2] - y.d[i + 2]) > channel || Math.abs(x.d[i + 3] - y.d[i + 3]) > channel) bad++;
-    }
-    const s = bad / (x.w * x.h);
-    return { same: s <= share, why: `${bad} px differ (${(s * 100).toFixed(3)} %)` };
-  }, { a: aBuf.toString("base64"), b: bBuf.toString("base64"), channel: CHANNEL, share: SHARE });
-}
+/** The one comparison every visual baseline uses. */
+const diff = (a, b) => comparePixels(a, b, { channel: CHANNEL, share: SHARE });
 
 /** A fixed, file-free "photo": a grey wall and a red floor, as in the approved mockup. */
 const photoSvg = (hue, floorHue) =>
@@ -255,8 +231,6 @@ function inkChecks(ink, { hasLine, opened }) {
 
 await waitUp();
 const browser = await chromium.launch();
-comparePage = await browser.newPage();
-await comparePage.goto(`${BASE}/camlineharness.html?compare=1`).catch(() => {});
 const rows = [];
 const shots = {};
 let pass = true;
