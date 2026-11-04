@@ -306,6 +306,7 @@ const PostCard = ({
     queryClient.invalidateQueries({ queryKey: queryKeys.feedAll() });
     queryClient.invalidateQueries({ queryKey: ["user-wall-posts"] });
     queryClient.invalidateQueries({ queryKey: ["user-own-posts"] }); // S4-a: "More posts from <name>"
+    queryClient.invalidateQueries({ queryKey: ["hashtag-posts"] }); // K1: the hashtag page's list
   };
 
   const copyLink = () => {
