@@ -39,24 +39,24 @@ describe("the photo's own pixels (credit U3: the workers now feed it WebP)", () 
 });
 
 describe("v5 geometry — from the SHORT side, visible floor and ceiling", () => {
-  it("the approved look: 11 px on a 2048×1365 landscape; a portrait of the same photo gets the same", () => {
-    expect(creditGeometryV5For(2048, 1365).fontPx).toBe(11);
-    expect(creditGeometryV5For(1365, 2048).fontPx).toBe(11);
+  it("the approved look: 22 px on a 2048×1365 landscape; a portrait of the same photo gets the same", () => {
+    expect(creditGeometryV5For(2048, 1365).fontPx).toBe(22);
+    expect(creditGeometryV5For(1365, 2048).fontPx).toBe(22);
   });
-  it("never the near-invisible v4 sizes: every 1080 / 810 / small copy is at least 11 px", () => {
+  it("never the near-invisible v4 sizes: every 1080 / 810 / small copy is at least 22 px", () => {
     for (const [w, h] of [[1080, 682], [810, 1080], [1080, 1080], [480, 319], [1536, 2048]]) {
       expect(creditGeometryV5For(w, h).fontPx, `${w}x${h}`).toBeGreaterThanOrEqual(CREDIT_GEOMETRY_V5.minFontPx);
     }
-    expect(CREDIT_GEOMETRY_V5.minFontPx).toBe(11);
+    expect(CREDIT_GEOMETRY_V5.minFontPx).toBe(22);
   });
-  it("never the big v1 size: at most 28 px, whatever the file", () => {
-    expect(creditGeometryV5For(8000, 6000).fontPx).toBe(28);
-    expect(creditGeometryV5For(2048, 2048).fontPx).toBe(17);
+  it("never the big v1 size: at most 56 px, whatever the file", () => {
+    expect(creditGeometryV5For(8000, 6000).fontPx).toBe(56);
+    expect(creditGeometryV5For(2048, 2048).fontPx).toBe(33);
   });
   it("inset bottom-right grows with the short side, never tighter than 1.2 em", () => {
-    expect(creditGeometryV5For(2048, 1365).inset).toBe(25);
-    expect(creditGeometryV5For(1080, 682).inset).toBe(13);
-    expect(creditGeometryV5For(480, 319).inset).toBe(13);
+    expect(creditGeometryV5For(2048, 1365).inset).toBe(26);
+    expect(creditGeometryV5For(1080, 682).inset).toBe(26);
+    expect(creditGeometryV5For(480, 319).inset).toBe(26);
   });
   it("alpha ≈ 0.30 with a soft shadow (the approved v4 look, measured ≈ 0.29–0.30)", () => {
     expect(CREDIT_GEOMETRY_V5.fillAlpha).toBe(0.32);
@@ -103,20 +103,20 @@ describe("the one renderer — embedded font, measured in the output pixels", ()
   }
 
   for (const [w, h] of [[2048, 1365], [1365, 2048], [1080, 682], [810, 1080], [480, 319]] as const) {
-    it(`${w}×${h}: the credit sits bottom-right, its ink is a readable 11 px line, inside the photo`, async () => {
+    it(`${w}×${h}: the credit sits bottom-right, its ink is a readable 22 px line, inside the photo`, async () => {
       const clean = await photo(w, h);
       const r = await renderCredit(sharp, clean, LINE);
       const out = await r.image.png().toBuffer();
       expect([r.width, r.height]).toEqual([w, h]);
       expect(r.credit.version).toBe(5);
-      expect(r.credit.fontPx).toBe(11);
+      expect(r.credit.fontPx).toBe(22);
       const box = await inkBox(clean, out, w, h);
       // the glyphs + soft shadow: taller than the near-invisible v4 (4–8 px), far below v1 (50 px)
-      expect(box.h, JSON.stringify(box)).toBeGreaterThanOrEqual(9);
-      expect(box.h, JSON.stringify(box)).toBeLessThanOrEqual(20);
+      expect(box.h, JSON.stringify(box)).toBeGreaterThanOrEqual(18);
+      expect(box.h, JSON.stringify(box)).toBeLessThanOrEqual(40);
       // measured width = the real line (not an estimate): ≈ 15 em for this line at 11 px
-      expect(box.w).toBeGreaterThan(140);
-      expect(box.w).toBeLessThan(230);
+      expect(box.w).toBeGreaterThan(280);
+      expect(box.w).toBeLessThan(460);
       // bottom-right, inset as the geometry says (± the shadow's spread)
       const inset = creditGeometryV5For(w, h).inset;
       expect(w - 1 - box.x1).toBeGreaterThanOrEqual(inset - 4);

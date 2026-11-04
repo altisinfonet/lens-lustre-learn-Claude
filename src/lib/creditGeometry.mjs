@@ -33,7 +33,9 @@ export const CREDIT_GEOMETRY = Object.freeze({
  * v5 keeps that look and scales it from the SHORT side, with a visible floor
  * and a ceiling, so portrait / landscape / small photos look alike:
  *
- *   fontPx = clamp(round(short × 0.0081), 11, 28)        2048×1365 → 11 px
+ *   fontPx = clamp(round(short × 0.0162), 22, 56)        2048×1365 → 22 px
+ *   (Owner, 4 Nov 2026: "double", from 11 to 22. THE ONE PLACE to change the size:
+ *   the three numbers below. New photos follow at once; old files need one redraw.)
  *   inset  = max(round(short × 0.018), round(fontPx × 1.2)), bottom-right
  *   a line wider than 90 % of the photo is set smaller (MEASURED with the real
  *   font by the renderer), never below 8 px
@@ -44,9 +46,9 @@ export const CREDIT_GEOMETRY = Object.freeze({
  */
 export const CREDIT_GEOMETRY_V5 = Object.freeze({
   version: 5,
-  fontPctShort: 0.0081,
-  minFontPx: 11,
-  maxFontPx: 28,
+  fontPctShort: 0.0162,
+  minFontPx: 22,
+  maxFontPx: 56,
   /** Only when the measured line would not fit `maxLinePct` of the width. */
   tinyMinFontPx: 8,
   insetPctShort: 0.018,
