@@ -306,6 +306,7 @@ const PostCard = ({
     queryClient.invalidateQueries({ queryKey: queryKeys.feedAll() });
     queryClient.invalidateQueries({ queryKey: ["user-wall-posts"] });
     queryClient.invalidateQueries({ queryKey: ["user-own-posts"] }); // S4-a: "More posts from <name>"
+    queryClient.invalidateQueries({ queryKey: ["hashtag-posts"] }); // K1: the hashtag page's list
   };
 
   const copyLink = () => {
@@ -319,20 +320,17 @@ const PostCard = ({
     if (onShareToWall) {
       onShareToWall(post);
     } else if (currentUserId) {
-      // Only record the share reference — do NOT duplicate the post
+      // Only record the share reference — do NOT duplicate the post.
+      // BUG-062: no UPDATE policy on post_shares, so a repeat share must be a no-op.
       const { error } = await supabase.from("post_shares" as any).upsert(
         { post_id: post.id, user_id: currentUserId } as any,
-        { onConflict: "post_id,user_id" }
+        { onConflict: "post_id,user_id", ignoreDuplicates: true }
       );
       if (!error) {
         onShareCountChange?.(post.id, 1);
         toast({ title: "Shared to your wall!" });
       } else {
-        if ((error as any).code === "23505") {
-          toast({ title: "You already shared this post" });
-        } else {
-          toast({ title: "Failed to share", variant: "destructive" });
-        }
+        toast({ title: "Failed to share", variant: "destructive" });
       }
     }
   };
