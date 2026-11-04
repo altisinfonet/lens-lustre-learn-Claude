@@ -1,0 +1,68 @@
+name: D1 · credit sweep cost (0112) — measured fixture
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING BUT A THROWAWAY postgres:17.6 SERVICE CONTAINER.
+# HOLDS NO SECRET: the container password below is a literal placeholder for a
+# database that exists for the length of this job.
+#
+# WHAT IT PROVES (20261110_0112). scripts/db-photo-credit-cost-fixture.mjs runs
+# the REAL 0111, 0112, PROBE and ROLLBACK over supabase/tests/photo-credit-cost/
+# at production's size and at 100 times that, and prints the COST of one worker
+# call before and after. The PROBE must be red on its cost limit before the
+# apply and after the rollback, and green after the apply.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261110_0111_photo_set_credit.sql'
+      - 'supabase/migrations/PROBE_20261110_0111_photo_set_credit.sql'
+      - 'supabase/migrations/20261110_0112_photo_set_credit_cost.sql'
+      - 'supabase/migrations/PROBE_20261110_0112_photo_set_credit_cost.sql'
+      - 'supabase/rollback/20261110_0112_photo_set_credit_cost_ROLLBACK.sql'
+      - 'supabase/tests/photo-credit-cost/**'
+      - 'scripts/db-photo-credit-cost-fixture.mjs'
+      - '.github/workflows/d1-photo-credit-cost-fixture.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  fixture:
+    name: credit sweep cost at two sizes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_PASSWORD: fixture-not-a-secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: fixture-not-a-secret
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install psql
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: The throwaway server
+        run: psql -X -d postgres -tAc 'select version()'
+
+      - name: Fixture — fail-first, apply, PROBE, rollback, re-apply, cost at two sizes
+        run: node scripts/db-photo-credit-cost-fixture.mjs
