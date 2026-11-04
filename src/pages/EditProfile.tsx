@@ -25,6 +25,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { format, differenceInYears } from "date-fns";
+import { UNDER_18_MESSAGE, isOldEnough, newestBirthMonth } from "@/lib/ageRule";
+import { AgeRuleError, AgeRuleNotice } from "@/components/AgeRuleNotice";
 import { normalizeFullName } from "@/lib/nameNormalize";
 import { getCaptchaToken } from "@/lib/turnstile";
 import { useT, useI18n } from "@/i18n/I18nContext";
@@ -112,6 +114,7 @@ const EditProfile = () => {
   
   
   const [dateOfBirth, setDateOfBirth] = useState<Date | undefined>(undefined);
+  const [dobError, setDobError] = useState("");
   const [dobOpen, setDobOpen] = useState(false);
   const [dobDayMonthPrivacy, setDobDayMonthPrivacy] = useState<PrivacyLevel>("friends");
   const [dobYearPrivacy, setDobYearPrivacy] = useState<PrivacyLevel>("only_me");
@@ -469,6 +472,8 @@ const EditProfile = () => {
 
   const performSave = useCallback(async () => {
     if (!user) return;
+    // A refused date of birth is never saved (autosave included).
+    if (dobError) { setSaveStatus("error"); return; }
     // Validate all fields
     const nameErr = validateFullName(fullName);
     const bioErr = validateBio(bio);
@@ -624,7 +629,7 @@ const EditProfile = () => {
       setSaveStatus("error");
     }
     setSaving(false);
-  }, [user, fullName, bio, portfolioUrl, interests, facebookUrl, instagramUrl, twitterUrl, youtubeUrl, websiteUrl, addressLine1, addressLine2, city, state, country, postalCode, phone, whatsapp, privacySettings, customUrl, customUrlAvailable, pronouns, currentCity, workplace, education, dateOfBirth, dobDayMonthPrivacy, dobYearPrivacy, indexingDisabled, hideActiveStatus]);
+  }, [user, fullName, bio, portfolioUrl, interests, facebookUrl, instagramUrl, twitterUrl, youtubeUrl, websiteUrl, addressLine1, addressLine2, city, state, country, postalCode, phone, whatsapp, privacySettings, customUrl, customUrlAvailable, pronouns, currentCity, workplace, education, dateOfBirth, dobError, dobDayMonthPrivacy, dobYearPrivacy, indexingDisabled, hideActiveStatus]);
 
   // Debounced auto-save: triggers 1.5s after any field change
   const triggerAutoSave = useCallback(() => {
@@ -960,6 +965,7 @@ const EditProfile = () => {
               <label className={labelCls} style={{ fontFamily: "var(--font-heading)" }}>
                 <CalendarIcon className="inline h-3 w-3 mr-1.5" />Date of Birth
               </label>
+              <AgeRuleNotice />
               <Popover open={dobOpen} onOpenChange={setDobOpen}>
                 <PopoverTrigger asChild>
                   <button
@@ -978,15 +984,18 @@ const EditProfile = () => {
                   <Calendar
                     mode="single"
                     selected={dateOfBirth}
-                    onSelect={setDateOfBirth}
+                    onSelect={(d) => {
+                      setDateOfBirth(d);
+                      setDobError(d && !isOldEnough(d) ? UNDER_18_MESSAGE : "");
+                    }}
                     disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
                     // react-day-picker v10 renames — see OnboardingModal for the
-                    // full note. `endMonth` is December of the current year
-                    // because `disabled` below is what forbids a future date;
+                    // full note. `endMonth` is the newest month the age rule allows;
+                    // `disabled` below forbids a future date;
                     // the dropdown range only decides what can be SCROLLED to.
                     captionLayout="dropdown"
                     startMonth={new Date(1940, 0)}
-                    endMonth={new Date(new Date().getFullYear(), 11)}
+                    endMonth={newestBirthMonth()}
                     autoFocus
                     className={cn("p-3 pointer-events-auto")}
                   />
@@ -1001,6 +1010,7 @@ const EditProfile = () => {
                   </div>
                 </PopoverContent>
               </Popover>
+              <AgeRuleError message={dobError} />
               {dateOfBirth && (
                 <p className="text-[9px] text-muted-foreground" style={{ fontFamily: "var(--font-body)" }}>
                   Age: {differenceInYears(new Date(), dateOfBirth)} years
