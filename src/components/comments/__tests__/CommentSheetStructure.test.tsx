@@ -232,15 +232,43 @@ describe("one comment row", () => {
 
 /* ─────────────── 4. threaded replies ─────────────── */
 describe("replies", () => {
-  it("are indented under the comment they answer", () => {
+  it("are folded behind Instagram's 'View N more replies' and indented once opened", () => {
     hookState.comments = [
-      comment({ content: "Congratulations", replies: [comment({ content: "Thank you" })] }),
+      comment({ content: "Congratulations", replies: [comment({ content: "Thank you" }), comment({ content: "Agreed" })] }),
     ];
     const { container } = draw();
 
-    const reply = screen.getByText("Thank you").closest("[class*='ml-']");
+    expect(screen.queryByText("Thank you"), "replies start folded (Owner, 4 Nov: compact)").toBeNull();
+    const toggle = screen.getByRole("button", { name: /view 2 more replies/i });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(toggle);
+
+    expect(screen.getByRole("button", { name: /hide replies/i })).toHaveAttribute("aria-expanded", "true");
+    const reply = screen.getByText("Thank you").closest("[class*='ms-11']");
     expect(reply, "the indent is what says WHICH comment a reply answers").not.toBeNull();
-    expect(container.querySelectorAll("[class*='ml-11']").length).toBeGreaterThan(0);
+    expect(container.querySelectorAll("[class*='ms-11']").length).toBeGreaterThan(0);
+  });
+
+  it("open by themselves when a notification points at a reply (S4-b)", () => {
+    const target = comment({ content: "Thank you" });
+    hookState.comments = [comment({ content: "Congratulations", replies: [target] })];
+    // jsdom has no scrollIntoView; the thread scrolls the target to the middle.
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    draw({ focusCommentId: target.id });
+    expect(screen.getByText("Thank you")).toBeInTheDocument();
+    expect(scroll).toHaveBeenCalled();
+  });
+
+  it("are all shown while a search is typed, so a matching reply is never folded away", () => {
+    hookState.comments = [
+      comment({ content: "Congratulations", replies: [comment({ content: "Thank you for all your support" })] }),
+    ];
+    draw();
+    fireEvent.click(screen.getByRole("button", { name: /search/i }));
+    fireEvent.change(screen.getByLabelText("Search comments"), { target: { value: "support" } });
+    expect(screen.getByText("Thank you for all your support")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /view .* repl/i })).toBeNull();
   });
 
   it("open a reply box, named for the person being answered, under that comment", () => {

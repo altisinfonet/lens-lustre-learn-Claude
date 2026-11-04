@@ -214,9 +214,9 @@ function measureInPage({ LIMITS }) {
   const controls = [];
   for (const it of info) {
     const nm = out.rows[info.indexOf(it)].name;
-    if (it.reply) controls.push({ el: it.reply, label: `${nm} · Reply`, need44: true });
+    if (it.reply) controls.push({ el: it.reply, label: `${nm} · Reply`, need44: true, p: it.p });
     const menu = it.row.querySelector("button[aria-label='Comment options']");
-    if (menu) controls.push({ el: menu, label: `${nm} · menu`, need44: true });
+    if (menu) controls.push({ el: menu, label: `${nm} · menu`, need44: true, p: it.p });
     if (it.heart) controls.push({ el: it.heart, label: `${nm} · heart`, need44: true });
     if (it.avatarLink?.matches("a")) controls.push({ el: it.avatarLink, label: `${nm} · avatar`, need44: true });
     const nameLink = it.identity?.querySelector("a");
@@ -261,9 +261,22 @@ function measureInPage({ LIMITS }) {
         if (owns(c, x, y)) { run++; hrun = Math.max(hrun, run); } else run = 0;
       }
     }
-    out.hits.push({ label: c.label, box: `${Math.round(b.width)}x${Math.round(b.height)}`, run: `${hrun}x${vrun}`, stolen });
+    /*
+     * THE ONE GEOMETRIC EXCEPTION, MEASURED AND NAMED, NOT HIDDEN.
+     * When a LINK in the comment's text (a reply's "@Name") sits directly above
+     * Reply, the band Reply's columns can own is: the link's bottom → the next
+     * comment's name ≈ 2 + 4 + 16 + 16 + 1 = 39 px. The link wins its own
+     * pixels (F-109), so Reply keeps 44 wide and ≥ 32 tall there (the repo's
+     * tap floor, long ≥ 44 / short ≥ 32) — and 44 × 44 everywhere else.
+     */
+    const linkAbove = !!c.p && [...c.p.querySelectorAll("a")].some((a) => {
+      const ab = r(a);
+      return ab.bottom > b.top - 17 && ab.bottom <= b.top + 1 && ab.left < b.right + 8 && ab.right > b.left - 8;
+    });
+    const needV = linkAbove ? 32 : LIMITS.hit;
+    out.hits.push({ label: c.label, box: `${Math.round(b.width)}x${Math.round(b.height)}`, run: `${hrun}x${vrun}`, stolen, ...(linkAbove ? { linkAbove: true } : {}) });
     if (stolen > 0) fail.push(`${c.label}: ${stolen} of its own ${total} box pixels go to ${by}`);
-    if (c.need44 && (vrun < LIMITS.hit || hrun < LIMITS.hit)) fail.push(`${c.label}: a finger gets ${hrun} x ${vrun} px (≥ ${LIMITS.hit} x ${LIMITS.hit})`);
+    if (c.need44 && (vrun < needV || hrun < LIMITS.hit)) fail.push(`${c.label}: a finger gets ${hrun} x ${vrun} px (≥ ${LIMITS.hit} x ${needV}${linkAbove ? ", a link sits right above it" : ""})`);
   }
 
   if (document.scrollingElement.scrollWidth > innerWidth + 1) fail.push(`the page scrolls sideways (${document.scrollingElement.scrollWidth} > ${innerWidth})`);
@@ -302,7 +315,15 @@ function annotate() {
       const next = rows[i + 1];
       if (next) {
         const nTop = next.firstElementChild.firstElementChild.getBoundingClientRect().top;
-        tag(av.left - 10, rl.bottom, nTop - rl.bottom, `${(nTop - rl.bottom).toFixed(0)}`, "#1971c2");
+        const tg = [...document.querySelectorAll("[data-comment-replies-toggle]")]
+          .find((t) => t.getBoundingClientRect().top >= rl.bottom - 1 && t.getBoundingClientRect().bottom <= nTop + 1);
+        if (tg) {
+          const tl = lineBox(tg.querySelector("span:last-child") ?? tg);
+          tag(av.left - 10, rl.bottom, tl.top - rl.bottom, `${(tl.top - rl.bottom).toFixed(0)}`, "#1971c2");
+          tag(av.left - 10, tl.bottom, nTop - tl.bottom, `${(nTop - tl.bottom).toFixed(0)}`, "#1971c2");
+        } else {
+          tag(av.left - 10, rl.bottom, nTop - rl.bottom, `${(nTop - rl.bottom).toFixed(0)}`, "#1971c2");
+        }
       }
     }
     const heart = row.querySelector("button[aria-pressed]");

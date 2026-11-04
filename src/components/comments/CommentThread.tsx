@@ -65,6 +65,7 @@ import { Link } from "react-router-dom";
 import { MoreHorizontal, Trash2, Flag, Ban, Pin, Pencil, ChevronDown, Heart, SmilePlus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useOnline } from "@/lib/presence/online";
+import { useT } from "@/i18n/I18nContext";
 import MentionInput from "@/components/MentionInput";
 import RichContentRenderer from "@/components/RichContentRenderer";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
@@ -248,7 +249,61 @@ export interface CommentThreadProps {
   onReport?: (id: string, reason: string) => void;
   /** Block the comment's author (App Store guideline 1.2). Omit to hide the menu item. */
   onBlockUser?: (userId: string, name: string | null) => void;
+  /**
+   * Draw every reply open, with no "View N more replies" line. The comments
+   * box sets it while a search is typed: a matching reply is kept WITH its
+   * parent as context (src/lib/commentSearch.ts), and folding it away behind a
+   * toggle would hide the very match the member searched for.
+   */
+  expandReplies?: boolean;
 }
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE COMPACT ROW — INSTAGRAM'S SPACING, WITH 44 px TARGETS THAT ARE INVISIBLE.
+ *
+ * Owner, 4 Nov 2026 (live, desktop side panel, "Mossy Roots"): *"this comment
+ * section has huge gap from each comment / reply — follow Instagram style, more
+ * compact"*. Measured on the real row (tools/uishot/comments-compact.mjs):
+ * text → Reply 14 px and Reply → next comment 32 px, because the action row
+ * was a real 44 px box (`h-11`, see the history kept below) with Reply's 16 px
+ * of text centred in it, under an 8 px `py-2` on every row.
+ *
+ * The target spacing (Instagram): name + age, the text directly under it, one
+ * small grey line "Reply" 4 px under the text, 16 px to the next comment, the
+ * heart centred on the right with its count under it.
+ *
+ * WHERE THE 44 px WENT: into invisible ::after regions laid out on ONE rule, so
+ * that no two of them ever claim the same pixel —
+ *
+ *   • the 16 px band BELOW a comment's meta line is owned by that line's
+ *     controls (they reach 12 px down);
+ *   • the meta line's controls reach 16 px UP into the comment's own text,
+ *     which is not a control — and a mention / hashtag link in that text wins
+ *     every contested pixel (`[&_a]:relative [&_a]:z-[1]` on the text), so
+ *     F-109 (a region taking a link's pixels) cannot happen here;
+ *   • the avatar reaches 4 px up and 8 px down inside its own column;
+ *   • the heart is a real 44 × 44 box in its own column (the rail).
+ *
+ * Every number lives in the constants below, which the geometry test reads by
+ * measuring the real page in Chromium, Firefox and WebKit, web and app.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+/** Reply / menu / avatar regions are transparent, out of flow, and move nothing. */
+const HIT = "relative after:absolute after:content-['']";
+/** Reply: 16 px tall line → 44 px (16 up into the text, 12 down), at least 44 px wide. */
+const META_HIT = `${HIT} after:-top-4 after:-bottom-3 after:-start-1.5 after:-end-1.5 after:min-w-[44px]`;
+/** The row menu's dots: 16 × 16 → 44 × 44, reaching back over the dots' gap, never into the heart's column. */
+const MENU_HIT = `${HIT} after:-top-4 after:-bottom-3 after:-start-4 after:-end-3`;
+/** Avatar 32 → 44 (24 → 44 on a reply): 4 px up (the free strip of the gap), the rest down its own column. */
+const AVATAR_HIT = `${HIT} after:-top-1 after:-bottom-2 after:-start-1.5 after:-end-1.5`;
+const AVATAR_HIT_XS = `${HIT} after:-top-1 after:-bottom-4 after:-start-2.5 after:-end-2.5`;
+
+/** Every reply under a comment, however deep — what "View N more replies" counts. */
+const countReplies = (c: ThreadComment): number =>
+  c.replies.reduce((n, r) => n + 1 + countReplies(r), 0);
+const containsId = (list: ThreadComment[], id: string): boolean =>
+  list.some((r) => r.id === id || containsId(r.replies, id));
 
 /**
  * Exported so CommentComposer.tsx can draw the same avatar beside the
@@ -319,7 +374,9 @@ const CommentThread = ({
   onReport,
   onBlockUser,
   highlightId = null,
+  expandReplies = false,
 }: CommentThreadProps) => {
+  const t = useT();
   const canReact = features?.reactions ?? true;
   const canPinHere = (features?.pinning ?? true) && canPin;
   const canReport = features?.reporting ?? true;
@@ -335,6 +392,19 @@ const CommentThread = ({
   const [sortMode, setSortMode] = useState<"relevant" | "newest">("relevant");
   /** Which comment's emoji-reaction popover is open, if any. One at a time. */
   const [reactionPickerId, setReactionPickerId] = useState<string | null>(null);
+  /**
+   * The member's own open / closed choice per top-level comment ("View N more
+   * replies" / "Hide replies"). A comment with no choice yet is closed, unless
+   * a notification points into its replies (then it starts open).
+   */
+  const [repliesChoice, setRepliesChoice] = useState<ReadonlyMap<string, boolean>>(() => new Map());
+  const setRepliesOpen = (id: string, open: boolean) =>
+    setRepliesChoice((prev) => {
+      if (prev.get(id) === open) return prev;
+      const next = new Map(prev);
+      next.set(id, open);
+      return next;
+    });
 
   // S4-b: bring the highlighted comment into view ONCE, when it has drawn.
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -369,6 +439,8 @@ const CommentThread = ({
     if (parentId) {
       setReplyInput("");
       setReplyTo(null);
+      // The member's own new reply must be in view, not folded behind "View replies".
+      setRepliesOpen(parentId, true);
     } else {
       setCommentInput("");
     }
@@ -405,20 +477,36 @@ const CommentThread = ({
   const renderComment = (comment: ThreadComment, depth = 0) => {
     const isOwn = currentUserId === comment.user_id;
     const canDelete = isOwn || isAdmin;
+    const replyCount = depth === 0 ? countReplies(comment) : 0;
+    // A reply is drawn when its top-level comment is open — by the member, by a
+    // search, or because a notification points INTO this thread (S4-b: the
+    // highlighted reply must be on screen, never folded away).
+    const repliesShown =
+      depth > 0 ||
+      expandReplies ||
+      (repliesChoice.get(comment.id) ?? (!!highlightId && containsId(comment.replies, highlightId)));
 
     return (
       // The key belongs HERE: the call sites are function calls and a call
       // cannot carry a key. Without it React re-uses the wrong node when a
       // comment is deleted mid-list.
-      <div key={comment.id} className={depth > 0 ? "ml-11" : ""}>
+      //
+      // `ms-11` = the parent's avatar (32) + its gap (12): a reply's avatar
+      // starts exactly under the text it answers. Logical, so RTL mirrors it.
+      <div key={comment.id} data-comment-block="" className={depth > 0 ? "ms-11 mt-4" : ""}>
         <div
           data-comment-id={comment.id}
+          data-comment-row=""
           data-highlighted={comment.id === highlightId ? "true" : undefined}
           // #509 review: the mark is not colour alone — assistive tech hears it too.
           aria-current={comment.id === highlightId ? "true" : undefined}
-          className={`flex gap-3 group/comment py-2 ${comment.id === highlightId ? "-mx-2 px-2 rounded-md bg-primary/10" : ""}`}
+          className={`flex gap-3 group/comment ${comment.id === highlightId ? "-mx-2 -my-1.5 px-2 py-1.5 rounded-md bg-primary/10" : ""}`}
         >
-          <ProfileLink userId={comment.user_id} handle={comment.author_handle} className="shrink-0 mt-0.5 flex min-w-8 justify-center">
+          <ProfileLink
+            userId={comment.user_id}
+            handle={comment.author_handle}
+            className={`shrink-0 self-start flex min-w-8 justify-center ${depth > 0 ? AVATAR_HIT_XS : AVATAR_HIT}`}
+          >
             <Avatar src={comment.author_avatar} name={comment.author_name} size={depth > 0 ? "xs" : "sm"} userId={comment.user_id} />
           </ProfileLink>
           <div className="flex-1 min-w-0">
@@ -429,14 +517,14 @@ const CommentThread = ({
                   value={editInput}
                   onChange={setEditInput}
                   onSubmit={() => saveEdit(comment.id)}
-                  placeholder="Edit comment..."
+                  placeholder={t("cmt.phEdit", "Edit comment...")}
                   disabled={editSubmitting}
                   maxLength={maxLength}
                   autoFocus
                   className="bg-muted rounded-2xl px-3 py-2 text-sm"
                 />
                 <button onClick={() => { setEditingId(null); setEditInput(""); }} className="text-xs text-muted-foreground hover:text-foreground mb-2">
-                  Cancel
+                  {t("common.cancel", "Cancel")}
                 </button>
               </div>
             ) : (
@@ -493,7 +581,7 @@ const CommentThread = ({
                     {timeAgo(comment.created_at, { weeks: true })}
                   </span>
                   {isEdited(comment) && (
-                    <span className="shrink-0 text-[11px] italic text-muted-foreground">Edited</span>
+                    <span className="shrink-0 text-[11px] italic text-muted-foreground">{t("cmt.edited", "Edited")}</span>
                   )}
                   {comment.pending && (
                     <span className="shrink-0 text-[11px] text-muted-foreground" data-testid="comment-pending">Pending</span>
@@ -532,11 +620,20 @@ const CommentThread = ({
                   1.33 on a 15px body is tight enough to grey out a long
                   comment on a phone.
                 */}
-                <p className="mt-0.5 text-[15px] leading-[1.45] text-foreground whitespace-pre-wrap break-words">
+                {/* `[&_a]:relative [&_a]:z-[1]`: a mention or hashtag link in the
+                    text sits ABOVE the Reply / menu regions that reach up into
+                    the text, so a link never loses a pixel to them (F-109). */}
+                <p className="text-[15px] leading-[1.45] text-foreground whitespace-pre-wrap break-words [&_a]:relative [&_a]:z-[1]">
                   <RichContentRenderer content={comment.content} />
                 </p>
 
                 {/*
+                  HISTORY — SUPERSEDED 4 Nov 2026 by "THE COMPACT ROW" at the top
+                  of this file. The real 44 px row below was the cause of the
+                  Owner's "huge gap": 14 px of empty box above Reply and 14 px
+                  under it. The lesson kept from it: a hit region must never
+                  claim a neighbour's pixels — hence the one ownership rule.
+
                   ⚠ REAL 44px CONTROLS. `.tap-44-down` WAS TRIED HERE AND
                   MEASURED WRONG — THIS IS THE SECOND ANSWER, NOT THE FIRST.
 
@@ -581,9 +678,13 @@ const CommentThread = ({
                     Like moved OUT to the heart rail on the right, so what is
                     left here is Reply and the overflow menu — and the row no
                     longer competes with the comment text for attention. */}
-                <div className="flex items-center gap-4">
+                {/* THE META LINE — one small grey line 4 px under the text,
+                    16 px tall. Its controls' 44 px lives in META_HIT / MENU_HIT
+                    (invisible), not in the line's height. */}
+                <div data-comment-meta="" className="mt-1 flex h-4 items-center gap-4 text-xs font-semibold leading-4 text-muted-foreground">
                   {currentUserId && depth < maxReplyDepth && (
                     <button
+                      type="button"
                       onClick={() => {
                         const opening = replyTo !== comment.id;
                         setReplyTo(opening ? comment.id : null);
@@ -594,21 +695,23 @@ const CommentThread = ({
                           setReplyInput("");
                         }
                       }}
-                      className="flex h-11 items-center text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                      className={`${META_HIT} flex h-4 items-center rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background`}
                     >
-                      Reply
+                      {t("cmt.reply", "Reply")}
                     </button>
                   )}
 
-                  {/* 3-dot menu */}
-                  {currentUserId && (isOwn || canDelete || canPinHere || canReport || canReact || (!!onBlockUser && !isOwn)) && (
+                  {/* 3-dot menu — at the END of the line, so its region never
+                      meets "View N more replies" under the text's start. */}
+                  {currentUserId && (isOwn || canDelete || canPinHere || canReport || (canReact && !!onReact) || (!!onBlockUser && !isOwn)) && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
+                          type="button"
                           aria-label="Comment options"
-                          className="flex h-11 w-11 items-center justify-center rounded opacity-0 transition-opacity hover:bg-muted focus-visible:opacity-100 group-hover/comment:opacity-100 md:opacity-0 max-md:opacity-100"
+                          className={`${MENU_HIT} ms-auto flex h-4 w-4 items-center justify-center rounded-sm opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover/comment:opacity-100 md:opacity-0 max-md:opacity-100`}
                         >
-                          <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                          <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start" className="w-44">
@@ -623,7 +726,9 @@ const CommentThread = ({
                           reachable by keyboard and screen reader — a
                           long-press would not be.
                         */}
-                        {canReact && (
+                        {/* Only where the surface can STORE a chosen type —
+                            the article / entry thread writes "like" alone. */}
+                        {canReact && !!onReact && (
                           <DropdownMenuItem
                             onClick={() => setReactionPickerId(comment.id)}
                             className="cursor-pointer"
@@ -633,7 +738,7 @@ const CommentThread = ({
                         )}
                         {isOwn && (
                           <DropdownMenuItem onClick={() => { setEditingId(comment.id); setEditInput(comment.content); }} className="cursor-pointer">
-                            <Pencil className="h-3.5 w-3.5 mr-2" /> Edit
+                            <Pencil className="h-3.5 w-3.5 mr-2" /> {t("cmt.edit", "Edit")}
                           </DropdownMenuItem>
                         )}
                         {canPinHere && depth === 0 && (
@@ -643,12 +748,12 @@ const CommentThread = ({
                         )}
                         {canDelete && (
                           <DropdownMenuItem onClick={() => onDelete(comment.id, comment.parent_id)} className="cursor-pointer text-destructive focus:text-destructive">
-                            <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                            <Trash2 className="h-3.5 w-3.5 mr-2" /> {t("common.delete", "Delete")}
                           </DropdownMenuItem>
                         )}
                         {canReport && !isOwn && (
                           <DropdownMenuItem onClick={() => { setReportingId(comment.id); setReportReason(""); }} className="cursor-pointer text-destructive focus:text-destructive">
-                            <Flag className="h-3.5 w-3.5 mr-2" /> Report
+                            <Flag className="h-3.5 w-3.5 mr-2" /> {t("cmt.report", "Report")}
                           </DropdownMenuItem>
                         )}
                         {onBlockUser && !isOwn && (
@@ -668,7 +773,7 @@ const CommentThread = ({
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden mt-1 ml-1"
+                      className="overflow-hidden mt-3 ms-1"
                     >
                       <div className="flex flex-wrap gap-1 mb-1.5">
                         {REPORT_REASONS.map((r) => (
@@ -677,16 +782,16 @@ const CommentThread = ({
                             onClick={() => setReportReason(r)}
                             className={`text-[10px] px-2 py-1 border rounded-md transition-all ${reportReason === r ? "border-destructive text-destructive bg-destructive/5 font-medium" : "border-border text-muted-foreground hover:border-muted-foreground/50"}`}
                           >
-                            {r}
+                            {t("cmt.r." + r, r)}
                           </button>
                         ))}
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => submitReport(comment.id)} disabled={!reportReason} className="text-[10px] px-3 py-1 bg-destructive text-destructive-foreground rounded-md hover:opacity-90 disabled:opacity-50">
-                          Submit
+                          {t("dash.submit", "Submit")}
                         </button>
                         <button onClick={() => { setReportingId(null); setReportReason(""); }} className="text-[10px] px-3 py-1 border border-border rounded-md text-muted-foreground">
-                          Cancel
+                          {t("common.cancel", "Cancel")}
                         </button>
                       </div>
                     </motion.div>
@@ -695,13 +800,13 @@ const CommentThread = ({
 
                 {/* Reply input */}
                 {replyTo === comment.id && (
-                  <div className="flex gap-2 mt-2">
+                  <div className="flex gap-2 mt-3">
                     <Avatar src={viewer?.avatar_url} name={viewer?.full_name} size="xs" />
                     <MentionInput
                       value={replyInput}
                       onChange={setReplyInput}
                       onSubmit={() => submitComment(comment.id)}
-                      placeholder={`Reply to ${comment.author_name || "Photographer"}...`}
+                      placeholder={`${t("cmt.phReplyTo", "Reply to")} ${comment.author_name || "Photographer"}...`}
                       disabled={submitting}
                       maxLength={maxLength}
                       autoFocus
@@ -735,7 +840,8 @@ const CommentThread = ({
             second cluster of emoji to read past.
           */}
           {canReact && editingId !== comment.id && (
-            <div className="relative flex shrink-0 flex-col items-center">
+            <div data-comment-heart-rail="" className="relative flex shrink-0 self-center">
+
               <button
                 type="button"
                 onClick={() => onToggleLike?.(comment.id)}
@@ -766,9 +872,17 @@ const CommentThread = ({
                   the span inside, so the rail looks exactly as designed and only
                   the thumb target is larger.
                 */
-                className="group/heart flex h-11 w-11 items-center justify-center disabled:cursor-default disabled:opacity-60"
+                /*
+                  4 Nov 2026 (compact row): the rail is CENTRED on the comment
+                  (`self-center` on its column) and the count sits INSIDE the
+                  44 × 44 box, tiny, under a 24 px circle — Instagram's heart
+                  and count, without a second band added under the box. Square
+                  corners on purpose: browsers hit-test border-radius, and a
+                  rounded box gave its corner pixels to the rail (measured).
+                */
+                className="group/heart flex h-11 w-11 flex-col items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:cursor-default disabled:opacity-60"
               >
-                <span className="flex h-8 w-8 items-center justify-center rounded-full transition-transform duration-150 group-hover/heart:bg-muted/50 group-active/heart:scale-90 motion-reduce:transition-none motion-reduce:group-active/heart:scale-100">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full transition-transform duration-150 group-hover/heart:bg-muted/50 group-active/heart:scale-90 motion-reduce:transition-none motion-reduce:group-active/heart:scale-100">
                 {comment.user_reaction && comment.user_reaction !== "like" ? (
                   <span className="text-base leading-none">
                     {REACTION_BY_TYPE.get(comment.user_reaction)?.emoji ?? "👍"}
@@ -787,7 +901,7 @@ const CommentThread = ({
                     text and never generates a class it cannot see.
                   */
                   <Heart
-                    className={`h-[18px] w-[18px] transition-colors ${
+                    className={`h-4 w-4 transition-colors ${
                       comment.user_reaction
                         ? "fill-primary text-primary"
                         : "text-muted-foreground"
@@ -796,19 +910,19 @@ const CommentThread = ({
                   />
                 )}
                 </span>
+                {comment.like_count > 0 && (
+                  <span data-comment-like-count="" className="text-[11px] font-semibold leading-3 tabular-nums text-muted-foreground">
+                    {comment.like_count}
+                  </span>
+                )}
               </button>
-              {comment.like_count > 0 && (
-                <span className="-mt-1 text-[11px] font-semibold tabular-nums text-muted-foreground">
-                  {comment.like_count}
-                </span>
-              )}
 
               {/* The full picker, opened from the row menu's "React…" item. */}
               {reactionPickerId === comment.id && (
                 <div
                   role="menu"
                   aria-label="Choose a reaction"
-                  className="absolute right-0 top-full z-10 mt-1 flex gap-0.5 rounded-full border border-border bg-popover px-1.5 py-1 shadow-lg"
+                  className="absolute end-0 top-full z-10 mt-1 flex gap-0.5 rounded-full border border-border bg-popover px-1.5 py-1 shadow-lg"
                 >
                   {REACTIONS.map((r) => (
                     <button
@@ -828,8 +942,35 @@ const CommentThread = ({
           )}
         </div>
 
+        {/*
+          "—— View N more replies" / "—— Hide replies" — Instagram's line, under
+          the comment's text column, and it STAYS here when the replies open
+          below it, so the member's finger finds it in the same place.
+
+          Its region: the button reaches 16 px DOWN (the gap under it is its
+          own); only the WORDS reach 12 px UP (`before:`), because the strip
+          above the dash belongs to Reply's region, and the words start past
+          Reply's 44 px (ps on the dash), so the two never claim one pixel.
+        */}
+        {depth === 0 && replyCount > 0 && !expandReplies && (
+          <button
+            type="button"
+            data-comment-replies-toggle=""
+            aria-expanded={repliesShown}
+            onClick={() => setRepliesOpen(comment.id, !repliesShown)}
+            className={`${HIT} after:inset-x-0 after:top-0 after:-bottom-4 ms-11 mt-3 flex h-4 items-center gap-5 rounded-sm text-xs font-semibold leading-4 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background`}
+          >
+            <span aria-hidden="true" className="h-px w-6 shrink-0 bg-muted-foreground/60" />
+            <span className="relative before:absolute before:inset-x-0 before:-top-3 before:bottom-0 before:content-['']">
+              {repliesShown
+                ? "Hide replies"
+                : `View ${replyCount} more ${replyCount === 1 ? "reply" : "replies"}`}
+            </span>
+          </button>
+        )}
+
         {/* Replies */}
-        {comment.replies.map((reply) => (
+        {repliesShown && comment.replies.map((reply) => (
           renderComment(reply, depth + 1)
         ))}
       </div>
@@ -853,16 +994,16 @@ const CommentThread = ({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex h-11 items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground">
-                {sortMode === "relevant" ? "Most relevant" : "Newest first"}
+                {sortMode === "relevant" ? t("cmt.mostRelevant", "Most relevant") : t("cmt.newestFirst", "Newest first")}
                 <ChevronDown className="h-3 w-3" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-40">
               <DropdownMenuItem onClick={() => setSortMode("relevant")} className="cursor-pointer text-xs">
-                Most relevant
+                {t("cmt.mostRelevant", "Most relevant")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setSortMode("newest")} className="cursor-pointer text-xs">
-                Newest first
+                {t("cmt.newestFirst", "Newest first")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -873,7 +1014,7 @@ const CommentThread = ({
       {loading ? (
         <div className="text-sm text-muted-foreground animate-pulse py-4 text-center">Loading comments…</div>
       ) : (
-        <div className="space-y-0.5">
+        <div data-comment-list="" className="flex flex-col gap-4">
           {emptyLabel && sortedComments.length === 0 && (
             <div className="text-xs text-muted-foreground">{emptyLabel}</div>
           )}
