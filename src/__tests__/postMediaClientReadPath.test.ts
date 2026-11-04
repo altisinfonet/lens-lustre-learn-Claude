@@ -85,15 +85,16 @@ const row = (post_id: string, ord: number, object_path: string | null) => ({
 const ATTACHMENTS = "src/lib/posts/postAttachments.ts";
 
 /**
- * The surfaces that build the media array. There must be no other. The fifth,
+ * The surfaces that build the media array. There must be no other. The last,
  * Feed.tsx, is the feed's live-arrival path (a post delivered by realtime),
  * which built posts from the bare row and so dropped their video (2026-10-12).
+ * K1: the hashtag page is not one any more. It goes through useUserPostsQuery's
+ * enrichPostRows; HashtagFeedPostCard.test.tsx holds it to that.
  */
 const PRODUCERS = [
   "src/hooks/feed/useFeedQuery.ts",
   "src/hooks/feed/useUserPostsQuery.ts",
   "src/pages/PostDetail.tsx",
-  "src/pages/HashtagFeed.tsx",
   "src/pages/Feed.tsx",
 ];
 

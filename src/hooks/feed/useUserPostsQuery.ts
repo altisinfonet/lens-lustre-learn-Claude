@@ -86,6 +86,22 @@ async function fetchAndEnrich(
     return { posts: [], nextCursor: null };
   }
 
+  const posts = await enrichPostRows(postsData, currentUserId);
+
+  const hasMore = postsData.length === PAGE_SIZE;
+  const nextCursor = hasMore ? postsData[postsData.length - 1].created_at : null;
+
+  return { posts, nextCursor };
+}
+
+/**
+ * `posts` rows → the UnifiedPost every <PostCard> takes: author, counts, the
+ * viewer's reaction, tags, photographs and video, all batched for the page.
+ * ONE builder for the wall and the hashtag page (central control K1), so the
+ * two cannot disagree about the same post. A post this viewer may not see is
+ * left out, so the result can be shorter than `postsData`.
+ */
+export async function enrichPostRows(postsData: any[], currentUserId: string | undefined): Promise<UnifiedPost[]> {
   const authorIds = [...new Set(postsData.map((p) => p.user_id))];
   const postIds = postsData.map((p) => p.id);
 
@@ -133,6 +149,8 @@ async function fetchAndEnrich(
           tagProfiles.get(r.tagged_user_id)?.full_name ?? null,
           adminIds,
         ),
+        // As on the feed: without it a tagged name was plain text here.
+        handle: tagProfiles.get(r.tagged_user_id)?.custom_url ?? null,
         pending: r.status === "pending",
         // The badges were already in `tagProfiles`; they used to be dropped
         // here and re-fetched per name at render time. Carry them. Same
@@ -162,7 +180,7 @@ async function fetchAndEnrich(
   const attachedById = new Map(postsData.map((p: any) => [p.id, attachmentsFor(
     attachments, p.id, p.image_urls?.length > 0 ? p.image_urls : p.image_url ? [p.image_url] : [],
   )]));
-  const posts: UnifiedPost[] = postsData.filter((p: any) => attachedById.get(p.id) !== null).map((p: any) => {
+  return postsData.filter((p: any) => attachedById.get(p.id) !== null).map((p: any) => {
     const userRx = userReactionMap.get(p.id) as ReactionType | undefined;
     const typeCounts = reactionTypeCounts[p.id] || {};
     const topReactions = Object.entries(typeCounts)
@@ -201,11 +219,38 @@ async function fetchAndEnrich(
       tagged_people: taggedMap.get(p.id) ?? [],
     };
   });
+}
 
-  const hasMore = postsData.length === PAGE_SIZE;
-  const nextCursor = hasMore ? postsData[postsData.length - 1].created_at : null;
+/** The public posts carrying a tag, built by the same enrichPostRows as the wall (K1). */
+export async function fetchHashtagPosts(tag: string, viewerId: string | undefined): Promise<UnifiedPost[]> {
+  // BUG-087: sanitize the URL-supplied tag to the hashtag charset — this both
+  // prevents PostgREST .or() filter injection and normalizes matching. Use a
+  // single parameterized ilike (value is not interpolated into filter syntax)
+  // that catches the tag anywhere, not only when followed by a space/end.
+  const safeTag = tag.replace(/[^a-zA-Z0-9_]/g, "");
+  if (!safeTag) return [];
 
-  return { posts, nextCursor };
+  const { data } = await supabase
+    .from("posts")
+    .select("*")
+    .ilike("content", `%#${safeTag}%`)
+    .eq("privacy", "public")
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (!data || data.length === 0) return [];
+
+  // BUG-119: mirror BUG-088 — hashtag results must exclude banned/suspended
+  // authors (the hashtag query only filtered privacy='public'). anon has no
+  // SELECT on the mirror's moderation flags (BUG-121), so use the anon-callable
+  // ban-aware RPC which returns the moderated subset of these author ids.
+  const authorIds = [...new Set(data.map((p) => p.user_id))];
+  const moderatedRes = await supabase.rpc("filter_moderated_user_ids", { _ids: authorIds } as any);
+  const blockedAuthors = new Set(((moderatedRes.data as any[]) || []).map((r) => r.id));
+  const visiblePosts = data.filter((p) => !blockedAuthors.has(p.user_id));
+
+  if (visiblePosts.length === 0) return [];
+  return enrichPostRows(visiblePosts, viewerId);
 }
 
 /**
