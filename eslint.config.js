@@ -17,6 +17,7 @@ import noUnfilteredRealtimeSensitive from "./eslint-rules/no-unfiltered-realtime
 import noUnsafeEdgeAuthority from "./eslint-rules/no-unsafe-edge-authority.js";
 import noRawTailwindColors from "./eslint-rules/no-raw-tailwind-colors.js";
 import noBareImg from "./eslint-rules/no-bare-img.js";
+import noCommentRows from "./eslint-rules/no-comment-rows.js";
 
 export default tseslint.config(
   { ignores: ["dist", "eslint-rules/**"] },
@@ -98,8 +99,8 @@ export default tseslint.config(
   {
     files: ["src/components/**/*.tsx", "src/pages/**/*.tsx"],
     ignores: ["**/__tests__/**", "**/*.test.tsx"],
-    plugins: { d2: { rules: { "no-bare-img": noBareImg } } },
-    rules: { "d2/no-bare-img": "error" },
+    plugins: { d2: { rules: { "no-bare-img": noBareImg, "no-comment-rows": noCommentRows } } },
+    rules: { "d2/no-bare-img": "error", "d2/no-comment-rows": "error" },
   },
   // Phase 4 Slice B — admin layout primitives are token-only by contract.
 );
