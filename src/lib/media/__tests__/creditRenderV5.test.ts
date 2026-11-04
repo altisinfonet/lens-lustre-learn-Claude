@@ -104,11 +104,11 @@ describe("the one renderer — embedded font, measured in the output pixels", ()
   }
 
   it("a photo too narrow for the line: set smaller to fit 90 % of the width, never below 8 px", async () => {
-    const clean = await photo(240, 160);
+    const clean = await photo(200, 134);
     const r = await renderCredit(sharp, clean, LONG);
     expect(r.credit.fontPx).toBeLessThan(11);
     expect(r.credit.fontPx).toBeGreaterThanOrEqual(CREDIT_GEOMETRY_V5.tinyMinFontPx);
-    expect(r.credit.textW).toBeLessThanOrEqual(Math.floor(240 * 0.9) + 1);
+    expect(r.credit.textW).toBeLessThanOrEqual(Math.floor(200 * 0.9));
   });
 
   it("the same input draws the same bytes (deterministic)", async () => {

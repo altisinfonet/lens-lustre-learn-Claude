@@ -1,0 +1,84 @@
+/**
+ * THE ONE CREDIT RENDERER — credit fix U2, geometry v5 (src/lib/creditGeometry.mjs
+ * CREDIT_GEOMETRY_V5). Server side: sharp (libvips + Pango) with an EMBEDDED
+ * font file (fonts/FiraSans-SemiBold-latin.ttf, SIL OFL 1.1 — see fonts/README.md),
+ * so a GitHub runner, the Oracle VM and a developer PC draw the same glyphs,
+ * and the line is MEASURED with the real font (Pango's own text box), never
+ * estimated (credit-svg.mjs estimates 0.58 em per character).
+ *
+ *   renderCredit(sharp, input, text) → {
+ *     image   a sharp pipeline: the photo with the credit (encode it as you like),
+ *     width, height,
+ *     credit  { version: 5, fontPx, textW, textH, left, top, inset }
+ *   }
+ *
+ * The photo is NEVER resized here: the caller decides the file's size (2048 for
+ * a new photo, the clean 1080 for a rectified one, ≤ 2048 for an old one). The
+ * pixels are only turned upright (EXIF).
+ *
+ * NOT YET WIRED: the workers keep credit-svg.mjs (v4) until the Owner approves
+ * the v5 samples; switching them is U3/U4 (one renderer for every path).
+ */
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { CREDIT_GEOMETRY_V5 as G, creditGeometryV5For } from "../../src/lib/creditGeometry.mjs";
+
+export const CREDIT_FONT_FILE = join(dirname(fileURLToPath(import.meta.url)), "fonts", "FiraSans-SemiBold-latin.ttf");
+
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/** The credit line as a transparent PNG at `px`, `color` at `alpha` (0..1) — real glyphs, real box. */
+async function textImage(sharp, text, px, color, alpha) {
+  const { data, info } = await sharp({
+    text: {
+      text: `<span foreground="${color}" fgalpha="${Math.round(alpha * 100)}%">${esc(text)}</span>`,
+      font: `${G.fontFamily} ${G.fontStyle} ${px}px`,
+      fontfile: CREDIT_FONT_FILE,
+      dpi: 72,
+      rgba: true,
+    },
+  }).png().toBuffer({ resolveWithObject: true });
+  return { png: data, w: info.width, h: info.height };
+}
+
+/** The real width × height of the line at `px`. */
+export async function measureCredit(sharp, text, px) {
+  const t = await textImage(sharp, text, px, "#FFFFFF", 1);
+  return { w: t.w, h: t.h };
+}
+
+/** v5's font size for this file and this line, including the measured fit-to-width step. */
+export async function creditFontPx(sharp, width, height, text) {
+  const geo = creditGeometryV5For(width, height);
+  let px = geo.fontPx;
+  for (let i = 0; i < 40; i++) {
+    const m = await measureCredit(sharp, text, px);
+    if (m.w <= geo.maxLineWidth || px <= G.tinyMinFontPx) break;
+    px = Math.max(G.tinyMinFontPx, Math.min(px - 1, Math.floor((px * geo.maxLineWidth) / m.w)));
+  }
+  return { px, inset: geo.inset };
+}
+
+/** Draw the v5 credit bottom-right on `input` (a path or a Buffer). */
+export async function renderCredit(sharp, input, text) {
+  const upright = await sharp(input).rotate().toBuffer({ resolveWithObject: true });
+  const { width, height } = upright.info;
+  const { px, inset } = await creditFontPx(sharp, width, height, text);
+  const fill = await textImage(sharp, text, px, "#FFFFFF", G.fillAlpha);
+  const shadowText = await textImage(sharp, text, px, "#000000", G.shadowAlpha);
+  // room for the blur to spread before it is composited
+  const pad = Math.max(2, Math.ceil(px * 0.5));
+  const shadow = await sharp(shadowText.png)
+    .extend({ top: pad, bottom: pad, left: pad, right: pad, background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .blur(Math.max(0.4, px * G.shadowBlurEm))
+    .png()
+    .toBuffer();
+  const left = Math.max(0, width - inset - fill.w);
+  const top = Math.max(0, height - inset - fill.h);
+  const drop = Math.max(1, Math.round(px * G.shadowOffsetEm));
+  const image = sharp(upright.data).composite([
+    { input: shadow, left: Math.max(0, left - pad), top: Math.max(0, top - pad + drop) },
+    { input: fill.png, left, top },
+  ]);
+  return { image, width, height, credit: { version: G.version, fontPx: px, textW: fill.w, textH: fill.h, left, top, inset } };
+}
