@@ -58,7 +58,7 @@ vi.mock("@/hooks/profile/useProfileData", () => ({
   // comment body, not about prefetching.
   usePrefetchProfile: () => () => {},
 }));
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -182,6 +182,8 @@ describe("the newline in a comment survives to the screen", () => {
 
   it("covers REPLIES too, because they are the same row", () => {
     draw([comment({ id: "top", content: "top level", replies: [comment({ id: "r1" })] })]);
+    // Replies start folded (Instagram, Owner 4 Nov) — open them, as a member would.
+    fireEvent.click(screen.getByRole("button", { name: /view 1 more reply/i }));
     expect(getComputedStyle(bodyOf(TWO_PARAGRAPHS)).whiteSpace).toBe("pre-wrap");
   });
 });
@@ -199,10 +201,13 @@ describe("the post caption keeps the same pair", () => {
     expect(src).toMatch(/whitespace-pre-wrap break-words/);
   });
 
-  it("so does the other comment surface, CommentsSection", async () => {
+  it("so does the other comment surface, CommentsSection — by drawing the SAME row (4 Nov 2026)", async () => {
     const { readFileSync } = await import("node:fs");
     const { join } = await import("node:path");
     const src = readFileSync(join(process.cwd(), "src/components/CommentsSection.tsx"), "utf8");
-    expect(src).toMatch(/whitespace-pre-wrap break-words/);
+    // It no longer draws text itself: its rows are CommentThread's, which the
+    // tests above hold to the pair.
+    expect(src).toMatch(/<CommentThread\b/);
+    expect(src, "a comment body drawn here again would need the pair again").not.toMatch(/<RichContentRenderer\b/);
   });
 });

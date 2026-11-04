@@ -172,6 +172,7 @@ export const CommentsBox = ({ source, ownerHandle, subjectLabel, highlightId = n
           }}
           maxReplyDepth={source.maxReplyDepth}
           highlightId={highlightId}
+          expandReplies={searching}
           onAdd={(content, parentId) => source.addComment(content, parentId)}
           onEdit={source.editComment}
           onDelete={source.deleteComment}
