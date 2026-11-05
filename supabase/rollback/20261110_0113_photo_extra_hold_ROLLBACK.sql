@@ -37,6 +37,7 @@ DELETE FROM public.photo_retire WHERE kind = 'post_extra';
 DROP INDEX public.photo_retire_extra_idx;
 ALTER TABLE public.photo_retire
   DROP CONSTRAINT photo_retire_extra_state_check,
+  DROP CONSTRAINT photo_retire_held_key_check,
   DROP COLUMN restored_at,
   DROP COLUMN held_at,
   DROP COLUMN held_key,

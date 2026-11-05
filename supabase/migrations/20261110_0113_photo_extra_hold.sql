@@ -94,9 +94,10 @@ ALTER TABLE public.photo_retire
   ADD CONSTRAINT photo_retire_kind_check CHECK (kind IN ('comp_full', 'post_old', 'post_extra')),
   DROP CONSTRAINT photo_retire_state_check,
   ADD CONSTRAINT photo_retire_state_check CHECK (state IN ('due', 'deleted', 'kept', 'hold_due', 'held', 'restored')),
-  ADD COLUMN held_key    text CHECK (held_key IS NULL OR (held_key = 'photo-holding/' || object_key)),
+  ADD COLUMN held_key    text,
   ADD COLUMN held_at     timestamptz,
   ADD COLUMN restored_at timestamptz,
+  ADD CONSTRAINT photo_retire_held_key_check CHECK (held_key IS NULL OR held_key = 'photo-holding/' || object_key),
   ADD CONSTRAINT photo_retire_extra_state_check CHECK (
     (kind = 'post_extra') = (state IN ('hold_due', 'held', 'restored'))
     OR (kind = 'post_extra' AND state = 'kept'));
