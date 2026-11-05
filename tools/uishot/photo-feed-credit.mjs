@@ -16,9 +16,9 @@
  *    image errors (every copy's first request fails → the fallback).
  * 2. FULL SCREEN (Chromium, Firefox, WebKit; both shapes; signed out): the
  *    pixels on screen equal the CLEAN copy drawn in the same box, and differ
- *    from the credited file drawn there (so the check is not vacuous); a real
- *    right-click lands on an <img> whose source is the CREDITED file — what
- *    "save image as" / "copy image address" get. The target URL is logged.
+ *    from the SAVED file drawn there (so the check is not vacuous); a real
+ *    right-click DOWNLOADS the clean public copy with the credit DRAWN on it
+ *    (every feed photo, old ones too — Owner 5 Nov 2026); no stored credited file is asked for.
  * 3. WEB == APP: the feed card in the Android shell (window.Capacitor) is
  *    pixel-identical to the website's at 390 px, member and admin.
  *
@@ -30,7 +30,7 @@
  *   --only-credit   part 0 only: the credit inside every saved file (local runs)
  */
 import { spawn, execSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium, firefox, webkit } from "playwright";
 import { PNG } from "pngjs";
@@ -166,7 +166,8 @@ async function open(browser, { vp, dpr, viewer, size, shape, admin = false, app 
     if (viewer === "err" && !failedOnce.has(url)) { failedOnce.add(url); return route.fulfill({ status: 404, body: "" }); }
     const hit = await page.evaluate((u) => window.__photoStore?.[u] ?? null, url).catch(() => null);
     if (!hit) return route.fulfill({ status: 404, body: "" });
-    return route.fulfill({ status: 200, contentType: hit.type, body: Buffer.from(hit.b64, "base64") });
+    // CORS as cdn.50mmretina.com answers it: the drawn-credit save fetch()es the clean copy (mode "cors").
+    return route.fulfill({ status: 200, contentType: hit.type, headers: { "Access-Control-Allow-Origin": "*" }, body: Buffer.from(hit.b64, "base64") });
   });
   const qs = new URLSearchParams({
     viewer, ...(vp === "phone" ? { w: "phone" } : {}), ...(size === "small" ? { small: "1" } : {}),
@@ -272,30 +273,65 @@ async function creditOnScreen(cleanRef, creditRef, img) {
   return creditSeen(cleanRef, creditRef, lineBox(nw, nh, { left: nw - inset - m.w, top: nh - inset - m.h, textW: m.w, textH: m.h }), photo);
 }
 
-// ── 1b. BEFORE THE SWEEP: no credited file yet. A right-click must leave the
-//       feed photo exactly as it was, never a broken image or the placeholder. ──
+/*
+ * THE DRAWN SAVE (Owner, 4–5 Nov 2026: the credit is drawn in the browser when
+ * someone saves, never stored; EVERY feed photo, old ones too). A right-click on
+ * a feed photo is answered by a DOWNLOAD: the photo's clean public copy with the
+ * credit drawn on it (src/lib/photoCreditSave.ts). The stored credited copies
+ * the harness still makes are never asked for.
+ */
+/** The clean public copy the browser draws the credit on, per shape (photoCreditSave.saveSourceUrl). */
+function saveSource(store, shape) {
+  const keys = Object.keys(store);
+  const pick = (re) => keys.find((u) => re.test(u));
+  if (shape === "v3") return pick(/-l5\.webp$/);
+  if (shape === "old") return pick(/\/1700000000000-IMG_0001\.webp$/);
+  return pick(/-l4-r1080\.webp$/) ?? pick(/-l4-thumb\.webp$/);
+}
+/** Right-click at (x, y); the downloaded file as base64, or null when nothing was handed over. */
+async function rightClickDownload(page, x, y) {
+  const got = page.waitForEvent("download", { timeout: 20_000 }).catch(() => null);
+  await page.mouse.click(x, y, { button: "right" });
+  const dl = await got;
+  if (!dl) return null;
+  const path = await dl.path().catch(() => null);
+  if (!path) return null;
+  return { name: dl.suggestedFilename(), b64: readFileSync(path).toString("base64") };
+}
+
+// ── 1b. FEED RIGHT-CLICK: a download with the drawn credit; the photo on screen
+//       stays exactly as it was, never a broken image or the placeholder. ──
 if (!process.argv.includes("--skip-feed") && !ONLY_CREDIT) {
   const browser = await chromium.launch();
   for (const vp of Object.keys(VIEWPORTS)) {
     const r = await open(browser, { shape: "v3", size: "large", vp, dpr: 2, viewer: "out", noCredited: true });
-    const row = { part: "feed before the sweep", vp, ok: true };
-    // [sizes]: the photo, not its blurred backdrop. A handle, because arming removes `sizes`.
+    const row = { part: "feed right-click download", vp, ok: true };
+    // [sizes]: the photo, not its blurred backdrop.
     const photo = await r.page.locator('#cardwrap img[sizes][src*="-l5"]').first().elementHandle();
     const before = await photo.screenshot();
-    await photo.click({ button: "right" });
-    await r.page.waitForTimeout(2500); // past the retrier's delays
+    const box = await photo.boundingBox();
+    const dl = await rightClickDownload(r.page, box.x + box.width / 2, box.y + box.height / 2);
+    await r.page.waitForTimeout(1000);
     await r.page.keyboard.press("Escape");
     const facts = await photo.evaluate((i) => ({ src: i.getAttribute("src"), width: i.naturalWidth, placeholder: i.dataset.fallbackApplied ?? null, armed: i.dataset.saveAs ?? null }));
     const after = await photo.screenshot();
     const same = diff(before, after);
-    Object.assign(row, { facts, same: same.why });
-    if (!r.requested.some((u) => /-r2048c\.webp$/.test(u))) fail(row, "the right-click never asked for the credited file: the check would be vacuous");
-    if (/-r2048c/.test(facts.src) || facts.armed) fail(row, `the photo stayed on the missing credited file (${name(facts.src)})`);
+    Object.assign(row, { facts, same: same.why, download: dl?.name ?? null });
+    const asked = [...new Set(r.requested.filter((u) => r.credited.includes(u) || /-r2048c\.webp$/.test(u)))];
+    if (asked.length) fail(row, `a stored credited file was asked for: ${asked.map(name).join(", ")}`);
+    if (!dl) fail(row, "the right-click handed over no file");
+    else {
+      const src = saveSource(r.store, "v3");
+      row.creditInSavedFile = await measureCredit(dl.b64, r.store[src].b64);
+      creditFail(row, row.creditInSavedFile);
+      if (OUT) await corner(dl.b64, join(OUT, `saved-feed-download-${vp}.png`));
+    }
+    if (facts.armed) fail(row, `the photo was armed with a stored file (${name(facts.armed)})`);
     if (!facts.width) fail(row, "the photo is broken after the right-click");
     if (facts.placeholder) fail(row, "the global fallback planted the placeholder");
     if (!same.same) fail(row, `the photo changed on screen: ${same.why}`);
     rows.push(row);
-    console.log(`${row.ok ? "PASS" : "FAIL"} feed before the sweep ${vp}${row.failed ? ` — ${row.failed.join("; ")}` : ""}`);
+    console.log(`${row.ok ? "PASS" : "FAIL"} feed right-click download ${vp} — ${dl?.name ?? "no file"}${row.creditInSavedFile ? `, credit ${JSON.stringify(row.creditInSavedFile)}` : ""}${row.failed ? ` — ${row.failed.join("; ")}` : ""}`);
     await r.ctx.close();
   }
   await browser.close();
@@ -338,16 +374,13 @@ for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
     rows.push(pr);
     console.log(`${pr.ok ? "PASS" : "FAIL"} parked cursor + scroll ${engine} — photo under cursor ${pr.photoPassedUnderCursor}, credited requests ${JSON.stringify(pr.creditedRequests ?? [])}${pr.failed ? ` — ${pr.failed.join("; ")}` : ""}`);
   }
-  // "old": a photo posted before the New Photos plan (unmarked URL) — its save
-  // target is the credited copy the lookup names (20261110_0109), exactly like
-  // a new photo's; the screen shows the original.
-  // "legacy" (a stale v2 `-l4` row, credit fix U1 — Owner 4 Nov "very big
-  // credit"): its credited file is the master with the RETIRED big credit, so a
-  // right-click — feed or full screen — must NEVER reach it; the clean copy is
-  // what the browser saves.
+  // Every shape is a FEED photo, so every save is the drawn one (Owner, 5 Nov
+  // 2026): "v3" (`-l5`), "old" (unmarked, posted before the New Photos plan) and
+  // "legacy" (a stale v2 `-l4` row, whose master carries the RETIRED big credit).
+  // A right-click — feed or full screen — downloads the clean public copy with
+  // the credit drawn on it, and no stored credited file is ever asked for.
   for (const shape of ["v3", "legacy", "old"]) {
     const row = { part: "full screen", engine, shape, ok: true };
-    const retired = shape === "legacy";
     try {
       // grid: the post's photo grid sits under the card — since 4 Nov 2026 the
       // FEED photo opens no viewer (Owner: like Instagram), so full screen is
@@ -360,8 +393,10 @@ for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
           window.__ctx = t && t.tagName === "IMG" ? (t.currentSrc || t.src) : (t ? t.tagName : null);
         }, true);
       });
-      // FEED right-click (fault 2, 3 Nov): the file a "save image" gets is the
-      // credited copy, and the card's pixels do not change.
+      const src = saveSource(r.store, shape);
+      const storedCreditAsked = () => [...new Set(r.requested.filter((u) => r.credited.includes(u)))];
+      // FEED right-click: a download of the clean copy with the drawn credit, and
+      // the card's pixels do not change.
       {
         const fr = { part: "feed right-click", engine, shape, ok: true };
         const card = await r.page.$("#cardwrap [data-feed-photo]");
@@ -371,33 +406,32 @@ for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
         // a real user: the mouse comes onto the photo, rests, then right-clicks
         await r.page.mouse.move(fb.x + fb.width / 2, fb.y + fb.height / 2, { steps: 4 });
         await r.page.waitForTimeout(1500);
-        await r.page.mouse.click(fb.x + fb.width / 2, fb.y + fb.height / 2, { button: "right" });
-        await r.page.waitForTimeout(800);
+        const dl = await rightClickDownload(r.page, fb.x + fb.width / 2, fb.y + fb.height / 2);
         await r.page.mouse.move(5, 5);
         await r.page.waitForTimeout(300);
         const after = await card.screenshot();
-        const ftarget = bare(await r.page.evaluate(() => window.__ctx));
-        fr.contextMenuTarget = ftarget;
+        fr.download = dl?.name ?? null;
+        fr.drawnOn = src ? name(src) : null;
         const same = diff(before, after);
         fr.screenBeforeVsAfter = same.why;
-        if (retired) {
-          if (!ftarget || r.credited.includes(ftarget)) fail(fr, `feed right-click target is ${ftarget} — the retired -l4 credited file (or nothing)`);
-        } else if (!ftarget || !r.credited.includes(ftarget)) fail(fr, `feed right-click target is ${ftarget} — not the credited file`);
-        if (!same.same) fail(fr, `the feed card's pixels changed at the right-click: ${same.why}`);
-        if (!retired && ftarget && r.store[ftarget]?.twin) {
-          fr.creditInSavedFile = await measureCredit(r.store[ftarget].b64, r.store[ftarget].twin);
+        if (!src) fail(fr, "the harness store has no clean copy to draw on");
+        if (!dl) fail(fr, "the feed right-click handed over no file");
+        else if (src) {
+          fr.creditInSavedFile = await measureCredit(dl.b64, r.store[src].b64);
           creditFail(fr, fr.creditInSavedFile);
-          if (OUT) await corner(r.store[ftarget].b64, join(OUT, `saved-feed-${engine}-${shape}.png`));
+          if (OUT) await corner(dl.b64, join(OUT, `saved-feed-${engine}-${shape}.png`));
         }
+        const asked = storedCreditAsked();
+        if (asked.length) fail(fr, `a stored credited file was asked for: ${asked.map(name).join(", ")}`);
+        if (!same.same) fail(fr, `the feed card's pixels changed at the right-click: ${same.why}`);
         if (OUT) writeFileSync(join(OUT, `feed-card-after-right-click-${engine}-${shape}.png`), after);
         rows.push(fr);
-        console.log(`${fr.ok ? "PASS" : "FAIL"} feed right-click ${engine} ${shape} — target ${ftarget ? name(ftarget) : "?"}, screen ${same.why}${fr.creditInSavedFile ? `, credit ${JSON.stringify(fr.creditInSavedFile)}` : ""}${fr.failed ? ` — ${fr.failed.join("; ")}` : ""}`);
-        if (ftarget) console.log(`    context-menu target URL: ${ftarget}`);
+        console.log(`${fr.ok ? "PASS" : "FAIL"} feed right-click ${engine} ${shape} — ${fr.download ?? "no file"} drawn on ${fr.drawnOn ?? "?"}, screen ${same.why}${fr.creditInSavedFile ? `, credit ${JSON.stringify(fr.creditInSavedFile)}` : ""}${fr.failed ? ` — ${fr.failed.join("; ")}` : ""}`);
         await r.page.evaluate(() => { window.__ctx = null; });
       }
       await r.page.click("#gridwrap .group\\/photo");
-      // A v2 set has no save target: the viewer holds the clean copy plainly (no layer).
-      const sel = retired ? "[role=dialog] img[src*='-l4-']" : "[role=dialog] img[data-photo-shown]";
+      // The viewer holds the clean copy plainly: no layered stored credited copy.
+      const sel = "[role=dialog] img:not([aria-hidden])";
       await r.page.waitForSelector(sel, { timeout: 20_000 });
       await r.page.waitForFunction((s) => { const i = document.querySelector(s); return i && i.complete && i.naturalWidth > 0; }, sel, { timeout: 30_000 });
       await r.page.waitForTimeout(1500); // the CSS background (clean copy) paints
@@ -408,19 +442,19 @@ for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
       row.shownFile = name(facts.shown);
       const box = await img.boundingBox();
       // a real right-click on the middle of the photo
-      await r.page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: "right" });
+      const dl = await rightClickDownload(r.page, box.x + box.width / 2, box.y + box.height / 2);
       await r.page.waitForTimeout(300);
-      const target = bare(await r.page.evaluate(() => window.__ctx));
-      row.contextMenuTarget = target;
-      if (retired) {
-        if (!target || r.credited.includes(target)) fail(row, `right-click target is ${target} — the retired -l4 credited file (or nothing)`);
-      } else if (!target || !r.credited.includes(target)) fail(row, `right-click target is ${target} — not the credited file`);
-      if (!retired && target && r.store[target]?.twin) {
-        row.creditInSavedFile = await measureCredit(r.store[target].b64, r.store[target].twin);
+      row.contextMenuTarget = bare(await r.page.evaluate(() => window.__ctx));
+      row.download = dl?.name ?? null;
+      if (!dl) fail(row, "the full-screen right-click handed over no file");
+      else if (src) {
+        row.creditInSavedFile = await measureCredit(dl.b64, r.store[src].b64);
         creditFail(row, row.creditInSavedFile);
-        if (OUT) await corner(r.store[target].b64, join(OUT, `saved-full-screen-${engine}-${shape}.png`));
+        if (OUT) await corner(dl.b64, join(OUT, `saved-full-screen-${engine}-${shape}.png`));
       }
-      if (r.credited.includes(facts.shown)) fail(row, `the painted copy ${name(facts.shown)} is a credited file`);
+      if (r.credited.includes(facts.shown) || r.credited.includes(facts.src)) fail(row, `the viewer holds a stored credited file (${name(facts.src)})`);
+      const asked = storedCreditAsked();
+      if (asked.length) fail(row, `a stored credited file was asked for: ${asked.map(name).join(", ")}`);
       // (headless browsers show no native menu; Escape would close the viewer itself)
       await r.page.mouse.move(5, 5);
       const onScreen = await img.screenshot();
@@ -443,11 +477,12 @@ for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
       const vsClean = diff(onScreen, cleanRef);
       row.onScreenVsClean = vsClean.why;
       if (!vsClean.same) fail(row, `the screen is not the clean copy: ${vsClean.why}`);
-      if (!retired) {
-        const creditRef = await draw(facts.src);
+      if (dl) {
+        // Not vacuous: the SAVED file drawn in the same box shows its credit there.
+        const creditRef = await draw(`data:image/jpeg;base64,${dl.b64}`);
         const seen = await creditOnScreen(cleanRef, creditRef, img);
-        row.cleanVsCredited = seen.why;
-        if (!seen.seen) fail(row, `the credited file shows no credit here (${seen.why}) — the check would be vacuous`);
+        row.cleanVsSaved = seen.why;
+        if (!seen.seen) fail(row, `the saved file shows no credit here (${seen.why}) — the check would be vacuous`);
       }
       if (r.errors.length) row.errors = r.errors;
       await r.ctx.close();
@@ -455,8 +490,7 @@ for (const [engine, type] of ONLY_CREDIT ? [] : Object.entries(engines)) {
       fail(row, `threw: ${e instanceof Error ? e.message : String(e)}`);
     }
     rows.push(row);
-    console.log(`${row.ok ? "PASS" : "FAIL"} full screen ${engine} ${shape} — shown ${row.shownFile ?? "?"}, right-click target ${row.contextMenuTarget ? name(row.contextMenuTarget) : "?"}${row.failed ? ` — ${row.failed.join("; ")}` : ""}`);
-    if (row.contextMenuTarget) console.log(`    context-menu target URL: ${row.contextMenuTarget}`);
+    console.log(`${row.ok ? "PASS" : "FAIL"} full screen ${engine} ${shape} — shown ${row.shownFile ?? "?"}, saved ${row.download ?? "no file"}${row.creditInSavedFile ? `, credit ${JSON.stringify(row.creditInSavedFile)}` : ""}${row.failed ? ` — ${row.failed.join("; ")}` : ""}`);
   }
   await browser.close();
 }

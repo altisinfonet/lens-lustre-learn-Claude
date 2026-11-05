@@ -23,7 +23,7 @@
  * failure is logged (FILE-5016): a clean, uncredited copy is never the fallback.
  */
 import { CREDIT_GEOMETRY_V5 as G, creditGeometryV5For } from "@/lib/creditGeometry.mjs";
-import { FEED_PHOTO_MARKER, FEED_PHOTO_SIZES, photoSetMarker, photoSetUrl } from "@/lib/imageLadder";
+import { FEED_PHOTO_MARKER, FEED_PHOTO_SIZES, photoSetCleanUrl, photoSetMarker, photoSetUrl } from "@/lib/imageLadder";
 import { creditOwnerName, creditText } from "@/lib/photoCredit";
 import { logger } from "@/lib/logger";
 import creditFontUrl from "../../tools/media-derivatives/fonts/FiraSans-SemiBold-latin.ttf?url";
@@ -36,9 +36,27 @@ export const CREDIT_FONT_FAMILY = "50mm Credit Fira Sans";
 export const SAVED_PHOTO_TYPE = "image/jpeg";
 export const SAVED_PHOTO_QUALITY = 0.92;
 
-/** True for a photo whose credit is drawn at save time: the feed photo set (`-l6`). */
+/** A FEED post photo: its key is `post-images/<owner uuid>/posts/…` (any marker, or none). */
+const FEED_POST_PHOTO_RE = /\/post-images\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/posts\//i;
+
+/**
+ * True for a photo whose credit is drawn at save time: EVERY feed post photo —
+ * the feed set (`-l6`) and the older ones (`-l3`, `-l4`, `-l5`, unmarked).
+ * Owner, 5 Nov 2026: old photos still saved their old stored copy, with the old
+ * small credit ("from 11 to 22 not done"). Feed only: competition photos do not
+ * match (their credit is left for later).
+ */
 export function drawsCreditOnSave(url: string | null | undefined): boolean {
-  return !!url && photoSetMarker(url) === FEED_PHOTO_MARKER;
+  return !!url && (photoSetMarker(url) === FEED_PHOTO_MARKER || FEED_POST_PHOTO_RE.test(url));
+}
+
+/**
+ * The CLEAN public file the credit is drawn on: a feed set photo's 2048; an
+ * older photo's largest public clean copy (photoSetCleanUrl — never a stored
+ * credited file, never the private clean 2048).
+ */
+export function saveSourceUrl(url: string): string {
+  return photoSetMarker(url) === FEED_PHOTO_MARKER ? photoSetUrl(url, FEED_PHOTO_SIZES[0]) : photoSetCleanUrl(url);
 }
 
 function creditFont(px: number): string {
@@ -156,7 +174,7 @@ async function decode(blob: Blob): Promise<{ img: CanvasImageSource; width: numb
 
 function savedName(url: string): string {
   const leaf = (url.split(/[?#]/)[0].split("/").pop() ?? "photo").replace(/\.[a-z0-9]+$/i, "");
-  return `50mm-retina-world-${leaf.replace(/-w\d+h\d+-l6.*$/i, "") || "photo"}.jpg`;
+  return `50mm-retina-world-${leaf.replace(/(-w\d+h\d+)?-l[3-6]f?.*$/i, "") || "photo"}.jpg`;
 }
 
 /**
@@ -165,7 +183,7 @@ function savedName(url: string): string {
  */
 export async function savePhotoWithCredit(url: string): Promise<boolean> {
   try {
-    const source = photoSetUrl(url, FEED_PHOTO_SIZES[0]);
+    const source = saveSourceUrl(url);
     const [res, text] = await Promise.all([fetch(source, { mode: "cors", credentials: "omit" }), creditLineFor(url), loadCreditFont()]);
     if (!res.ok) throw new Error(`photo fetch ${res.status}`);
     const pic = await decode(await res.blob());
