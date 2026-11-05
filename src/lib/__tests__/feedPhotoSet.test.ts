@@ -148,11 +148,28 @@ describe("B · the credit is drawn on SAVE from CREDIT_GEOMETRY_V5", () => {
     expect(white?.args[1] as number).toBe(2048 - r.inset - r.textW);
   });
 
-  it("only a feed set photo (-l6) is saved by drawing; old photos keep their own path", async () => {
+  it("EVERY feed post photo is saved by drawing (old ones too, Owner 5 Nov); competition photos are not", async () => {
     const { drawsCreditOnSave } = await import("@/lib/photoCreditSave");
+    const post = "https://cdn.50mmretina.com/post-images/11111111-2222-4333-8444-555555555555/posts";
     expect(drawsCreditOnSave("https://cdn/x-w2048h1365-l6.webp")).toBe(true);
-    expect(drawsCreditOnSave("https://cdn/x-w1080h720-l5.webp")).toBe(false);
-    expect(drawsCreditOnSave("https://cdn/x-w2560h1707-l3.webp")).toBe(false);
+    expect(drawsCreditOnSave(`${post}/a-w1080h720-l5.webp`)).toBe(true);
+    expect(drawsCreditOnSave(`${post}/a-w1536h2048-l4.webp`)).toBe(true);
+    expect(drawsCreditOnSave(`${post}/a-w2560h1707-l3.webp`)).toBe(true);
+    expect(drawsCreditOnSave(`${post}/1700000000000-IMG_0001.webp`)).toBe(true);
+    expect(drawsCreditOnSave("https://cdn/x-w1080h720-l5.webp")).toBe(false); // not a feed post key
+    expect(drawsCreditOnSave("https://cdn.50mmretina.com/competition-entries/11111111-2222-4333-8444-555555555555/a-w2048h1365-l5f.webp")).toBe(false);
+  });
+
+  it("the credit is drawn on a CLEAN public file — never a stored credited copy", async () => {
+    const { saveSourceUrl } = await import("@/lib/photoCreditSave");
+    const post = "https://cdn.50mmretina.com/post-images/11111111-2222-4333-8444-555555555555/posts";
+    expect(saveSourceUrl(`${post}/a-w2048h1365-l6.webp`)).toBe(`${post}/a-w2048h1365-l6.webp`);
+    expect(saveSourceUrl(`${post}/a-w2048h1365-l6-r1080.webp`)).toBe(`${post}/a-w2048h1365-l6.webp`);
+    expect(saveSourceUrl(`${post}/a-w1080h720-l5.webp`)).toBe(`${post}/a-w1080h720-l5.webp`);
+    expect(saveSourceUrl(`${post}/a-w1536h2048-l4.webp`)).toBe(`${post}/a-w1536h2048-l4-r1080.webp`);
+    expect(saveSourceUrl(`${post}/a-w2560h1707-l3.webp`)).toBe(`${post}/a-w2560h1707-l3.webp`);
+    expect(saveSourceUrl(`${post}/1700000000000-IMG_0001.webp`)).toBe(`${post}/1700000000000-IMG_0001.webp`);
+    for (const u of [`${post}/a-w1080h720-l5.webp`, `${post}/a-w1536h2048-l4.webp`]) expect(saveSourceUrl(u)).not.toMatch(/-r2048c?\./);
   });
 });
 
