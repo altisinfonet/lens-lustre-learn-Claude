@@ -39,7 +39,7 @@ describe("photo hold — which keys may ever be moved", () => {
 type Store = Map<string, number>;
 function bucket(store: Store, log: string[], name: string) {
   return {
-    head: async (k: string) => (store.has(k) ? { size: store.get(k)! } : null),
+    head: async (k: string) => (store.has(k) ? { size: store.get(k)!, etag: `e${store.get(k)}` } : null),
     get: async (k: string) => (store.has(k) ? { size: store.get(k)!, arrayBuffer: async () => new ArrayBuffer(store.get(k)!) } : null),
     put: async (k: string, v: ArrayBuffer) => { log.push(`${name} put ${k}`); store.set(k, v.byteLength); },
     delete: async (k: string) => { log.push(`${name} delete ${k}`); store.delete(k); },
@@ -56,7 +56,7 @@ function setup(rows: Array<{ id: number; object_key: string }>, pub: Record<stri
     const u = String(url);
     if (u.endsWith("/auth/v1/user")) return new Response(JSON.stringify({ id: O }), { status: 200 });
     if (u.endsWith("/rpc/photo_extra_claim")) { calls.push(`claim ${String(init?.body)}`); return new Response(JSON.stringify(rows), { status: 200 }); }
-    if (u.endsWith("/rpc/photo_extra_record")) { calls.push(`record ${String(init?.body)}`); return new Response("1", { status: 200 }); }
+    if (u.endsWith("/rpc/photo_extra_record")) { calls.push(`record ${String(init?.body)}`); log.push("record"); return new Response("1", { status: 200 }); }
     return new Response("{}", { status: 404 });
   }) as unknown as typeof fetch;
   const env = { SUPABASE_PROJECT_REF: "abcdefghijklmnopqrst", SUPABASE_ANON_KEY: "anon", PHOTOS: bucket(PH, log, "PHOTOS"), MEDIA: bucket(MD, log, "MEDIA") };
@@ -88,25 +88,43 @@ describe("photo hold route", () => {
     expect(s.calls.some((c) => c.startsWith("record"))).toBe(false);
   });
 
-  it("move: copies to holding and reads it back BEFORE the public file goes; one record call", async () => {
+  it("move: every copy safe in holding, THEN one record call, THEN the public files go", async () => {
     const s = setup(rows, { [CREDIT]: 300, [L4]: 900, [rows[2].object_key]: 100 });
     const b = await (await s.call({ op: "move" })).json() as Record<string, unknown>;
     expect(b).toMatchObject({ moved: 2, bytes: 1200, absent: 1, refused: [3] });
     expect(s.log).toEqual([
-      `MEDIA put photo-holding/${CREDIT}`, `PHOTOS delete ${CREDIT}`,
-      `MEDIA put photo-holding/${L4}`, `PHOTOS delete ${L4}`,
+      `MEDIA put photo-holding/${CREDIT}`, `MEDIA put photo-holding/${L4}`,
+      "record",
+      `PHOTOS delete ${CREDIT}`, `PHOTOS delete ${L4}`,
     ]);
     expect(s.PH.has(rows[2].object_key)).toBe(true);
     expect(s.MD.get(`photo-holding/${L4}`)).toBe(900);
     expect(s.calls.filter((c) => c.startsWith("record"))).toEqual([
-      'record {"_op":"move","_rows":[{"id":1,"bytes":300},{"id":2,"bytes":900},{"id":4,"bytes":0}]}',
+      'record {"_op":"move","_rows":[{"id":1,"bytes":300},{"id":2,"bytes":900},{"id":4,"bytes":0,"absent":true}]}',
     ]);
   });
 
-  it("move retry after a crash: already in holding with the same size → only the public copy goes", async () => {
+  it("a failed record call deletes nothing", async () => {
+    const s = setup([rows[0]], { [CREDIT]: 300 });
+    const failing = (async (url: string) => {
+      if (String(url).endsWith("/auth/v1/user")) return new Response(JSON.stringify({ id: O }), { status: 200 });
+      if (String(url).endsWith("/rpc/photo_extra_claim")) return new Response(JSON.stringify([rows[0]]), { status: 200 });
+      return new Response(JSON.stringify({ message: "boom" }), { status: 500 });
+    }) as unknown as typeof fetch;
+    const env = { SUPABASE_PROJECT_REF: "abcdefghijklmnopqrst", SUPABASE_ANON_KEY: "anon",
+      PHOTOS: bucket(s.PH, s.log, "PHOTOS"), MEDIA: bucket(s.MD, s.log, "MEDIA") };
+    const res = await handleHold(new Request("https://site.example/api/media/hold", {
+      method: "POST", headers: { authorization: "Bearer jwt", "content-type": "application/json" }, body: JSON.stringify({ op: "move" }),
+    }), env as never, failing);
+    expect(res.status).toBeGreaterThanOrEqual(500);
+    expect(s.PH.get(CREDIT)).toBe(300);
+    expect(s.log.some((l) => l.includes("delete"))).toBe(false);
+  });
+
+  it("move retry after a crash: the SAME file already in holding → only the public copy goes", async () => {
     const s = setup([rows[0]], { [CREDIT]: 300 }, { [`photo-holding/${CREDIT}`]: 300 });
     await s.call({ op: "move" });
-    expect(s.log).toEqual([`PHOTOS delete ${CREDIT}`]);
+    expect(s.log).toEqual(["record", `PHOTOS delete ${CREDIT}`]);
   });
 
   it("a different file already in holding: touch nothing", async () => {
@@ -121,7 +139,7 @@ describe("photo hold route", () => {
     const s = setup([rows[0]], {}, { [`photo-holding/${CREDIT}`]: 300 });
     const b = await (await s.call({ op: "restore" })).json() as Record<string, unknown>;
     expect(b).toMatchObject({ op: "restore", moved: 1, bytes: 300 });
-    expect(s.log).toEqual([`PHOTOS put ${CREDIT}`, `MEDIA delete photo-holding/${CREDIT}`]);
+    expect(s.log).toEqual([`PHOTOS put ${CREDIT}`, "record", `MEDIA delete photo-holding/${CREDIT}`]);
     expect(s.calls.filter((c) => c.startsWith("record"))).toEqual(['record {"_op":"restore","_rows":[{"id":1,"bytes":300}]}']);
   });
 

@@ -211,12 +211,22 @@ BEGIN
   SELECT r.id, r.object_key, 'photo-holding/' || r.object_key FROM public.photo_retire r
    WHERE r.kind = 'post_extra' AND r.state = CASE _op WHEN 'move' THEN 'hold_due' ELSE 'held' END
      AND r.id > coalesce(_after, 0)
+     -- a move re-checks at move time what the mark checked: no post shows the file,
+     -- and an -l4 copy's post still shows the OLD photo (a later swap, 0102, would not).
+     AND (_op = 'restore' OR (
+           NOT EXISTS (SELECT 1 FROM public.posts p
+                        WHERE r.object_url = ANY (coalesce(p.image_urls, '{}'::text[]) || coalesce(p.thumbnail_urls, '{}'::text[])))
+           AND (r.source_table <> 'photo_set_backfill' OR EXISTS (
+                 SELECT 1 FROM public.photo_set_backfill b JOIN public.posts p ON p.id = b.post_id
+                  WHERE b.post_id = r.source_id AND b.ord = r.ord AND p.image_urls[b.ord + 1] = b.old_url))))
    ORDER BY r.id LIMIT least(greatest(coalesce(_limit, 50), 1), 50);
 END;
 $fn$;
 
--- _rows: [{"id": <bigint>, "bytes": <bigint>}] — move: hold_due → held (bytes 0 = the file was
--- already absent); restore: held → restored. Returns how many rows changed.
+-- _rows: [{"id": <bigint>, "bytes": <bigint>, "absent"?: true}] — move: hold_due → held, or →
+-- kept when the file was in neither bucket (nothing to hold, nothing to restore later);
+-- restore: held → restored. Returns how many rows changed. The route records a batch
+-- AFTER every copy is safe at its destination and BEFORE any source file is deleted.
 CREATE FUNCTION public.photo_extra_record(_op text, _rows jsonb)
 RETURNS integer
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path TO '' AS $fn$
@@ -230,8 +240,11 @@ BEGIN
   END IF;
   IF _op = 'move' THEN
     UPDATE public.photo_retire r
-       SET state = 'held', held_key = 'photo-holding/' || r.object_key, held_at = now(),
-           bytes = greatest(coalesce((e->>'bytes')::bigint, 0), 0)
+       SET state    = CASE WHEN coalesce((e->>'absent')::boolean, false) THEN 'kept' ELSE 'held' END,
+           held_key = CASE WHEN coalesce((e->>'absent')::boolean, false) THEN NULL ELSE 'photo-holding/' || r.object_key END,
+           held_at  = now(),
+           note     = CASE WHEN coalesce((e->>'absent')::boolean, false) THEN r.note || ' · absent at move (never stored)' ELSE r.note END,
+           bytes    = greatest(coalesce((e->>'bytes')::bigint, 0), 0)
       FROM jsonb_array_elements(_rows) e
      WHERE r.id = (e->>'id')::bigint AND r.kind = 'post_extra' AND r.state = 'hold_due';
   ELSIF _op = 'restore' THEN
@@ -251,7 +264,11 @@ REVOKE ALL ON FUNCTION public.photo_extra_record(text, jsonb) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.photo_extra_claim(text, integer, bigint) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.photo_extra_record(text, jsonb) TO authenticated;
 
--- ── 5. queue now ────────────────────────────────────────────────────────────
+COMMIT;
+
+-- ── 5. queue now — its own transaction, so the reference scan never runs while
+--       the ALTER's lock on photo_retire is held (p32.lane is a session setting) ──
+BEGIN;
 DO $mark$
 DECLARE _r jsonb;
 BEGIN
