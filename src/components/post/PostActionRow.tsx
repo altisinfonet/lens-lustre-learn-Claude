@@ -59,7 +59,7 @@ import { MessageCircle, Send } from "lucide-react";
 import ReactionPicker, { REACTIONS, type ReactionType } from "@/components/ReactionPicker";
 import ReactionSummaryTooltip, { type ReactionSource } from "@/components/ReactionSummaryTooltip";
 import { formatNumber } from "@/lib/postAnalytics";
-import { ROW_TAP } from "@/components/post/actionRowGeometry";
+import { ROW_TAP, ROW_TOP_GAP } from "@/components/post/actionRowGeometry";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -173,7 +173,7 @@ const PostActionRow = ({
   const hasShares = shareCount > 0;
 
   return (
-  <div className="select-none ps-px pe-1.5">
+  <div className={`select-none ps-px pe-1.5 ${ROW_TOP_GAP}`}>
     <div className="flex items-center">
       {/* Like — the picker owns the button, the count sits beside it */}
       <div className="flex items-center">
