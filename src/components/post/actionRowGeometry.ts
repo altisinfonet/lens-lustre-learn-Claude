@@ -39,11 +39,13 @@
  * THE SPACE BETWEEN THE PHOTO AND THE ROW (Owner, 5 Nov 2026, Instagram
  * screenshot beside ours: "match the space like insta in Ad and feed posts").
  * Measured on his screenshots (390 px phone): Instagram's icons sit ~22 px
- * below the photo (centre), ours ~12 px. This top padding adds the missing
+ * below the photo (centre), ours ~12 px. This top margin adds the missing
  * 10 px to the ONE row both the feed card and the ad card draw — web and app.
- * The controls still reach 12 px up (ROW_TAP), now into this space. THE ONE VALUE.
+ * A MARGIN, not padding: the row box itself starts where it did relative to its
+ * controls, so they still reach 12 px up (ROW_TAP) into this space and
+ * tools/uishot/card-hits.mjs measures the same layers. THE ONE VALUE.
  */
-export const ROW_TOP_GAP = "pt-2.5";
+export const ROW_TOP_GAP = "mt-2.5";
 
 /** Every control in the row: 44 px tall to a finger, 32 px of layout, reaching up only. */
 export const ROW_TAP = "relative h-11 -mt-3 pt-3 touch-manipulation select-none";
