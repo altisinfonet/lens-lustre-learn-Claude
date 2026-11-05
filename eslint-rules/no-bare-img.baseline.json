@@ -1,5 +1,5 @@
 {
-  "$comment": "P11 bare-<img> ratchet. Per-file counts frozen 2026-10-04 on staging 3408104 by `npx eslint -c eslint.bare-img.config.js`. A count may only go DOWN (lower the entry in the same PR); raising one needs a reviewed reason. Raised: PostMedia.tsx 2 → 3 (5 Nov 2026, PR #918, Owner order "photo in under 1 s"): the third <img> is the feed photo PREVIEW layer inside the sanctioned photo component itself. Rule: eslint-rules/no-bare-img.js.",
+  "$comment": "P11 bare-<img> ratchet. Per-file counts frozen 2026-10-04 on staging 3408104 by `npx eslint -c eslint.bare-img.config.js`. A count may only go DOWN (lower the entry in the same PR); raising one needs a reviewed reason. Raised: PostMedia.tsx 2 → 3 (5 Nov 2026, PR #918, Owner order: photo in under 1 s): the third <img> is the feed photo PREVIEW layer inside the sanctioned photo component itself. Rule: eslint-rules/no-bare-img.js.",
   "files": {
     "src/components/AdminGiftCredit.tsx": 2,
     "src/components/AskAnything.tsx": 3,
