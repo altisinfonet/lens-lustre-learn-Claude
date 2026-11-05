@@ -43,6 +43,7 @@ import { cameraStateFor } from "@/lib/photoCameraDisplay";
 import { setPostPhotoCameraHidden } from "@/lib/photoCameraRead";
 import { photoSetMarker } from "@/lib/imageLadder";
 import { useOldPhotoCreditRead } from "@/lib/photoOldCredit";
+import { useFeedCopiesRead } from "@/lib/photoFeedCopies";
 
 const displayFont = { fontFamily: "var(--font-display)" };
 const headingFont = { fontFamily: "var(--font-heading)" };
@@ -218,6 +219,8 @@ const PostCard = ({
   // (20261110_0109). Like a new photo's credited copy, decided by the FILE, not
   // the viewer's switch answer: a signed-out visitor saves the credited copy too.
   useOldPhotoCreditRead(post.id, imageUrls, true);
+  // Photo speed (20261110_0112): an old photo's stored phone-size copies — web AND app.
+  useFeedCopiesRead(post.id, imageUrls);
   const [cameraSlide, setCameraSlide] = useState(0);
   const cameraState = photoSetOn ? cameraStateFor(cameraRows, cameraSlide, imageUrls[cameraSlide]) : null;
   const cameraPending = cameraReading && !!imageUrls[cameraSlide] && !!photoSetMarker(imageUrls[cameraSlide]);

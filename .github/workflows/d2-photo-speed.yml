@@ -1,0 +1,66 @@
+name: D2 · Feed photo under 1 second
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONNECTS TO NOTHING REAL. HOLDS NO SECRET. Real Chromium against the Vite dev
+# server and the harness fake backend (synthetic VITE_* values, as the credit
+# job beside it).
+#
+# Owner rule (5 Nov 2026): "photo must come in App less than 1 sec" — on a slow
+# phone link. tools/uishot/photo-feed-speed.mjs opens the REAL feed card as a
+# phone (390 px, DPR 3) with every photo file served at 100 KB/s after 150 ms,
+# and fails when a feed photo (v3, legacy -l4, old with the backfill's copies)
+# takes longer than 1 s to show, or when an old photo's original is downloaded.
+#
+# ⚠ NO `${{ ... }}` MAY APPEAR INSIDE ANY `run:` BLOCK — F-47's bright line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  speed:
+    name: Feed photo on screen in under 1 s (phone, 100 KB/s)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Clean install
+        run: npm ci --no-audit --no-fund
+      - name: Cache the Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium for Playwright (with its system libraries)
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            if npx playwright install --with-deps chromium; then exit 0; fi
+            sleep $((attempt * 15))
+          done
+          exit 1
+      - name: Every feed photo shape on screen in under 1 s
+        env:
+          VITE_SUPABASE_URL: https://testprojectref0000x.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: test-publishable-key-not-real
+          VITE_SUPABASE_PROJECT_ID: testprojectref0000x
+        run: |
+          mkdir -p /tmp/photo-speed
+          node tools/uishot/photo-feed-speed.mjs --json /tmp/photo-speed/result.json
+      - name: Upload the result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: photo-speed
+          path: /tmp/photo-speed
+          if-no-files-found: warn

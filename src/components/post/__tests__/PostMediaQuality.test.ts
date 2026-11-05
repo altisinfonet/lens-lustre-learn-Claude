@@ -53,7 +53,11 @@ describe("the sharp layer shows the original, not the thumbnail", () => {
   it("uses the original when the URL cannot be transformed", () => {
     // Photo plan U4: only a v2 photo with switch photo_set_v2 on (`v2Set`) takes its 1080/600 copy.
     // Credit fix U1: a set photo without widths (no v2Set) takes its CLEAN copy, never its own URL.
-    expect(CODE).toMatch(/const sharpSrc = v2Set \? v2Set\.src : setPhoto \? \(memberPhotoSrc\(src, saving \? 600 : 1080\) \?\? src\) : transformable \? buildRenderUrl\(src, 800\) : src;/);
+    // Photo speed (Owner, 5 Nov 2026): an OLD photo with a stored clean 1080 (the
+    // 20261110_0112 lookup) takes that copy (its 600 when saving / on a slow link);
+    // every other photo still ends on its original — never its thumbnail alone.
+    expect(CODE).toMatch(/const sharpSrc = v2Set \? v2Set\.src : setPhoto \? \(memberPhotoSrc\(src, saving \? 600 : 1080\) \?\? src\) : oldCopy \? \(saving \|\| slowLink \? \(copy\?\.thumb \?\? oldCopy\) : oldCopy\) : transformable \? buildRenderUrl\(src, 800\) : src;/);
+    expect(CODE).toMatch(/const oldCopy = !setPhoto && !transformable && copy\?\.feed \? copy\.feed : null;/);
   });
 
   it("still paints the thumbnail as the instant backdrop", () => {
@@ -83,7 +87,8 @@ describe("the sharp layer shows the original, not the thumbnail", () => {
 
 describe("the browser is given both copies, with honest widths", () => {
   it("builds a srcset on the CDN path, where there was none", () => {
-    expect(CODE).toMatch(/srcSet: string \| undefined = transformable \? buildSrcSet\(src\) : buildThumbFirstSrcSet\(thumb, src\)/);
+    // Photo speed: an old photo shown from its stored 1080 gets no srcset (that copy is the only one offered).
+    expect(CODE).toMatch(/srcSet: string \| undefined = transformable \? buildSrcSet\(src\) : oldCopy \? undefined : buildThumbFirstSrcSet\(thumb, src\)/);
     // credit fix U1: a set photo never gets the srcset built from its own URL
     expect(CODE).toMatch(/else if \(setPhoto\) srcSet = undefined;/);
   });
@@ -102,9 +107,10 @@ describe("the browser is given both copies, with honest widths", () => {
 
   it("offers the thumbnail first and the original last, both with descriptors", () => {
     // B3d-1 rebuilt the pair as an ordered list so stored rungs can sit
-    // between them: thumb first, original always last, descriptors intact.
+    // between them: thumb first, original last, descriptors intact. Photo speed
+    // (5 Nov 2026): with stored rungs the original is no longer offered at all.
     expect(CODE).toMatch(/const parts = \[`\$\{thumb\} \$\{thumbW\}w`\];/);
-    expect(CODE).toMatch(/parts\.push\(`\$\{original\} \$\{dim\.w\}w`\);/);
+    expect(CODE).toMatch(/if \(!rungs\) parts\.push\(`\$\{original\} \$\{dim\.w\}w`\);/);
   });
 
   it("skips the srcset entirely when it would be a lie", () => {
