@@ -79,7 +79,12 @@ const lateSwitch: FakeRoute = ({ method, path }) => {
   // Answer OFF until 6 s after the page started: the card paints first (cold start).
   return Date.now() - born < 6000 ? { body: false } : undefined;
 };
-installFakeBackend({ routes: [lateSwitch, oldCreditRoute, ...fixtureRoutes], signedIn: viewer !== "out" && viewer !== "err" });
+/** The author's public name — the line the browser draws on a saved feed photo (photoCreditSave.creditLineFor). */
+const authorNameRoute: FakeRoute = ({ method, path, params }) => {
+  if (method !== "GET" || path !== "/rest/v1/profiles_public" || params.get("id") !== `eq.${AUTHOR}`) return undefined;
+  return { body: [{ full_name: "Dipannita Sen", custom_url: null }] };
+};
+installFakeBackend({ routes: [lateSwitch, oldCreditRoute, authorNameRoute, ...fixtureRoutes], signedIn: viewer !== "out" && viewer !== "err" });
 
 /** A detailed, file-free scene (sky, hills, a lit window) — JPEG, as a phone hands it over. */
 async function generatedPhoto(small: boolean): Promise<File> {
