@@ -19,7 +19,8 @@ import DownloadButton from "@/components/DownloadButton";
 import { useFeedPhotoGestures } from "@/components/post/useFeedPhotoGestures";
 import { ladderFor } from "@/lib/media/resolvedMedia";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
-import { frameAspectFor, frameAspectForUrls, parseImageDims } from "@/lib/imageFrame";
+import { feedPhotoFit, frameAspectFor, frameAspectForUrls, parseImageDims } from "@/lib/imageFrame";
+import { FEED_COPY_WAIT_MS, feedCopyFor, useFeedCopiesVersion } from "@/lib/photoFeedCopies";
 import { hasLadderMarker, isSaveTargetCreditedUrl, photoSetBlurUrl, photoSetCleanUrl, photoSetMarker, rungPath, rungPlan, rungWidthFor } from "@/lib/imageLadder";
 import { useNetworkQuality } from "@/hooks/core/useNetworkQuality";
 import { useDataSaver } from "@/hooks/core/useDataSaver";
@@ -90,16 +91,19 @@ const PostMedia = ({ urls, thumbUrls, onDoubleTapLike, interceptFirstTap, onSlid
   const declaredAspect = frameAspectForUrls(urls);
   const needsMeasure = parseImageDims(first) === null;
   const [measuredAspect, setMeasuredAspect] = useState<number | null>(null);
+  // The first photo's own shape when its name carries none (for the fill rule).
+  const [measuredPhotoAspect, setMeasuredPhotoAspect] = useState<number | null>(null);
 
   // A different first photo is a different frame. Without this reset a card
   // recycled by the feed's virtualiser would keep the previous photo's shape.
-  useEffect(() => { setMeasuredAspect(null); }, [first]);
+  useEffect(() => { setMeasuredAspect(null); setMeasuredPhotoAspect(null); }, [first]);
 
   const handleNaturalSize = useCallback(
     (w: number, h: number) => {
       if (!needsMeasure) return;
       if (!(w > 0) || !(h > 0)) return;
       setMeasuredAspect((prev) => (prev === null ? frameAspectFor(w / h) : prev));
+      setMeasuredPhotoAspect((prev) => (prev === null ? w / h : prev));
     },
     [needsMeasure],
   );
@@ -108,7 +112,8 @@ const PostMedia = ({ urls, thumbUrls, onDoubleTapLike, interceptFirstTap, onSlid
 
   const frameAspect = measuredAspect ?? declaredAspect;
   if (urls.length === 1) {
-    return <SingleImagePost src={first} thumb={thumbUrls?.[0]} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} interceptFirstTap={interceptFirstTap} />;
+    const fit = feedPhotoFit(parseImageDims(first)?.aspect ?? measuredPhotoAspect, frameAspect);
+    return <SingleImagePost src={first} thumb={thumbUrls?.[0]} frameAspect={frameAspect} fit={fit} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} interceptFirstTap={interceptFirstTap} />;
   }
   return <AlbumCarousel urls={urls} thumbUrls={thumbUrls} frameAspect={frameAspect} onNaturalSize={needsMeasure ? handleNaturalSize : undefined} onDoubleTapLike={onDoubleTapLike} interceptFirstTap={interceptFirstTap} onSlideChange={onSlideChange} />;
 };
@@ -346,15 +351,19 @@ function buildThumbFirstSrcSet(thumb: string | null, original: string): string |
     dim.w >= dim.h ? THUMB_LONG_EDGE : Math.max(1, Math.round((THUMB_LONG_EDGE * dim.w) / dim.h));
   if (thumbW >= dim.w) return undefined;
   const parts = [`${thumb} ${thumbW}w`];
+  let rungs = 0;
   if (hasLadderMarker(original)) {
     for (const rung of rungPlan(dim.w, dim.h)) {
       const rw = rungWidthFor(rung, dim.w, dim.h);
       // Skip a rung whose declared width would not beat the original's — the
       // no-upscale rule seen from the renderer's side.
-      if (rw < dim.w) parts.push(`${rungPath(original, rung)} ${rw}w`);
+      if (rw < dim.w) { parts.push(`${rungPath(original, rung)} ${rw}w`); rungs++; }
     }
   }
-  parts.push(`${original} ${dim.w}w`);
+  // Photo speed (Owner, 5 Nov 2026): with stored rungs the feed NEVER offers the
+  // original — a portrait's rungs are narrow (1080 / 1440 on the LONG edge), so a
+  // DPR-3 phone used to skip past them to the 1–2.5 MB original.
+  if (!rungs) parts.push(`${original} ${dim.w}w`);
   return parts.join(", ");
 }
 
@@ -396,6 +405,7 @@ const ProgressiveImage = ({
   thumb: thumbProp,
   className,
   onNaturalSize,
+  fit = "contain",
 }: {
   src: string;
   /** The STORED thumbnail address for this photo (posts.thumbnail_urls), if any. */
@@ -403,12 +413,31 @@ const ProgressiveImage = ({
   className?: string;
   /** Reports the intrinsic size of the backdrop copy — see PostMedia's header. */
   onNaturalSize?: (width: number, height: number) => void;
+  /** "cover" fills the frame (feedPhotoFit, src/lib/imageFrame.ts); "contain" shows it whole with the blurred fill beside it. */
+  fit?: "cover" | "contain";
 }) => {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const [backdropFailed, setBackdropFailed] = useState(false);
+  const [previewFailed, setPreviewFailed] = useState(false);
   const slowLink = useNetworkQuality().slow;
   const transformable = isTransformable(src);
+  /**
+   * PHOTO SPEED (Owner, 5 Nov 2026: "photo must come in less than 1 sec"). An
+   * OLD photo's phone-size copies are LOOKED UP (src/lib/photoFeedCopies.ts,
+   * 20261110_0112). Until the answer is in (≤ FEED_COPY_WAIT_MS) the sharp layer
+   * is not started, so a photo that has a clean 1080 never begins its 0.5–4 MB
+   * original; the 600 preview shows meanwhile.
+   */
+  useFeedCopiesVersion();
+  const copy = feedCopyFor(src);
+  const [copyWaitOver, setCopyWaitOver] = useState(false);
+  useEffect(() => {
+    if (copy !== undefined) return;
+    const t = setTimeout(() => setCopyWaitOver(true), FEED_COPY_WAIT_MS);
+    return () => clearTimeout(t);
+  }, [copy]);
+  const sharpOnHold = copy === undefined && !copyWaitOver;
   // PERF 2026-08-07: show the 600px thumbnail the uploader STORED for this
   // photo rather than the full 2560px original. `failed` (set by the sharp
   // layer's onError) falls everything back to the original, so a dead thumbnail
@@ -416,7 +445,7 @@ const ProgressiveImage = ({
   // above usableThumb — the address is never guessed, only read.
   // S3-c: a URL from the derivative ladder carries its own 600 px thumb and srcset.
   const ladder = ladderFor(src);
-  const thumb = !transformable && !failed ? (ladder?.thumb ?? usableThumb(thumbProp, src)) : null;
+  const thumb = !transformable && !failed ? (ladder?.thumb ?? usableThumb(thumbProp, src) ?? copy?.thumb ?? null) : null;
   /**
    * ⚠ THE BACKDROP NEVER LOADS THE FULL-RESOLUTION ORIGINAL. EVER.
    *
@@ -464,23 +493,42 @@ const ProgressiveImage = ({
    */
   const setPhoto = !!photoSetMarker(src);
   const sharpRef = useRef<HTMLImageElement | null>(null);
-  // set photos only: null = not checked yet (no placeholder yet), true = sharp photo was already cached.
-  const [cached, setCached] = useState<boolean | null>(null);
+  // The sharp photo already decoded from cache at mount → shown at once, no preview, no fade.
+  // Decided before the first paint, so the (lazy) preview is never requested for it.
+  const [cachedAtMount, setCachedAtMount] = useState(false);
   useLayoutEffect(() => {
-    if (!setPhoto) return;
     const img = sharpRef.current;
-    const ready = !!img && img.complete && img.naturalWidth > 0;
-    if (ready) setLoaded(true);
-    setCached(ready);
-  }, [setPhoto]);
-  // Not a set photo: exactly the pre-U2 expression. Credit fix U1: a set photo is
-  // never transformed from its own URL (a `-l4` URL is the credited master).
+    if (img && img.complete && img.naturalWidth > 0) { setLoaded(true); setCachedAtMount(true); }
+  }, []);
+  // A set photo's own clean 600 (`-thumb`; never its URL — a `-l4` URL is the credited master).
+  const setThumb = setPhoto ? memberPhotoSrc(src, 600) : null;
+  /**
+   * THE PREVIEW (photo speed, 5 Nov 2026): the photo's ~35 KB 600 copy, drawn
+   * EXACTLY like the sharp layer (same fit), so a recognisable photo is on
+   * screen in a fraction of a second even at 100 KB/s; the sharp copy fades in
+   * over it. Supabase-storage photos have no stored 600: their sharp copy is
+   * already a resized 800, and the 32 px blur covers the wait.
+   */
+  // Kept for a moment after the sharp copy loads, so its fade-in never shows a gap.
+  const [previewDone, setPreviewDone] = useState(false);
+  useEffect(() => {
+    if (!loaded) return;
+    const t = setTimeout(() => setPreviewDone(true), 700);
+    return () => clearTimeout(t);
+  }, [loaded]);
+  const preview = cachedAtMount || previewFailed || previewDone ? null : setPhoto ? setThumb : transformable ? null : thumb;
+  /**
+   * THE BLURRED FILL beside a photo shown whole ("contain"): ALWAYS present when
+   * a small copy exists, so a frame never shows empty bands (Owner, 5 Nov 2026:
+   * "why two side not filled up?"). A photo that fills its frame ("cover") needs
+   * none. The same 600 file as the preview — one download, not two.
+   */
   const blurByUrl = transformable && !setPhoto;
-  const lqip = backdropFailed || (setPhoto && cached !== false)
+  const lqip = backdropFailed || fit === "cover"
     ? null
     : blurByUrl
       ? buildLqipUrl(src)
-      : (setPhoto ? photoSetBlurUrl(src) : null) ?? thumb ?? null;
+      : setPhoto ? (photoSetBlurUrl(src) ?? setThumb) : thumb ?? null;
   // The sharp layer is the ORIGINAL again. The thumbnail has not been dropped —
   // it still paints the backdrop instantly, and it is the small end of the
   // srcset below, so a slot that only needs 600px still downloads only 600px.
@@ -502,11 +550,14 @@ const ProgressiveImage = ({
   // Credit fix U1 (review of #874): a set photo WITHOUT widths in its name
   // (feedPhotoSet null) still never paints its own URL raw or transformed — a
   // `-l4` URL is the credited master — but its clean copy, with no srcset.
-  const sharpSrc = v2Set ? v2Set.src : setPhoto ? (memberPhotoSrc(src, saving ? 600 : 1080) ?? src) : transformable ? buildRenderUrl(src, 800) : src;
-  let srcSet: string | undefined = transformable ? buildSrcSet(src) : buildThumbFirstSrcSet(thumb, src);
+  // An OLD photo with a stored clean 1080 (0112 lookup): that copy, never the original.
+  const oldCopy = !setPhoto && !transformable && copy?.feed ? copy.feed : null;
+  const sharpSrc = v2Set ? v2Set.src : setPhoto ? (memberPhotoSrc(src, saving ? 600 : 1080) ?? src) : oldCopy ? (saving || slowLink ? (copy?.thumb ?? oldCopy) : oldCopy) : transformable ? buildRenderUrl(src, 800) : src;
+  let srcSet: string | undefined = transformable ? buildSrcSet(src) : oldCopy ? undefined : buildThumbFirstSrcSet(thumb, src);
   if (ladder) srcSet = ladder.srcSet; // S3-c: 600/1080/1440 derivatives, never the original
   if (v2Set) srcSet = v2Set.srcSet;
   else if (setPhoto) srcSet = undefined;
+  const fitClass = fit === "cover" ? "object-cover" : "object-contain";
   // A set copy that fails falls back to the set's largest CLEAN copy — never a
   // credited file, never a competition full size (Unit A).
   const failSrc = setPhoto ? photoSetCleanUrl(src) : src;
@@ -548,14 +599,28 @@ const ProgressiveImage = ({
           onError={() => setBackdropFailed(true)}
         />
       )}
-      <img
+      {/* THE PREVIEW: the small copy, drawn like the sharp layer, until the sharp one has faded in. */}
+      {preview && (
+        <img
+          src={preview}
+          alt=""
+          aria-hidden="true"
+          data-feed-preview=""
+          className={`absolute inset-0 w-full h-full ${fitClass} ${className ?? ""}`}
+          loading="lazy"
+          decoding="async"
+          onLoad={(e) => onNaturalSize?.(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)}
+          onError={() => setPreviewFailed(true)}
+        />
+      )}
+      {!sharpOnHold && <img
         ref={sharpRef}
         {...saveProps}
         src={failed ? failSrc : sharpSrc}
         srcSet={failed ? undefined : srcSet}
         sizes={!failed && srcSet ? (slowLink || saving ? SLOW_FEED_SIZES : FEED_SIZES) : undefined}
         alt=""
-        className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"} ${className ?? ""}`}
+        className={`absolute inset-0 w-full h-full ${fitClass} transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"} ${className ?? ""}`}
         loading="lazy"
         decoding="async"
         onLoad={(e) => {
@@ -585,7 +650,7 @@ const ProgressiveImage = ({
           if (!failed) { setFailed(true); return; }
           setLoaded(true);
         }}
-      />
+      />}
     </>
   );
 };
@@ -604,7 +669,7 @@ const ProgressiveImage = ({
 const FRAME_TOUCH = { touchAction: "pan-x pan-y" } as const;
 
 /* ── Single Image ── */
-const SingleImagePost = ({ src, thumb, frameAspect, onNaturalSize, onDoubleTapLike, interceptFirstTap }: { src: string; thumb?: string | null; frameAspect: number; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void; interceptFirstTap?: () => boolean }) => {
+const SingleImagePost = ({ src, thumb, frameAspect, fit, onNaturalSize, onDoubleTapLike, interceptFirstTap }: { src: string; thumb?: string | null; frameAspect: number; fit: "cover" | "contain"; onNaturalSize?: (w: number, h: number) => void; onDoubleTapLike?: () => void; interceptFirstTap?: () => boolean }) => {
   // U3: posts are member photos — with photo_set_v2 on, nobody is offered download. Off: today.
   const { canDownload, downloading, download } = usePhotoDownload(false);
   // A single tap only ever reveals the figures (see `interceptFirstTap`); it opens nothing.
@@ -612,7 +677,7 @@ const SingleImagePost = ({ src, thumb, frameAspect, onNaturalSize, onDoubleTapLi
 
   return (
     <div ref={gestures.frameRef} data-feed-photo="" className="relative group/img w-full overflow-hidden rounded-sm bg-muted/30 select-none" style={{ aspectRatio: String(frameAspect), ...FRAME_TOUCH }} onClick={gestures.onClick}>
-      <ProgressiveImage src={src} thumb={thumb} onNaturalSize={onNaturalSize} />
+      <ProgressiveImage src={src} thumb={thumb} fit={fit} onNaturalSize={onNaturalSize} />
       {gestures.heart}
       {canDownload && (
         <DownloadButton
@@ -626,7 +691,15 @@ const SingleImagePost = ({ src, thumb, frameAspect, onNaturalSize, onDoubleTapLi
 };
 
 /* ── Preload helper ── */
-function preloadImage(url: string | undefined) { if (!url) return; const img = new Image(); img.src = url; }
+function preloadImage(url: string | null | undefined) { if (!url) return; const img = new Image(); img.src = url; }
+
+/** A photo's small (~600) copy — what an album preloads for the next slide. Never an original. */
+function feedPreviewUrl(url: string | undefined, thumb: string | null | undefined): string | null {
+  if (!url) return null;
+  if (photoSetMarker(url)) return memberPhotoSrc(url, 600);
+  if (isTransformable(url)) return buildRenderUrl(url, 480);
+  return usableThumb(thumb, url) ?? feedCopyFor(url)?.thumb ?? null;
+}
 
 /* ── Album Carousel (Framer Motion drag) ── */
 const SWIPE_THRESHOLD = 50;
@@ -652,10 +725,13 @@ const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTa
     }, [interceptFirstTap]),
   });
 
+  // The neighbours' SMALL copies only (photo speed): preloading their URLs fetched
+  // the full original of an old photo, or a set's 2048, and competed with the slide shown.
   useEffect(() => {
-    preloadImage(urls[(current + 1) % urls.length]);
-    preloadImage(urls[(current - 1 + urls.length) % urls.length]);
-  }, [current, urls]);
+    for (const i of [(current + 1) % urls.length, (current - 1 + urls.length) % urls.length]) {
+      preloadImage(feedPreviewUrl(urls[i], thumbUrls?.[i]));
+    }
+  }, [current, urls, thumbUrls]);
 
   // U2: the card's camera line/strip follows the slide (wired only while photo_set_v2 is on).
   useEffect(() => { onSlideChange?.(current); }, [current, onSlideChange]);
@@ -688,7 +764,7 @@ const AlbumCarousel = ({ urls, thumbUrls, frameAspect, onNaturalSize, onDoubleTa
         <motion.div key={current} custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3, ease: "easeOut" }} drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.15} onDragEnd={handleDragEnd} className="absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing">
           {/* Only slide 0 may set the frame — an album has ONE shape and it
               belongs to the first photo. Swiping must never resize the card. */}
-          <ProgressiveImage src={urls[current]} thumb={thumbUrls?.[current]} onNaturalSize={current === 0 ? onNaturalSize : undefined} />
+          <ProgressiveImage src={urls[current]} thumb={thumbUrls?.[current]} fit={feedPhotoFit(parseImageDims(urls[current])?.aspect, frameAspect)} onNaturalSize={current === 0 ? onNaturalSize : undefined} />
         </motion.div>
       </AnimatePresence>
       {gestures.heart}

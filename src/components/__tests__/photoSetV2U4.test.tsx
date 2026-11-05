@@ -96,7 +96,9 @@ const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 30
 const setConnection = (type: string | undefined) =>
   Object.defineProperty(globalThis.navigator, "connection", { configurable: true, value: type === undefined ? undefined : { type } });
 const setApp = (on: boolean) => { (globalThis as { Capacitor?: unknown }).Capacitor = on ? { isNativePlatform: () => true, getPlatform: () => "android" } : undefined; };
-const sharp = (c: HTMLElement) => [...c.querySelectorAll("img")].find((i) => i.className.includes("object-contain")) as HTMLImageElement;
+// The feed's SHARP layer: since photo speed (5 Nov 2026) it is object-cover when the photo
+// fills its frame, and the aria-hidden 600 preview / blurred fill sit beneath it.
+const sharp = (c: HTMLElement) => [...c.querySelectorAll("img")].find((i) => !i.hasAttribute("aria-hidden") && /object-(contain|cover)/.test(i.className)) as HTMLImageElement;
 
 /**
  * Full screen. Since 4 Nov 2026 the FEED photo opens no viewer (Owner, "like
@@ -127,6 +129,8 @@ describe("the feed keeps 1080 (U3 review follow-up)", () => {
     expect(img.getAttribute("src")).toBe(L4_1080);
     expect(img.getAttribute("srcset")).toBe(`${L4_THUMB} 600w, ${L4_1080} 1080w`);
     expect(img.getAttribute("srcset")).not.toContain(`${L4} `);
+    // No layer of the card — preview, fill or sharp — ever loads the 2048 master.
+    for (const i of container.querySelectorAll("img")) expect(i.getAttribute("src")).not.toBe(L4);
   });
 });
 

@@ -115,6 +115,24 @@ export function frameAspectFor(imageAspect: number | null | undefined): number {
 }
 
 /**
+ * How much of a photo the feed may trim to fill its frame (Owner, 5 Nov 2026:
+ * "why two side not filled up? showing borders"). Instagram fills the frame; a
+ * photo a little taller than 4:5 (or of a different shape than an album's
+ * first photo) left thin empty bands. Up to this share of the photo's width or
+ * height is trimmed — about 5 % per side — so it FILLS the frame; a photo that
+ * would lose more (a 9:16 phone shot) stays whole, with the blurred fill beside
+ * it. Full screen always shows the whole photo. THE ONE NUMBER.
+ */
+export const FEED_FILL_MAX_TRIM = 0.1;
+
+/** "cover" when the photo fills `frameAspect` losing at most FEED_FILL_MAX_TRIM, else "contain". */
+export function feedPhotoFit(photoAspect: number | null | undefined, frameAspect: number): "cover" | "contain" {
+  if (typeof photoAspect !== "number" || !Number.isFinite(photoAspect) || photoAspect <= 0 || !(frameAspect > 0)) return "contain";
+  const trim = 1 - Math.min(photoAspect, frameAspect) / Math.max(photoAspect, frameAspect);
+  return trim <= FEED_FILL_MAX_TRIM ? "cover" : "contain";
+}
+
+/**
  * The frame for a whole card.
  *
  * An album has ONE frame, decided by the FIRST photo — the same rule Instagram
