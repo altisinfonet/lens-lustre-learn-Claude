@@ -500,6 +500,14 @@ const ProgressiveImage = ({
     const img = sharpRef.current;
     if (img && img.complete && img.naturalWidth > 0) { setLoaded(true); setCachedAtMount(true); }
   }, []);
+  /**
+   * THE PHOTO ON SCREEN FIRST (photo speed, part 2 — measured on live 5 Nov:
+   * 1.9–3.5 s at 100 KB/s because the preview shared the link with the sharp
+   * copy and the blurred fill). The preview asks with HIGH priority and the
+   * sharp copy with LOW until the preview has arrived, so on a slow link the
+   * ~35 KB preview is served first and the sharp copy follows.
+   */
+  const [previewLoaded, setPreviewLoaded] = useState(false);
   // A set photo's own clean 600 (`-thumb`; never its URL — a `-l4` URL is the credited master).
   const setThumb = setPhoto ? memberPhotoSrc(src, 600) : null;
   /**
@@ -517,6 +525,7 @@ const ProgressiveImage = ({
     return () => clearTimeout(t);
   }, [loaded]);
   const preview = cachedAtMount || previewFailed || previewDone ? null : setPhoto ? setThumb : transformable ? null : thumb;
+  const sharpPriority: "low" | "auto" = preview && !previewLoaded ? "low" : "auto";
   /**
    * THE BLURRED FILL beside a photo shown whole ("contain"): ALWAYS present when
    * a small copy exists, so a frame never shows empty bands (Owner, 5 Nov 2026:
@@ -608,13 +617,15 @@ const ProgressiveImage = ({
           data-feed-preview=""
           className={`absolute inset-0 w-full h-full ${fitClass} ${className ?? ""}`}
           loading="lazy"
+          fetchPriority="high"
           decoding="async"
-          onLoad={(e) => onNaturalSize?.(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)}
+          onLoad={(e) => { setPreviewLoaded(true); onNaturalSize?.(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight); }}
           onError={() => setPreviewFailed(true)}
         />
       )}
       {!sharpOnHold && <img
         ref={sharpRef}
+        fetchPriority={sharpPriority}
         {...saveProps}
         src={failed ? failSrc : sharpSrc}
         srcSet={failed ? undefined : srcSet}

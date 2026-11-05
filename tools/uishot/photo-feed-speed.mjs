@@ -5,7 +5,7 @@
  * Owner rule (5 Nov 2026): "Plan always will be photo must come in App less
  * than 1 sec", like Instagram — measured on a slow phone link, not a fast desk.
  * Real Chromium opens photofeedharness.html (REAL uploader encoder, REAL feed
- * card) as a phone: 390 px wide, DPR 3, every photo file served at 100 KB/s
+ * card) as a phone: 390 px wide, DPR 3, all photo files sharing ONE 100 KB/s link
  * after 150 ms of latency. For each photo shape it measures the time from the
  * card's photo frame appearing to the FIRST photo layer (the small preview or
  * the sharp copy) having loaded, and fails above SPEED_LIMIT_MS:
@@ -85,13 +85,19 @@ for (const s of shapes) {
   const page = await ctx.newPage();
   await page.addInitScript(PROBE);
   const requested = [];
+  let pipeFreeAt = 0;
   await page.route("https://cdn.harness.test/**", async (route) => {
     const url = route.request().url().replace(/\?.*$/, "");
     requested.push(url);
     const hit = await page.evaluate((u) => window.__photoStore?.[u] ?? null, url).catch(() => null);
     if (!hit) return route.fulfill({ status: 404, body: "" });
     const body = Buffer.from(hit.b64, "base64");
-    await new Promise((r) => setTimeout(r, LATENCY_MS + (body.length / BYTES_PER_S) * 1000));
+    // ONE shared link (review of #918: per-request delays let every file have
+    // the whole 100 KB/s). Files are served one after another in the order the
+    // page asked for them, so a big file asked first delays the small one.
+    const start = Math.max(Date.now() + LATENCY_MS, pipeFreeAt);
+    pipeFreeAt = start + (body.length / BYTES_PER_S) * 1000;
+    await new Promise((r) => setTimeout(r, pipeFreeAt - Date.now()));
     return route.fulfill({ status: 200, contentType: hit.type, headers: { "Access-Control-Allow-Origin": "*" }, body });
   });
   const row = { shape: s.key, ok: true };
