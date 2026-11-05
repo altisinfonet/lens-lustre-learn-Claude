@@ -31,7 +31,7 @@
 --     see a post_extra row).
 --   · public.photo_extra_referenced(text[])  the reference scan (as 0103's,
 --     photo_old_credit also excepted).
---   · public.photo_extra_mark() → jsonb      queue (idempotent: ON CONFLICT
+--   · public.photo_extra_mark() → jsonb      queue (run by 0114; idempotent: ON CONFLICT
 --     on object_key), then the scan. postgres or an admin (PHOTO-EX-001).
 --   · public.photo_extra_claim(_op, _limit, _after) / photo_extra_record(_op, _rows)
 --     the mover's two calls, admin or converter only (PHOTO-EX-002).
@@ -39,8 +39,8 @@
 -- `photo-holding/<key>`, size checked before the public file goes), driven by
 -- tools/media-derivatives/hold.mjs from photo-hold.yml.
 --
--- NOT RE-RUNNABLE: PRE-002 refuses once photo_extra_mark exists (re-mark by
--- calling SELECT public.photo_extra_mark() through a PROBE-style file).
+-- NOT RE-RUNNABLE: PRE-002 refuses once photo_extra_mark exists (queue / re-mark by
+-- applying 20261110_0114_photo_extra_mark.sql, which is re-runnable).
 -- ROLLBACK: supabase/rollback/20261110_0113_photo_extra_hold_ROLLBACK.sql
 --           (refuses while any file is held — restore first)
 -- PROBE:    supabase/migrations/PROBE_20261110_0113_photo_extra_hold.sql
@@ -264,17 +264,11 @@ REVOKE ALL ON FUNCTION public.photo_extra_record(text, jsonb) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.photo_extra_claim(text, integer, bigint) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.photo_extra_record(text, jsonb) TO authenticated;
 
-COMMIT;
-
--- ── 5. queue now — its own transaction, so the reference scan never runs while
---       the ALTER's lock on photo_retire is held (p32.lane is a session setting) ──
-BEGIN;
-DO $mark$
-DECLARE _r jsonb;
+DO $done$
 BEGIN
-  _r := public.photo_extra_mark();
-  RAISE NOTICE 'EX-0113 applied on % (CDN %): %', current_setting('p32.lane'), public.photo_retire_cdn(), _r;
+  RAISE NOTICE 'EX-0113 applied on % (CDN %): nothing queued yet — apply 20261110_0114_photo_extra_mark.sql next',
+    current_setting('p32.lane'), public.photo_retire_cdn();
 END
-$mark$;
+$done$;
 
 COMMIT;
