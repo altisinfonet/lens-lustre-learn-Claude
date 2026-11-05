@@ -1,0 +1,128 @@
+name: Photo hold — move old extra copies to private holding / put them back (lane-guarded)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Photo clean-up (Owner, 5 Nov 2026: "GO MOVE") — runs
+# tools/media-derivatives/hold.mjs, which moves ONLY the files the database has
+# queued (photo_retire kind post_extra, 20261110_0113) through the lane's
+# /api/media/hold route: public PHOTOS bucket → private MEDIA bucket
+# `photo-holding/<key>`, or back (restore). NOTHING IS DELETED for good here:
+# a held file can be put back for as long as it is held; deleting holding is a
+# later unit, only on the Owner's final yes (14 days after the last move).
+#
+# TRIGGER: dispatch only (no schedule). dry-run is the default; max 50 files
+# per run by default, so every live batch is small and checked before the next.
+#
+# WHO IT RUNS AS: the converter account (MEDIA_WORKER_EMAIL / _PASSWORD,
+# environment secrets — as photo-retire.yml). Token masked, 0600, removed.
+#
+# FENCES: target=production must run from main, staging from staging
+# (github.ref); the site / Supabase URL / anon key come from the target, never
+# typed; refuses to start without both secrets. No ${{ inside any run: block.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "staging = fpszggreishhuvdpkmdr, production = jtdtehuqtinjxropkkcn"
+        required: true
+        type: choice
+        options: [staging, production]
+      op:
+        description: "move (public → private holding) or restore (holding → public)"
+        required: true
+        type: choice
+        options: [move, restore]
+        default: move
+      mode:
+        description: "dry-run (count + bytes, moves nothing) or run"
+        required: true
+        type: choice
+        options: [dry-run, run]
+        default: dry-run
+      max:
+        description: "at most this many files (0 = all queued)"
+        required: true
+        type: string
+        default: "50"
+
+concurrency:
+  group: photo-hold-${{ inputs.target }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  hold:
+    name: ${{ inputs.mode }} photo hold ${{ inputs.op }} (max ${{ inputs.max }}) on ${{ inputs.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ inputs.target }}
+    env:
+      TARGET_LANE: ${{ inputs.target }}
+      BRANCH_REF: ${{ github.ref }}
+      OP: ${{ inputs.op }}
+      MODE: ${{ inputs.mode }}
+      MAX: ${{ inputs.max }}
+    steps:
+      - name: The branch must match the target, and the lane is fixed by it
+        run: |
+          set -euo pipefail
+          case "$TARGET_LANE" in
+            production) WANT=refs/heads/main;    SITE=https://www.50mmretina.com;     SB=https://jtdtehuqtinjxropkkcn.supabase.co
+                        ANON=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0ZHRlaHVxdGluanhyb3Bra2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzI3MjEsImV4cCI6MjA5OTE0ODcyMX0.qY8BI5LXb6uLzTwbpf8AleZ6UZyfeaOA0q4_TC5CEpo ;;
+            staging)    WANT=refs/heads/staging; SITE=https://staging.50mmretina.com; SB=https://fpszggreishhuvdpkmdr.supabase.co
+                        ANON=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwc3pnZ3JlaXNoaHV2ZHBrbWRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxMDcyNDUsImV4cCI6MjEwNDY4MzI0NX0.h3t2eZ8hwXDev6JydjsDnA8CpXFlKve4CaUlXp_mwiQ ;;
+            *) echo "::error::Unknown target '$TARGET_LANE'."; exit 1 ;;
+          esac
+          if [ "$BRANCH_REF" != "$WANT" ]; then
+            echo "::error::target='$TARGET_LANE' must be dispatched from '$WANT', not '$BRANCH_REF'. Refusing."
+            exit 1
+          fi
+          case "$OP" in move|restore) ;; *) echo "::error::op must be move or restore"; exit 1 ;; esac
+          case "$MODE" in dry-run|run) ;; *) echo "::error::mode must be dry-run or run"; exit 1 ;; esac
+          case "$MAX" in ''|*[!0-9]*) echo "::error::max must be a whole number"; exit 1 ;; esac
+          { echo "SITE=$SITE"; echo "SB_URL=$SB"; echo "SB_ANON=$ANON"; } >> "$GITHUB_ENV"
+          echo "Lane OK: $TARGET_LANE ($SITE) from $BRANCH_REF, $OP, $MODE, max $MAX."
+
+      - name: Refuse to start without the worker account
+        env:
+          WORKER_EMAIL: ${{ secrets.MEDIA_WORKER_EMAIL }}
+          WORKER_PASSWORD: ${{ secrets.MEDIA_WORKER_PASSWORD }}
+        run: |
+          if [ -z "$WORKER_EMAIL" ] || [ -z "$WORKER_PASSWORD" ]; then
+            echo "::error::MEDIA_WORKER_EMAIL / MEDIA_WORKER_PASSWORD are not set on the '$TARGET_LANE' environment."
+            exit 1
+          fi
+          echo "Worker account secrets present. Their values are never printed."
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Sign in as the worker account (token masked, 0600 file)
+        env:
+          WORKER_EMAIL: ${{ secrets.MEDIA_WORKER_EMAIL }}
+          WORKER_PASSWORD: ${{ secrets.MEDIA_WORKER_PASSWORD }}
+          # Only for production's CAPTCHA-protected password grant (worker-session.mjs header).
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          umask 077
+          node tools/media-derivatives/worker-session.mjs --out "$RUNNER_TEMP/worker.jwt"
+          [ -s "$RUNNER_TEMP/worker.jwt" ] || { echo "::error::the sign-in tool wrote no token"; exit 1; }
+          echo "MEDIA_WORKER_JWT_FILE=$RUNNER_TEMP/worker.jwt" >> "$GITHUB_ENV"
+
+      - name: Run the mover
+        run: |
+          set -euo pipefail
+          ARGS=(--site "$SITE" --op "$OP" --max "$MAX")
+          [ "$MODE" = "dry-run" ] && ARGS+=(--dry-run)
+          node tools/media-derivatives/hold.mjs "${ARGS[@]}"
+
+      - name: Forget the token
+        if: always()
+        run: rm -f "$RUNNER_TEMP/worker.jwt" "$RUNNER_TEMP/auth.json"
