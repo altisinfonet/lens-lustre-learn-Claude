@@ -110,6 +110,13 @@ const SCENES = [
 ].map(([name, query, viewport, open]) => ({ name, query, viewport, open }));
 /** The one comparison every visual baseline uses. */
 const diff = (a, b) => comparePixels(a, b, { channel: CHANNEL, share: SHARE });
+/**
+ * The box gap the action row keeps above itself — ROW_TOP_GAP ("mt-2.5" = 10 px,
+ * src/components/post/actionRowGeometry.ts). Owner, 5 Nov 2026 ("row gap OK",
+ * real screenshots): Instagram's space between the photo and the row replaces
+ * the 3 Nov "no empty band" rule.
+ */
+const ROW_GAP_PX = 10;
 
 /** A fixed, file-free "photo": a grey wall and a red floor, as in the approved mockup. */
 const photoSvg = (hue, floorHue) =>
@@ -202,8 +209,9 @@ async function shoot(browser, s) {
  * and the caption (x 12) started at four different places.
  *
  * Ink only — what the eye sees, never a box:
- *   photo → icons (no camera line)        4–7 px
- *   photo → camera line, line → icons     4–9 px each
+ *   photo → icons (no camera line)        12–17 px  (Owner 5 Nov 2026, "row gap OK": Instagram ~13.5; was 4–7)
+ *   photo → camera line                   4–9 px
+ *   camera line → icons                   12–19 px  (the same Instagram gap above the row; was 4–9)
  *   icons → caption                       6–11 px
  *   camera icon, its 2nd line, the Like icon: within 1.5 px of the caption's left edge
  */
@@ -219,12 +227,12 @@ function inkChecks(ink, { hasLine, opened }) {
   if (hasLine) {
     out.push(
       [within(g.photoToCamera, 4, 9), `photo → camera line, visible: ${g.photoToCamera} px (4–9)`],
-      [within(g.cameraToIcons, 4, 9), `camera line → icons, visible: ${g.cameraToIcons} px (4–9)`],
+      [within(g.cameraToIcons, 12, 19), `camera line → icons, visible: ${g.cameraToIcons} px (12–19)`],
       [lined(L.cameraIcon), `the camera icon starts at the caption's left edge (camera ${L.cameraIcon}, caption ${L.caption})`],
     );
     if (opened) out.push([lined(L.cameraLine2), `the 2nd line starts under the camera icon, at the caption's left edge (2nd line ${L.cameraLine2}, caption ${L.caption})`]);
   } else {
-    out.push([within(g.photoToIcons, 4, 7), `photo → icons, visible: ${g.photoToIcons} px (4–7)`]);
+    out.push([within(g.photoToIcons, 12, 17), `photo → icons, visible: ${g.photoToIcons} px (12–17)`]);
   }
   return out;
 }
@@ -261,9 +269,9 @@ for (const s of SCENES) {
     // photo WITHOUT details gives its held height back once: reported, not
     // judged — it needs the details delivered with the feed page.) Admins grow
     // once, to their 44 px tap row.
-    [admin || !hasLine || r.dom.gaps.filter((g) => g !== 0).length === 1, `no layout shift under the photo once the switch is known (gaps seen: ${r.dom.gaps.join(", ")} px)`],
+    [admin || !hasLine || r.dom.gaps.filter((g) => g !== 0 && g !== ROW_GAP_PX).length === 1, `no layout shift under the photo once the switch is known (gaps seen: ${r.dom.gaps.join(", ")} px)`],
     // Owner, 3 Nov: no camera line → NO empty space between the photo and Like / Comment / Share.
-    [hasLine || r.dom.lastGap === 0, `no empty band under the photo without a camera line (last gap ${r.dom.lastGap} px)`],
+    [hasLine || r.dom.lastGap === ROW_GAP_PX, `no camera line: only the Instagram gap under the photo (last gap ${r.dom.lastGap} px, want ${ROW_GAP_PX})`],
     // Owner, 3 Nov: the slider dots close together (≤ 14 px apart, centre to centre).
     [!isAlbum || (r.dom.dotSteps.length === 2 && r.dom.dotSteps.every((x) => x > 0 && x <= 14)), `slider dots close together (steps ${r.dom.dotSteps.join(", ")} px)`],
     // Owner, 3 Nov ~16:20Z (screenshots 3 + 4): measured on VISIBLE pixels.
