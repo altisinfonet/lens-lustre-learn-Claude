@@ -36,8 +36,14 @@ export const CREDIT_FONT_FAMILY = "50mm Credit Fira Sans";
 export const SAVED_PHOTO_TYPE = "image/jpeg";
 export const SAVED_PHOTO_QUALITY = 0.92;
 
-/** A FEED post photo: its key is `post-images/<owner uuid>/posts/…` (any marker, or none). */
-const FEED_POST_PHOTO_RE = /\/post-images\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/posts\//i;
+/**
+ * A FEED post photo: any file in the member's post folder,
+ * `post-images/<owner uuid>/…` — `posts/…` (any marker, or none) and the oldest
+ * uploads straight in the folder (also on the old Supabase storage host) — but
+ * never a stored credited copy (`posts/credit/…`). Owner, 5 Nov 2026: the oldest
+ * photos must save as .jpg with the drawn credit too.
+ */
+const FEED_POST_PHOTO_RE = /\/post-images\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?!posts\/credit\/)[^?#]+\.[a-z0-9]+(?:[?#]|$)/i;
 
 /**
  * True for a photo whose credit is drawn at save time: EVERY feed post photo —

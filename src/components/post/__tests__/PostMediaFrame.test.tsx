@@ -78,12 +78,19 @@ describe("PostMedia — nothing already posted changes shape", () => {
 });
 
 describe("PostMedia — the photo is never cropped", () => {
-  it("renders the sharp image object-contain, not object-cover", () => {
-    const { container } = render(<PostMedia urls={[photo("-w3000h2000.webp")]} />);
-    const img = sharpImg(container);
-    expect(img).toBeTruthy();
-    expect(img!.className).toContain("object-contain");
-    expect(img!.className).not.toContain("object-cover");
+  it("crops at most FEED_FILL_MAX_TRIM: object-contain whenever filling would lose more", () => {
+    // Owner, 5 Nov 2026 ("why two side not filled up?"): a photo within 10 % of its
+    // frame FILLS it (object-cover); one that would lose more stays whole.
+    // A 9:16 phone shot in the 4:5 frame would lose ~30 % → shown whole.
+    const tall = sharpImg(render(<PostMedia urls={[photo("-w1080h1920.webp")]} />).container);
+    expect(tall!.className).toContain("object-contain");
+    expect(tall!.className).not.toContain("object-cover");
+    // A 3:1 panorama in the 1.91 frame would lose ~36 % → shown whole.
+    const pano = sharpImg(render(<PostMedia urls={[photo("-w4200h1400.webp")]} />).container);
+    expect(pano!.className).toContain("object-contain");
+    // A 3:2 photo in its own 3:2 frame: cover trims nothing.
+    const exact = sharpImg(render(<PostMedia urls={[photo("-w3000h2000.webp")]} />).container);
+    expect(exact!.className).toContain("object-cover");
   });
 
   it("keeps a blurred backdrop behind it to fill any bars", () => {
@@ -358,8 +365,14 @@ describe("PostMedia — an old photo takes its shape from the image itself", () 
   it("does NOT re-measure a photo whose filename already carries dimensions", () => {
     // New uploads must have zero reflow. If a stray load event could move the
     // frame, every new post would jump as its image arrived.
+    // A 3:2 photo fills its 3:2 frame (no blurred backdrop since 5 Nov 2026), so
+    // fire the stray load on EVERY layer it draws.
     const { container } = render(<PostMedia urls={[photo("-w3000h2000.webp")]} />);
-    loadBackdrop(container, 10, 32); // wildly different — must be ignored
+    for (const img of Array.from(container.querySelectorAll("img"))) {
+      Object.defineProperty(img, "naturalWidth", { value: 10, configurable: true });
+      Object.defineProperty(img, "naturalHeight", { value: 32, configurable: true });
+      fireEvent.load(img); // wildly different — must be ignored
+    }
     expect(Number(frameOf(container))).toBeCloseTo(1.5, 6);
   });
 
