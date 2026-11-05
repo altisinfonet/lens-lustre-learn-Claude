@@ -266,11 +266,17 @@ describe("blur preview in the feed photo", () => {
   const backdrop = (c: HTMLElement) => c.querySelector('img[aria-hidden="true"]') as HTMLImageElement | null;
   const sharp = (c: HTMLElement) => Array.from(c.querySelectorAll("img")).find((i) => !i.hasAttribute("aria-hidden"))!;
 
-  it("a new photo: the 320 copy is the placeholder; the real photo fades in; srcset = the feed's 600 + 1080 (U4)", async () => {
+  it("a new photo: its clean 600 is the preview; the real photo fades in; srcset = the feed's 600 + 1080 (U4)", async () => {
     switchOn = true;
     const { container } = wrap(<PostMedia urls={[L4]} thumbUrls={[L4_THUMB]} />);
     await settle();
-    expect(backdrop(container)!.getAttribute("src")).toBe(L4_320);
+    // Photo speed (Owner, 5 Nov 2026): a 3:2 photo FILLS its 3:2 frame, so there is
+    // no blurred fill; the placeholder is the sharp-looking clean 600 (never the
+    // `-l4` master), drawn like the photo. A "contain" photo keeps its 320 blur:
+    // feedPhotoSpeed.test.tsx.
+    expect(container.querySelectorAll('img[aria-hidden="true"]')).toHaveLength(1);
+    expect(backdrop(container)!.hasAttribute("data-feed-preview")).toBe(true);
+    expect(backdrop(container)!.getAttribute("src")).toBe(L4_THUMB);
     expect(sharp(container).className).toMatch(/opacity-0/);
     expect(sharp(container).className).toMatch(/transition-opacity/);
     // U2 kept today's srcset (600 + the 2048 master). U4 (the U3 review follow-up,

@@ -79,12 +79,24 @@ const lateSwitch: FakeRoute = ({ method, path }) => {
   // Answer OFF until 6 s after the page started: the card paints first (cold start).
   return Date.now() - born < 6000 ? { body: false } : undefined;
 };
+/**
+ * ?old=1 also has the backfill's clean `-l4` copies beside it (1080 + 600, as on
+ * live since 3 Nov), which post_photo_feed_copies (20261110_0112) names — so the
+ * feed shows those, never the original (photo speed, tools/uishot/photo-feed-speed.mjs).
+ * ?nocopies=1: the lookup answers with nothing (an old photo without a set).
+ */
+let oldCopies: { src: string; feed: string; thumb: string } | null = null;
+const feedCopiesRoute: FakeRoute = ({ method, path, body }) => {
+  if (method !== "POST" || path !== "/rest/v1/rpc/post_photo_feed_copies") return undefined;
+  const ids = (body as { p_post_ids?: string[] } | null)?.p_post_ids ?? [];
+  return { body: oldCopies && q.get("nocopies") !== "1" && ids.includes(POST_ID) ? [{ post_id: POST_ID, ord: 0, src_url: oldCopies.src, feed_url: oldCopies.feed, thumb_url: oldCopies.thumb }] : [] };
+};
 /** The author's public name — the line the browser draws on a saved feed photo (photoCreditSave.creditLineFor). */
 const authorNameRoute: FakeRoute = ({ method, path, params }) => {
   if (method !== "GET" || path !== "/rest/v1/profiles_public" || params.get("id") !== `eq.${AUTHOR}`) return undefined;
   return { body: [{ full_name: "Dipannita Sen", custom_url: null }] };
 };
-installFakeBackend({ routes: [lateSwitch, oldCreditRoute, authorNameRoute, ...fixtureRoutes], signedIn: viewer !== "out" && viewer !== "err" });
+installFakeBackend({ routes: [lateSwitch, oldCreditRoute, feedCopiesRoute, authorNameRoute, ...fixtureRoutes], signedIn: viewer !== "out" && viewer !== "err" });
 
 /** A detailed, file-free scene (sky, hills, a lit window) — JPEG, as a phone hands it over. */
 async function generatedPhoto(small: boolean): Promise<File> {
@@ -173,6 +185,12 @@ async function main() {
     pairs = [[full, k2048, k2048], [copy, c2048, k2048]];
     thumbPath = full;
     oldCredit = { src: `${CDN}${full}`, credited: `${CDN}${copy}` };
+    // The backfill's clean copies beside it (0101 names: `<source>-w{W}h{H}-l4-r1080` / `-l4-thumb`).
+    const bmp = await createImageBitmap(k2048);
+    const set = full.replace(/\.webp$/, `-w${bmp.width}h${bmp.height}-l4`);
+    bmp.close();
+    pairs.push([`${set}-r1080.webp`, clean.full.blob, clean.full.blob], [`${set}-thumb.webp`, clean.thumb, clean.thumb]);
+    oldCopies = { src: `${CDN}${full}`, feed: `${CDN}${set}-r1080.webp`, thumb: `${CDN}${set}-thumb.webp` };
   } else if (!legacy) {
     full = photoObjectPath(AUTHOR, "1762160000000-job", 0, clean.full.width, clean.full.height, true, clean.marker);
     const pathOf = (r: Rung) => (r.suffix ? full.replace(/\.webp$/, `${r.suffix}.webp`) : rungPath(full, r.rung));
