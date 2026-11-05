@@ -135,10 +135,11 @@ const ZoomableImage = ({ src: given, alt = "", className, wrapperClassName = "w-
   useOldPhotoCreditVersion();
   const { shown, saveAs } = fullScreenPhoto(given, saving);
   const [saveAsFailed, setSaveAsFailed] = useState<string | null>(null);
-  const layered = !!saveAs && saveAsFailed !== saveAs;
-  const src = layered ? (saveAs as string) : shown;
-  // A feed set photo (-l6) has no stored credited copy: its save DRAWS the credit (photoSaveTarget).
+  // A feed photo (any age) saves by DRAWING the credit (photoSaveTarget), so its
+  // old stored credited copy is never loaded or layered here.
   const drawnSave = feedSetSaveMenu(given);
+  const layered = !drawnSave && !!saveAs && saveAsFailed !== saveAs;
+  const src = layered ? (saveAs as string) : shown;
   const wrapperRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
