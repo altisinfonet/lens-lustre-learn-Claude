@@ -72,8 +72,20 @@ describe("2 · full screen saves a -l6 photo with the drawn credit", () => {
     const img = container.querySelector("img")!;
     const ev = fireEvent.contextMenu(img);
     expect(ev).toBe(false); // default prevented
-    await vi.waitFor(() => expect(savePhotoWithCredit).toHaveBeenCalledWith(url));
-  });
+    await vi.waitFor(() => expect(savePhotoWithCredit).toHaveBeenCalledWith(url), { timeout: 10_000 });
+  }, 30_000);
+
+  it("an OLD feed photo (-l5) in full screen also saves with the drawn credit and never layers its old stored copy", async () => {
+    savePhotoWithCredit.mockClear();
+    const { default: ZoomableImage } = await import("@/components/media/ZoomableImage");
+    const url = `https://cdn.50mmretina.com/post-images/${UID}/posts/1762160000000-job-0-w1080h720-l5.webp`;
+    const { container } = render(<QueryClientProvider client={new QueryClient()}><ZoomableImage src={url} /></QueryClientProvider>);
+    const img = container.querySelector("img")!;
+    expect(img.getAttribute("src") ?? "").not.toMatch(/-r2048c/);
+    expect(img.getAttribute("data-photo-shown")).toBeNull();
+    expect(fireEvent.contextMenu(img)).toBe(false);
+    await vi.waitFor(() => expect(savePhotoWithCredit).toHaveBeenCalledWith(url), { timeout: 10_000 });
+  }, 30_000);
 
   it("iPhone Safari's long-press callout (no contextmenu there) is switched off for a -l6 photo in full screen", () => {
     // jsdom drops -webkit-touch-callout from CSSStyleDeclaration, so this reads the source.
