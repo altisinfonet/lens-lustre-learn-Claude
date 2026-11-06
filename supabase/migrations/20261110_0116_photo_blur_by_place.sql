@@ -48,7 +48,7 @@ BEGIN
     RAISE EXCEPTION 'BL-0116-PRE-001: 20261110_0115 (photo_blur, post_photo_blurs) is not applied';
   END IF;
   -- PRE-002 · not applied already.
-  IF 'ord' = ANY ((SELECT p.proargnames FROM pg_proc p WHERE p.oid = to_regprocedure('public.post_photo_blurs(uuid[])'))) THEN
+  IF array_position((SELECT p.proargnames FROM pg_proc p WHERE p.oid = to_regprocedure('public.post_photo_blurs(uuid[])')), 'ord') IS NOT NULL THEN
     RAISE EXCEPTION 'BL-0116-PRE-002: post_photo_blurs already returns ord — 20261110_0116 is applied';
   END IF;
 END
