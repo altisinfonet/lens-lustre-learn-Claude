@@ -47,6 +47,7 @@ import { useT } from "@/i18n/I18nContext";
 import PostCard from "@/components/post/PostCard";
 import ImageCropModal from "@/components/admin/ImageCropModal";
 import PostComposerPreview, { reorder } from "@/components/post/PostComposerPreview";
+import { STORY_RULES, shareNewPostToStory } from "@/lib/stories/storyRules";
 import PostCardSkeleton from "@/components/post/PostCardSkeleton";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import { useUserPostsQuery, flattenUserPosts } from "@/hooks/feed/useUserPostsQuery";
@@ -92,6 +93,11 @@ interface WallPostsProps {
 // VID-1: a video picked from the photo picker opens the video uploader. Lazy, so
 // members without video never download it (P13).
 const VideoPostComposer = lazy(() => import("@/components/video/VideoPostComposer"));
+// Stories v2: the "Also add to my story" box shows only once a photo is picked.
+// Its own small chunk (P13), fetched right after the screen opens so it is
+// there before any photo is.
+const loadAddToStoryBox = () => import("@/components/stories/AddToStoryBox");
+const AddToStoryBox = lazy(loadAddToStoryBox);
 
 const Avatar = ({ src, name, size = "md" }: { src: string | null; name: string | null; size?: "sm" | "md" | "lg" }) => {
   const sizeClasses = { sm: "w-8 h-8 text-xs", md: "w-10 h-10 text-sm", lg: "w-10 h-10 text-sm" };
@@ -106,6 +112,7 @@ const Avatar = ({ src, name, size = "md" }: { src: string | null; name: string |
 };
 
 const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) => {
+  useEffect(() => { void loadAddToStoryBox().catch(() => {}); }, []);
   const { user } = useAuth();
   const { data: currentProfile } = useProfileCore(user?.id);
   const { isBanned } = useIsBanned();
@@ -271,6 +278,8 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   const [tagModalOpen, setTagModalOpen] = useState(false);
   // SOW §5.2 — per-post search engine opt-out
   const [excludeFromSearch, setExcludeFromSearch] = useState(false);
+  // Stories v2 (Owner 6 Nov): every post goes to the story unless unticked.
+  const [addToStory, setAddToStory] = useState<boolean>(STORY_RULES.addToStoryByDefault);
   // Phase 3B — optional scheduling (null = post now, Date = schedule)
   const [scheduleAt, setScheduleAt] = useState<Date | null>(null);
   const [showSchedule, setShowSchedule] = useState(false);
@@ -1144,7 +1153,8 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     if (!draftId) return;
     setPosting(true);
     try {
-      await publishDraftMut.mutateAsync(draftId);
+      const draftPostId = await publishDraftMut.mutateAsync(draftId);
+      shareNewPostToStory(draftPostId, addToStory);
       setDraftId(null);
       setResumedUrls([]);
       setResumedThumbs([]);
@@ -1154,6 +1164,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       setPostCategories([]);
       setPendingTags([]);
       setExcludeFromSearch(false);
+      setAddToStory(STORY_RULES.addToStoryByDefault);
       setScheduleAt(null);
       clearAllImages();
       closeComposer();
@@ -1198,7 +1209,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       const v2 = photoSetOption(photoSetV2).photoSet;
       const camera = v2 ? cameraItems(await readCameraInfos(selectedImages)) : [];
       await createPhotoJob({
-        id, userId: user.id, files: selectedImages,
+        id, userId: user.id, files: selectedImages, addToStory,
         post: {
           content: captionMentions.convert(newContent.trim()), privacy: newPrivacy,
           categories: postCategories, indexingDisabled: excludeFromSearch,
@@ -1213,6 +1224,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     captionMentions.reset();
     captionHashtags.reset();
     setExcludeFromSearch(false);
+    setAddToStory(STORY_RULES.addToStoryByDefault);
     setPostCategories([]);
     clearAllImages();
     closeComposer();
@@ -1403,6 +1415,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           captionMentions.reset();
           captionHashtags.reset();
           setExcludeFromSearch(false);
+          setAddToStory(STORY_RULES.addToStoryByDefault);
           setScheduleAt(null);
           setShowSchedule(false);
           setPostCategories([]);
@@ -1541,6 +1554,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         // Fire-and-forget — savePostPhotoCamera never throws, and the post is
         // never held or failed for it (it logs POST-2009 instead).
         if (newPost?.id && cameraInfos) void savePostPhotoCamera(newPost.id, cameraItems(cameraInfos));
+        shareNewPostToStory(newPost?.id, addToStory);
         // Persist photo tags (if any) — friends-only, all start as 'pending'
         if (newPost?.id && pendingTags.length > 0) {
           const tagRows = pendingTags.map((t) => ({
@@ -1579,6 +1593,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         captionMentions.reset();
         captionHashtags.reset();
         setExcludeFromSearch(false);
+        setAddToStory(STORY_RULES.addToStoryByDefault);
         setPostCategories([]);
         clearAllImages();
         closeComposer();
@@ -2157,6 +2172,10 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                       </div>
                     )}
 
+                    {(imagePreviews.length > 0 || resumedUrls.length > 0) && !scheduleAt && (
+                      <Suspense fallback={null}><AddToStoryBox checked={addToStory} onChange={setAddToStory} className="mt-3" /></Suspense>
+                    )}
+
                     {/* A resumed draft's images are already in storage — shown as
                         URLs, never re-uploaded. */}
                     {resumedUrls.length > 0 && (
@@ -2264,6 +2283,9 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                               onAddMore={imagePreviews.length < 10 ? () => fileInputRef.current?.click() : undefined}
                             />
                           </div>
+                        )}
+                        {(imagePreviews.length > 0 || resumedUrls.length > 0) && !scheduleAt && (
+                          <Suspense fallback={null}><AddToStoryBox checked={addToStory} onChange={setAddToStory} className="mb-3" /></Suspense>
                         )}
                         {/* A resumed draft has no local File objects to preview,
                             so it keeps the thumbnail it always had. */}

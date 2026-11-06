@@ -54,6 +54,8 @@ const VIDEO_SURFACES: Record<string, RegExp> = {
   "src/components/notifications/CentreNotificationRow.tsx": /<VideoPoster video=\{media\.video\} \/>/,
   // Server conversion (CONVERTER-DESIGN.md v2 §3.9): what the post / ad WILL show, watched before Post.
   "src/components/video/ServerVideoReview.tsx": /<FeedVideoCard video=\{media\.video\} fillParent \/>/,
+  // Stories v2 (Owner 6 Nov): a video post's story plays in the one StoryViewer.
+  "src/components/stories/StoryViewer.tsx": /<FeedVideoCard video=\{media\.video\} fillParent/,
   // Test page only: the app-video CORS journey (tools/uishot/app-video-cors-journey.mjs) draws a post's video as the feed does.
   "src/uiharness/appvideo/main.tsx": /<FeedVideoCard video=\{media\.video\} \/>/,
 };

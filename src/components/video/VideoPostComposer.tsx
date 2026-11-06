@@ -40,6 +40,8 @@ import { Textarea } from "@/components/ui/textarea";
 import OptimizedImage from "@/components/OptimizedImage";
 import CategoryChips, { canPublishCategories } from "@/components/post/CategoryChips";
 import { PostAudienceChooser, type Privacy } from "@/components/post/PostAudienceChooser";
+import AddToStoryBox from "@/components/stories/AddToStoryBox";
+import { STORY_RULES } from "@/lib/stories/storyRules";
 import { videoFrameAspect } from "@/lib/video/videoFrame";
 import { readVideoFacts, videoLimitProblems, memoryProblem, serverLimitProblems, formatDuration, type VideoFacts } from "@/lib/video/limits";
 import { coverFromImage, coverFromVideoAt } from "@/lib/video/cover";
@@ -85,6 +87,8 @@ export default function VideoPostComposer({ open, onOpenChange, encode, initialF
   const [caption, setCaption] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
   const [privacy, setPrivacy] = useState<Privacy>("public");
+  // Stories v2 (Owner 6 Nov): the video goes to the story unless unticked.
+  const [addToStory, setAddToStory] = useState<boolean>(STORY_RULES.addToStoryByDefault);
   const [mute, setMute] = useState(false);
   const [cover, setCover] = useState<Cover>(null);
   const [coverError, setCoverError] = useState<string | null>(null);
@@ -170,7 +174,7 @@ export default function VideoPostComposer({ open, onOpenChange, encode, initialF
     setPhase({ kind: "starting", facts: phase.kind === "ready" ? phase.facts : null });
     try {
       const r = await startOnServer({
-        userId: user.id, purpose: "post", file, name: file.name, post: { content: caption.trim(), categories, privacy },
+        userId: user.id, purpose: "post", file, name: file.name, post: { content: caption.trim(), categories, privacy, addToStory },
       }, realJobDeps);
       if (r.kind === "started") { onOpenChange(false); return; }
       if (r.kind === "switched_off") { setDeviceAfterAll(true); setPhase(before); return; }
@@ -195,7 +199,7 @@ export default function VideoPostComposer({ open, onOpenChange, encode, initialF
         : await (await import("@/lib/video/webEncoder")).encodeVideoToHls(file, { mute, onProgress, poster });
       await createJob({
         userId: user.id, purpose: "post", manifest: pkg.manifest, manifestSha256: pkg.manifestSha256, files: pkg.files,
-        post: { content: caption.trim(), categories, privacy },
+        post: { content: caption.trim(), categories, privacy, addToStory },
       });
       void runVideoJobs(user.id, realJobDeps);
       toast({ title: t("video.queued", "Your video is uploading"), description: t("video.queuedHint", "It will appear on your wall when it's ready. You can leave this screen.") });
@@ -355,6 +359,7 @@ export default function VideoPostComposer({ open, onOpenChange, encode, initialF
               maxLength={2200}
             />
             <PostAudienceChooser value={privacy} onChange={setPrivacy} variant="row" rowLabel={t("composer.audience", "Post audience")} />
+            <AddToStoryBox checked={addToStory} onChange={setAddToStory} className="" />
             <CategoryChips value={categories} onChange={setCategories} />
             {!server && (
               <label className="flex min-h-11 items-center gap-2 text-sm">

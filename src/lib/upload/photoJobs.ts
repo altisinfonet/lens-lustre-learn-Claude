@@ -78,6 +78,8 @@ export interface PhotoJob {
    * exists (photoJobDeps.publish). Absent on jobs made with the switch off.
    */
   camera?: CameraItem[];
+  /** Stories v2: put the post on the member's story once it exists (the ticked box). */
+  addToStory?: boolean;
 }
 
 /** The server said no: retrying cannot help. */
@@ -159,7 +161,7 @@ export function photoObjectPath(userId: string, jobId: string, i: number, w: num
  * Throws if a photo cannot be encoded (the composer then uses today's path).
  */
 export async function createPhotoJob(
-  input: { id: string; userId: string; files: File[]; post: PhotoPost; camera?: CameraItem[] },
+  input: { id: string; userId: string; files: File[]; post: PhotoPost; camera?: CameraItem[]; addToStory?: boolean },
   enc: PhotoEncoder = defaultPhotoEncoder,
   now: () => number = Date.now,
 ): Promise<PhotoJob> {
@@ -188,6 +190,7 @@ export async function createPhotoJob(
   const job: PhotoJob = {
     id: input.id, userId: input.userId, createdAt: now(), step: "encoded", slots, post: input.post, attempts: 0, nextAt: 0,
     ...(input.camera && input.camera.length > 0 ? { camera: input.camera } : {}),
+    ...(input.addToStory ? { addToStory: true } : {}),
   };
   await s.putJob(job);
   emit({ type: "changed", job });

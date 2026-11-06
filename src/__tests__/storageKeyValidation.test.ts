@@ -104,7 +104,7 @@ function generatedKeys(): string[] {
 
 /** Keys built by hand at call sites that do not use generateImagePath. */
 const HAND_BUILT = [
-  // Stories and highlights (FeedStoriesBar, ProfileStories) — member file names.
+  // Stories and highlights (storyData addPhotoStory, ProfileStories) — member file names.
   `avatars/${UID}/stories/${TS}-${storageSafeFileName("IMG_20241012_101010.webp", "story")}`,
   `avatars/${UID}/highlights/${TS}-${storageSafeFileName("photo-1.webp", "highlight")}`,
   // FileUploadDropZone: `${folder}/${baseName}.webp|.${ext}`.
@@ -547,10 +547,11 @@ describe("storageSafeFileName / storageSafeExtension keep client keys inside the
 
   it("the call sites that put a member's file name into a key use the helpers", () => {
     const read = (p: string) => readFileSync(join(ROOT, p), "utf8").replace(/\r\n/g, "\n");
-    for (const p of ["src/components/feed/FeedStoriesBar.tsx", "src/components/profile/ProfileStories.tsx"]) {
+    // Stories v2: the row's "+" story upload lives in the one story data layer.
+    for (const [p, v] of [["src/lib/stories/storyData.ts", "upload"], ["src/components/profile/ProfileStories.tsx", "compressed"]]) {
       const src = read(p);
-      expect(src, `${p} interpolates a raw file name into a storage key`).not.toMatch(/\$\{compressed\.name\}/);
-      expect(src).toMatch(/storageSafeFileName\(compressed\.name/);
+      expect(src, `${p} interpolates a raw file name into a storage key`).not.toMatch(new RegExp(`\\$\\{${v}\\.name\\}`));
+      expect(src).toMatch(new RegExp(`storageSafeFileName\\(${v}\\.name`));
     }
     for (const p of [
       "src/pages/HelpSupport.tsx",
