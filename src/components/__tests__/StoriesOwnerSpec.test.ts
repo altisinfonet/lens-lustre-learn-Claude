@@ -1,20 +1,26 @@
 /**
- * STORIES — THE OWNER'S FOUR RULES, PINNED (2026-08-05, with an Instagram
- * screenshot as the size reference):
+ * STORIES — THE OWNER'S RULES, PINNED.
  *
- *   1. "Stories round will be like this size now it's too small."
+ * 2026-08-05 (with an Instagram screenshot):
  *   2. "Once updated user unable to delete, delete anytime option needed."
  *   3. "When opened stories full page like instagram must be opened."
  *   4. "Stories time 5 sec to do it 10 sec to stay."
+ * 2026-11-06, Stories v2 ("go stories … exact matching of your screen"):
+ *   1. (REPLACES the 2026-08-05 round 80/96 px rings, by the Owner, in writing,
+ *      with an approved screenshot) "No Round … Make it square corner rounded
+ *      but show image category don't hide that" — 88 px square tiles with
+ *      rounded corners showing the story photo, under the category tabs.
+ *   5. One viewer for every story (feed, profile, bell).
+ *   6. Every post goes to the story unless the box is unticked (ticked by default).
  *
- * Source pins on comment-stripped code, so a future change that quietly
- * shrinks the rings, drops the delete, boxes the viewer again or reverts the
- * timer fails CI with this file explaining whose rule it broke.
+ * Source pins on comment-stripped code, so a change that quietly breaks a rule
+ * fails CI with this file explaining whose rule it broke.
  */
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { STORY_DISPLAY_MS } from "@/lib/storyTiming";
+import { STORY_RULES } from "@/lib/stories/storyData";
 import { stripComments } from "@/test-utils/sourceText";
 
 const read = (rel: string) => stripComments(readFileSync(join(__dirname, "..", "..", "..", "src", rel), "utf8"))
@@ -22,87 +28,65 @@ const read = (rel: string) => stripComments(readFileSync(join(__dirname, "..", "
 
 const feed = read("components/feed/FeedStoriesBar.tsx");
 const profile = read("components/profile/ProfileStories.tsx");
+const viewer = read("components/stories/StoryViewer.tsx");
+const data = read("lib/stories/storyData.ts");
 
 describe("rule 4 — a story stays 10 seconds", () => {
   it("the shared constant is exactly 10 000 ms (was 5 000)", () => {
     expect(STORY_DISPLAY_MS).toBe(10_000);
   });
 
-  it("both viewers run on the shared constant, so they can never disagree", () => {
-    expect(feed).toContain('from "@/lib/storyTiming"');
-    expect(profile).toContain('from "@/lib/storyTiming"');
-    // and no viewer re-hardcodes the old five seconds
-    expect(feed).not.toMatch(/STORY_MS\s*=\s*5000/);
+  it("the one viewer times photos with that constant", () => {
+    expect(STORY_RULES.photoMs).toBe(STORY_DISPLAY_MS);
+    expect(data).toContain('from "@/lib/storyTiming"');
   });
 });
 
-describe("rule 1 — rings at the screenshot's size", () => {
-  it("feed bar rings are 80px on phones, 96px from sm up", () => {
-    expect(feed).toContain("h-20 w-20 sm:h-24 sm:w-24");
-    expect(feed).not.toContain("h-16 w-16");
+describe("rule 1 (v2) — square tiles with rounded corners, showing the photo", () => {
+  it("feed tiles are 88 px squares with rounded corners — no round rings", () => {
+    expect(feed).toContain("h-[88px] w-[88px] rounded-[18px] p-[3px]");
+    expect(feed).toContain("rounded-[15px]");
+    expect(feed).not.toContain("h-20 w-20 sm:h-24 sm:w-24");
   });
 
-  /**
-   * SUPERSEDED BY THE OWNER, 2026-08-16 — on the PROFILE only.
-   *
-   * Rule 1 (2026-08-05, "Stories round will be like this size now it's too
-   * small") set 80px, and it still governs the FEED bar above, untouched.
-   *
-   * On 2026-08-16 he sent a full profile redesign spec plus a mockup, said of
-   * the story section "The existing large dashed circles look unfinished and
-   * generic", and then "mostly match my sample". The circles in that sample
-   * the ring is 96px in a 705px frame — 13.6%, about 68px at 360.
-   *
-   * THIS IS THE OWNER MOVING HIS OWN TARGET, IN WRITING, WITH A REFERENCE
-   * IMAGE. It is not the target being moved to make a change pass — the
-   * distinction that matters, and the reason this comment exists rather than
-   * a silent edit. The rings shrank 80 -> 62 AND lost the dashed border, which
-   * is what he actually objected to.
-   *
-   * The feed assertion above is deliberately NOT relaxed: he did not ask for
-   * it, so it keeps the 2026-08-05 size.
-   */
-  it("profile rings are 68px on phones, 80px from sm up — measured off the 2026-08-16 Instagram reference", () => {
+  it("a tile shows the newest story photo, with the face small in the corner", () => {
+    expect(feed).toContain("b.cover_url");
+    expect(feed).toContain("absolute -bottom-1 -right-1 h-7 w-7 rounded-full");
+  });
+
+  it("profile rings keep the 2026-08-16 size and no dashed placeholders", () => {
     expect(profile).toContain("h-[68px] w-[68px] sm:h-20 sm:w-20");
-  });
-
-  it("no dashed placeholder rings — owner: 'look unfinished and generic'", () => {
     expect(profile).not.toContain("border-dashed");
   });
 });
 
-describe("rule 3 — a story opens FULL PAGE", () => {
-  it("the profile viewer renders stories full-bleed like the feed viewer", () => {
-    // the full-page image sizing used by both viewers
-    expect(profile).toContain("max-h-[92vh] max-w-[100vw]");
-    expect(feed).toContain("max-h-[92vh] max-w-[100vw]");
+describe("rule 3 + 5 — one full-page viewer for every story", () => {
+  it("feed and profile both open the one StoryViewer", () => {
+    expect(feed).toContain('from "@/components/stories/StoryViewer"');
+    expect(profile).toContain('from "@/components/stories/StoryViewer"');
   });
 
-  it("with Instagram-style timed progress bars and tap zones", () => {
-    expect(profile).toContain("onAnimationComplete");
-    expect(profile).toContain('aria-label="Previous"');
-    expect(profile).toContain('aria-label="Next"');
+  it("the phone viewer is full screen, with progress bars and tap zones", () => {
+    expect(viewer).toContain('"fixed inset-0 z-[200] bg-black"');
+    expect(viewer).toContain("h-[3px] flex-1 overflow-hidden rounded-full bg-white/35");
+    expect(viewer).toContain('aria-label="Previous"');
+    expect(viewer).toContain('aria-label="Next"');
   });
 });
 
-describe("rule 2 — the owner can delete ANYTIME", () => {
-  it("profile viewer keeps a delete path for the story on screen", () => {
-    expect(profile).toContain("handleDeleteStory(currentViewerItem.id)");
+describe("rule 2 — the owner can delete ANYTIME, and the delete is verified", () => {
+  it("the viewer offers Delete on one's own story", () => {
+    expect(viewer).toContain("deleteOwnStory(story.id)");
   });
 
-  it("feed viewer keeps delete for one's own story", () => {
-    expect(feed).toContain("handleDeleteOwn");
-    expect(feed).toContain('supabase.from("stories" as any).delete()');
+  it("a delete returns the deleted row, and zero rows is an error", () => {
+    expect(data).toContain('.delete().eq("id", storyId).select("id")');
+    expect(data).toContain("Story could not be deleted.");
   });
+});
 
-  it("a delete is VERIFIED (rows returned) and SEEN (state refreshed) — both viewers", () => {
-    // .select("id") after .delete() makes the database return what it deleted;
-    // zero rows must surface as an error, never a false "Story removed".
-    expect(feed).toContain('.delete().eq("id", currentStory.id).select("id")');
-    expect(profile).toContain('.delete().eq("id", storyId).select("id")');
-    // and the feed bar refreshes so the ring disappears without a reload —
-    // the 2026-08-05 "unable to delete" was exactly this missing refresh
-    expect(feed).toContain("setOwnStories((prev) => prev.filter((s) => s.id !== currentStory.id))");
-    expect(feed).toMatch(/closeViewer\(\);\s*loadBar\(\);/);
+describe("rule 6 — posts go to the story by default", () => {
+  it("the box starts ticked", () => {
+    expect(STORY_RULES.addToStoryByDefault).toBe(true);
   });
 });

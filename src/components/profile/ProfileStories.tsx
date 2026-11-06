@@ -12,6 +12,9 @@ import { displayEngagement, formatEngagementCount } from "@/lib/displayEngagemen
 import { Button } from "@/components/ui/button";
 import { STORY_DISPLAY_MS } from "@/lib/storyTiming";
 import { logger, newCorrelationId } from "@/lib/logger";
+import StoryViewer from "@/components/stories/StoryViewer";
+import { fetchUserStories } from "@/lib/stories/storyData";
+import { useProfileCore } from "@/hooks/profile/useProfileData";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 
@@ -98,7 +101,11 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
 
   const loadData = async () => {
     const [storiesRes, highlightsRes] = await Promise.all([
-      supabase.from("stories" as any).select("*").eq("user_id", userId).order("created_at", { ascending: false }),
+      // Stories v2: the same visibility rule as everywhere (get_user_stories)
+      fetchUserStories(userId).then((rows) => ({ data: rows.slice().reverse().map((r) => ({
+        id: r.id, user_id: r.user_id, image_url: r.thumbs[0] ?? r.media[0] ?? "", caption: r.caption,
+        created_at: r.created_at, expires_at: r.expires_at,
+      })) }), () => ({ data: [] })),
       supabase
         .from("highlights" as any)
         .select("id, title, cover_url, sort_order, created_at, items:highlight_items(id, highlight_id, image_url, caption, sort_order)")
@@ -300,16 +307,12 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
     setViewerOpen(false);
   };
 
+  // Stories v2: a story opens in the ONE StoryViewer (feed, profile, bell).
+  const { data: owner } = useProfileCore(userId);
+  const [storyOpenId, setStoryOpenId] = useState<string | null>(null);
   const openStoryViewer = (storyList: Story[], startIdx: number) => {
-    setViewerImages(storyList.map(s => ({
-      url: s.image_url,
-      caption: s.caption,
-      id: s.id,
-      createdAt: s.created_at,
-      type: "story" as const,
-    })));
-    setViewerIdx(startIdx);
-    setViewerOpen(true);
+    const s = storyList[startIdx];
+    if (s) setStoryOpenId(s.id);
   };
 
   const openHighlightViewer = (hl: Highlight) => {
@@ -681,6 +684,17 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {storyOpenId && (
+        <StoryViewer
+          people={[{ userId, name: owner?.full_name || "Photographer", avatar: owner?.avatar_url ?? null, cover: null, isOwn: isOwner }]}
+          startIndex={0}
+          startStoryId={storyOpenId}
+          viewerId={user?.id ?? null}
+          onClose={() => { setStoryOpenId(null); void loadData(); }}
+          onChanged={() => void loadData()}
+        />
+      )}
     </>
   );
 };

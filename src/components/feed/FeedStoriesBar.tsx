@@ -1,350 +1,106 @@
 import { memberPhotoSrc } from "@/lib/photoProtection";
-import { useEffect, useState, useRef, useCallback } from "react";
-import { Plus, X, ChevronLeft, ChevronRight, Trash2, Star, Eye } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Plus } from "lucide-react";
 import { useAuth } from "@/hooks/core/useAuth";
 import { toast } from "@/hooks/core/use-toast";
-import { uploadImage } from "@/lib/imageUpload";
-import { storageSafeFileName } from "@/lib/storageSafeName";
-import { compressImage } from "@/lib/imageCompression";
-import { AnimatePresence, motion } from "framer-motion";
-import { STORY_DISPLAY_MS } from "@/lib/storyTiming";
-import { logger, newCorrelationId, timedRpc } from "@/lib/logger";
+import { useProfileCore } from "@/hooks/profile/useProfileData";
+import { timedRpc } from "@/lib/logger";
+import StoryViewer from "@/components/stories/StoryViewer";
+import OptimizedImage from "@/components/OptimizedImage";
+import {
+  addPhotoStory, fetchStoryBar, fetchUserStories, type StoryBarUser, type StoryPerson, type StoryRow,
+} from "@/lib/stories/storyData";
 
+/**
+ * STORIES v2 — the feed's story row (Owner, 6 Nov 2026: "No Round … Make it
+ * square corner rounded but show image category don't hide that").
+ *
+ * Under the category tabs (unchanged), one SQUARE tile with rounded corners
+ * per person: the newest story's PHOTO, the person's face small in the corner,
+ * a coloured border while unseen and grey once seen. "Your Story" first, with
+ * a + to add a photo story. Tapping opens the one StoryViewer.
+ *
+ * Approved screen: _control/out/OWNER/stories-sample/approved-2026-11-06/new-1-feed-phone.png
+ * — sizes and spacing are copied from it; change them only with a new yes.
+ */
 const headingFont = { fontFamily: "var(--font-heading)" };
-// Owner, 2026-08-05: "Stories time 5 sec to do it 10 sec to stay."
-const STORY_MS = STORY_DISPLAY_MS;
-
-interface BarUser {
-  user_id: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  is_official: boolean;
-  latest_story_at: string;
-  story_count: number;
-  has_unseen: boolean;
-}
-
-interface Story {
-  id: string;
-  user_id: string;
-  image_url: string;
-  caption: string | null;
-  created_at: string;
-  expires_at: string;
-}
-
-interface ViewerGroup {
-  userId: string;
-  name: string;
-  avatar: string | null;
-  isOfficial: boolean;
-  isOwn: boolean;
-}
-
-async function compressForUpload(file: File): Promise<File> {
-  try {
-    const result = await compressImage(file, { maxDimension: 1080, webpQuality: 0.85 });
-    return new File([result.webp], file.name.replace(/\.[^.]+$/, ".webp"), { type: "image/webp" });
-  } catch {
-    return file;
-  }
-}
 
 const FeedStoriesBar = () => {
   const { user } = useAuth();
-  const [bar, setBar] = useState<BarUser[]>([]);
-  const [ownStories, setOwnStories] = useState<Story[]>([]);
+  const { data: me } = useProfileCore(user?.id);
+  const [bar, setBar] = useState<StoryBarUser[]>([]);
+  const [ownStories, setOwnStories] = useState<StoryRow[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [open, setOpen] = useState<{ people: StoryPerson[]; start: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Viewer state
-  const [viewerOpen, setViewerOpen] = useState(false);
-  const [groups, setGroups] = useState<ViewerGroup[]>([]);
-  const [groupIdx, setGroupIdx] = useState(0);
-  const [groupStories, setGroupStories] = useState<Story[]>([]);
-  const [storyIdx, setStoryIdx] = useState(0);
-  const [deleting, setDeleting] = useState(false);
-  // story_id -> number of people who viewed it. Own stories only; the RPC
-  // returns counts only, never viewer identities.
-  const [viewCounts, setViewCounts] = useState<Record<string, number>>({});
-
-  const nowIso = () => new Date().toISOString();
 
   const loadBar = useCallback(async () => {
     if (!user) return;
-    const [{ data: barData }, { data: own }, { data: counts }] = await Promise.all([
-      supabase.rpc("get_feed_stories_bar" as any),
-      supabase
-        .from("stories" as any)
-        .select("id, user_id, image_url, caption, created_at, expires_at")
-        .eq("user_id", user.id)
-        .gt("expires_at", nowIso())
-        .order("created_at", { ascending: true }),
-      timedRpc("rpc.get_my_story_view_counts", "src/components/feed/FeedStoriesBar.tsx", () => supabase.rpc("get_my_story_view_counts" as any)),
+    const [b, own] = await Promise.all([
+      timedRpc("rpc.get_feed_stories_bar", "src/components/feed/FeedStoriesBar.tsx", () => fetchStoryBar()).catch(() => []),
+      fetchUserStories(user.id).catch(() => []),
     ]);
-    setBar(((barData as any[]) || []) as BarUser[]);
-    setOwnStories(((own as any[]) || []) as Story[]);
-    const map: Record<string, number> = {};
-    ((counts as any[]) || []).forEach((r: any) => { map[r.story_id] = r.view_count ?? 0; });
-    setViewCounts(map);
+    setBar(b);
+    setOwnStories(own);
   }, [user]);
 
   useEffect(() => {
-    loadBar();
+    void loadBar();
   }, [loadBar]);
 
   const handleAddStory = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files?.[0] || !user) return;
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
     setUploading(true);
     try {
-      const compressed = await compressForUpload(e.target.files[0]);
-      const path = `${user.id}/stories/${Date.now()}-${storageSafeFileName(compressed.name, "story")}`;
-      const result = await uploadImage({ bucket: "avatars", file: compressed, path, type: "gallery" });
-      await supabase.from("stories" as any).insert({ user_id: user.id, image_url: result.url } as any);
+      await addPhotoStory(user.id, file);
       await loadBar();
       toast({ title: "Story added!", description: "Visible for 24 hours" });
-    } catch (err: any) {
-      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } catch (err) {
+      toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Please try again.", variant: "destructive" });
     }
     setUploading(false);
     e.target.value = "";
   };
 
-  // Fetch a single user's active stories (oldest → newest for playback)
-  const fetchStories = async (userId: string): Promise<Story[]> => {
-    const { data } = await supabase
-      .from("stories" as any)
-      .select("id, user_id, image_url, caption, created_at, expires_at")
-      .eq("user_id", userId)
-      .gt("expires_at", nowIso())
-      .order("created_at", { ascending: true });
-    return ((data as any[]) || []) as Story[];
-  };
-
-  const markViewed = async (storyId: string, isOwn: boolean) => {
-    if (!user || isOwn) return;
-    await supabase
-      .from("story_views" as any)
-      .upsert({ story_id: storyId, viewer_id: user.id } as any, { onConflict: "story_id,viewer_id", ignoreDuplicates: true });
-  };
-
-  const openViewer = async (allGroups: ViewerGroup[], startIdx: number) => {
-    if (allGroups.length === 0) return;
-    setGroups(allGroups);
-    setGroupIdx(startIdx);
-    const stories = await fetchStories(allGroups[startIdx].userId);
-    if (stories.length === 0) return;
-    setGroupStories(stories);
-    setStoryIdx(0);
-    setViewerOpen(true);
-  };
-
-  // Load stories whenever the active group changes (after the first open)
-  useEffect(() => {
-    if (!viewerOpen) return;
-    const g = groups[groupIdx];
-    if (!g) return;
-    let cancelled = false;
-    fetchStories(g.userId).then((s) => {
-      if (cancelled) return;
-      if (s.length === 0) {
-        // no active stories for this group — skip forward
-        if (groupIdx < groups.length - 1) setGroupIdx((i) => i + 1);
-        else setViewerOpen(false);
-        return;
-      }
-      setGroupStories(s);
-      setStoryIdx(0);
-    });
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupIdx]);
-
-  const currentGroup = groups[groupIdx];
-  const currentStory = groupStories[storyIdx];
-
-  // Mark current story viewed as it displays
-  useEffect(() => {
-    if (viewerOpen && currentStory && currentGroup) {
-      markViewed(currentStory.id, currentGroup.isOwn);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewerOpen, currentStory?.id]);
-
-  const closeViewer = useCallback(() => {
-    setViewerOpen(false);
-    setGroups([]);
-    setGroupStories([]);
-    setGroupIdx(0);
-    setStoryIdx(0);
-    loadBar(); // refresh rings (seen state)
-  }, [loadBar]);
-
-  const advance = useCallback(() => {
-    if (storyIdx < groupStories.length - 1) {
-      setStoryIdx((i) => i + 1);
-    } else if (groupIdx < groups.length - 1) {
-      setGroupIdx((i) => i + 1);
-    } else {
-      closeViewer();
-    }
-  }, [storyIdx, groupStories.length, groupIdx, groups.length, closeViewer]);
-
-  const goBack = useCallback(() => {
-    if (storyIdx > 0) {
-      setStoryIdx((i) => i - 1);
-    } else if (groupIdx > 0) {
-      setGroupIdx((i) => i - 1);
-    }
-  }, [storyIdx, groupIdx]);
-
-  const handleDeleteOwn = async () => {
-    const correlationId = newCorrelationId();
-    const startedAt = Date.now();
-    const storyId = currentStory?.id ?? null;
-
-    if (!user) {
-      logger.warn({
-        code: "AUTH-1001",
-        event: "STORY_DELETE_WITHOUT_SESSION",
-        fn: "handleDeleteOwn",
-        file: "src/components/feed/FeedStoriesBar.tsx",
-        message: "Deleting the member's own story from the feed viewer.",
-        reason: "The delete button was reachable with no signed-in member.",
-        expected: "A signed-in member",
-        actual: "user is null",
-        recordId: storyId,
-        correlationId,
-      });
-      return;
-    }
-    if (deleting || !currentStory) {
-      // Not a failure: the guard against a double-tap while a delete is in
-      // flight. Traced, not warned, so it never becomes noise.
-      logger.trace({
-        code: "STORY-6003",
-        event: "STORY_DELETE_IGNORED_DUPLICATE",
-        fn: "handleDeleteOwn",
-        file: "src/components/feed/FeedStoriesBar.tsx",
-        message: "Ignoring a repeat delete tap.",
-        reason: deleting ? "A delete is already in flight." : "No story is on screen.",
-        expected: "One delete per story",
-        actual: deleting ? "second tap while deleting" : "currentStory is undefined",
-        correlationId,
-      });
-      return;
-    }
-
-    setDeleting(true);
-    try {
-      // .select("id") makes the database return the rows it actually deleted,
-      // so a delete that matched nothing (blocked, already gone) is reported
-      // as the failure it is instead of a false "Story removed".
-      const { data, error } = await supabase.from("stories" as any).delete().eq("id", currentStory.id).select("id");
-
-      if (error) {
-        logger.error({
-          code: "STORY-6002",
-          event: "STORY_DELETE_DB_ERROR",
-          fn: "handleDeleteOwn",
-          file: "src/components/feed/FeedStoriesBar.tsx",
-          message: "Deleting the member's own story from the feed viewer.",
-          reason: `The database refused the delete: ${error.message}`,
-          expected: "One row deleted",
-          actual: `error ${(error as any).code ?? "unknown"}`,
-          recordId: currentStory.id,
-          durationMs: Date.now() - startedAt,
-          correlationId,
-          detail: { pgCode: (error as any).code, hint: (error as any).hint },
-        });
-        throw error;
-      }
-
-      if (!data || (data as any[]).length === 0) {
-        // THE FAILURE MODE THIS WHOLE CODE PATH EXISTS FOR. A delete that
-        // matches nothing is almost always RLS, not a missing row — and
-        // before 2026-08-06 it was invisible, which is why the owner reported
-        // "unable to delete" for a delete that was in fact succeeding.
-        logger.error({
-          code: "STORY-6001",
-          event: "STORY_DELETE_MATCHED_NO_ROWS",
-          fn: "handleDeleteOwn",
-          file: "src/components/feed/FeedStoriesBar.tsx",
-          message: "Deleting the member's own story from the feed viewer.",
-          reason: "The delete succeeded but changed zero rows.",
-          expected: "Exactly one story row deleted",
-          actual: "0 rows",
-          nextStep:
-            "Check pg_policies for 'stories' (a DELETE policy must match user_id = auth.uid()) and confirm the story still existed.",
-          recordId: currentStory.id,
-          durationMs: Date.now() - startedAt,
-          correlationId,
-        });
-        throw new Error("Story could not be deleted.");
-      }
-
-      // Owner, 2026-08-05: "delete anytime option needed" — and the delete
-      // must be SEEN. Before this fix the row was deleted but the ring and
-      // story stayed on screen until a full reload, which read as "unable to
-      // delete". Drop it from local state and refresh the bar.
-      setOwnStories((prev) => prev.filter((s) => s.id !== currentStory.id));
-      toast({ title: "Story removed" });
-      closeViewer();
-      loadBar();
-
-      logger.info({
-        code: "STORY-6003",
-        event: "STORY_DELETED",
-        fn: "handleDeleteOwn",
-        file: "src/components/feed/FeedStoriesBar.tsx",
-        message: "Deleting the member's own story from the feed viewer.",
-        reason: "The database confirmed one deleted row and the bar was refreshed.",
-        expected: "Exactly one story row deleted",
-        actual: `${(data as any[]).length} row(s)`,
-        recordId: currentStory.id,
-        durationMs: Date.now() - startedAt,
-        correlationId,
-      });
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    }
-    setDeleting(false);
-  };
-
-  // Build the ordered list of "other" groups from the bar (for continuous playback)
-  const barGroups: ViewerGroup[] = bar.map((b) => ({
+  const people: StoryPerson[] = bar.map((b) => ({
     userId: b.user_id,
     name: b.is_official ? "50mm Retina World" : (b.full_name || "Photographer"),
     avatar: b.avatar_url,
-    isOfficial: b.is_official,
+    cover: b.cover_url,
     isOwn: false,
   }));
 
+  const ownCover = ownStories.length > 0
+    ? (ownStories[ownStories.length - 1].thumbs[0] ?? ownStories[ownStories.length - 1].media[0] ?? null)
+    : null;
+
   const openOwn = () => {
+    if (!user) return;
     if (ownStories.length === 0) { fileInputRef.current?.click(); return; }
-    openViewer([{ userId: user!.id, name: "Your Story", avatar: null, isOfficial: false, isOwn: true }], 0);
+    setOpen({ people: [{ userId: user.id, name: "Your story", avatar: me?.avatar_url ?? null, cover: ownCover, isOwn: true }], start: 0 });
   };
 
+  const closeViewer = useCallback(() => {
+    setOpen(null);
+    void loadBar(); // seen state, deletes
+  }, [loadBar]);
+
   const hasAnything = ownStories.length > 0 || bar.length > 0;
-  // Always render (the "Your Story" add bubble is a persistent entry point)
+  // Always render (the "Your Story" add tile is a persistent entry point)
   if (!user) return null;
 
   return (
     <>
       <div className="mb-4 md:mb-6">
         <div className="flex items-center gap-3.5 overflow-x-auto pb-2 scrollbar-hide px-1">
-          {/* Your Story.
-              Ring size: owner, 2026-08-05, with an Instagram screenshot —
-              "Stories round will be like this size now it's too small."
-              80px on phones, 96px from sm up (was 64/72). */}
           <button onClick={openOwn} className="flex-shrink-0 flex flex-col items-center gap-1.5 group">
-            <div className={`relative h-20 w-20 sm:h-24 sm:w-24 rounded-full p-[3px] ${ownStories.length > 0 ? "bg-gradient-to-tr from-primary via-primary/60 to-accent" : "bg-transparent"}`}>
-              <div className={`w-full h-full rounded-full overflow-hidden border-2 border-background bg-muted flex items-center justify-center ${ownStories.length > 0 ? "" : "border-dashed border-primary/40 group-hover:border-primary"}`}>
+            <div className={`relative h-[88px] w-[88px] rounded-[18px] p-[3px] ${ownStories.length > 0 ? "bg-gradient-to-tr from-primary via-primary/60 to-accent" : "bg-transparent"}`}>
+              <div className={`w-full h-full rounded-[15px] overflow-hidden border-2 border-background bg-muted flex items-center justify-center ${ownStories.length > 0 ? "" : "border-dashed border-primary/40 group-hover:border-primary"}`}>
                 {uploading ? (
                   <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                ) : ownStories.length > 0 ? (
-                  <img loading="lazy" decoding="async" src={memberPhotoSrc(ownStories[0].image_url, 320) ?? undefined} alt="Your story" className="w-full h-full object-cover" />
+                ) : ownCover ? (
+                  <OptimizedImage src={memberPhotoSrc(ownCover, 320) ?? ownCover} alt="Your story" className="w-full h-full object-cover" />
                 ) : (
                   <Plus className="h-5 w-5 text-primary/70 group-hover:text-primary" />
                 )}
@@ -352,9 +108,9 @@ const FeedStoriesBar = () => {
               {ownStories.length > 0 && (
                 <span
                   onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                  className="absolute -bottom-0.5 -right-0.5 h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center border-2 border-background cursor-pointer"
+                  className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center border-2 border-background cursor-pointer"
                 >
-                  <Plus className="h-3 w-3" />
+                  <Plus className="h-3.5 w-3.5" />
                 </span>
               )}
             </div>
@@ -362,26 +118,19 @@ const FeedStoriesBar = () => {
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAddStory} />
           </button>
 
-          {/* Official + followed users with active stories */}
           {bar.map((b, i) => (
             <button
               key={b.user_id}
-              onClick={() => openViewer(barGroups, i)}
+              onClick={() => setOpen({ people, start: i })}
               className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
             >
-              <div className={`relative h-20 w-20 sm:h-24 sm:w-24 rounded-full p-[3px] ${b.has_unseen ? "bg-gradient-to-tr from-primary via-accent to-amber-500" : "bg-muted-foreground/25"}`}>
-                <div className="w-full h-full rounded-full overflow-hidden border-2 border-background bg-muted">
-                  {b.avatar_url ? (
-                    <img loading="lazy" decoding="async" src={b.avatar_url} alt={b.full_name || "Story"} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full bg-muted" />
+              <div className={`relative h-[88px] w-[88px] rounded-[18px] p-[3px] ${b.has_unseen ? "bg-gradient-to-tr from-primary via-accent to-amber-500" : "bg-muted-foreground/25"}`}>
+                <div className="w-full h-full rounded-[15px] overflow-hidden border-2 border-background bg-muted">
+                  {(b.cover_url || b.avatar_url) && (
+                    <OptimizedImage src={memberPhotoSrc(b.cover_url, 320) ?? b.avatar_url ?? ""} alt={b.full_name || "Story"} className="w-full h-full object-cover" />
                   )}
                 </div>
-                {b.is_official && (
-                  <span className="absolute -bottom-0.5 -right-0.5 h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center border-2 border-background">
-                    <Star className="h-2.5 w-2.5" fill="currentColor" />
-                  </span>
-                )}
+                {b.avatar_url && <OptimizedImage src={b.avatar_url} alt="" className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full border-2 border-background object-cover" />}
               </div>
               <span className="text-[10px] tracking-[0.05em] text-muted-foreground truncate max-w-[80px]" style={headingFont}>
                 {b.is_official ? "50mm Retina" : (b.full_name || "Photographer")}
@@ -396,103 +145,9 @@ const FeedStoriesBar = () => {
         )}
       </div>
 
-      {/* ── Full-screen story viewer ── */}
-      <AnimatePresence>
-        {viewerOpen && currentStory && currentGroup && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] bg-black/95 flex items-center justify-center"
-          >
-            {/* Progress bars */}
-            <div className="absolute top-3 left-3 right-3 z-20 flex gap-1">
-              {groupStories.map((s, i) => (
-                <div key={s.id} className="flex-1 h-0.5 bg-white/30 rounded-full overflow-hidden">
-                  {i < storyIdx ? (
-                    <div className="h-full w-full bg-white" />
-                  ) : i === storyIdx ? (
-                    <motion.div
-                      key={`${currentGroup.userId}-${s.id}`}
-                      className="h-full bg-white"
-                      initial={{ width: "0%" }}
-                      animate={{ width: "100%" }}
-                      transition={{ duration: STORY_MS / 1000, ease: "linear" }}
-                      onAnimationComplete={advance}
-                    />
-                  ) : null}
-                </div>
-              ))}
-            </div>
-
-            {/* Header */}
-            <div className="absolute top-6 left-3 right-3 z-20 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full overflow-hidden border border-white/40 bg-muted">
-                  {currentGroup.avatar ? (
-                    <img src={currentGroup.avatar} alt={currentGroup.name} className="w-full h-full object-cover" />
-                  ) : <div className="w-full h-full bg-muted" />}
-                </div>
-                <span className="text-white text-xs font-medium flex items-center gap-1" style={headingFont}>
-                  {currentGroup.name}
-                  {currentGroup.isOfficial && <Star className="h-3 w-3 text-primary" fill="currentColor" />}
-                </span>
-                <span className="text-white/50 text-[10px]">
-                  {new Date(currentStory.created_at).toLocaleDateString("en", { hour: "numeric", minute: "2-digit" }).split(",").slice(-1)[0]}
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                {currentGroup.isOwn && (
-                  <span
-                    className="flex items-center gap-1 text-white/80 text-[11px] tabular-nums"
-                    style={headingFont}
-                    title="People who viewed this story"
-                  >
-                    <Eye className="h-4 w-4" />
-                    {viewCounts[currentStory.id] ?? 0}
-                  </span>
-                )}
-                {currentGroup.isOwn && (
-                  <button onClick={handleDeleteOwn} disabled={deleting} className="text-white/80 hover:text-red-400">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
-                <button onClick={closeViewer} className="text-white/80 hover:text-white">
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Image */}
-            <img
-              key={currentStory.id}
-              src={memberPhotoSrc(currentStory.image_url, 1080) ?? undefined}
-              alt="Story"
-              className="max-h-[92vh] max-w-[100vw] sm:max-w-[440px] object-contain select-none"
-              draggable={false}
-            />
-
-            {/* Caption */}
-            {currentStory.caption && (
-              <div className="absolute bottom-8 left-4 right-4 z-20 text-center">
-                <p className="text-white text-sm inline-block bg-black/40 rounded-lg px-3 py-1.5" style={headingFont}>
-                  {currentStory.caption}
-                </p>
-              </div>
-            )}
-
-            {/* Tap zones: left = back, right = forward */}
-            <button aria-label="Previous" onClick={goBack} className="absolute left-0 top-0 bottom-0 w-1/3 z-10" />
-            <button aria-label="Next" onClick={advance} className="absolute right-0 top-0 bottom-0 w-1/3 z-10" />
-
-            {/* Desktop arrows */}
-            <button onClick={goBack} className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 z-20 h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white">
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button onClick={advance} className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 z-20 h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white">
-              <ChevronRight className="h-5 w-5" />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {open && (
+        <StoryViewer people={open.people} startIndex={open.start} viewerId={user.id} onClose={closeViewer} onChanged={() => void loadBar()} />
+      )}
     </>
   );
 };
