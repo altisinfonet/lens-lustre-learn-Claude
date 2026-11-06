@@ -1,0 +1,149 @@
+name: Photo blur — make the blur code of every photo (lane-guarded)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Photo blur (Owner, 6 Nov 2026: "like FB does" → "go blur", old AND new
+# photos) — runs tools/media-derivatives/blur.mjs, which makes the ~30-character
+# blur code (ThumbHash, 20261110_0115) for every photo a post shows that has
+# none yet, from its smallest stored copy, and stores it. Changes no photo and
+# no post; a code is only ever added.
+#
+# TRIGGERS: dispatch (any lane, dry-run or run) and every 10 minutes on
+# production (from main), so a NEW photo gets its code soon after it is posted.
+# A run first asks (as anon, yes/no) whether any photo lacks a code; when none
+# does it stops there — no install, no sign-in, no new session.
+#
+# WHO IT RUNS AS: the converter account (MEDIA_WORKER_EMAIL / _PASSWORD,
+# environment secrets — as photo-hold.yml). Token masked, 0600, removed.
+#
+# FENCES: target=production must run from main, staging from staging
+# (github.ref); the Supabase URL / anon key come from the target, never
+# typed; refuses to start without both secrets. No ${{ inside any run: block.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "staging = fpszggreishhuvdpkmdr, production = jtdtehuqtinjxropkkcn"
+        required: true
+        type: choice
+        options: [staging, production]
+      mode:
+        description: "dry-run (count only) or run"
+        required: true
+        type: choice
+        options: [dry-run, run]
+        default: dry-run
+      max:
+        description: "at most this many photos (0 = all to do)"
+        required: true
+        type: string
+        default: "0"
+  schedule:
+    - cron: "*/10 * * * *"
+
+concurrency:
+  group: photo-blur-${{ inputs.target || 'production' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  blur:
+    name: ${{ inputs.mode || 'run' }} photo blur codes on ${{ inputs.target || 'production' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ inputs.target || 'production' }}
+    env:
+      TARGET_LANE: ${{ inputs.target || 'production' }}
+      BRANCH_REF: ${{ github.ref }}
+      MODE: ${{ inputs.mode || 'run' }}
+      MAX: ${{ inputs.max || '0' }}
+      BLUR_SCHEDULED: ${{ github.event_name == 'schedule' && '1' || '0' }}
+    steps:
+      - name: The branch must match the target, and the lane is fixed by it
+        run: |
+          set -euo pipefail
+          case "$TARGET_LANE" in
+            production) WANT=refs/heads/main;    SB=https://jtdtehuqtinjxropkkcn.supabase.co
+                        ANON=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0ZHRlaHVxdGluanhyb3Bra2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzI3MjEsImV4cCI6MjA5OTE0ODcyMX0.qY8BI5LXb6uLzTwbpf8AleZ6UZyfeaOA0q4_TC5CEpo ;;
+            staging)    WANT=refs/heads/staging; SB=https://fpszggreishhuvdpkmdr.supabase.co
+                        ANON=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwc3pnZ3JlaXNoaHV2ZHBrbWRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxMDcyNDUsImV4cCI6MjEwNDY4MzI0NX0.h3t2eZ8hwXDev6JydjsDnA8CpXFlKve4CaUlXp_mwiQ ;;
+            *) echo "::error::Unknown target '$TARGET_LANE'."; exit 1 ;;
+          esac
+          if [ "$BRANCH_REF" != "$WANT" ]; then
+            echo "::error::target='$TARGET_LANE' must be dispatched from '$WANT', not '$BRANCH_REF'. Refusing."
+            exit 1
+          fi
+          case "$MODE" in dry-run|run) ;; *) echo "::error::mode must be dry-run or run"; exit 1 ;; esac
+          case "$MAX" in ''|*[!0-9]*) echo "::error::max must be a whole number"; exit 1 ;; esac
+          { echo "SB_URL=$SB"; echo "SB_ANON=$ANON"; } >> "$GITHUB_ENV"
+          echo "Lane OK: $TARGET_LANE from $BRANCH_REF, $MODE, max $MAX."
+
+      # The gate: a yes/no read as anon (photo_blur_pending). Nothing to do → no
+      # install, no sign-in, no session — most scheduled runs end here.
+      - name: Anything to do?
+        run: |
+          set -euo pipefail
+          CODE=$(curl -sS -o "$RUNNER_TEMP/pending.txt" -w '%{http_code}' -X POST "$SB_URL/rest/v1/rpc/photo_blur_pending" \
+                   -H "apikey: $SB_ANON" -H "authorization: Bearer $SB_ANON" -H 'content-type: application/json' -d '{}')
+          ANSWER=$(tr -d '[:space:]' < "$RUNNER_TEMP/pending.txt")
+          if [ "$CODE" = "200" ] && [ "$ANSWER" = "true" ]; then echo "Photos without a blur code: yes."; exit 0; fi
+          if [ "$CODE" = "200" ] && [ "$ANSWER" = "false" ]; then echo "Every photo has its blur code — nothing to do."; echo "SKIP=1" >> "$GITHUB_ENV"; exit 0; fi
+          if [ "$CODE" = "404" ] && grep -q PGRST202 "$RUNNER_TEMP/pending.txt" && [ "$BLUR_SCHEDULED" = "1" ]; then
+            echo "0115 is not applied on this lane yet — nothing to do."; echo "SKIP=1" >> "$GITHUB_ENV"; exit 0
+          fi
+          echo "::error::photo_blur_pending answered HTTP $CODE"; exit 1
+
+      - name: Refuse to start without the worker account
+        if: env.SKIP != '1'
+        env:
+          WORKER_EMAIL: ${{ secrets.MEDIA_WORKER_EMAIL }}
+          WORKER_PASSWORD: ${{ secrets.MEDIA_WORKER_PASSWORD }}
+        run: |
+          if [ -z "$WORKER_EMAIL" ] || [ -z "$WORKER_PASSWORD" ]; then
+            echo "::error::MEDIA_WORKER_EMAIL / MEDIA_WORKER_PASSWORD are not set on the '$TARGET_LANE' environment."
+            exit 1
+          fi
+          echo "Worker account secrets present. Their values are never printed."
+
+      - uses: actions/checkout@v4
+        if: env.SKIP != '1'
+
+      - uses: actions/setup-node@v4
+        if: env.SKIP != '1'
+        with:
+          node-version: 22
+          cache: npm
+
+      # Before any secret is in a step's env: npm install scripts never see them.
+      - name: Install (npm ci, as photo-credit-sweep.yml)
+        if: env.SKIP != '1'
+        run: npm ci --no-audit --no-fund
+
+      - name: Sign in as the worker account (token masked, 0600 file)
+        if: env.SKIP != '1'
+        env:
+          WORKER_EMAIL: ${{ secrets.MEDIA_WORKER_EMAIL }}
+          WORKER_PASSWORD: ${{ secrets.MEDIA_WORKER_PASSWORD }}
+          # Only for production's CAPTCHA-protected password grant (worker-session.mjs header).
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          umask 077
+          node tools/media-derivatives/worker-session.mjs --out "$RUNNER_TEMP/worker.jwt"
+          [ -s "$RUNNER_TEMP/worker.jwt" ] || { echo "::error::the sign-in tool wrote no token"; exit 1; }
+          echo "MEDIA_WORKER_JWT_FILE=$RUNNER_TEMP/worker.jwt" >> "$GITHUB_ENV"
+
+      - name: Make the blur codes
+        if: env.SKIP != '1'
+        run: |
+          set -euo pipefail
+          ARGS=(--max "$MAX")
+          [ "$MODE" = "dry-run" ] && ARGS+=(--dry-run)
+          node tools/media-derivatives/blur.mjs "${ARGS[@]}"
+
+      - name: Forget the token
+        if: always()
+        run: rm -f "$RUNNER_TEMP/worker.jwt" "$RUNNER_TEMP/auth.json"
