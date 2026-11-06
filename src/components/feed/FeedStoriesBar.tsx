@@ -105,7 +105,7 @@ const FeedStoriesBar = () => {
   }));
 
   const ownCover = ownStories.length > 0
-    ? (ownStories[ownStories.length - 1].thumbs[0] ?? ownStories[ownStories.length - 1].media[0] ?? null)
+    ? (ownStories[0].thumbs[0] ?? ownStories[0].media[0] ?? null)
     : null;
 
   const openOwn = () => {
