@@ -117,7 +117,10 @@ describe("write and restore", () => {
     expect(restored).toEqual([JSON.stringify(["notifications", "me"])]);
     expect(qc.getQueryData(["profile-core", "me"])).toEqual({ name: "live" });
     expect(qc.getQueryState(["notifications", "me"])?.dataUpdatedAt).toBe(then);
-    expect(qc.getQueryCache().find({ queryKey: ["notifications", "me"] })?.isStaleByTime(5 * 60 * 1000)).toBe(false);
+    // 6 Nov 2026 (app 1.2.39, a wall stuck 3 days back): a restored copy is
+    // NEVER taken as current, however recently it was saved — this line used
+    // to expect "fresh for 5 minutes", which is exactly what kept the old wall.
+    expect(qc.getQueryCache().find({ queryKey: ["notifications", "me"] })?.isStaleByTime(5 * 60 * 1000)).toBe(true);
     expect(qc.getQueryCache().find({ queryKey: ["notifications", "me"] })?.isStaleByTime(0)).toBe(true);
   });
 });
