@@ -98,14 +98,24 @@ async function flush(): Promise<void> {
       const { data, error } = await rpc("post_photo_blurs", { p_post_ids: chunk });
       if (error) throw new Error(error.message || "post_photo_blurs refused");
       for (const r of Array.isArray(data) ? (data as Record<string, unknown>[]) : []) {
-        if (!r || !isPhotoUrl(r.url) || typeof r.hash !== "string") continue;
+        if (!r || typeof r.hash !== "string") continue;
         const pic = await blurPicture(r.hash);
-        if (pic) found.set(r.url, pic);
+        if (!pic) continue;
+        /**
+         * BY PLACE (20261110_0116): the card's address for a photo can differ from the
+         * stored one (media graph vs image_urls — measured on staging 6 Nov), so the
+         * code goes to the photo at the same place in the card's list; the address is
+         * the fallback for an answer without `ord` (the 0115 shape).
+         */
+        const list = typeof r.post_id === "string" ? urlsOf.get(r.post_id) : undefined;
+        const atPlace = list && typeof r.ord === "number" ? list[r.ord] : undefined;
+        if (isPhotoUrl(atPlace)) found.set(atPlace, pic);
+        else if (isPhotoUrl(r.url)) found.set(r.url, pic);
       }
     } catch {
       // No answer = the old 600-copy fill, as before. Not asked again in this page load.
     }
-    for (const id of chunk) for (const u of urlsOf.get(id) ?? []) if (!answers.has(u)) answers.set(u, found.get(u) ?? null);
+    for (const id of chunk) for (const u of urlsOf.get(id) ?? []) if (isPhotoUrl(u) && !answers.has(u)) answers.set(u, found.get(u) ?? null);
     emit();
   }
 }
@@ -115,7 +125,7 @@ export function requestPhotoBlurs(postId: string, urls: readonly string[]): void
   const photos = urls.filter(isPhotoUrl);
   if (!postId || !photos.length || asked.has(postId)) return;
   asked.add(postId);
-  urlsOf.set(postId, photos);
+  urlsOf.set(postId, [...urls]); // the card's full list: places line up with image_urls
   for (const u of photos) requested.add(u);
   pending.add(postId);
   if (!scheduled) {

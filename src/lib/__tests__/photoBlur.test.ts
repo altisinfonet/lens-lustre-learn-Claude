@@ -57,6 +57,17 @@ describe("photo blur code", () => {
     expect(photoBlurFor(B)).toBeNull(); // no code yet → old fill
   });
 
+  it("matches by PLACE when the card's address differs from the stored one (0116, staging 6 Nov)", async () => {
+    const stored = "https://cdn.50mmretina.com/post-images/u/posts/1-w1122h1402-l3-w864h1080-l5.webp";
+    const shown = "https://cdn.50mmretina.com/post-images/u/posts/1-w1122h1402-l3.webp";
+    const second = "https://cdn.50mmretina.com/post-images/u/posts/2.jpg";
+    rpc.mockResolvedValue({ data: [{ post_id: "p1", ord: 0, url: stored, hash: sampleHash() }], error: null });
+    requestPhotoBlurs("p1", [shown, second]);
+    await tick(); await tick();
+    expect(photoBlurFor(shown)).toMatch(/^data:image\/png/);
+    expect(photoBlurFor(second)).toBeNull(); // place 1 has no code
+  });
+
   it("a refused call means no code — never an error on screen", async () => {
     rpc.mockResolvedValue({ data: null, error: { message: "function not found" } });
     requestPhotoBlurs("p1", [A]);
