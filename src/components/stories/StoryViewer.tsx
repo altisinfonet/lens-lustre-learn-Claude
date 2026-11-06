@@ -15,7 +15,7 @@
  * story as a 9:16 card in the middle, previous / next person at the sides.
  * Comments float over the bottom like Facebook Live.
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent, type TouchEvent as RTouchEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent, type TouchEvent as RTouchEvent } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
@@ -448,7 +448,7 @@ export default function StoryViewer({ people, startIndex, viewerId, onClose, onC
     }
   };
 
-  const frame = useMemo(() => person ? (
+  const frame = person ? (
     <StoryFrame
       person={person} slide={slide} count={Math.max(1, slides.length)} at={si} part={part} desktop={desktop}
       paused={paused} comments={comments} liked={liked}
@@ -456,8 +456,7 @@ export default function StoryViewer({ people, startIndex, viewerId, onClose, onC
       onLike={() => void onLike()} onSend={(t) => void onSend(t)} onHighlight={() => setPicker(true)} onDelete={() => void onDelete()}
       onInputFocus={setTyping} onPrev={prev} onNext={next} onHold={setHolding}
     />
-  ) : null, // eslint-disable-next-line react-hooks/exhaustive-deps
-  [person, slide, slides.length, si, part, desktop, paused, comments, liked, prev, next]);
+  ) : null;
 
   if (!person) return null;
 
