@@ -21,6 +21,7 @@ import { ladderFor } from "@/lib/media/resolvedMedia";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import { feedPhotoFit, frameAspectFor, frameAspectForUrls, parseImageDims } from "@/lib/imageFrame";
 import { FEED_COPY_WAIT_MS, feedCopyFor, useFeedCopiesVersion } from "@/lib/photoFeedCopies";
+import { photoBlurFor, usePhotoBlurVersion } from "@/lib/photoBlur";
 import { hasLadderMarker, isSaveTargetCreditedUrl, photoSetBlurUrl, photoSetCleanUrl, photoSetMarker, rungPath, rungPlan, rungWidthFor } from "@/lib/imageLadder";
 import { useNetworkQuality } from "@/hooks/core/useNetworkQuality";
 import { useDataSaver } from "@/hooks/core/useDataSaver";
@@ -532,8 +533,18 @@ const ProgressiveImage = ({
    * "why two side not filled up?"). A photo that fills its frame ("cover") needs
    * none. The same 600 file as the preview — one download, not two.
    */
+  /**
+   * THE BLUR CODE (Owner, 6 Nov 2026: "like FB does", 20261110_0115): the
+   * photo's stored ThumbHash, already a dimmed 32 px picture in memory — no
+   * download, no CSS blur, painted with the card. Drawn for EVERY photo (the
+   * placeholder while a "cover" photo loads, the fill beside a "contain" one).
+   * Only a photo with no code (null) keeps the old 600-copy fill below; while
+   * the answer is out (undefined) the preview arrives as before.
+   */
+  usePhotoBlurVersion();
+  const blurCode = photoBlurFor(src);
   const blurByUrl = transformable && !setPhoto;
-  const lqip = backdropFailed || fit === "cover"
+  const lqip = backdropFailed || fit === "cover" || blurCode !== null
     ? null
     : blurByUrl
       ? buildLqipUrl(src)
@@ -583,6 +594,16 @@ const ProgressiveImage = ({
 
   return (
     <>
+      {/* THE BLUR CODE: in memory, no request. Never reports a size — a code's
+          shape is approximate, and the frame takes the first size it hears. */}
+      {blurCode && (
+        <div
+          aria-hidden="true"
+          data-photo-blur=""
+          className={`absolute inset-0 w-full h-full scale-110 bg-cover bg-center ${className ?? ""}`}
+          style={{ backgroundImage: `url("${blurCode}")` }}
+        />
+      )}
       {/* Rendered ONLY when a cheap source exists — see the note on `lqip`.
           `fetchPriority="low"` because this is decoration competing with the
           real photo for the same connection. */}
