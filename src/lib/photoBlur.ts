@@ -18,7 +18,9 @@
  */
 import { useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { rgbaToDataURL, thumbHashToRGBA } from "@/lib/media/thumbhash.mjs";
+// The decoder loads on first use (its own small chunk): the answer is a network round trip anyway,
+// and the entry bundle has a byte ceiling (P13).
+const decoder = () => import("@/lib/media/thumbhash.mjs");
 
 export const PHOTO_BLUR_BATCH_MAX = 50;
 /** Baked into the pixels (no CSS filter): the photo's own edge stays readable beside the fill (was brightness-[0.8]). */
@@ -41,12 +43,13 @@ const emit = () => { version++; for (const l of [...listeners]) l(); };
 const isPhotoUrl = (u: unknown): u is string => typeof u === "string" && /^https:\/\//.test(u);
 
 /** A stored code → the dimmed 32 px PNG data URL (cached per code). Null when the code is unreadable. */
-export function blurPicture(hash: string): string | null {
+export async function blurPicture(hash: string): Promise<string | null> {
   if (pictures.has(hash)) return pictures.get(hash)!;
   let out: string | null = null;
   try {
     if (HASH_RE.test(hash)) {
       const bytes = Uint8Array.from(atob(hash), (c) => c.charCodeAt(0));
+      const { rgbaToDataURL, thumbHashToRGBA } = await decoder();
       const { w, h, rgba } = thumbHashToRGBA(bytes);
       for (let i = 0; i < rgba.length; i += 4) {
         rgba[i] = Math.round(rgba[i] * PHOTO_BLUR_DIM);
@@ -84,6 +87,7 @@ let pending = new Set<string>();
 let scheduled = false;
 
 async function flush(): Promise<void> {
+  void decoder().catch(() => {}); // fetched alongside the answer, not after it
   const ids = [...pending];
   pending = new Set();
   scheduled = false;
@@ -95,7 +99,7 @@ async function flush(): Promise<void> {
       if (error) throw new Error(error.message || "post_photo_blurs refused");
       for (const r of Array.isArray(data) ? (data as Record<string, unknown>[]) : []) {
         if (!r || !isPhotoUrl(r.url) || typeof r.hash !== "string") continue;
-        const pic = blurPicture(r.hash);
+        const pic = await blurPicture(r.hash);
         if (pic) found.set(r.url, pic);
       }
     } catch {

@@ -32,15 +32,15 @@ describe("photo blur code", () => {
     expect(rgba[r + 2]).toBeGreaterThan(rgba[r]); // right edge blue
   });
 
-  it("turns a code into a picture in memory — no request", () => {
-    const pic = blurPicture(sampleHash());
+  it("turns a code into a picture in memory — no request", async () => {
+    const pic = await blurPicture(sampleHash());
     expect(pic).toMatch(/^data:image\/png;base64,/);
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("refuses a malformed code (the card keeps its old fill)", () => {
-    expect(blurPicture("not a code!")).toBeNull();
-    expect(blurPicture("AAAA")).toBeNull();
+  it("refuses a malformed code (the card keeps its old fill)", async () => {
+    expect(await blurPicture("not a code!")).toBeNull();
+    expect(await blurPicture("AAAA")).toBeNull();
   });
 
   it("asks once per post, batched, and answers per photo", async () => {
