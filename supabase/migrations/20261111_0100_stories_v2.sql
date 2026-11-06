@@ -112,10 +112,13 @@ ALTER TABLE public.stories ALTER COLUMN image_url DROP NOT NULL;
 ALTER TABLE public.stories
   ADD CONSTRAINT stories_has_media CHECK (post_id IS NOT NULL OR image_url IS NOT NULL);
 -- one story per post; also the FK lookup for ON DELETE CASCADE
+-- P28: stories (~10 live rows at launch) · one story per post + FK post_id lookup for ON DELETE CASCADE; reviewed by D1 2026-11-06.
 CREATE UNIQUE INDEX stories_post_id_key ON public.stories (post_id) WHERE post_id IS NOT NULL;
 -- the bar and one member's stories read live rows by owner
+-- P28: stories · get_user_stories / the bar read one member's live rows by (user_id, expires_at); reviewed by D1 2026-11-06.
 CREATE INDEX IF NOT EXISTS stories_user_expires_idx ON public.stories (user_id, expires_at DESC);
 -- the nightly clean-up reads by expiry
+-- P28: stories · the nightly story_cleanup and the bar scan by expires_at; reviewed by D1 2026-11-06.
 CREATE INDEX IF NOT EXISTS stories_expires_idx ON public.stories (expires_at);
 
 -- ── 2. who may see a story ─────────────────────────────────────────────────
@@ -153,6 +156,7 @@ CREATE TABLE public.story_likes (
   PRIMARY KEY (story_id, user_id)
 );
 -- FK user_id → auth.users (ON DELETE CASCADE lookup)
+-- P28: story_likes (0 rows at launch) · FK user_id → auth.users ON DELETE CASCADE lookup; reviewed by D1 2026-11-06.
 CREATE INDEX story_likes_user_idx ON public.story_likes (user_id);
 ALTER TABLE public.story_likes ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.story_likes FROM PUBLIC, anon, authenticated;
@@ -181,8 +185,10 @@ CREATE TABLE public.story_comments (
   CONSTRAINT story_comments_user_idempotency_key UNIQUE (user_id, idempotency_key)
 );
 -- the list on a story, oldest → newest
+-- P28: story_comments (0 rows at launch) · the list on one story, oldest to newest; reviewed by D1 2026-11-06.
 CREATE INDEX story_comments_story_idx ON public.story_comments (story_id, created_at);
 -- FK user_id → auth.users; also the per-hour count
+-- P28: story_comments · FK user_id lookup and the 100-per-hour count; reviewed by D1 2026-11-06.
 CREATE INDEX story_comments_user_idx ON public.story_comments (user_id, created_at);
 ALTER TABLE public.story_comments ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.story_comments FROM PUBLIC, anon, authenticated;
@@ -257,6 +263,7 @@ VALUES
 ALTER TABLE public.highlight_items
   ADD COLUMN story_id uuid REFERENCES public.stories(id) ON DELETE SET NULL;
 -- FK story_id → stories; also the clean-up's "is it in a highlight?"
+-- P28: highlight_items · partial, FK story_id ON DELETE SET NULL + clean-up "in a highlight?"; reviewed by D1 2026-11-06.
 CREATE INDEX highlight_items_story_idx ON public.highlight_items (story_id) WHERE story_id IS NOT NULL;
 
 CREATE FUNCTION public.highlight_items_own_story()
@@ -317,6 +324,10 @@ AS $fn$
            ELSE _type || '|' || _id::text          -- never grouped: unique key
          END;
 $fn$;
+
+-- Access unchanged: PUBLIC already holds EXECUTE on both (never granted explicitly); stated here for M2.
+GRANT EXECUTE ON FUNCTION public.notif_action_phrase(text) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.notif_group_key(text, timestamp with time zone, uuid) TO anon, authenticated, service_role;
 
 -- ── 7. the feed's story row: + the newest visible story's photo ────────────
 DROP FUNCTION public.get_feed_stories_bar();

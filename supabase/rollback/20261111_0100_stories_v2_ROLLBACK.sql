@@ -76,6 +76,10 @@ AS $function$
          END;
 $function$;
 
+-- Access unchanged: PUBLIC already holds EXECUTE on both (never granted explicitly); stated here for M2.
+GRANT EXECUTE ON FUNCTION public.notif_action_phrase(text) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.notif_group_key(text, timestamp with time zone, uuid) TO anon, authenticated, service_role;
+
 -- stories: back to the old shape
 DROP POLICY IF EXISTS "View live stories the viewer may see" ON public.stories;
 CREATE POLICY "Anyone can view non-expired stories" ON public.stories FOR SELECT USING (expires_at > now());
