@@ -737,7 +737,7 @@ export default function ImageCropModal({
             the top of the file about zoom and the crop maths. */}
         <div
           ref={cropAreaRef}
-          className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-black/20 p-2 sm:max-h-[60vh] sm:min-h-[320px] sm:p-4"
+          className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-black/20 p-2 sm:max-h-[60vh] sm:min-h-[min(320px,40vh)] sm:p-4"
           onWheel={onWheel}
           onTouchStartCapture={onTouchStart}
           onTouchMoveCapture={onTouchMove}
@@ -818,16 +818,16 @@ export default function ImageCropModal({
             wrapped to three lines and squeezed the two buttons that matter.
             Safe-area padding so the confirm button clears a gesture bar. */}
         <div
-          className="shrink-0 border-t border-border bg-card/50 px-3 pt-2"
+          className="shrink-0 border-t border-border bg-card/50 px-3 pt-2 sm:flex sm:items-center sm:justify-between sm:gap-3"
           style={{ paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom, 0px))" }}
         >
-          <span className="mb-1.5 block text-[12px] text-muted-foreground sm:mb-0 sm:inline">
+          <span className="mb-1.5 block text-[12px] text-muted-foreground sm:mb-0">
             {completedCrop
               ? `${Math.round(completedCrop.width)} × ${Math.round(completedCrop.height)}px selected`
               : "Drag to select, or insert as-is"}
             {targetWidth && targetHeight ? ` → ${targetWidth}×${targetHeight}px` : ""}
           </span>
-          <div className="flex items-center gap-2 sm:float-right">
+          <div className="flex items-center gap-2">
             {canSkip && (
               <button
                 type="button"
