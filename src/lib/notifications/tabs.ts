@@ -17,6 +17,7 @@ const TAB_OF: Record<string, Exclude<NotificationTab, "all">> = {
   comment_reply: "comments",
   tagged_post_comment: "comments",
   ad_comment_reply: "comments",
+  story_comment: "comments",
   post_tag: "comments",
 
   new_follower: "follows",
