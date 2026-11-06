@@ -4,7 +4,7 @@
  * both under the job's idempotency key. Kept apart from photoJobs.ts so the
  * job logic is tested with fakes (the same split as video/jobDeps.ts).
  */
-import { shareNewPostToStory } from "@/lib/stories/storyData";
+import { shareNewPostToStory } from "@/lib/stories/storyRules";
 import { onlineManager } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { presignObjects } from "@/lib/s3Upload";

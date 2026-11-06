@@ -61,6 +61,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import ProfileLink from "@/components/ProfileLink";
+import OptimizedImage from "@/components/OptimizedImage";
 import { Link } from "react-router-dom";
 import { MoreHorizontal, Trash2, Flag, Ban, Pin, Pencil, ChevronDown, Heart, SmilePlus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -1069,5 +1070,39 @@ const CommentThread = ({
     </div>
   );
 };
+
+/** One comment as the floating list needs it (story_comments_list rows fit). */
+export interface FloatComment {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  content: string;
+}
+
+/**
+ * The floating comment list (Stories v2, Owner-approved 6 Nov 2026: comments
+ * float over a story like Facebook Live). Read-only: no replies, actions or
+ * composer — the full thread of a post story stays under the post. Drawn here
+ * so every comment row still has one home (C3).
+ */
+export function CommentFloatList({ comments }: { comments: FloatComment[] }) {
+  if (comments.length === 0) return null;
+  return (
+    <div className="flex max-h-[148px] flex-col justify-end space-y-2 overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,black_30%)]">
+      {comments.map((c) => (
+        <div key={c.id} className="flex items-start gap-2">
+          {c.avatar_url ? (
+            <OptimizedImage loading="eager" src={c.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" />
+          ) : (
+            <div className="h-7 w-7 rounded-full bg-white/25" />
+          )}
+          <p className="max-w-[80%] rounded-2xl bg-black/45 px-3 py-1.5 text-[13px] leading-snug backdrop-blur-sm">
+            <span className="font-semibold">{c.full_name || "Member"}</span> {c.content}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default CommentThread;

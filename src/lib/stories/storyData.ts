@@ -3,8 +3,11 @@
  *
  * Every surface (feed row, profile, highlights, notifications, the post
  * screens' "Also add to my story" box) reads and writes stories through this
- * file, and every story is shown by the one viewer (StoryViewer.tsx). A new
- * story feature plugs in here and there — never in a page.
+ * file and its two small halves — storyRules.ts (the numbers + the post
+ * screens' share, in the first download) and storyViewerData.ts (loaded with
+ * the viewer) — split only to keep the first download small (P13). Every
+ * story is shown by the one viewer (StoryViewer.tsx). A new story feature
+ * plugs in here and there — never in a page.
  *
  * Database: supabase/migrations/20261111_0100_stories_v2.sql
  *   get_feed_stories_bar · get_user_stories · story_add_post ·
@@ -20,27 +23,10 @@ import { compressImage } from "@/lib/imageCompression";
 import { uploadImage } from "@/lib/imageUpload";
 import { storageSafeFileName } from "@/lib/storageSafeName";
 import type { FeedVideo } from "@/lib/video/postVideoRead";
-import { STORY_DISPLAY_MS } from "@/lib/storyTiming";
-import { submit } from "@/lib/offline/outbox";
-import { safeRandomUUID } from "@/lib/safeUuid";
 
-/** All story numbers in one place. */
-export const STORY_RULES = {
-  /** a story lives this long (the database sets expires_at) */
-  hours: 24,
-  /** a photo slide stays this long (Owner 2026-08-05: 10 s) */
-  photoMs: STORY_DISPLAY_MS,
-  /** a video slide plays at most this long, then "Watch full video" */
-  videoMaxMs: 60_000,
-  /** a post with more photos shows only the first ten */
-  maxSlides: 10,
-  /** the post screens' box starts ticked (Owner 6 Nov: untick = no story) */
-  addToStoryByDefault: true,
-  /** newest comments shown on a story */
-  commentsShown: 50,
-  /** longest comment */
-  commentMax: 1000,
-} as const;
+// The post screens need only these two, so they live in the small storyRules.ts
+// (first download); everything else here loads with the feed row / profile.
+export { STORY_RULES, shareNewPostToStory } from "./storyRules";
 
 /** One person's tile in the feed row. */
 export interface StoryBarUser {
@@ -120,7 +106,6 @@ export async function fetchUserStories(userId: string): Promise<StoryRow[]> {
   }));
 }
 
-
 /** The ticked box: put the caller's own new post on their story. Idempotent. */
 export async function addPostToStory(postId: string): Promise<string | null> {
   const { data, error } = await rpc("story_add_post", { _post_id: postId });
@@ -128,22 +113,20 @@ export async function addPostToStory(postId: string): Promise<string | null> {
   return (data as string | null) ?? null;
 }
 
-/**
- * Called by every publish path once the post exists (photo job, direct photo
- * post, draft, video). Never throws and never holds the post: a story that
- * could not be added is logged, the post itself has succeeded.
- */
-export function shareNewPostToStory(postId: string | null | undefined, wanted: boolean | undefined): void {
-  if (!postId || !wanted) return;
-  void addPostToStory(postId).catch((err: unknown) => {
-    void import("@/lib/logger").then(({ logger }) => logger.warn({
-      code: "STORY-6005", event: "STORY_ADD_POST_FAILED", fn: "shareNewPostToStory", file: "src/lib/stories/storyData.ts",
+/** shareNewPostToStory's work: add the post to the story; a failure is logged, never thrown. */
+export async function addPostToStoryOrLog(postId: string): Promise<void> {
+  try {
+    await addPostToStory(postId);
+  } catch (err: unknown) {
+    const { logger } = await import("@/lib/logger");
+    logger.warn({
+      code: "STORY-6005", event: "STORY_ADD_POST_FAILED", fn: "addPostToStoryOrLog", file: "src/lib/stories/storyData.ts",
       message: "A new post with 'Also add to my story' ticked did not reach the story.",
       reason: err instanceof Error ? err.message : String(err),
       expected: "story_add_post returns the story id", actual: "error",
       nextStep: "The post is fine. Check story_add_post on this lane (ST-0100-00x codes).",
-    }));
-  });
+    });
+  }
 }
 
 /** A plain story from the row's "+" (photo only). */

@@ -41,7 +41,7 @@ import OptimizedImage from "@/components/OptimizedImage";
 import CategoryChips, { canPublishCategories } from "@/components/post/CategoryChips";
 import { PostAudienceChooser, type Privacy } from "@/components/post/PostAudienceChooser";
 import AddToStoryBox from "@/components/stories/AddToStoryBox";
-import { STORY_RULES } from "@/lib/stories/storyData";
+import { STORY_RULES } from "@/lib/stories/storyRules";
 import { videoFrameAspect } from "@/lib/video/videoFrame";
 import { readVideoFacts, videoLimitProblems, memoryProblem, serverLimitProblems, formatDuration, type VideoFacts } from "@/lib/video/limits";
 import { coverFromImage, coverFromVideoAt } from "@/lib/video/cover";

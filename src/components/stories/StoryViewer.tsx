@@ -32,7 +32,10 @@ import { fetchUserStories, type StoryComment, type StoryPerson, type StorySlide 
 import {
   addStoryComment, deleteOwnStory, fetchStoryComments, markStorySeen, setStoryLike, slidesOf,
 } from "@/lib/stories/storyViewerData";
+import { fetchProfileMap } from "@/lib/profileMapCache";
+import { memberPath } from "@/lib/urlHelpers";
 import StoryHighlightPicker from "./StoryHighlightPicker";
+import { CommentFloatList } from "@/components/comments/CommentThread";
 
 const FILE = "src/components/stories/StoryViewer.tsx";
 const hf = { fontFamily: "var(--font-heading)" };
@@ -51,27 +54,6 @@ export function StoryBars({ n, at, part }: { n: number; at: number; part: number
       {Array.from({ length: n }, (_, i) => (
         <div key={i} className="h-[3px] flex-1 overflow-hidden rounded-full bg-white/35">
           <div className="h-full bg-white" style={{ width: i < at ? "100%" : i === at ? `${part}%` : "0%" }} />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** Comments floating over the bottom of a story, newest last (FB Live). */
-export function StoryCommentsFloat({ comments }: { comments: StoryComment[] }) {
-  if (comments.length === 0) return null;
-  return (
-    <div className="flex max-h-[148px] flex-col justify-end space-y-2 overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,black_30%)]">
-      {comments.map((c) => (
-        <div key={c.id} className="flex items-start gap-2">
-          {c.avatar_url ? (
-            <OptimizedImage loading="eager" src={c.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" />
-          ) : (
-            <div className="h-7 w-7 rounded-full bg-white/25" />
-          )}
-          <p className="max-w-[80%] rounded-2xl bg-black/45 px-3 py-1.5 text-[13px] leading-snug backdrop-blur-sm">
-            <span className="font-semibold">{c.full_name || "Member"}</span> {c.content}
-          </p>
         </div>
       ))}
     </div>
@@ -175,7 +157,7 @@ export function StoryFrame(p: FrameProps) {
       </div>
 
       <div className="absolute inset-x-4 bottom-4 space-y-3 text-white">
-        <StoryCommentsFloat comments={p.comments} />
+        <CommentFloatList comments={p.comments} />
         {!own && story?.caption && <p className="text-[15px] font-medium drop-shadow">{story.caption}</p>}
         {!own && story?.post_id && (
           <button type="button" onClick={p.onViewPost}
@@ -431,7 +413,14 @@ export default function StoryViewer({ people, startIndex, viewerId, onClose, onC
   };
   const onMenu = () => {
     if (person?.isOwn) void onDelete();
-    else if (person) { onClose(); navigate(`/profile/${person.userId}`); }
+    else if (person) {
+      // F-95: a profile opens by its handle, never the id; no handle = stay here.
+      const id = person.userId;
+      void fetchProfileMap([id]).then((m) => {
+        const to = memberPath(m.get(id)?.custom_url);
+        if (to) { onClose(); navigate(to); }
+      });
+    }
   };
 
   const onTouchStart = (e: RTouchEvent) => { const t = e.touches[0]; touch.current = { x: t.clientX, y: t.clientY }; };

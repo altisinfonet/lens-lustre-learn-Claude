@@ -8,6 +8,7 @@ import { toast } from "@/hooks/core/use-toast";
 import { useProfileCore } from "@/hooks/profile/useProfileData";
 import { timedRpc } from "@/lib/logger";
 import OptimizedImage from "@/components/OptimizedImage";
+import { fetchProfileMap } from "@/lib/profileMapCache";
 import {
   addPhotoStory, fetchStoryBar, fetchUserStories, type StoryBarUser, type StoryPerson, type StoryRow,
 } from "@/lib/stories/storyData";
@@ -72,8 +73,8 @@ const FeedStoriesBar = () => {
       let avatar: string | null = null;
       if (isOwn) { name = "Your story"; avatar = me?.avatar_url ?? null; }
       else {
-        const { data: prof } = await supabase.from("profiles_public_data" as never).select("full_name, avatar_url").eq("id", owner).maybeSingle();
-        const pr = prof as { full_name: string | null; avatar_url: string | null } | null;
+        // the shared profile cache (name + face + handle, usually already loaded)
+        const pr = (await fetchProfileMap([owner])).get(owner);
         name = pr?.full_name || name;
         avatar = pr?.avatar_url ?? null;
       }

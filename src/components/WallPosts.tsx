@@ -47,8 +47,7 @@ import { useT } from "@/i18n/I18nContext";
 import PostCard from "@/components/post/PostCard";
 import ImageCropModal from "@/components/admin/ImageCropModal";
 import PostComposerPreview, { reorder } from "@/components/post/PostComposerPreview";
-import AddToStoryBox from "@/components/stories/AddToStoryBox";
-import { STORY_RULES, shareNewPostToStory } from "@/lib/stories/storyData";
+import { STORY_RULES, shareNewPostToStory } from "@/lib/stories/storyRules";
 import PostCardSkeleton from "@/components/post/PostCardSkeleton";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import { useUserPostsQuery, flattenUserPosts } from "@/hooks/feed/useUserPostsQuery";
@@ -94,6 +93,11 @@ interface WallPostsProps {
 // VID-1: a video picked from the photo picker opens the video uploader. Lazy, so
 // members without video never download it (P13).
 const VideoPostComposer = lazy(() => import("@/components/video/VideoPostComposer"));
+// Stories v2: the "Also add to my story" box shows only once a photo is picked.
+// Its own small chunk (P13), fetched right after the screen opens so it is
+// there before any photo is.
+const loadAddToStoryBox = () => import("@/components/stories/AddToStoryBox");
+const AddToStoryBox = lazy(loadAddToStoryBox);
 
 const Avatar = ({ src, name, size = "md" }: { src: string | null; name: string | null; size?: "sm" | "md" | "lg" }) => {
   const sizeClasses = { sm: "w-8 h-8 text-xs", md: "w-10 h-10 text-sm", lg: "w-10 h-10 text-sm" };
@@ -108,6 +112,7 @@ const Avatar = ({ src, name, size = "md" }: { src: string | null; name: string |
 };
 
 const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) => {
+  useEffect(() => { void loadAddToStoryBox().catch(() => {}); }, []);
   const { user } = useAuth();
   const { data: currentProfile } = useProfileCore(user?.id);
   const { isBanned } = useIsBanned();
@@ -2168,7 +2173,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                     )}
 
                     {(imagePreviews.length > 0 || resumedUrls.length > 0) && !scheduleAt && (
-                      <AddToStoryBox checked={addToStory} onChange={setAddToStory} className="mt-3" />
+                      <Suspense fallback={null}><AddToStoryBox checked={addToStory} onChange={setAddToStory} className="mt-3" /></Suspense>
                     )}
 
                     {/* A resumed draft's images are already in storage — shown as
@@ -2280,7 +2285,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                           </div>
                         )}
                         {(imagePreviews.length > 0 || resumedUrls.length > 0) && !scheduleAt && (
-                          <AddToStoryBox checked={addToStory} onChange={setAddToStory} className="mb-3" />
+                          <Suspense fallback={null}><AddToStoryBox checked={addToStory} onChange={setAddToStory} className="mb-3" /></Suspense>
                         )}
                         {/* A resumed draft has no local File objects to preview,
                             so it keeps the thumbnail it always had. */}

@@ -29,7 +29,7 @@ const read = (rel: string) => stripComments(readFileSync(join(__dirname, "..", "
 const feed = read("components/feed/FeedStoriesBar.tsx");
 const profile = read("components/profile/ProfileStories.tsx");
 const viewer = read("components/stories/StoryViewer.tsx");
-const data = read("lib/stories/storyData.ts");
+const rules = read("lib/stories/storyRules.ts");
 const viewerData = read("lib/stories/storyViewerData.ts");
 
 describe("rule 4 — a story stays 10 seconds", () => {
@@ -39,7 +39,7 @@ describe("rule 4 — a story stays 10 seconds", () => {
 
   it("the one viewer times photos with that constant", () => {
     expect(STORY_RULES.photoMs).toBe(STORY_DISPLAY_MS);
-    expect(data).toContain('from "@/lib/storyTiming"');
+    expect(rules).toContain('from "@/lib/storyTiming"');
   });
 });
 

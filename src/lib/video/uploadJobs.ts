@@ -44,7 +44,7 @@
  * substitutes content. From `ready` on it is the device path's own publish.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-import { shareNewPostToStory } from "@/lib/stories/storyData";
+import { shareNewPostToStory } from "@/lib/stories/storyRules";
 import { recordTiming } from "@/lib/telemetry";
 import { backoffMs } from "@/lib/offline/outbox";
 import { isNetworkError } from "@/lib/offline/retryPolicy";
