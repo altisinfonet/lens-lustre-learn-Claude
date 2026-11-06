@@ -96,7 +96,15 @@ export function startQueryPersistence(
       // SUCCESS; storing that wiped the member's own name, and the app then
       // said "Photographer" offline (Owner 2026-10-29, app 1.2.29).
       if (data === undefined || data === null || currentUser !== user) return;
-      void putRecord(user, key as unknown[], trimForStorage(data));
+      /**
+       * The record keeps the time the SERVER last answered, never "now"
+       * (Owner 6 Nov 2026, app 1.2.39: a profile wall stuck 3 days back). A
+       * restore (hydrateFromDevice) and a live edit are `setQueryData` — a
+       * "success" too — and used to re-save the old copy as new at every app
+       * open, so it never looked old enough to fetch again.
+       */
+      const at = qc.getQueryState(key)?.dataUpdatedAt;
+      void putRecord(user, key as unknown[], trimForStorage(data), at && at > 0 ? at : Date.now());
     }, WRITE_DEBOUNCE_MS);
   });
 }
@@ -113,6 +121,14 @@ export async function hydrateFromDevice(qc: QueryClient, userId: string): Promis
     const now = qc.getQueryData(r.key);
     if (now !== undefined && now !== null) continue;
     qc.setQueryData(r.key, r.data, { updatedAt: r.updatedAt });
+    /**
+     * A restored copy is shown at once but is NEVER taken as current: it is
+     * marked stale, so the first screen that shows it asks the server (and one
+     * already open asks now). Without this a copy saved under 5 minutes ago
+     * (staleTime) was trusted as is — the wall stuck 3 days back (6 Nov 2026).
+     * Offline, React Query pauses that read and the copy stays on screen.
+     */
+    void qc.invalidateQueries({ queryKey: r.key, exact: true, refetchType: "active" }, { cancelRefetch: false });
     restored.push(JSON.stringify(r.key));
   }
   return restored;

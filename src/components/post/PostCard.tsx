@@ -44,6 +44,7 @@ import { setPostPhotoCameraHidden } from "@/lib/photoCameraRead";
 import { photoSetMarker } from "@/lib/imageLadder";
 import { useOldPhotoCreditRead } from "@/lib/photoOldCredit";
 import { useFeedCopiesRead } from "@/lib/photoFeedCopies";
+import { usePhotoBlursRead } from "@/lib/photoBlur";
 
 const displayFont = { fontFamily: "var(--font-display)" };
 const headingFont = { fontFamily: "var(--font-heading)" };
@@ -221,6 +222,8 @@ const PostCard = ({
   useOldPhotoCreditRead(post.id, imageUrls, true);
   // Photo speed (20261110_0112): an old photo's stored phone-size copies — web AND app.
   useFeedCopiesRead(post.id, imageUrls);
+  // Photo blur (20261110_0115): every photo's blur code, drawn at once — web AND app.
+  usePhotoBlursRead(post.id, imageUrls);
   const [cameraSlide, setCameraSlide] = useState(0);
   const cameraState = photoSetOn ? cameraStateFor(cameraRows, cameraSlide, imageUrls[cameraSlide]) : null;
   const cameraPending = cameraReading && !!imageUrls[cameraSlide] && !!photoSetMarker(imageUrls[cameraSlide]);
