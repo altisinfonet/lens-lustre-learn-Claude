@@ -9,6 +9,8 @@ name: Photo blur — make the blur code of every photo (lane-guarded)
 #
 # TRIGGERS: dispatch (any lane, dry-run or run) and every 10 minutes on
 # production (from main), so a NEW photo gets its code soon after it is posted.
+# A run first asks (as anon, yes/no) whether any photo lacks a code; when none
+# does it stops there — no install, no sign-in, no new session.
 #
 # WHO IT RUNS AS: the converter account (MEDIA_WORKER_EMAIL / _PASSWORD,
 # environment secrets — as photo-hold.yml). Token masked, 0600, removed.
@@ -79,7 +81,23 @@ jobs:
           { echo "SB_URL=$SB"; echo "SB_ANON=$ANON"; } >> "$GITHUB_ENV"
           echo "Lane OK: $TARGET_LANE from $BRANCH_REF, $MODE, max $MAX."
 
+      # The gate: a yes/no read as anon (photo_blur_pending). Nothing to do → no
+      # install, no sign-in, no session — most scheduled runs end here.
+      - name: Anything to do?
+        run: |
+          set -euo pipefail
+          CODE=$(curl -sS -o "$RUNNER_TEMP/pending.txt" -w '%{http_code}' -X POST "$SB_URL/rest/v1/rpc/photo_blur_pending" \
+                   -H "apikey: $SB_ANON" -H "authorization: Bearer $SB_ANON" -H 'content-type: application/json' -d '{}')
+          ANSWER=$(tr -d '[:space:]' < "$RUNNER_TEMP/pending.txt")
+          if [ "$CODE" = "200" ] && [ "$ANSWER" = "true" ]; then echo "Photos without a blur code: yes."; exit 0; fi
+          if [ "$CODE" = "200" ] && [ "$ANSWER" = "false" ]; then echo "Every photo has its blur code — nothing to do."; echo "SKIP=1" >> "$GITHUB_ENV"; exit 0; fi
+          if [ "$CODE" = "404" ] && grep -q PGRST202 "$RUNNER_TEMP/pending.txt" && [ "$BLUR_SCHEDULED" = "1" ]; then
+            echo "0115 is not applied on this lane yet — nothing to do."; echo "SKIP=1" >> "$GITHUB_ENV"; exit 0
+          fi
+          echo "::error::photo_blur_pending answered HTTP $CODE"; exit 1
+
       - name: Refuse to start without the worker account
+        if: env.SKIP != '1'
         env:
           WORKER_EMAIL: ${{ secrets.MEDIA_WORKER_EMAIL }}
           WORKER_PASSWORD: ${{ secrets.MEDIA_WORKER_PASSWORD }}
@@ -91,17 +109,21 @@ jobs:
           echo "Worker account secrets present. Their values are never printed."
 
       - uses: actions/checkout@v4
+        if: env.SKIP != '1'
 
       - uses: actions/setup-node@v4
+        if: env.SKIP != '1'
         with:
           node-version: 22
           cache: npm
 
       # Before any secret is in a step's env: npm install scripts never see them.
       - name: Install (npm ci, as photo-credit-sweep.yml)
+        if: env.SKIP != '1'
         run: npm ci --no-audit --no-fund
 
       - name: Sign in as the worker account (token masked, 0600 file)
+        if: env.SKIP != '1'
         env:
           WORKER_EMAIL: ${{ secrets.MEDIA_WORKER_EMAIL }}
           WORKER_PASSWORD: ${{ secrets.MEDIA_WORKER_PASSWORD }}
@@ -115,6 +137,7 @@ jobs:
           echo "MEDIA_WORKER_JWT_FILE=$RUNNER_TEMP/worker.jwt" >> "$GITHUB_ENV"
 
       - name: Make the blur codes
+        if: env.SKIP != '1'
         run: |
           set -euo pipefail
           ARGS=(--max "$MAX")

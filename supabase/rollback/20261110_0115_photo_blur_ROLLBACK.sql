@@ -17,6 +17,8 @@ SET LOCAL lock_timeout = '5s';
 DROP FUNCTION IF EXISTS public.post_photo_blurs(uuid[]);
 DROP FUNCTION IF EXISTS public.photo_blur_todo(integer);
 DROP FUNCTION IF EXISTS public.photo_blur_record(jsonb);
+DROP FUNCTION IF EXISTS public.photo_blur_pending();
+DROP FUNCTION IF EXISTS public.photo_blur_wanted();
 DROP TABLE IF EXISTS public.photo_blur;
 
 DO $post$

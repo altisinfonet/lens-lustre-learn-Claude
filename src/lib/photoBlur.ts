@@ -72,13 +72,12 @@ export function photoBlurFor(url: string | null | undefined): string | null | un
   return requested.has(url) ? undefined : null;
 }
 
-/** Re-render when answers arrive (the number itself means nothing). */
+const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
+const snapshot = () => version;
+
+/** Re-render when answers arrive (the number itself means nothing). Stable subscribe: no churn per render. */
 export function usePhotoBlurVersion(): number {
-  return useSyncExternalStore(
-    (l) => { listeners.add(l); return () => { listeners.delete(l); }; },
-    () => version,
-    () => version,
-  );
+  return useSyncExternalStore(subscribe, snapshot, snapshot);
 }
 
 let pending = new Set<string>();

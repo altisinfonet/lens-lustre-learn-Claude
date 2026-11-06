@@ -29,20 +29,24 @@ BEGIN
 
   -- P2
   IF to_regprocedure('public.post_photo_blurs(uuid[])') IS NULL OR to_regprocedure('public.photo_blur_todo(integer)') IS NULL
-     OR to_regprocedure('public.photo_blur_record(jsonb)') IS NULL THEN
+     OR to_regprocedure('public.photo_blur_record(jsonb)') IS NULL OR to_regprocedure('public.photo_blur_pending()') IS NULL
+     OR to_regprocedure('public.photo_blur_wanted()') IS NULL THEN
     RAISE EXCEPTION 'PROBE FAIL P2: a 0115 function is missing';
   END IF;
   SELECT count(*) INTO _n FROM pg_proc p
    WHERE p.oid IN (to_regprocedure('public.post_photo_blurs(uuid[])'), to_regprocedure('public.photo_blur_todo(integer)'),
-                   to_regprocedure('public.photo_blur_record(jsonb)'))
+                   to_regprocedure('public.photo_blur_record(jsonb)'), to_regprocedure('public.photo_blur_pending()'))
      AND p.prosecdef;
-  IF _n <> 3 THEN RAISE EXCEPTION 'PROBE FAIL P2: % of 3 functions are SECURITY DEFINER', _n; END IF;
-  IF NOT has_function_privilege('anon', 'public.post_photo_blurs(uuid[])', 'EXECUTE') THEN
-    RAISE EXCEPTION 'PROBE FAIL P2: anon cannot run the card read post_photo_blurs';
+  IF _n <> 4 THEN RAISE EXCEPTION 'PROBE FAIL P2: % of 4 functions are SECURITY DEFINER', _n; END IF;
+  IF NOT has_function_privilege('anon', 'public.post_photo_blurs(uuid[])', 'EXECUTE')
+     OR NOT has_function_privilege('anon', 'public.photo_blur_pending()', 'EXECUTE') THEN
+    RAISE EXCEPTION 'PROBE FAIL P2: anon cannot run the card read or the schedule gate';
   END IF;
   IF has_function_privilege('anon', 'public.photo_blur_todo(integer)', 'EXECUTE')
-     OR has_function_privilege('anon', 'public.photo_blur_record(jsonb)', 'EXECUTE') THEN
-    RAISE EXCEPTION 'PROBE FAIL P2: anon may run the job list or record';
+     OR has_function_privilege('anon', 'public.photo_blur_record(jsonb)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.photo_blur_wanted()', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.photo_blur_wanted()', 'EXECUTE') THEN
+    RAISE EXCEPTION 'PROBE FAIL P2: anon may run the job list / record, or the internal list is granted';
   END IF;
 
   -- P3

@@ -600,7 +600,7 @@ const ProgressiveImage = ({
         <div
           aria-hidden="true"
           data-photo-blur=""
-          className={`absolute inset-0 w-full h-full scale-110 bg-cover bg-center ${className ?? ""}`}
+          className={`absolute inset-0 w-full h-full bg-cover bg-center ${className ?? ""}`}
           style={{ backgroundImage: `url("${blurCode}")` }}
         />
       )}

@@ -1,6 +1,6 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Photo blur · 20261110_0115 — a tiny BLUR CODE per photo, shown at once.
--- Lanes: staging and production. Expand only: one new table, three functions.
+-- Lanes: staging and production. Expand only: one new table, five functions.
 -- ═══════════════════════════════════════════════════════════════════════════
 --
 -- WHY (Owner, 6 Nov 2026: "blur is not showing in many photos, sometimes the
@@ -19,6 +19,8 @@
 --     · only posts the caller can view (can_view_post — the gate of 0109 / 0112),
 --       only URLs the post shows now (image_urls, or the legacy image_url);
 --     · at most 50 ids per call (PHOTO-BL-001).
+--   public.photo_blur_pending() → boolean — anon: a yes/no only, the schedule's gate
+--     (a run with nothing to do never signs in). photo_blur_wanted() is internal.
 --   public.photo_blur_todo(integer) → (url, thumb) — admin / converter only
 --     (PHOTO-BL-002): photos posts show that have no code yet, newest post
 --     first, skipping a URL that failed 3 times; `thumb` = the smallest stored
@@ -107,7 +109,45 @@ COMMENT ON FUNCTION public.post_photo_blurs(uuid[]) IS
   'Photo blur 0115: the ThumbHash of each photo a post shows now, for posts the caller can view (can_view_post). '
   'At most 50 ids (PHOTO-BL-001).';
 
--- ── 3. the job's two calls (admin or converter) ────────────────────────────
+-- ── 3. what is still to do (internal: no grant; read by the definer functions below)
+-- Every photo a post shows that has no code and has not failed 3 times, with
+-- the post's aligned thumbnail and how often it has failed so far.
+CREATE FUNCTION public.photo_blur_wanted()
+RETURNS TABLE(src text, t text, created_at timestamptz, tries smallint)
+LANGUAGE sql STABLE SET search_path TO '' AS $fn$
+  WITH shown AS (
+    SELECT p.created_at, s.src,
+           CASE WHEN cardinality(coalesce(p.thumbnail_urls, '{}'::text[])) = cardinality(coalesce(p.image_urls, '{}'::text[]))
+                THEN p.thumbnail_urls[s.o] END AS t
+      FROM public.posts p
+     CROSS JOIN LATERAL unnest(coalesce(p.image_urls, '{}'::text[])) WITH ORDINALITY AS s(src, o)
+    UNION ALL
+    SELECT p.created_at, p.image_url, NULL FROM public.posts p WHERE p.image_url IS NOT NULL
+  )
+  SELECT DISTINCT ON (sh.src) sh.src, sh.t, sh.created_at, coalesce(b.tries, 0::smallint)
+    FROM shown sh
+    LEFT JOIN public.photo_blur b ON b.url = sh.src
+   WHERE sh.src ~ '^https://' AND length(sh.src) <= 2048
+     AND sh.src !~* '\.(mp4|m3u8|mov|webm|m4v)(\?|#|$)'
+     AND (b.url IS NULL OR (b.hash IS NULL AND b.tries < 3))
+   ORDER BY sh.src, sh.t NULLS LAST, sh.created_at DESC;
+$fn$;
+REVOKE ALL ON FUNCTION public.photo_blur_wanted() FROM PUBLIC, anon, authenticated;
+
+-- ── 4. the schedule's gate (anon: a yes/no only, so a run with nothing to do never signs in)
+CREATE FUNCTION public.photo_blur_pending()
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO '' AS $fn$
+  SELECT EXISTS (SELECT 1 FROM public.photo_blur_wanted());
+$fn$;
+REVOKE ALL ON FUNCTION public.photo_blur_pending() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.photo_blur_pending() TO anon, authenticated;
+COMMENT ON FUNCTION public.photo_blur_pending() IS
+  'Photo blur 0115: true when some photo a post shows has no blur code yet. A yes/no only — the scheduled job''s gate, so it signs in only when there is work.';
+
+-- ── 5. the job's two calls (admin or converter) ────────────────────────────
+-- Never-tried photos first (newest post first), photos that failed before last,
+-- so a page of failures never hides the rest of the list.
 CREATE FUNCTION public.photo_blur_todo(_limit integer DEFAULT 100)
 RETURNS TABLE(url text, thumb text)
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO '' AS $fn$
@@ -117,29 +157,17 @@ BEGIN
     RAISE EXCEPTION 'PHOTO-BL-002 only an admin or the converter may read the blur list' USING ERRCODE = '42501';
   END IF;
   RETURN QUERY
-  WITH shown AS (
-    SELECT p.created_at, s.src,
-           CASE WHEN cardinality(coalesce(p.thumbnail_urls, '{}'::text[])) = cardinality(coalesce(p.image_urls, '{}'::text[]))
-                THEN p.thumbnail_urls[s.o] END AS t
-      FROM public.posts p
-     CROSS JOIN LATERAL unnest(coalesce(p.image_urls, '{}'::text[])) WITH ORDINALITY AS s(src, o)
-    UNION ALL
-    SELECT p.created_at, p.image_url, NULL FROM public.posts p WHERE p.image_url IS NOT NULL
-  ), todo AS (
-    SELECT DISTINCT ON (sh.src) sh.src, sh.t, sh.created_at
-      FROM shown sh
-     WHERE sh.src ~ '^https://' AND length(sh.src) <= 2048
-       AND sh.src !~* '\.(mp4|m3u8|mov|webm|m4v)(\?|#|$)'
-       AND NOT EXISTS (SELECT 1 FROM public.photo_blur b WHERE b.url = sh.src AND (b.hash IS NOT NULL OR b.tries >= 3))
-     ORDER BY sh.src, sh.t NULLS LAST, sh.created_at DESC
+  WITH page AS (
+    SELECT w.src, w.t, w.created_at, w.tries FROM public.photo_blur_wanted() w
+     ORDER BY (w.tries > 0), w.created_at DESC, w.src
+     LIMIT least(greatest(coalesce(_limit, 100), 1), 200)
   )
-  SELECT td.src,
+  SELECT pg.src,
          coalesce((SELECT bf.new_thumb FROM public.photo_set_backfill bf
-                    WHERE bf.old_url = td.src AND bf.new_thumb ~ '^https://' LIMIT 1),
-                  CASE WHEN td.t ~ '^https://' THEN td.t END)
-    FROM todo td
-   ORDER BY td.created_at DESC, td.src
-   LIMIT least(greatest(coalesce(_limit, 100), 1), 200);
+                    WHERE bf.old_url = pg.src AND bf.new_thumb ~ '^https://' LIMIT 1),
+                  CASE WHEN pg.t ~ '^https://' THEN pg.t END)
+    FROM page pg
+   ORDER BY (pg.tries > 0), pg.created_at DESC, pg.src;
 END;
 $fn$;
 
@@ -180,9 +208,9 @@ DECLARE _n bigint;
 BEGIN
   SELECT count(*) INTO _n FROM pg_proc p
    WHERE p.oid IN (to_regprocedure('public.post_photo_blurs(uuid[])'), to_regprocedure('public.photo_blur_todo(integer)'),
-                   to_regprocedure('public.photo_blur_record(jsonb)'))
+                   to_regprocedure('public.photo_blur_record(jsonb)'), to_regprocedure('public.photo_blur_pending()'))
      AND p.prosecdef;
-  IF _n <> 3 THEN RAISE EXCEPTION 'BL-0115-POST-001: % of 3 functions are SECURITY DEFINER', _n; END IF;
+  IF _n <> 4 THEN RAISE EXCEPTION 'BL-0115-POST-001: % of 4 functions are SECURITY DEFINER', _n; END IF;
   IF has_table_privilege('anon', 'public.photo_blur', 'SELECT') OR has_table_privilege('authenticated', 'public.photo_blur', 'SELECT') THEN
     RAISE EXCEPTION 'BL-0115-POST-002: photo_blur is readable by anon or authenticated';
   END IF;
