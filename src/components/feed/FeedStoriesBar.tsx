@@ -1,5 +1,5 @@
 import { memberPhotoSrc } from "@/lib/photoProtection";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus } from "lucide-react";
@@ -7,7 +7,6 @@ import { useAuth } from "@/hooks/core/useAuth";
 import { toast } from "@/hooks/core/use-toast";
 import { useProfileCore } from "@/hooks/profile/useProfileData";
 import { timedRpc } from "@/lib/logger";
-import StoryViewer from "@/components/stories/StoryViewer";
 import OptimizedImage from "@/components/OptimizedImage";
 import {
   addPhotoStory, fetchStoryBar, fetchUserStories, type StoryBarUser, type StoryPerson, type StoryRow,
@@ -26,6 +25,9 @@ import {
  * — sizes and spacing are copied from it; change them only with a new yes.
  */
 const headingFont = { fontFamily: "var(--font-heading)" };
+
+// The viewer loads only when a story is opened (P13 entry-bundle ceiling).
+const StoryViewer = lazy(() => import("@/components/stories/StoryViewer"));
 
 const FeedStoriesBar = () => {
   const { user } = useAuth();
@@ -180,7 +182,9 @@ const FeedStoriesBar = () => {
       </div>
 
       {open && (
-        <StoryViewer people={open.people} startIndex={open.start} startStoryId={open.storyId} viewerId={user.id} onClose={closeViewer} onChanged={() => void loadBar()} />
+        <Suspense fallback={null}>
+          <StoryViewer people={open.people} startIndex={open.start} startStoryId={open.storyId} viewerId={user.id} onClose={closeViewer} onChanged={() => void loadBar()} />
+        </Suspense>
       )}
     </>
   );

@@ -30,6 +30,7 @@ const feed = read("components/feed/FeedStoriesBar.tsx");
 const profile = read("components/profile/ProfileStories.tsx");
 const viewer = read("components/stories/StoryViewer.tsx");
 const data = read("lib/stories/storyData.ts");
+const viewerData = read("lib/stories/storyViewerData.ts");
 
 describe("rule 4 — a story stays 10 seconds", () => {
   it("the shared constant is exactly 10 000 ms (was 5 000)", () => {
@@ -62,8 +63,9 @@ describe("rule 1 (v2) — square tiles with rounded corners, showing the photo",
 
 describe("rule 3 + 5 — one full-page viewer for every story", () => {
   it("feed and profile both open the one StoryViewer", () => {
-    expect(feed).toContain('from "@/components/stories/StoryViewer"');
-    expect(profile).toContain('from "@/components/stories/StoryViewer"');
+    // Loaded on demand (P13 entry-bundle ceiling) — still the one viewer.
+    expect(feed).toContain('import("@/components/stories/StoryViewer")');
+    expect(profile).toContain('import("@/components/stories/StoryViewer")');
   });
 
   it("the phone viewer is full screen, with progress bars and tap zones", () => {
@@ -80,8 +82,8 @@ describe("rule 2 — the owner can delete ANYTIME, and the delete is verified", 
   });
 
   it("a delete returns the deleted row, and zero rows is an error", () => {
-    expect(data).toContain('.delete().eq("id", storyId).select("id")');
-    expect(data).toContain("Story could not be deleted.");
+    expect(viewerData).toContain('.delete().eq("id", storyId).select("id")');
+    expect(viewerData).toContain("Story could not be deleted.");
   });
 });
 

@@ -8,7 +8,8 @@ import { Plus, Star, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
 import { toast } from "@/hooks/core/use-toast";
-import { addStoryToHighlight, type StorySlide } from "@/lib/stories/storyData";
+import type { StorySlide } from "@/lib/stories/storyData";
+import { addStoryToHighlight } from "@/lib/stories/storyViewerData";
 
 interface HighlightRow { id: string; title: string }
 

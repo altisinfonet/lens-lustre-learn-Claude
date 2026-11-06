@@ -28,10 +28,10 @@ import { postMedia } from "@/lib/posts/subjectMedia";
 import OptimizedImage from "@/components/OptimizedImage";
 import { toast } from "@/hooks/core/use-toast";
 import { logger } from "@/lib/logger";
+import { fetchUserStories, type StoryComment, type StoryPerson, type StorySlide } from "@/lib/stories/storyData";
 import {
-  addStoryComment, deleteOwnStory, fetchStoryComments, fetchUserStories, markStorySeen, setStoryLike, slidesOf,
-  type StoryComment, type StoryPerson, type StorySlide,
-} from "@/lib/stories/storyData";
+  addStoryComment, deleteOwnStory, fetchStoryComments, markStorySeen, setStoryLike, slidesOf,
+} from "@/lib/stories/storyViewerData";
 import StoryHighlightPicker from "./StoryHighlightPicker";
 
 const FILE = "src/components/stories/StoryViewer.tsx";

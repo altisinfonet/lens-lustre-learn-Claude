@@ -1,5 +1,5 @@
 import { memberPhotoSrc } from "@/lib/photoProtection";
-import { useEffect, useState, useRef } from "react";
+import { Suspense, lazy, useEffect, useState, useRef } from "react";
 import { Plus, X, ChevronLeft, ChevronRight, Eye, Radio, TrendingUp, Trash2, Clock, Star, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
@@ -12,11 +12,13 @@ import { displayEngagement, formatEngagementCount } from "@/lib/displayEngagemen
 import { Button } from "@/components/ui/button";
 import { STORY_DISPLAY_MS } from "@/lib/storyTiming";
 import { logger, newCorrelationId } from "@/lib/logger";
-import StoryViewer from "@/components/stories/StoryViewer";
 import { fetchUserStories } from "@/lib/stories/storyData";
 import { useProfileCore } from "@/hooks/profile/useProfileData";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
+
+// The viewer loads only when a story is opened (P13 entry-bundle ceiling).
+const StoryViewer = lazy(() => import("@/components/stories/StoryViewer"));
 
 const MAX_ACTIVE_STORIES = 10;
 const MAX_HIGHLIGHTS = 20;
@@ -686,14 +688,16 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
       </AnimatePresence>
 
       {storyOpenId && (
-        <StoryViewer
-          people={[{ userId, name: owner?.full_name || "Photographer", avatar: owner?.avatar_url ?? null, cover: null, isOwn: isOwner }]}
-          startIndex={0}
-          startStoryId={storyOpenId}
-          viewerId={user?.id ?? null}
-          onClose={() => { setStoryOpenId(null); void loadData(); }}
-          onChanged={() => void loadData()}
-        />
+        <Suspense fallback={null}>
+          <StoryViewer
+            people={[{ userId, name: owner?.full_name || "Photographer", avatar: owner?.avatar_url ?? null, cover: null, isOwn: isOwner }]}
+            startIndex={0}
+            startStoryId={storyOpenId}
+            viewerId={user?.id ?? null}
+            onClose={() => { setStoryOpenId(null); void loadData(); }}
+            onChanged={() => void loadData()}
+          />
+        </Suspense>
       )}
     </>
   );
