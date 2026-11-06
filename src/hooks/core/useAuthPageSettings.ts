@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useSiteSetting } from "@/hooks/core/useSiteSetting";
 
 export interface AuthPageConfig {
   heading: string;
@@ -47,11 +47,19 @@ const parseUrl = (v: unknown): string => {
   return "";
 };
 
+/**
+ * Owner, 6 Nov 2026: "join now image not coming many times". This used to READ
+ * the cache once (getQueryData) — no subscription, no fetch. When the page drew
+ * before dashboard-init had seeded these keys (first open, a slow link, or after
+ * the cache let them go), the picture's address was "" and stayed "" for good.
+ * Now each key is a real subscription through the one site-setting reader
+ * (useSiteSetting): it re-renders when dashboard-init seeds it, and fetches the
+ * key itself when nothing seeded it.
+ */
 export function useAuthPageSettings() {
-  const qc = useQueryClient();
-  const cachedAuthSettings = qc.getQueryData<unknown>(["site-setting", "auth_page_settings"]);
-  const cachedLoginBg = qc.getQueryData<unknown>(["site-setting", "login_background"]);
-  const cachedSignupBg = qc.getQueryData<unknown>(["site-setting", "signup_background"]);
+  const { data: cachedAuthSettings } = useSiteSetting<unknown>("auth_page_settings");
+  const { data: cachedLoginBg } = useSiteSetting<unknown>("login_background");
+  const { data: cachedSignupBg } = useSiteSetting<unknown>("signup_background");
 
   const settings = useMemo<AuthPageSettings>(() => {
     const val = cachedAuthSettings as AuthPageSettings | null;

@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
-import { CheckCircle, Loader2, Lock, AlertTriangle, Eye, EyeOff, LogOut } from "lucide-react";
+import { CheckCircle, Loader2, Lock, AlertTriangle, LogOut } from "lucide-react";
+import PasswordEyeToggle from "@/components/auth/PasswordEyeToggle";
 import { useState, useEffect } from "react";
 import { useT } from "@/i18n/I18nContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -275,17 +276,10 @@ const ResetPassword = () => {
                 placeholder="Min 8 characters"
                 required
                 maxLength={72}
-                className="w-full py-3 px-4 pr-11 bg-transparent border border-border text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary transition-colors"
+                className="w-full py-3 px-4 pr-14 bg-transparent border border-border text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary transition-colors"
                 style={{ fontFamily: "var(--font-body)" }}
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                tabIndex={-1}
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
+              <PasswordEyeToggle shown={showPassword} onToggle={() => setShowPassword((v) => !v)} />
             </div>
             {/* Password requirements */}
             {passwordValidation && (
@@ -336,17 +330,10 @@ const ResetPassword = () => {
                 placeholder={t("reset.phReenter")}
                 required
                 maxLength={72}
-                className="w-full py-3 px-4 pr-11 bg-transparent border border-border text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary transition-colors"
+                className="w-full py-3 px-4 pr-14 bg-transparent border border-border text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary transition-colors"
                 style={{ fontFamily: "var(--font-body)" }}
               />
-              <button
-                type="button"
-                onClick={() => setShowConfirm((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                tabIndex={-1}
-              >
-                {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
+              <PasswordEyeToggle shown={showConfirm} onToggle={() => setShowConfirm((v) => !v)} />
             </div>
             {confirmPassword.length > 0 && password !== confirmPassword && (
               <p className="mt-1.5 text-[9px] text-destructive" style={{ fontFamily: "var(--font-heading)" }}>
