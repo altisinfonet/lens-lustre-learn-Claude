@@ -1,3 +1,12 @@
+Build 1.2.40 - 2026-11-06 - FROM MAIN AFTER THE BLUR + WALL + SIGN-IN RELEASE
+
+  Owner, 6 Nov ("go stories", which builds 1.2.40 first): the app bundles the
+  web code, so the 6 Nov fixes reach app users only through a new build. Main
+  546d99c6 (#936) carries: blurred colour fill from saved blur codes on every
+  feed photo, the profile wall no longer stuck on an old saved copy, the 2x
+  password eye, the sign-up checkbox under "See our Terms..." with the picture
+  loading, one quiet retry for a video play pass. 1.2.39 (run 143) is spent.
+
 Build 1.2.39 - 2026-11-05 - FROM MAIN AFTER THE PHOTO SPEED + ROW GAP RELEASE
 
   Owner, 5 Nov ("web okay"): the app bundles the web code, so the photo

@@ -820,6 +820,9 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
+          # 2026-11-06: bumped 1.2.39 -> 1.2.40. 1.2.39 (run 143, 42021446265 on 4be5bf1c) is spent (on Play).
+          # 1.2.40 carries main 546d99c6 (#936, Owner 6 Nov): photo blur codes, profile wall saved-copy refresh,
+          # bigger password eye, sign-up checkbox place + picture, one quiet video retry. No switch is changed.
           # 2026-11-05: bumped 1.2.38 -> 1.2.39. 1.2.38 (run 142, 41922968514 on a563c308) is spent (uploaded to Play).
           # 1.2.39 carries what main gained since a563c308 (Owner order, 5 Nov): every feed photo saves as .jpg
           # with the 22 px credit drawn in the browser (#917), feed photo under 1 s via stored clean copies
@@ -942,8 +945,8 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
-          sed -i 's/versionName "1.0"/versionName "1.2.39"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.39 (1.2.38 is spent - run 142)"
+          sed -i 's/versionName "1.0"/versionName "1.2.40"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.40 (1.2.39 is spent - run 143)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
           # S11: prove both edits landed — exactly one versionCode, the derived
