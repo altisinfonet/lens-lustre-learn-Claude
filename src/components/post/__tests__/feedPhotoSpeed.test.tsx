@@ -16,8 +16,10 @@ import { render, act } from "@testing-library/react";
 
 type RpcResult = { data: unknown; error: { message?: string } | null };
 let answerLookup: ((r: RpcResult) => void) | null = null;
+let blurRows: unknown[] = [];
 const rpc = vi.fn((fn: string, _args?: Record<string, unknown>): Promise<RpcResult> => {
   if (fn === "post_photo_feed_copies") return new Promise((res) => { answerLookup = res; });
+  if (fn === "post_photo_blurs") return Promise.resolve({ data: blurRows, error: null });
   return Promise.resolve({ data: null, error: null });
 });
 vi.mock("@/integrations/supabase/client", () => {
@@ -42,6 +44,8 @@ vi.mock("@/hooks/core/useDownloadImage", () => ({ useDownloadImage: () => ({ dow
 import PostMedia from "@/components/post/PostMedia";
 import { FEED_FILL_MAX_TRIM, feedPhotoFit } from "@/lib/imageFrame";
 import { __resetFeedCopies, requestFeedCopies } from "@/lib/photoFeedCopies";
+import { __resetPhotoBlurs, requestPhotoBlurs } from "@/lib/photoBlur";
+import { rgbaToThumbHash } from "@/lib/media/thumbhash.mjs";
 
 const CDN = "https://cdn-staging.50mmretina.com/post-images/0b4c2f1e-1111-4a2b-8c3d-123456789abc/posts";
 const OLD = `${CDN}/1700000000000-old.jpg`;
@@ -57,6 +61,8 @@ const blurFill = (c: HTMLElement) => imgs(c).find((i) => i.hasAttribute("aria-hi
 
 beforeEach(() => {
   __resetFeedCopies();
+  __resetPhotoBlurs();
+  blurRows = [];
   answerLookup = null;
   rpc.mockClear();
 });
@@ -158,5 +164,43 @@ describe("a photo shown whole always has its blurred fill", () => {
       if (natural) Object.defineProperty(HTMLImageElement.prototype, "naturalWidth", natural);
       else delete (HTMLImageElement.prototype as { naturalWidth?: number }).naturalWidth;
     }
+  });
+});
+
+describe("the blur code (Owner 6 Nov: \"like FB does\", 20261110_0115)", () => {
+  const L6 = `${CDN}/5-w1152h2048-l6.webp`; // 9:16 → contain in the 4:5 frame
+  const COVER = `${CDN}/6-w1176h1500-l3.webp`; // 0.784 → cover
+  const code = () => {
+    const w = 18, h = 32, px = new Uint8Array(w * h * 4).map((_, i) => (i % 4 === 3 ? 255 : (i * 7) % 256));
+    return btoa(String.fromCharCode(...rgbaToThumbHash(w, h, px)));
+  };
+  const blurCode = (c: HTMLElement) => c.querySelector("[data-photo-blur]") as HTMLElement | null;
+
+  it("with a code: the fill is drawn from memory (no file), and the old 600 fill is not fetched", async () => {
+    blurRows = [{ post_id: "p9", url: L6, hash: code() }];
+    requestPhotoBlurs("p9", [L6]);
+    const { container } = render(<PostMedia urls={[L6]} />);
+    await settle();
+    expect(rpc).toHaveBeenCalledWith("post_photo_blurs", { p_post_ids: ["p9"] });
+    expect(blurCode(container)!.style.backgroundImage).toContain("data:image/png;base64,");
+    expect(blurCode(container)!.className).not.toMatch(/blur-/); // no CSS blur work on the phone
+    expect(blurFill(container)).toBeUndefined();
+  });
+
+  it("a photo that fills its frame gets the code too, as its placeholder", async () => {
+    blurRows = [{ post_id: "p8", url: COVER, hash: code() }];
+    requestPhotoBlurs("p8", [COVER]);
+    const { container } = render(<PostMedia urls={[COVER]} />);
+    await settle();
+    expect(sharp(container)!.className).toContain("object-cover");
+    expect(blurCode(container)).not.toBeNull();
+  });
+
+  it("no code yet: exactly the old 600-copy fill — never worse than before", async () => {
+    requestPhotoBlurs("p7", [L6]);
+    const { container } = render(<PostMedia urls={[L6]} />);
+    await settle();
+    expect(blurCode(container)).toBeNull();
+    expect(blurFill(container)!.getAttribute("src")).toBe(`${CDN}/5-w1152h2048-l6-thumb.webp`);
   });
 });
