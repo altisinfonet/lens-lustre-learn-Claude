@@ -144,6 +144,24 @@ export async function addPostToStory(postId: string): Promise<string | null> {
   return (data as string | null) ?? null;
 }
 
+/**
+ * Called by every publish path once the post exists (photo job, direct photo
+ * post, draft, video). Never throws and never holds the post: a story that
+ * could not be added is logged, the post itself has succeeded.
+ */
+export function shareNewPostToStory(postId: string | null | undefined, wanted: boolean | undefined): void {
+  if (!postId || !wanted) return;
+  void addPostToStory(postId).catch((err: unknown) => {
+    void import("@/lib/logger").then(({ logger }) => logger.warn({
+      code: "STORY-1003", event: "STORY_ADD_POST_FAILED", fn: "shareNewPostToStory", file: "src/lib/stories/storyData.ts",
+      message: "A new post with 'Also add to my story' ticked did not reach the story.",
+      reason: err instanceof Error ? err.message : String(err),
+      expected: "story_add_post returns the story id", actual: "error",
+      nextStep: "The post is fine. Check story_add_post on this lane (ST-0100-00x codes).",
+    }));
+  });
+}
+
 /** A plain story from the row's "+" (photo only). */
 export async function addPhotoStory(userId: string, file: File): Promise<void> {
   let upload = file;

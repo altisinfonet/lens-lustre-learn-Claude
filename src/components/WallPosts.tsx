@@ -47,6 +47,8 @@ import { useT } from "@/i18n/I18nContext";
 import PostCard from "@/components/post/PostCard";
 import ImageCropModal from "@/components/admin/ImageCropModal";
 import PostComposerPreview, { reorder } from "@/components/post/PostComposerPreview";
+import AddToStoryBox from "@/components/stories/AddToStoryBox";
+import { STORY_RULES, shareNewPostToStory } from "@/lib/stories/storyData";
 import PostCardSkeleton from "@/components/post/PostCardSkeleton";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import { useUserPostsQuery, flattenUserPosts } from "@/hooks/feed/useUserPostsQuery";
@@ -271,6 +273,8 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
   const [tagModalOpen, setTagModalOpen] = useState(false);
   // SOW §5.2 — per-post search engine opt-out
   const [excludeFromSearch, setExcludeFromSearch] = useState(false);
+  // Stories v2 (Owner 6 Nov): every post goes to the story unless unticked.
+  const [addToStory, setAddToStory] = useState<boolean>(STORY_RULES.addToStoryByDefault);
   // Phase 3B — optional scheduling (null = post now, Date = schedule)
   const [scheduleAt, setScheduleAt] = useState<Date | null>(null);
   const [showSchedule, setShowSchedule] = useState(false);
@@ -1144,7 +1148,8 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     if (!draftId) return;
     setPosting(true);
     try {
-      await publishDraftMut.mutateAsync(draftId);
+      const draftPostId = await publishDraftMut.mutateAsync(draftId);
+      shareNewPostToStory(draftPostId, addToStory);
       setDraftId(null);
       setResumedUrls([]);
       setResumedThumbs([]);
@@ -1154,6 +1159,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       setPostCategories([]);
       setPendingTags([]);
       setExcludeFromSearch(false);
+      setAddToStory(STORY_RULES.addToStoryByDefault);
       setScheduleAt(null);
       clearAllImages();
       closeComposer();
@@ -1198,7 +1204,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
       const v2 = photoSetOption(photoSetV2).photoSet;
       const camera = v2 ? cameraItems(await readCameraInfos(selectedImages)) : [];
       await createPhotoJob({
-        id, userId: user.id, files: selectedImages,
+        id, userId: user.id, files: selectedImages, addToStory,
         post: {
           content: captionMentions.convert(newContent.trim()), privacy: newPrivacy,
           categories: postCategories, indexingDisabled: excludeFromSearch,
@@ -1213,6 +1219,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
     captionMentions.reset();
     captionHashtags.reset();
     setExcludeFromSearch(false);
+    setAddToStory(STORY_RULES.addToStoryByDefault);
     setPostCategories([]);
     clearAllImages();
     closeComposer();
@@ -1403,6 +1410,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           captionMentions.reset();
           captionHashtags.reset();
           setExcludeFromSearch(false);
+          setAddToStory(STORY_RULES.addToStoryByDefault);
           setScheduleAt(null);
           setShowSchedule(false);
           setPostCategories([]);
@@ -1541,6 +1549,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         // Fire-and-forget — savePostPhotoCamera never throws, and the post is
         // never held or failed for it (it logs POST-2009 instead).
         if (newPost?.id && cameraInfos) void savePostPhotoCamera(newPost.id, cameraItems(cameraInfos));
+        shareNewPostToStory(newPost?.id, addToStory);
         // Persist photo tags (if any) — friends-only, all start as 'pending'
         if (newPost?.id && pendingTags.length > 0) {
           const tagRows = pendingTags.map((t) => ({
@@ -1579,6 +1588,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
         captionMentions.reset();
         captionHashtags.reset();
         setExcludeFromSearch(false);
+        setAddToStory(STORY_RULES.addToStoryByDefault);
         setPostCategories([]);
         clearAllImages();
         closeComposer();
@@ -2157,6 +2167,10 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                       </div>
                     )}
 
+                    {(imagePreviews.length > 0 || resumedUrls.length > 0) && !scheduleAt && (
+                      <AddToStoryBox checked={addToStory} onChange={setAddToStory} className="mt-3" />
+                    )}
+
                     {/* A resumed draft's images are already in storage — shown as
                         URLs, never re-uploaded. */}
                     {resumedUrls.length > 0 && (
@@ -2264,6 +2278,9 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                               onAddMore={imagePreviews.length < 10 ? () => fileInputRef.current?.click() : undefined}
                             />
                           </div>
+                        )}
+                        {(imagePreviews.length > 0 || resumedUrls.length > 0) && !scheduleAt && (
+                          <AddToStoryBox checked={addToStory} onChange={setAddToStory} className="mb-3" />
                         )}
                         {/* A resumed draft has no local File objects to preview,
                             so it keeps the thumbnail it always had. */}
