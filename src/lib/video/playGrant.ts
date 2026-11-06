@@ -43,14 +43,27 @@ const SAFE_URL = /^https?:\/\/[^\s"'\\()<>]+$/;
 const CACHE_MAX = 200;
 const cache = new Map<string, { grant?: PlayGrant; pending?: Promise<PlayGrant | null> }>();
 
-async function fetchGrant(videoId: string, token: string | undefined): Promise<PlayGrant | null> {
+/**
+ * ONE QUIET SECOND TRY (Owner, 6 Nov 2026: "This video can't play right now",
+ * gone after a reload). A pass that failed on the way — the network dropped,
+ * the server was busy (5xx) or rate-limited (429) — is asked once more after
+ * GRANT_RETRY_MS before the card gives up. A refusal (401 / 403 / 404: this
+ * viewer may not play it) is final at once, as before.
+ */
+export const GRANT_RETRY_MS = 1200;
+const passing = (status: number) => status >= 500 || status === 429;
+
+async function fetchGrant(videoId: string, token: string | undefined, retry = true): Promise<PlayGrant | null> {
   try {
     const res = await siteFetch(SITE_API.videoPlayToken, {
       method: "POST",
       headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ video_id: videoId }),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      if (retry && passing(res.status)) return again(videoId, token);
+      return null;
+    }
     const b = (await res.json()) as Partial<PlayGrant>;
     return typeof b.master_url === "string" && SAFE_URL.test(b.master_url)
       && typeof b.poster_url === "string" && SAFE_URL.test(b.poster_url)
@@ -58,8 +71,13 @@ async function fetchGrant(videoId: string, token: string | undefined): Promise<P
       ? { master_url: b.master_url, poster_url: b.poster_url, expires_at: b.expires_at, receivedAt: performance.now() }
       : null;
   } catch {
-    return null;
+    return retry ? again(videoId, token) : null; // the network failed on the way
   }
+}
+
+async function again(videoId: string, token: string | undefined): Promise<PlayGrant | null> {
+  await new Promise((r) => setTimeout(r, GRANT_RETRY_MS));
+  return fetchGrant(videoId, token, false);
 }
 
 /** null when the viewer may not play it (yet), or the network failed — the caller shows a calm fallback. Never cached. */
