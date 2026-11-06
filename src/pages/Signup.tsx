@@ -2,7 +2,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { SITE_ORIGIN } from "@/lib/publicUrl";
 import { useSiteLogo } from "@/hooks/core/useSiteLogo";
 import { useT } from "@/i18n/I18nContext";
-import { ArrowLeft, Loader2, Mail, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Loader2, Mail } from "lucide-react";
+import PasswordEyeToggle from "@/components/auth/PasswordEyeToggle";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/core/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -294,25 +295,6 @@ const Signup = () => {
         )}
 
         <div className="space-y-2.5 max-w-sm w-full">
-          {/* Terms of Use / EULA — must be agreed before any registration route */}
-          {step === 1 && (
-            <label className="flex items-start gap-2 text-[10px] text-muted-foreground leading-snug cursor-pointer" style={{ fontFamily: "var(--font-body)" }}>
-              <input
-                type="checkbox"
-                checked={eulaAccepted}
-                onChange={(e) => setEulaAccepted(e.target.checked)}
-                className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-primary"
-                data-testid="signup-eula-checkbox"
-              />
-              <span>
-                I agree to the{" "}
-                <Link to="/community-guidelines" className="text-primary hover:underline underline underline-offset-2">Terms of Use &amp; Community Guidelines</Link>
-                {" "}and the{" "}
-                <Link to="/page/privacy-policy" className="text-primary hover:underline underline underline-offset-2">Privacy Policy</Link>.
-                I understand there is no tolerance for objectionable content or abusive users.
-              </span>
-            </label>
-          )}
 
           {/* OAuth — only on step 1 */}
           {step === 1 && (
@@ -407,17 +389,10 @@ const Signup = () => {
                     required
                     maxLength={72}
                     autoFocus
-                    className="w-full py-2 px-3 pr-10 bg-transparent border border-border text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary transition-colors"
+                    className="w-full py-2 px-3 pr-14 bg-transparent border border-border text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary transition-colors"
                     style={{ fontFamily: "var(--font-body)" }}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                  </button>
+                  <PasswordEyeToggle shown={showPassword} onToggle={() => setShowPassword((v) => !v)} />
                 </div>
                 {password.length > 0 && (() => {
                   let score = 0;
@@ -467,6 +442,28 @@ const Signup = () => {
         <p className="text-[8px] text-muted-foreground/60 mt-1.5 text-center" style={{ fontFamily: "var(--font-body)" }}>
           See our <Link to="/community-guidelines" className="underline">Terms of Use &amp; Community Guidelines</Link>.
         </p>
+
+        {/* Terms of Use / EULA — must be agreed before any registration route (every
+            button checks eulaAccepted). Placed right after the "See our Terms" line
+            (Owner, 6 Nov 2026 — web and app alike). */}
+        {step === 1 && (
+          <label className="mt-3 flex max-w-sm w-full items-start gap-2 text-[10px] text-muted-foreground leading-snug cursor-pointer" style={{ fontFamily: "var(--font-body)" }}>
+            <input
+              type="checkbox"
+              checked={eulaAccepted}
+              onChange={(e) => setEulaAccepted(e.target.checked)}
+              className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-primary"
+              data-testid="signup-eula-checkbox"
+            />
+            <span>
+              I agree to the{" "}
+              <Link to="/community-guidelines" className="text-primary hover:underline underline underline-offset-2">Terms of Use &amp; Community Guidelines</Link>
+              {" "}and the{" "}
+              <Link to="/page/privacy-policy" className="text-primary hover:underline underline underline-offset-2">Privacy Policy</Link>.
+              I understand there is no tolerance for objectionable content or abusive users.
+            </span>
+          </label>
+        )}
       </div>
     </main>
   );

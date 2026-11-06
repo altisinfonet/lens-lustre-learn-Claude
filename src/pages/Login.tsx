@@ -1,7 +1,8 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useSiteLogo } from "@/hooks/core/useSiteLogo";
 import { useT } from "@/i18n/I18nContext";
-import { ArrowLeft, Loader2, Mail, Eye, EyeOff, ShieldCheck, ShieldX, Timer } from "lucide-react";
+import { ArrowLeft, Loader2, Mail, ShieldCheck, ShieldX, Timer } from "lucide-react";
+import PasswordEyeToggle from "@/components/auth/PasswordEyeToggle";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useVisibilityInterval } from "@/lib/timers/visibilityInterval";
@@ -407,17 +408,10 @@ const Login = () => {
                       maxLength={72}
                       disabled={isLockedOut}
                       autoFocus
-                      className="w-full py-3 px-4 pr-12 bg-transparent border border-border text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary transition-colors disabled:opacity-50"
+                      className="w-full py-3 px-4 pr-14 bg-transparent border border-border text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary transition-colors disabled:opacity-50"
                       style={{ fontFamily: "var(--font-body)" }}
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground/70 hover:text-foreground transition-colors"
-                      aria-label={showPassword ? "Hide password" : "Show password"}
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
+                    <PasswordEyeToggle shown={showPassword} onToggle={() => setShowPassword((v) => !v)} />
                   </div>
                 </div>
 
