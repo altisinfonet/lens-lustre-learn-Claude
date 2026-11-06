@@ -62,6 +62,29 @@ describe("one grant per viewer and video while it is fresh", () => {
   });
 });
 
+describe("one quiet second try (Owner 6 Nov: \"can't play right now\", fine after a reload)", () => {
+  it("a pass that failed on the way (network) is asked once more — the video plays", async () => {
+    fetchMock.mockImplementationOnce(async () => { throw new TypeError("Failed to fetch"); });
+    expect(await requestGrant("v1")).not.toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+  it.each([500, 503, 429])("a busy server (%i) is asked once more", async (status) => {
+    fetchMock.mockImplementationOnce(async () => new Response("{}", { status }));
+    expect(await requestGrant("v1")).not.toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+  it("only ONE second try: two failures in a row → the calm fallback", async () => {
+    fetchMock.mockImplementation(async () => new Response("{}", { status: 503 }));
+    expect(await requestGrant("v1")).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+  it.each([401, 403, 404])("a refusal (%i) is final at once — no second try", async (status) => {
+    fetchMock.mockImplementationOnce(async () => new Response("{}", { status }));
+    expect(await requestGrant("v1")).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("only plain absolute URLs are accepted", () => {
   it.each([
     'https://cdn/p.jpg") ; background:url("https://evil/x',
