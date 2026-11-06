@@ -22,6 +22,7 @@ import { storageSafeFileName } from "@/lib/storageSafeName";
 import { fetchPostVideoMap, type FeedVideo } from "@/lib/video/postVideoRead";
 import { STORY_DISPLAY_MS } from "@/lib/storyTiming";
 import { submit } from "@/lib/offline/outbox";
+import { safeRandomUUID } from "@/lib/safeUuid";
 
 /** All story numbers in one place. */
 export const STORY_RULES = {
@@ -153,7 +154,7 @@ export function shareNewPostToStory(postId: string | null | undefined, wanted: b
   if (!postId || !wanted) return;
   void addPostToStory(postId).catch((err: unknown) => {
     void import("@/lib/logger").then(({ logger }) => logger.warn({
-      code: "STORY-1003", event: "STORY_ADD_POST_FAILED", fn: "shareNewPostToStory", file: "src/lib/stories/storyData.ts",
+      code: "STORY-6005", event: "STORY_ADD_POST_FAILED", fn: "shareNewPostToStory", file: "src/lib/stories/storyData.ts",
       message: "A new post with 'Also add to my story' ticked did not reach the story.",
       reason: err instanceof Error ? err.message : String(err),
       expected: "story_add_post returns the story id", actual: "error",
@@ -212,7 +213,7 @@ export async function addStoryComment(story: Pick<StoryRow, "id" | "post_id">, u
   }
   const { error } = await supabase
     .from("story_comments" as never)
-    .insert({ story_id: story.id, user_id: userId, content, idempotency_key: crypto.randomUUID() } as never);
+    .insert({ story_id: story.id, user_id: userId, content, idempotency_key: safeRandomUUID() } as never);
   if (error) throw new Error(error.message);
 }
 

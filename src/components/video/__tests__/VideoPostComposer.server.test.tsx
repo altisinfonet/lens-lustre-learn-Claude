@@ -65,7 +65,7 @@ describe("VideoPostComposer · server conversion", () => {
     fireEvent.click(postButton());
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
     expect(startOnServer).toHaveBeenCalledWith(
-      { userId: USER, purpose: "post", file, name: "clip.mov", post: { content: "Sunset", categories: ["c0"], privacy: "public" } }, deps,
+      { userId: USER, purpose: "post", file, name: "clip.mov", post: { content: "Sunset", categories: ["c0"], privacy: "public", addToStory: true } }, deps,
     );
     expect(createJob).not.toHaveBeenCalled(); // nothing encoded, no device job
   });

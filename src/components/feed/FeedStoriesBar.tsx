@@ -1,5 +1,7 @@
 import { memberPhotoSrc } from "@/lib/photoProtection";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Plus } from "lucide-react";
 import { useAuth } from "@/hooks/core/useAuth";
 import { toast } from "@/hooks/core/use-toast";
@@ -31,7 +33,9 @@ const FeedStoriesBar = () => {
   const [bar, setBar] = useState<StoryBarUser[]>([]);
   const [ownStories, setOwnStories] = useState<StoryRow[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [open, setOpen] = useState<{ people: StoryPerson[]; start: number } | null>(null);
+  const [open, setOpen] = useState<{ people: StoryPerson[]; start: number; storyId?: string } | null>(null);
+  const [params, setParams] = useSearchParams();
+  const linkedStory = params.get("story");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadBar = useCallback(async () => {
@@ -47,6 +51,35 @@ const FeedStoriesBar = () => {
   useEffect(() => {
     void loadBar();
   }, [loadBar]);
+
+  // A bell / push link: /feed?story=<id> opens that story in the viewer.
+  useEffect(() => {
+    if (!user || !linkedStory) return;
+    let gone = false;
+    void (async () => {
+      const { data } = await supabase.from("stories" as never).select("user_id").eq("id", linkedStory).maybeSingle();
+      const owner = (data as { user_id: string } | null)?.user_id;
+      if (gone) return;
+      if (!owner) {
+        toast({ title: "This story has ended", description: "Stories stay for 24 hours." });
+        setParams((p) => { p.delete("story"); return p; }, { replace: true });
+        return;
+      }
+      const isOwn = owner === user.id;
+      let name = "Photographer";
+      let avatar: string | null = null;
+      if (isOwn) { name = "Your story"; avatar = me?.avatar_url ?? null; }
+      else {
+        const { data: prof } = await supabase.from("profiles_public_data" as never).select("full_name, avatar_url").eq("id", owner).maybeSingle();
+        const pr = prof as { full_name: string | null; avatar_url: string | null } | null;
+        name = pr?.full_name || name;
+        avatar = pr?.avatar_url ?? null;
+      }
+      if (!gone) setOpen({ people: [{ userId: owner, name, avatar, cover: null, isOwn }], start: 0, storyId: linkedStory });
+    })();
+    return () => { gone = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, linkedStory]);
 
   const handleAddStory = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -83,8 +116,9 @@ const FeedStoriesBar = () => {
 
   const closeViewer = useCallback(() => {
     setOpen(null);
+    if (linkedStory) setParams((p) => { p.delete("story"); return p; }, { replace: true });
     void loadBar(); // seen state, deletes
-  }, [loadBar]);
+  }, [loadBar, linkedStory, setParams]);
 
   const hasAnything = ownStories.length > 0 || bar.length > 0;
   // Always render (the "Your Story" add tile is a persistent entry point)
@@ -146,7 +180,7 @@ const FeedStoriesBar = () => {
       </div>
 
       {open && (
-        <StoryViewer people={open.people} startIndex={open.start} viewerId={user.id} onClose={closeViewer} onChanged={() => void loadBar()} />
+        <StoryViewer people={open.people} startIndex={open.start} startStoryId={open.storyId} viewerId={user.id} onClose={closeViewer} onChanged={() => void loadBar()} />
       )}
     </>
   );

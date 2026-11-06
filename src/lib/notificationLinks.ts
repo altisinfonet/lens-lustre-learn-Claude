@@ -55,6 +55,10 @@ export function getNotifLink(notif: NotifLinkInput): string {
     // the reply they were told about.
     case "comment_reply":
       return notif.reference_id ? `/post/${notif.reference_id}` : "/feed";
+    // Stories v2 (Owner 6 Nov): "X commented on your story" — reference_id is
+    // the story; the feed opens it in the one StoryViewer (FeedStoriesBar).
+    case "story_comment":
+      return notif.reference_id ? `/feed?story=${notif.reference_id}` : "/feed";
     // Reactions and comments on the home-page gallery. reference_id points at a
     // `portfolio_images` row, which has NO page of its own anywhere in the app,
     // so the gallery is the closest true destination. Deliberately unchanged.

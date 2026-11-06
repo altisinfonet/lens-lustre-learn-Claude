@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { memberPhotoSrc } from "@/lib/photoProtection";
 import FeedVideoCard from "@/components/video/FeedVideoCard";
+import { postMedia } from "@/lib/posts/subjectMedia";
 import OptimizedImage from "@/components/OptimizedImage";
 import { toast } from "@/hooks/core/use-toast";
 import { logger } from "@/lib/logger";
@@ -106,7 +107,9 @@ export function StoryFrame(p: FrameProps) {
   const { person, slide, desktop } = p;
   const own = person.isOwn;
   const story = slide?.story ?? null;
-  const src = slide?.kind === "photo" ? memberPhotoSrc(slide.src, 1080) : null;
+  // the one media decision (video, else photographs — never both)
+  const media = postMedia({ video: slide?.video ?? null, image_urls: slide?.src ? [slide.src] : [] });
+  const src = media.imageUrls[0] ? memberPhotoSrc(media.imageUrls[0], 1080) : null;
   const [text, setText] = useState("");
   const holdTimer = useRef<number | null>(null);
   const held = useRef(false);
@@ -134,9 +137,9 @@ export function StoryFrame(p: FrameProps) {
         <div className="absolute inset-0 scale-110 bg-cover bg-center opacity-70 blur-2xl" style={{ backgroundImage: `url("${src}")` }} />
       )}
       {src && <OptimizedImage loading="eager" fetchPriority="high" src={src} alt="" className="absolute inset-0 h-full w-full object-contain" />}
-      {slide?.kind === "video" && slide.video && (
+      {media.video && (
         <div className="absolute inset-0 flex items-center">
-          <FeedVideoCard video={slide.video} fillParent className="h-full w-full" />
+          <FeedVideoCard video={media.video} fillParent className="h-full w-full" />
         </div>
       )}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/60 to-transparent" />
@@ -306,7 +309,7 @@ export default function StoryViewer({ people, startIndex, viewerId, onClose, onC
       }
       firstOpen.current = false;
     }).catch((err: unknown) => {
-      logger.warn({ code: "STORY-1001", event: "STORY_LOAD_FAILED", fn: "StoryViewer", file: FILE,
+      logger.warn({ code: "STORY-6004", event: "STORY_LOAD_FAILED", fn: "StoryViewer", file: FILE,
         message: "A member's stories did not load in the viewer.", reason: err instanceof Error ? err.message : String(err),
         expected: "get_user_stories answers", actual: "error", nextStep: "Check get_user_stories on this lane." });
       if (!gone) onClose();
@@ -400,6 +403,9 @@ export default function StoryViewer({ people, startIndex, viewerId, onClose, onC
     if (!story) return;
     try {
       await deleteOwnStory(story.id);
+      logger.info({ code: "STORY-6003", event: "STORY_DELETED", fn: "StoryViewer.onDelete", file: FILE,
+        message: "Deleting the member's own story.", reason: "The database confirmed one deleted row and the screen was updated.",
+        expected: "Exactly one story row deleted", actual: "1 row", recordId: story.id });
       toast({ title: "Story removed" });
       const left = slides.filter((s) => s.story.id !== story.id);
       onChanged?.();
@@ -408,9 +414,13 @@ export default function StoryViewer({ people, startIndex, viewerId, onClose, onC
       setSi((i) => Math.min(i, left.length - 1));
       setPart(0);
     } catch (err) {
-      logger.warn({ code: "STORY-1002", event: "STORY_DELETE_FAILED", fn: "StoryViewer.onDelete", file: FILE,
-        message: "Deleting the member's own story.", reason: err instanceof Error ? err.message : String(err),
-        expected: "Exactly one story row deleted", actual: "error or zero rows", nextStep: "Check the stories DELETE policy." });
+      const reason = err instanceof Error ? err.message : String(err);
+      const zero = reason === "Story could not be deleted.";
+      // 2026-08-05 "unable to delete": a delete that matched zero rows is never invisible.
+      logger.error({ code: zero ? "STORY-6001" : "STORY-6002", event: zero ? "STORY_DELETE_MATCHED_NO_ROWS" : "STORY_DELETE_FAILED",
+        fn: "StoryViewer.onDelete", file: FILE, message: "Deleting the member's own story.", reason,
+        expected: "Exactly one story row deleted", actual: zero ? "0 rows" : "database error", recordId: story.id,
+        nextStep: "Check pg_policies for 'stories' and confirm the caller owns the row." });
       toast({ title: "Could not delete", description: "Please try again.", variant: "destructive" });
     }
   };
