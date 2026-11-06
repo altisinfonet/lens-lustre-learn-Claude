@@ -10,7 +10,7 @@ DECLARE _n bigint; _bad bigint;
 BEGIN
   RAISE NOTICE 'PROBE 0116 lane % at %', coalesce(current_setting('p32.lane', true), '?'), now();
   IF to_regprocedure('public.post_photo_blurs(uuid[])') IS NULL
-     OR NOT ('ord' = ANY ((SELECT p.proargnames FROM pg_proc p WHERE p.oid = to_regprocedure('public.post_photo_blurs(uuid[])')))) THEN
+     OR NOT (array_position((SELECT p.proargnames FROM pg_proc p WHERE p.oid = to_regprocedure('public.post_photo_blurs(uuid[])')), 'ord') IS NOT NULL) THEN
     RAISE EXCEPTION 'PROBE FAIL P1: post_photo_blurs does not return ord (expected before 0116 is applied)';
   END IF;
   IF NOT (SELECT p.prosecdef FROM pg_proc p WHERE p.oid = to_regprocedure('public.post_photo_blurs(uuid[])'))
