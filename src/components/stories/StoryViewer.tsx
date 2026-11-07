@@ -15,7 +15,7 @@
  * story as a 9:16 card in the middle, previous / next person at the sides.
  * Comments float over the bottom like Facebook Live.
  */
-import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent, type TouchEvent as RTouchEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode, type TouchEvent as RTouchEvent } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
@@ -30,8 +30,10 @@ import { toast } from "@/hooks/core/use-toast";
 import { logger } from "@/lib/logger";
 import { fetchUserStories, type StoryComment, type StoryPerson, type StorySlide } from "@/lib/stories/storyData";
 import {
-  addStoryComment, deleteOwnStory, fetchStoryComments, markStorySeen, setStoryLike, slidesOf,
+  addStoryComment, deleteOwnStory, fetchOlderStoryComments, fetchStoryComments, fetchStoryViewers, markStorySeen, setStoryLike, slidesOf,
+  type StoryViewerRow,
 } from "@/lib/stories/storyViewerData";
+import { STORY_RULES } from "@/lib/stories/storyRules";
 import { fetchProfileMap } from "@/lib/profileMapCache";
 import { memberPath } from "@/lib/urlHelpers";
 import StoryHighlightPicker from "./StoryHighlightPicker";
@@ -41,6 +43,20 @@ const FILE = "src/components/stories/StoryViewer.tsx";
 const hf = { fontFamily: "var(--font-heading)" };
 const HOLD_MS = 220;
 const SWIPE_PX = 70;
+
+/**
+ * Handlers for a scrolling comment list (Owner 7 Nov: "700 comments"): reaching
+ * the top (column-reverse: scrollTop goes negative upwards) loads older ones,
+ * and a touch in the list never reaches the viewer's swipe-to-close.
+ */
+const scrollOlder = (onTop: () => void) => ({
+  onTouchStart: (e: RTouchEvent) => e.stopPropagation(),
+  onTouchEnd: (e: RTouchEvent) => e.stopPropagation(),
+  onScroll: (e: { currentTarget: HTMLDivElement }) => {
+    const el = e.currentTarget;
+    if (el.scrollHeight + el.scrollTop - el.clientHeight < 24) onTop();
+  },
+});
 
 export function storyAge(iso: string, now = Date.now()): string {
   const m = Math.max(0, Math.floor((now - Date.parse(iso)) / 60000));
@@ -82,6 +98,12 @@ interface FrameProps {
   onPrev: () => void;
   onNext: () => void;
   onHold: (held: boolean) => void;
+  /** Owner 7 Nov: the owner taps 👁 / 💬 for the full lists */
+  onOpenSheet: (which: "viewers" | "comments") => void;
+  /** the floating comments reached their top: load older ones */
+  onOlder: () => void;
+  /** a panel drawn over this story (Seen by / All comments) */
+  children?: ReactNode;
 }
 
 /** One story on screen — phone full screen, or the computer's middle card. */
@@ -157,9 +179,9 @@ export function StoryFrame(p: FrameProps) {
       </div>
 
       <div className="absolute inset-x-4 bottom-4 space-y-3 text-white">
-        <CommentFloatList comments={p.comments} />
+        <CommentFloatList comments={p.comments} on={scrollOlder(p.onOlder)} />
         {!own && story?.caption && <p className="text-[15px] font-medium drop-shadow">{story.caption}</p>}
-        {!own && story?.post_id && (
+        {story?.post_id && (
           <button type="button" onClick={p.onViewPost}
             className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3.5 py-1.5 text-sm font-semibold backdrop-blur">
             <ImageIcon className="h-4 w-4" /> View post <ArrowUpRight className="h-4 w-4" />
@@ -168,9 +190,9 @@ export function StoryFrame(p: FrameProps) {
         {own ? (
           <div className="flex items-center justify-between pt-1">
             <span className="flex items-center gap-3 text-sm font-semibold">
-              <span className="flex items-center gap-1.5"><Eye className="h-5 w-5" />{story?.view_count ?? 0}</span>
+              <button type="button" aria-label="Seen by" onClick={() => p.onOpenSheet("viewers")} className="flex items-center gap-1.5"><Eye className="h-5 w-5" />{story?.view_count ?? 0}</button>
               <span className="flex items-center gap-1.5"><Heart className="h-5 w-5" />{story?.like_count ?? 0}</span>
-              <span className="flex items-center gap-1.5"><MessageCircle className="h-5 w-5" />{story?.comment_count ?? 0}</span>
+              <button type="button" aria-label="All comments" onClick={() => p.onOpenSheet("comments")} className="flex items-center gap-1.5"><MessageCircle className="h-5 w-5" />{story?.comment_count ?? 0}</button>
             </span>
             <div className="flex gap-5 text-xs">
               <button type="button" onClick={p.onHighlight} className="flex flex-col items-center gap-1"><Star className="h-5 w-5" />Highlight</button>
@@ -197,6 +219,62 @@ export function StoryFrame(p: FrameProps) {
           </div>
         )}
       </div>
+      {p.children}
+    </div>
+  );
+}
+
+/** A panel over the story — Seen by / All comments (Owner 7 Nov). The story waits while it is open. */
+function StorySheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  return (
+    <div className="absolute inset-x-0 bottom-0 z-10 flex h-[70%] flex-col rounded-t-2xl bg-black/90 text-white backdrop-blur"
+      onTouchStart={(e) => e.stopPropagation()} onTouchEnd={(e) => e.stopPropagation()}>
+      <div className="flex items-center justify-between border-b border-white/15 px-4 py-3">
+        <p className="text-sm font-semibold" style={hf}>{title}</p>
+        <button type="button" aria-label="Close list" onClick={onClose}><X className="h-5 w-5" /></button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">{children}</div>
+    </div>
+  );
+}
+
+/** Everyone who saw the owner's story, newest first; more load at the end of the list. */
+function SeenByList({ storyId, onOpenProfile }: { storyId: string; onOpenProfile: (handle: string | null) => void }) {
+  const [rows, setRows] = useState<StoryViewerRow[] | null>(null);
+  const [more, setMore] = useState(false);
+  const busy = useRef(false);
+  const load = useCallback(async (before?: string) => {
+    if (busy.current) return;
+    busy.current = true;
+    try {
+      const page = await fetchStoryViewers(storyId, before);
+      setRows((r) => [...(before ? r ?? [] : []), ...page]);
+      setMore(page.length >= STORY_RULES.viewersPage);
+    } catch { setRows((r) => r ?? []); setMore(false); }
+    busy.current = false;
+  }, [storyId]);
+  useEffect(() => { void load(); }, [load]);
+  if (rows === null) return <p className="text-sm text-white/70">Loading…</p>;
+  if (rows.length === 0) return <p className="text-sm text-white/70">Nobody has seen this story yet.</p>;
+  return (
+    <div className="space-y-3">
+      {rows.map((v) => (
+        <button key={v.viewer_id} type="button" onClick={() => onOpenProfile(v.custom_url)} className="flex w-full items-center gap-3 text-left">
+          {v.avatar_url ? (
+            <OptimizedImage loading="lazy" src={v.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover" />
+          ) : (
+            <div className="h-10 w-10 rounded-full bg-white/20" />
+          )}
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold">{v.full_name || "Member"}</span>
+          {v.liked && <Heart className="h-4 w-4 fill-destructive text-destructive" />}
+          <span className="text-xs text-white/60">{storyAge(v.viewed_at)}</span>
+        </button>
+      ))}
+      {more && (
+        <button type="button" onClick={() => void load(rows[rows.length - 1].viewed_at)} className="w-full py-2 text-sm font-semibold text-white/80">
+          Show more
+        </button>
+      )}
     </div>
   );
 }
@@ -262,6 +340,9 @@ export default function StoryViewer({ people, startIndex, viewerId, onClose, onC
   const [picker, setPicker] = useState(false);
   const [comments, setComments] = useState<StoryComment[]>([]);
   const [likedLocal, setLikedLocal] = useState<Record<string, boolean>>({});
+  const [sheet, setSheet] = useState<null | "viewers" | "comments">(null);
+  const olderDone = useRef(false);
+  const olderBusy = useRef(false);
   const firstOpen = useRef(true);
   const seen = useRef(new Set<string>());
   const touch = useRef<{ x: number; y: number } | null>(null);
@@ -269,7 +350,7 @@ export default function StoryViewer({ people, startIndex, viewerId, onClose, onC
   const person = people[pi];
   const slide = slides[si] ?? null;
   const story = slide?.story ?? null;
-  const stopped = paused || holding || typing || picker;
+  const stopped = paused || holding || typing || picker || sheet !== null;
 
   // Owner 7 Nov: a story has its own address. While a story is on screen the
   // address bar shows /<handle>/stories/<id> — replaceState, so no extra Back
@@ -336,9 +417,26 @@ export default function StoryViewer({ people, startIndex, viewerId, onClose, onC
   }, [slide?.key]);
 
   const loadComments = useCallback(async (id: string) => {
-    try { setComments(await fetchStoryComments(id)); } catch { setComments([]); }
+    try {
+      const c = await fetchStoryComments(id);
+      olderDone.current = c.length < STORY_RULES.commentsShown;
+      setComments(c);
+    } catch { setComments([]); }
   }, []);
+  /** Owner 7 Nov: scrolling to the top of the comments brings the older ones. */
+  const loadOlder = useCallback(async () => {
+    const first = comments[0];
+    if (!story || !first || olderDone.current || olderBusy.current) return;
+    olderBusy.current = true;
+    try {
+      const page = await fetchOlderStoryComments(story.id, first.created_at);
+      olderDone.current = page.length < STORY_RULES.commentsShown;
+      setComments((c) => [...page.filter((x) => !c.some((y) => y.id === x.id)), ...c]);
+    } catch { olderDone.current = true; }
+    olderBusy.current = false;
+  }, [comments, story]);
   useEffect(() => {
+    setSheet(null);
     if (story) void loadComments(story.id); else setComments([]);
   }, [story?.id, loadComments]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -467,7 +565,21 @@ export default function StoryViewer({ people, startIndex, viewerId, onClose, onC
       onClose={onClose} onTogglePause={() => setPaused((x) => !x)} onMenu={onMenu} onViewPost={onViewPost}
       onLike={() => void onLike()} onSend={(t) => void onSend(t)} onHighlight={() => setPicker(true)} onDelete={() => void onDelete()}
       onInputFocus={setTyping} onPrev={prev} onNext={next} onHold={setHolding}
-    />
+      onOpenSheet={setSheet} onOlder={() => void loadOlder()}
+    >
+      {sheet === "viewers" && story && (
+        <StorySheet title={`Seen by ${story.view_count ?? 0}`} onClose={() => setSheet(null)}>
+          <SeenByList storyId={story.id} onOpenProfile={(h) => { const to = memberPath(h); if (to) { onClose(); navigate(to); } }} />
+        </StorySheet>
+      )}
+      {sheet === "comments" && story && (
+        <StorySheet title={`Comments ${story.comment_count ?? comments.length}`} onClose={() => setSheet(null)}>
+          {comments.length > 0
+            ? <CommentFloatList comments={comments} tall on={scrollOlder(() => void loadOlder())} />
+            : <p className="text-sm text-white/70">No comments yet.</p>}
+        </StorySheet>
+      )}
+    </StoryFrame>
   ) : null;
 
   if (!person) return null;

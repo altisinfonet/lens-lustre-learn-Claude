@@ -32,7 +32,7 @@ export function sampleBar() {
 export function sampleUserStories(userId: string) {
   if (userId === HARNESS_USER_ID) {
     return MY_PHOTOS.map((id, i) => ({
-      id: `s-me-${i}`, user_id: userId, created_at: at(30 - i), expires_at: exp, post_id: null, caption: null,
+      id: `s-me-${i}`, user_id: userId, created_at: at(30 - i), expires_at: exp, post_id: i === 0 ? "post-me-0" : null, caption: null,
       media: [pic(id)], thumbs: [], is_video: false, like_count: 9, comment_count: 3, i_liked: false, view_count: 24,
     }));
   }
@@ -51,5 +51,22 @@ export function sampleComments() {
     { id: "c1", user_id: "a2", full_name: "Rahul Das", avatar_url: pic(91, 100, 100), content: "Stunning light! Which lens?", created_at: at(20) },
     { id: "c2", user_id: "a3", full_name: "Mitali Roy", avatar_url: pic(65, 100, 100), content: "Wow 😍", created_at: at(15) },
     { id: "c3", user_id: "a4", full_name: "Sourav Pal", avatar_url: pic(177, 100, 100), content: "Need to go there next month", created_at: at(10) },
+  ];
+}
+
+/** story_viewers (owner only): who saw the story, newest first (Owner 7 Nov). */
+export function sampleViewers() {
+  return PEOPLE.map((p, i) => ({
+    viewer_id: p.user_id, full_name: p.full_name, avatar_url: pic(p.photos[0] % 200 + 10, 100, 100),
+    custom_url: null, viewed_at: at(5 + i * 7), liked: i < 2,
+  }));
+}
+
+/** story_comments_page: one page of older comments (then none). */
+export function sampleOlderComments(before: string) {
+  if (new Date(before).getTime() < Date.now() - 25 * 60000) return [];
+  return [
+    { id: "c0a", user_id: "a1", full_name: "Dipannita Sen", avatar_url: pic(64, 100, 100), content: "First!", created_at: at(40) },
+    { id: "c0b", user_id: "a2", full_name: "Rahul Das", avatar_url: pic(91, 100, 100), content: "Beautiful colours", created_at: at(35) },
   ];
 }

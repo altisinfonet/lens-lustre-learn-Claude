@@ -49,6 +49,34 @@ export async function fetchStoryComments(storyId: string): Promise<StoryComment[
 }
 
 /**
+ * Owner 7 Nov ("if it got 700 comments how to see?"): one page of comments
+ * OLDER than `before` (the oldest one already on screen), oldest → newest.
+ * Fewer than a full page back = there is nothing older.
+ */
+export async function fetchOlderStoryComments(storyId: string, before: string): Promise<StoryComment[]> {
+  const { data, error } = await rpc("story_comments_page", { _story_id: storyId, _limit: STORY_RULES.commentsShown, _before: before });
+  if (error) throw new Error(error.message);
+  return (data as StoryComment[] | null) ?? [];
+}
+
+/** One person who saw the owner's story. */
+export interface StoryViewerRow {
+  viewer_id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  custom_url: string | null;
+  viewed_at: string;
+  liked: boolean;
+}
+
+/** Owner 7 Nov: who saw my story — the owner only (the database refuses anyone else). Newest first. */
+export async function fetchStoryViewers(storyId: string, before?: string): Promise<StoryViewerRow[]> {
+  const { data, error } = await rpc("story_viewers", { _story_id: storyId, _limit: STORY_RULES.viewersPage, _before: before ?? null });
+  if (error) throw new Error(error.message);
+  return (data as StoryViewerRow[] | null) ?? [];
+}
+
+/**
  * A comment typed on a story. A post story's comment is a POST comment (the
  * post keeps it; the post owner gets the usual comment notification); a plain
  * story's goes to story_comments (the owner gets "commented on your story").

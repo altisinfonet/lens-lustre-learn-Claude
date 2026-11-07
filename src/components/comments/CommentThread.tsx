@@ -59,7 +59,7 @@
  *   slots, so a conditional hook there corrupts the hook order. It uses none,
  *   and src/__tests__/noComponentDefinedInRender.test.ts holds it to that.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type HTMLAttributes } from "react";
 import ProfileLink from "@/components/ProfileLink";
 import OptimizedImage from "@/components/OptimizedImage";
 import { Link } from "react-router-dom";
@@ -1084,12 +1084,19 @@ export interface FloatComment {
  * float over a story like Facebook Live). Read-only: no replies, actions or
  * composer — the full thread of a post story stays under the post. Drawn here
  * so every comment row still has one home (C3).
+ *
+ * Owner 7 Nov ("700 comments, how to see?"): it scrolls up and down; the
+ * story viewer passes the scroll / touch handlers (`on`) that load older ones
+ * and keep a scroll from swiping the story away. `tall` = the "All comments"
+ * panel. Newest stays at the bottom (column-reverse starts scrolled there).
  */
-export function CommentFloatList({ comments }: { comments: FloatComment[] }) {
+export function CommentFloatList({ comments, tall, on }: { comments: FloatComment[]; tall?: boolean; on?: HTMLAttributes<HTMLDivElement> }) {
   if (comments.length === 0) return null;
   return (
-    <div className="flex max-h-[148px] flex-col justify-end space-y-2 overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,black_30%)]">
-      {comments.map((c) => (
+    <div {...on}
+      className={`flex flex-col-reverse gap-2 overflow-y-auto overscroll-contain ${tall ? "max-h-full" : "max-h-[148px] [mask-image:linear-gradient(to_bottom,transparent,black_30%)]"}`}
+    >
+      {[...comments].reverse().map((c) => (
         <div key={c.id} className="flex items-start gap-2">
           {c.avatar_url ? (
             <OptimizedImage loading="eager" src={c.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" />

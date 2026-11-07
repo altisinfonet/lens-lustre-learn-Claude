@@ -20,6 +20,8 @@ export const STORY_RULES = {
   addToStoryByDefault: true,
   /** newest comments shown on a story */
   commentsShown: 50,
+  /** people per page in the owner's "Seen by" list */
+  viewersPage: 200,
   /** longest comment */
   commentMax: 1000,
 } as const;
