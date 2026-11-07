@@ -400,11 +400,12 @@ describe("rule: the converted files really do emit structured logs", () => {
   it("the story-delete failure the owner reported is logged with its own code", () => {
     // 2026-08-05: "Once updated user unable to delete". The delete was working;
     // nothing recorded that it had matched zero rows. That must never again be
-    // invisible, in either viewer.
-    for (const rel of ["components/stories/StoryViewer.tsx", "components/profile/ProfileStories.tsx"]) {
-      expect(src(rel)).toContain("STORY-6001");
-      expect(src(rel)).toContain("STORY_DELETE_MATCHED_NO_ROWS");
-    }
+    // invisible. Since Stories v2.3 (7 Nov 2026) every story — feed, profile,
+    // bell — is deleted in the ONE StoryViewer; the profile only deletes
+    // highlights, and logs that with its own code.
+    expect(src("components/stories/StoryViewer.tsx")).toContain("STORY-6001");
+    expect(src("components/stories/StoryViewer.tsx")).toContain("STORY_DELETE_MATCHED_NO_ROWS");
+    expect(src("components/profile/ProfileStories.tsx")).toContain("STORY-6006");
   });
 
   it("the post pipeline logs entry, refusal, throw and success", () => {

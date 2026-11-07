@@ -8,6 +8,7 @@ import { toast } from "@/hooks/core/use-toast";
 import { useProfileCore } from "@/hooks/profile/useProfileData";
 import { timedRpc } from "@/lib/logger";
 import OptimizedImage from "@/components/OptimizedImage";
+import { StoryTile, STORY_TILE_LABEL } from "@/components/stories/StoryTile";
 import { fetchProfileMap } from "@/lib/profileMapCache";
 import {
   addPhotoStory, fetchStoryBar, fetchUserStories, type StoryBarUser, type StoryPerson, type StoryRow,
@@ -29,9 +30,6 @@ import {
  * /<handle>/stories/<id> (and /stories/<id> from the bell), which opens it here.
  */
 const headingFont = { fontFamily: "var(--font-heading)" };
-/** Unseen story: the brand blue into gold (Owner 7 Nov). Seen: grey. */
-const RING_UNSEEN = "bg-gradient-to-tr from-primary to-amber-400";
-const RING_SEEN = "bg-muted-foreground/25";
 
 // The viewer loads only when a story is opened (P13 entry-bundle ceiling).
 const StoryViewer = lazy(() => import("@/components/stories/StoryViewer"));
@@ -147,17 +145,15 @@ const FeedStoriesBar = () => {
             squares line up along their top edge, not their middles. */}
         <div className="flex items-start gap-3.5 overflow-x-auto pb-2 scrollbar-hide px-1">
           <button onClick={openOwn} aria-label="Your story" className="flex-shrink-0 flex flex-col items-center gap-1.5 group">
-            <div className={`relative h-[88px] w-[88px] rounded-[18px] p-[3px] ${ownStories.length > 0 ? RING_UNSEEN : "bg-transparent"}`}>
-              <div className={`w-full h-full rounded-[15px] overflow-hidden border-2 border-background bg-muted flex items-center justify-center ${ownStories.length > 0 ? "" : "border-dashed border-primary/40 group-hover:border-primary"}`}>
-                {uploading ? (
-                  <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                ) : ownCover ? (
-                  <OptimizedImage src={memberPhotoSrc(ownCover, 320) ?? ownCover} alt="Your story" className="w-full h-full object-cover" />
-                ) : (
-                  <Plus className="h-5 w-5 text-primary/70 group-hover:text-primary" />
-                )}
-              </div>
-              {ownStories.length > 0 && (
+            <StoryTile
+              ring={ownStories.length > 0 ? "unseen" : "none"}
+              dashed={ownStories.length === 0}
+              cover={!uploading && ownCover ? (memberPhotoSrc(ownCover, 320) ?? ownCover) : null}
+              alt="Your story"
+              center={uploading
+                ? <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                : <Plus className="h-5 w-5 text-primary/70 group-hover:text-primary" />}
+              corner={ownStories.length > 0 && (
                 <span
                   onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
                   className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center border-2 border-background cursor-pointer"
@@ -165,7 +161,7 @@ const FeedStoriesBar = () => {
                   <Plus className="h-3.5 w-3.5" />
                 </span>
               )}
-            </div>
+            />
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAddStory} />
           </button>
 
@@ -175,15 +171,13 @@ const FeedStoriesBar = () => {
               onClick={() => setOpen({ people, start: i })}
               className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
             >
-              <div className={`relative h-[88px] w-[88px] rounded-[18px] p-[3px] ${b.has_unseen ? RING_UNSEEN : RING_SEEN}`}>
-                <div className="w-full h-full rounded-[15px] overflow-hidden border-2 border-background bg-muted">
-                  {(b.cover_url || b.avatar_url) && (
-                    <OptimizedImage src={memberPhotoSrc(b.cover_url, 320) ?? b.avatar_url ?? ""} alt={b.full_name || "Story"} className="w-full h-full object-cover" />
-                  )}
-                </div>
-                {b.avatar_url && <OptimizedImage src={b.avatar_url} alt="" className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full border-2 border-background object-cover" />}
-              </div>
-              <span className="text-[10px] tracking-[0.05em] text-muted-foreground truncate max-w-[80px]" style={headingFont}>
+              <StoryTile
+                ring={b.has_unseen ? "unseen" : "seen"}
+                cover={memberPhotoSrc(b.cover_url, 320) ?? b.avatar_url}
+                alt={b.full_name || "Story"}
+                corner={b.avatar_url && <OptimizedImage src={b.avatar_url} alt="" className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full border-2 border-background object-cover" />}
+              />
+              <span className={STORY_TILE_LABEL} style={headingFont}>
                 {b.is_official ? "50mm Retina" : (b.full_name || "Photographer")}
               </span>
             </button>
