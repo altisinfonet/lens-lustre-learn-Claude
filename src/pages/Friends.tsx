@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { fadeUp } from "@/lib/motionVariants";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Users, Heart, UserMinus, UserX, UserCheck, Search, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
@@ -57,6 +57,10 @@ const displayFont = { fontFamily: "var(--font-display)" };
 const Friends = () => {
   const t = useT();
   const { user, loading: authLoading } = useAuth();
+  // ?tab=friends|followers|following — a profile's counts open this page on that list (Owner 7 Nov).
+  const [searchParams] = useSearchParams();
+  const askedTab = searchParams.get("tab");
+  const linkedTab = askedTab === "friends" || askedTab === "followers" || askedTab === "following" ? askedTab : null;
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
   const acceptMutation = useAcceptFriendRequest();
@@ -379,7 +383,7 @@ const Friends = () => {
               />
             </div>
 
-            <Tabs defaultValue={receivedRequests.length > 0 ? "awaited" : sentRequests.length > 0 ? "pending" : "friends"} className="w-full">
+            <Tabs defaultValue={linkedTab ?? (receivedRequests.length > 0 ? "awaited" : sentRequests.length > 0 ? "pending" : "friends")} className="w-full">
               {/*
                 * ═══════════════════════════════════════════════════════════════
                 * F-108 — overflow-x: auto CLIPS VERTICALLY TOO.
