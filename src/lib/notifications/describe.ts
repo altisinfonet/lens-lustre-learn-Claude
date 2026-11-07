@@ -254,6 +254,12 @@ export const ACTION_CATALOG: Readonly<Record<string, ActionEntry>> = {
     one: "replied to your comment on a sponsored post.",
     many: (n) => `replied ${n} times to your comment on a sponsored post.`,
   },
+  // Stories v2 (Owner 6 Nov): a comment on a plain story. Comments on a story
+  // made from a post are post comments and keep the post wording.
+  story_comment: {
+    one: "commented on your story.",
+    many: (n) => `left ${n} comments on your story.`,
+  },
 };
 
 /** The verb half. Plural forms use the REAL event count, never an estimate. */
