@@ -1,3 +1,13 @@
+Build 1.2.41 - 2026-11-07 - FROM MAIN AFTER THE STORIES RELEASE
+
+  Owner, 7 Nov ("make it live into main and build App - App screen must be
+  matched with reference"): the app bundles the web code, so Stories v2.2
+  reaches app users only through a new build. Main carries #949 (Stories SQL,
+  applied on production with PROBE PASS) and #952 (Stories website): square
+  blue-to-gold story tiles, "Also add to my story" on new posts, story likes
+  and comments with the bell, Seen by, My Stories. App-vs-web renders of every
+  Stories screen matched 0.00 %. 1.2.40 (run 144) is spent.
+
 Build 1.2.40 - 2026-11-06 - FROM MAIN AFTER THE BLUR + WALL + SIGN-IN RELEASE
 
   Owner, 6 Nov ("go stories", which builds 1.2.40 first): the app bundles the
