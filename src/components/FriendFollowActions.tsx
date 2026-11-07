@@ -1,7 +1,8 @@
 import { UserPlus, UserMinus, UserCheck, Users, Heart, Clock } from "lucide-react";
 import PendingMark from "@/components/offline/PendingMark";
 import { useFriendFollow } from "@/hooks/social/useFriendFollow";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { useConnections, type ConnectionKind } from "@/components/ConnectionsSheet";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -13,15 +14,19 @@ const headingFont = { fontFamily: "var(--font-heading)" };
 
 /** Stats-only row: Friends • Followers • Following */
 export const FriendFollowStats = ({ targetUserId }: Props) => {
-  const { friendCount, followerCount, followingCount } = useFriendFollow(targetUserId);
+  const { friendCount, followerCount, followingCount, isSelf } = useFriendFollow(targetUserId);
+  // Owner 7 Nov 2026: each count is a link (ConnectionsSheet decides where it goes).
+  const { open, sheet } = useConnections(targetUserId, isSelf);
+  const link = "rounded-sm underline-offset-2 hover:text-foreground hover:underline focus-visible:underline focus-visible:outline-none cursor-pointer";
 
   return (
     <div className="flex items-center gap-1.5 text-[9px] tracking-[0.04em] text-muted-foreground whitespace-nowrap" style={headingFont}>
-      <span>Friends ({friendCount})</span>
+      <button type="button" className={link} onClick={() => open("friends")}>Friends ({friendCount})</button>
       <span className="text-border">·</span>
-      <span>Followers ({followerCount})</span>
+      <button type="button" className={link} onClick={() => open("followers")}>Followers ({followerCount})</button>
       <span className="text-border">·</span>
-      <span>Following ({followingCount})</span>
+      <button type="button" className={link} onClick={() => open("following")}>Following ({followingCount})</button>
+      {sheet}
     </div>
   );
 };
@@ -49,7 +54,8 @@ export const FriendFollowStats = ({ targetUserId }: Props) => {
  * profile that cannot show a number must never show a wrong one.
  */
 export const ProfileStatRow = ({ targetUserId }: Props) => {
-  const { followerCount, followingCount } = useFriendFollow(targetUserId);
+  const { followerCount, followingCount, isSelf } = useFriendFollow(targetUserId);
+  const { open, sheet } = useConnections(targetUserId, isSelf);
   const [postCount, setPostCount] = useState<number | null>(null);
 
   useEffect(() => {
@@ -68,9 +74,9 @@ export const ProfileStatRow = ({ targetUserId }: Props) => {
   }, [targetUserId]);
 
   const items = [
-    { key: "posts", value: postCount, label: "posts", to: null as string | null },
-    { key: "followers", value: followerCount, label: "followers", to: "/friends?tab=followers" },
-    { key: "following", value: followingCount, label: "following", to: "/friends?tab=following" },
+    { key: "posts", value: postCount, label: "posts", kind: null as ConnectionKind | null },
+    { key: "followers", value: followerCount, label: "followers", kind: "followers" as ConnectionKind },
+    { key: "following", value: followingCount, label: "following", kind: "following" as ConnectionKind },
   ];
 
   /**
@@ -95,12 +101,14 @@ export const ProfileStatRow = ({ targetUserId }: Props) => {
           </>
         );
         const cell = "flex min-h-11 flex-col items-start justify-center";
-        return s.to ? (
-          <Link key={s.key} to={s.to} className={cell}>{body}</Link>
+        const kind = s.kind;
+        return kind ? (
+          <button key={s.key} type="button" onClick={() => open(kind)} className={cell}>{body}</button>
         ) : (
           <span key={s.key} className={cell}>{body}</span>
         );
       })}
+      {sheet}
     </div>
   );
 };
