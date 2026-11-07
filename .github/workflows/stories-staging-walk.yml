@@ -1,0 +1,102 @@
+# Stories v2 — signed-in walk on STAGING (Owner, 7 Nov 2026: "Make 2 test members").
+#
+# Creates two throwaway members on the STAGING database only, walks Stories on
+# https://staging.50mmretina.com as them (post with "Also add to my story",
+# open, like, comment, View post, own counts, plain story, Delete, desktop),
+# uploads the screenshots, and ALWAYS removes both members and what they made.
+#
+# Never production: the job is pinned to the `staging` environment, and the
+# database URL must name the staging project (fpszggreishhuvdpkmdr) or nothing
+# runs. The walk script also refuses any site that is not staging.
+# Dispatch from ref `staging` (the scripts live in tools/stories-walk/).
+name: Stories staging walk
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stories-staging-walk
+  cancel-in-progress: false
+
+jobs:
+  walk:
+    name: Stories, signed in, on staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Staging database only
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          case "$SUPABASE_DB_URL" in
+            *fpszggreishhuvdpkmdr*) echo "database: staging (fpszggreishhuvdpkmdr)";;
+            *) echo "::error::REFUSED — this database is not staging."; exit 1;;
+          esac
+          test -f tools/stories-walk/walk.mjs || { echo "::error::Dispatch from ref staging (tools/stories-walk missing)."; exit 1; }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - name: Clean install
+        run: npm ci --no-audit --no-fund
+
+      - name: Cache the Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Chromium for Playwright
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            if npx playwright install chromium; then exit 0; fi
+            sleep $((attempt * 15))
+          done
+          exit 1
+
+      - name: Two throwaway members
+        id: members
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          pw="$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 24)Aa1!"
+          echo "::add-mask::$pw"
+          tag="${GITHUB_RUN_ID}"
+          a="stories-walk-${tag}-a@example.com"; b="stories-walk-${tag}-b@example.com"
+          echo "WALK_PW=$pw" >> "$GITHUB_ENV"
+          echo "EMAIL_A=$a" >> "$GITHUB_ENV"
+          echo "EMAIL_B=$b" >> "$GITHUB_ENV"
+          psql "$SUPABASE_DB_URL" -X -q -v email_a="$a" -v email_b="$b" -v pw="$pw" -f tools/stories-walk/members.sql
+
+      - name: The walk
+        env:
+          SITE: https://staging.50mmretina.com
+          OUT: /tmp/stories-walk
+        run: node tools/stories-walk/walk.mjs
+
+      - name: Screenshots and results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stories-staging-walk
+          path: /tmp/stories-walk
+          if-no-files-found: warn
+
+      - name: Remove the two members and everything they made
+        if: always()
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          case "$SUPABASE_DB_URL" in *fpszggreishhuvdpkmdr*) ;; *) exit 1;; esac
+          psql "$SUPABASE_DB_URL" -X -q -f tools/stories-walk/cleanup.sql
