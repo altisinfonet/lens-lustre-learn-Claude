@@ -16,7 +16,7 @@ import {
 import {
   LogOut, Shield, Scale, Wallet, LayoutDashboard, User, ImageIcon,
   Users, Rss, UserPlus, HelpCircle, Settings, Trophy, Edit2, Compass,
-  Sun, Moon, Globe, BookOpen, Award, FileText, Download, Image as ImageLucide, Crown, Bell, Trash2,
+  Sun, Moon, Globe, BookOpen, Award, FileText, Download, Image as ImageLucide, Crown, Bell, Trash2, Aperture,
 } from "lucide-react";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { useTheme } from "@/hooks/core/useTheme";
@@ -113,6 +113,7 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
         { icon: Bell, label: "Notifications", to: "/notifications", show: true },
         { icon: ImageIcon, label: "Entries", to: "/dashboard?tab=submissions", show: true },
         { icon: ImageLucide, label: "Photos", to: "/photos", show: true },
+        { icon: Aperture, label: "My Stories", to: "/my-stories", show: true },
         { icon: Crown, label: "Winners", to: "/winners", show: true },
         { icon: Trophy, label: "Compete", to: "/competitions", show: true },
         { icon: HelpCircle, label: "Help", to: "/help-support", show: true },
@@ -130,6 +131,7 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
         { icon: Compass, label: "Discover", to: "/discover", show: true },
         { icon: ImageIcon, label: "Entries", to: "/dashboard?tab=submissions", show: true },
         { icon: ImageLucide, label: "Photos", to: "/photos", show: true },
+        { icon: Aperture, label: "My Stories", to: "/my-stories", show: true },
         { icon: Crown, label: "Winners", to: "/winners", show: true },
         { icon: Trophy, label: "Compete", to: "/competitions", show: true },
         { icon: FileText, label: "Journal", to: "/journal", show: true },

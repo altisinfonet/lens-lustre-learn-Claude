@@ -121,3 +121,38 @@ describe("Owner 7 Nov 2026 — small changes after the staging check", () => {
     expect(viewer).toContain("/stories/${storyKey}");
   });
 });
+
+describe("Owner 7 Nov 2026 (go) — who saw it, every comment, My Stories, View post on own", () => {
+  const thread = read("components/comments/CommentThread.tsx");
+  const menu = read("components/UserMenu.tsx");
+  const sheet = read("components/MobileProfileSheet.tsx");
+  const mig = readFileSync(join(__dirname, "..", "..", "..", "supabase", "migrations", "20261111_0101_story_viewers.sql"), "utf8");
+
+  it("the owner taps the eye for 'Seen by' and the comment count for every comment", () => {
+    expect(viewer).toContain('aria-label="Seen by"');
+    expect(viewer).toContain('aria-label="All comments"');
+    expect(viewer).toContain("fetchStoryViewers(storyId, before)");
+  });
+
+  it("only the owner can read who saw a story (the database refuses anyone else)", () => {
+    expect(mig).toContain("ST-0101-001: only the story''s owner can see who saw it");
+    expect(mig).toMatch(/REVOKE ALL ON FUNCTION public\.story_viewers\(uuid, integer, timestamptz\) FROM PUBLIC, anon;/);
+  });
+
+  it("the comments scroll and the top brings older ones", () => {
+    expect(thread).toContain("overflow-y-auto");
+    expect(viewer).toContain("onTop()");
+    expect(viewer).toContain("fetchOlderStoryComments(story.id, first.created_at)");
+  });
+
+  it("'View post' shows on the owner's own post story too", () => {
+    expect(viewer).toMatch(/\{story\?\.post_id && \(/);
+    expect(viewer).not.toMatch(/!own && story\?\.post_id/);
+  });
+
+  it("'My Stories' is a page under My Content (computer and phone menus)", () => {
+    expect(app).toContain('path="/my-stories"');
+    expect(menu).toContain('label: "My Stories", to: "/my-stories"');
+    expect(sheet).toContain('label: "My Stories", to: "/my-stories"');
+  });
+});
