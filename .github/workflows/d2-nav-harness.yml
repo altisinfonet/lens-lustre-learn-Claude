@@ -37,7 +37,10 @@ permissions:
 jobs:
   navigation:
     name: Back returns to the feed (${{ matrix.browser }})
-    runs-on: ubuntu-latest
+    # ubuntu-24.04, not -latest: on 2026-11-07 ubuntu-latest became 26.04, where
+    # Playwright's WebKit cannot start (libicudata.so.74 missing). Pin until
+    # Playwright ships a WebKit build for 26.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     strategy:
       fail-fast: false
@@ -56,7 +59,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ matrix.browser }}-${{ hashFiles('package-lock.json') }}
+          key: u2404-playwright-${{ matrix.browser }}-${{ hashFiles('package-lock.json') }}
       - name: Install the browser for Playwright (with its system libraries)
         run: |
           set -uo pipefail
