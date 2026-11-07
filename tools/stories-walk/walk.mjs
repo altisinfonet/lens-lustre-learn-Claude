@@ -11,7 +11,6 @@
  * ("Make 2 test members").
  */
 import { chromium } from "playwright";
-import sharp from "sharp";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -34,14 +33,14 @@ const step = async (name, fn) => {
 const PHONE = { viewport: { width: 412, height: 915 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 };
 const DESKTOP = { viewport: { width: 1440, height: 900 } };
 const shot = (page, name) => page.screenshot({ path: join(OUT, `${name}.png`) });
-const photo = async (r, g, b, label) => ({
-  name: `${label}.jpg`, mimeType: "image/jpeg",
-  buffer: await sharp({ create: { width: 1200, height: 1500, channels: 3, background: { r, g, b } } })
-    .composite([{ input: Buffer.from(`<svg width="1200" height="1500"><text x="80" y="760" font-size="120" fill="white" font-family="sans-serif">${label}</text></svg>`) }])
-    .jpeg().toBuffer(),
-});
-
 const browser = await chromium.launch();
+
+/** A 1200×1500 test photo drawn by the browser itself (PNG). */
+const painter = await (await browser.newContext({ viewport: { width: 1200, height: 1500 } })).newPage();
+const photo = async (r, g, b, label) => {
+  await painter.setContent(`<body style="margin:0;width:1200px;height:1500px;background:rgb(${r},${g},${b});display:flex;align-items:center;justify-content:center;font:bold 120px sans-serif;color:#fff">${label}</body>`);
+  return { name: `${label.replace(/\s+/g, "-")}.png`, mimeType: "image/png", buffer: await painter.screenshot({ type: "png" }) };
+};
 const apiErrors = [];
 
 async function member(email, opts, tag) {
