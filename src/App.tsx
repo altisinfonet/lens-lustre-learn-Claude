@@ -169,6 +169,7 @@ const EntryDetail = lazyRetry(() => import("./pages/EntryDetail"), "EntryDetail"
 const CustomUrlProfile = lazyRetry(() => import("./pages/CustomUrlProfile"), "CustomUrlProfile");
 const Unsubscribe = lazyRetry(() => import("./pages/Unsubscribe"), "Unsubscribe");
 const MyPhotos = lazyRetry(() => import("./pages/MyPhotos"), "MyPhotos");
+const MyStories = lazyRetry(() => import("./pages/MyStories"), "MyStories");
 const CookiePolicy = lazyRetry(() => import("./pages/CookiePolicy"), "CookiePolicy");
 const CommunityGuidelines = lazyRetry(() => import("./pages/CommunityGuidelines"), "CommunityGuidelines");
 const NotificationSettings = lazyRetry(() => import("./pages/NotificationSettings"), "NotificationSettings");
@@ -417,6 +418,7 @@ const App = () => {
                   <Route path="/courses/:slug/lessons/:lessonId" element={<LessonView />} />
                   <Route path="/entry/:entryId" element={<EntryDetail />} />
                   <Route path="/photos" element={<MyPhotos />} />
+                  <Route path="/my-stories" element={<MyStories />} />
                   <Route path="/notifications" element={<Notifications />} />
                 </Route>
                 <Route path="/profile/:userId" element={<PublicProfile />} />
@@ -464,6 +466,11 @@ const App = () => {
                     vanity-route discriminator below. */}
                 <Route path="/IDverification" element={<IDVerification />} />
                 <Route path="/IDverification/:idNumber" element={<IDVerification />} />
+                {/* Stories v2 (Owner 7 Nov): a story's own address opens it over the feed.
+                    /stories/<id> is the short form the bell and push use; the viewer then
+                    shows /<handle>/stories/<id> in the address bar. */}
+                <Route path="/stories/:storyId" element={<Feed />} />
+                <Route path="/:handle/stories/:storyId" element={<Feed />} />
                 {/* Custom vanity URL - must be BEFORE catch-all but AFTER all known routes */}
                 <Route path="/:customUrl" element={<CustomUrlOrIdVerification />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

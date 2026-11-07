@@ -90,8 +90,6 @@ const CEILING_LEDGER: Record<string, string> = {
     "NOTHING BOUNDS IT — every reaction on the photograph is fetched to compute a count and whether this member reacted, both single values. Scales with SUCCESS, so it costs most on the page people share. Most-reacted photograph today: 14",
   "comments@src/components/CommentsSection.tsx":
     "the article/entry filter is applied CONDITIONALLY, so with neither prop this reads every comment on the platform. Both call sites pass one (JournalArticle articleId, EntryDetail entryId) — verified, so unreachable today; recorded because both props are optional",
-  "stories@src/components/feed/FeedStoriesBar.tsx":
-    "expires_at > now() — at most 24 hours of one member's stories. Live platform-wide today: 2",
   "stories@src/components/profile/ProfileStories.tsx":
     "expires_at > now() — at most 24 hours of one member's stories",
   "highlights@src/components/profile/ProfileStories.tsx":

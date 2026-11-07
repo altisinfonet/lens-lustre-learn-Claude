@@ -1,20 +1,28 @@
 /**
- * STORIES — THE OWNER'S FOUR RULES, PINNED (2026-08-05, with an Instagram
- * screenshot as the size reference):
+ * STORIES — THE OWNER'S RULES, PINNED.
  *
- *   1. "Stories round will be like this size now it's too small."
+ * 2026-08-05 (with an Instagram screenshot):
  *   2. "Once updated user unable to delete, delete anytime option needed."
  *   3. "When opened stories full page like instagram must be opened."
  *   4. "Stories time 5 sec to do it 10 sec to stay."
+ * 2026-11-06, Stories v2 ("go stories … exact matching of your screen"):
+ *   1. (REPLACES the 2026-08-05 round 80/96 px rings, by the Owner, in writing,
+ *      with an approved screenshot) "No Round … Make it square corner rounded
+ *      but show image category don't hide that" — 88 px square tiles with
+ *      rounded corners showing the story photo, under the category tabs.
+ *   5. One viewer for every story (feed, profile, bell).
+ *   6. Every post goes to the story unless the box is unticked (ticked by default).
  *
- * Source pins on comment-stripped code, so a future change that quietly
- * shrinks the rings, drops the delete, boxes the viewer again or reverts the
- * timer fails CI with this file explaining whose rule it broke.
+ * Source pins on comment-stripped code, so a change that quietly breaks a rule
+ * fails CI with this file explaining whose rule it broke.
  */
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { STORY_DISPLAY_MS } from "@/lib/storyTiming";
+import { STORY_RULES } from "@/lib/stories/storyData";
+import { STORY_BOX_HINT } from "@/components/stories/AddToStoryBox";
+import { getNotifLink } from "@/lib/notificationLinks";
 import { stripComments } from "@/test-utils/sourceText";
 
 const read = (rel: string) => stripComments(readFileSync(join(__dirname, "..", "..", "..", "src", rel), "utf8"))
@@ -22,87 +30,129 @@ const read = (rel: string) => stripComments(readFileSync(join(__dirname, "..", "
 
 const feed = read("components/feed/FeedStoriesBar.tsx");
 const profile = read("components/profile/ProfileStories.tsx");
+const viewer = read("components/stories/StoryViewer.tsx");
+const rules = read("lib/stories/storyRules.ts");
+const viewerData = read("lib/stories/storyViewerData.ts");
+const app = read("App.tsx");
 
 describe("rule 4 — a story stays 10 seconds", () => {
   it("the shared constant is exactly 10 000 ms (was 5 000)", () => {
     expect(STORY_DISPLAY_MS).toBe(10_000);
   });
 
-  it("both viewers run on the shared constant, so they can never disagree", () => {
-    expect(feed).toContain('from "@/lib/storyTiming"');
-    expect(profile).toContain('from "@/lib/storyTiming"');
-    // and no viewer re-hardcodes the old five seconds
-    expect(feed).not.toMatch(/STORY_MS\s*=\s*5000/);
+  it("the one viewer times photos with that constant", () => {
+    expect(STORY_RULES.photoMs).toBe(STORY_DISPLAY_MS);
+    expect(rules).toContain('from "@/lib/storyTiming"');
   });
 });
 
-describe("rule 1 — rings at the screenshot's size", () => {
-  it("feed bar rings are 80px on phones, 96px from sm up", () => {
-    expect(feed).toContain("h-20 w-20 sm:h-24 sm:w-24");
-    expect(feed).not.toContain("h-16 w-16");
+describe("rule 1 (v2) — square tiles with rounded corners, showing the photo", () => {
+  it("feed tiles are 88 px squares with rounded corners — no round rings", () => {
+    expect(feed).toContain("h-[88px] w-[88px] rounded-[18px] p-[3px]");
+    expect(feed).toContain("rounded-[15px]");
+    expect(feed).not.toContain("h-20 w-20 sm:h-24 sm:w-24");
   });
 
-  /**
-   * SUPERSEDED BY THE OWNER, 2026-08-16 — on the PROFILE only.
-   *
-   * Rule 1 (2026-08-05, "Stories round will be like this size now it's too
-   * small") set 80px, and it still governs the FEED bar above, untouched.
-   *
-   * On 2026-08-16 he sent a full profile redesign spec plus a mockup, said of
-   * the story section "The existing large dashed circles look unfinished and
-   * generic", and then "mostly match my sample". The circles in that sample
-   * the ring is 96px in a 705px frame — 13.6%, about 68px at 360.
-   *
-   * THIS IS THE OWNER MOVING HIS OWN TARGET, IN WRITING, WITH A REFERENCE
-   * IMAGE. It is not the target being moved to make a change pass — the
-   * distinction that matters, and the reason this comment exists rather than
-   * a silent edit. The rings shrank 80 -> 62 AND lost the dashed border, which
-   * is what he actually objected to.
-   *
-   * The feed assertion above is deliberately NOT relaxed: he did not ask for
-   * it, so it keeps the 2026-08-05 size.
-   */
-  it("profile rings are 68px on phones, 80px from sm up — measured off the 2026-08-16 Instagram reference", () => {
+  it("a tile shows the newest story photo, with the face small in the corner", () => {
+    expect(feed).toContain("b.cover_url");
+    expect(feed).toContain("absolute -bottom-1 -right-1 h-7 w-7 rounded-full");
+  });
+
+  it("profile rings keep the 2026-08-16 size and no dashed placeholders", () => {
     expect(profile).toContain("h-[68px] w-[68px] sm:h-20 sm:w-20");
-  });
-
-  it("no dashed placeholder rings — owner: 'look unfinished and generic'", () => {
     expect(profile).not.toContain("border-dashed");
   });
 });
 
-describe("rule 3 — a story opens FULL PAGE", () => {
-  it("the profile viewer renders stories full-bleed like the feed viewer", () => {
-    // the full-page image sizing used by both viewers
-    expect(profile).toContain("max-h-[92vh] max-w-[100vw]");
-    expect(feed).toContain("max-h-[92vh] max-w-[100vw]");
+describe("rule 3 + 5 — one full-page viewer for every story", () => {
+  it("feed and profile both open the one StoryViewer", () => {
+    // Loaded on demand (P13 entry-bundle ceiling) — still the one viewer.
+    expect(feed).toContain('import("@/components/stories/StoryViewer")');
+    expect(profile).toContain('import("@/components/stories/StoryViewer")');
   });
 
-  it("with Instagram-style timed progress bars and tap zones", () => {
-    expect(profile).toContain("onAnimationComplete");
-    expect(profile).toContain('aria-label="Previous"');
-    expect(profile).toContain('aria-label="Next"');
+  it("the phone viewer is full screen, with progress bars and tap zones", () => {
+    expect(viewer).toContain('"fixed inset-0 z-[200] bg-black"');
+    expect(viewer).toContain("h-[3px] flex-1 overflow-hidden rounded-full bg-white/35");
+    expect(viewer).toContain('aria-label="Previous"');
+    expect(viewer).toContain('aria-label="Next"');
   });
 });
 
-describe("rule 2 — the owner can delete ANYTIME", () => {
-  it("profile viewer keeps a delete path for the story on screen", () => {
-    expect(profile).toContain("handleDeleteStory(currentViewerItem.id)");
+describe("rule 2 — the owner can delete ANYTIME, and the delete is verified", () => {
+  it("the viewer offers Delete on one's own story", () => {
+    expect(viewer).toContain("deleteOwnStory(story.id)");
   });
 
-  it("feed viewer keeps delete for one's own story", () => {
-    expect(feed).toContain("handleDeleteOwn");
-    expect(feed).toContain('supabase.from("stories" as any).delete()');
+  it("a delete returns the deleted row, and zero rows is an error", () => {
+    expect(viewerData).toContain('.delete().eq("id", storyId).select("id")');
+    expect(viewerData).toContain("Story could not be deleted.");
+  });
+});
+
+describe("rule 6 — posts go to the story by default", () => {
+  it("the box starts ticked", () => {
+    expect(STORY_RULES.addToStoryByDefault).toBe(true);
+  });
+});
+
+describe("Owner 7 Nov 2026 — small changes after the staging check", () => {
+  it("the box says 'Shows for 24 hours publicly.' for a public post, and never 'publicly' for a smaller audience", () => {
+    expect(STORY_BOX_HINT.public).toBe("Shows for 24 hours publicly.");
+    expect(STORY_BOX_HINT.friends).not.toMatch(/public/i);
+    expect(STORY_BOX_HINT.private).not.toMatch(/public/i);
   });
 
-  it("a delete is VERIFIED (rows returned) and SEEN (state refreshed) — both viewers", () => {
-    // .select("id") after .delete() makes the database return what it deleted;
-    // zero rows must surface as an error, never a false "Story removed".
-    expect(feed).toContain('.delete().eq("id", currentStory.id).select("id")');
-    expect(profile).toContain('.delete().eq("id", storyId).select("id")');
-    // and the feed bar refreshes so the ring disappears without a reload —
-    // the 2026-08-05 "unable to delete" was exactly this missing refresh
-    expect(feed).toContain("setOwnStories((prev) => prev.filter((s) => s.id !== currentStory.id))");
-    expect(feed).toMatch(/closeViewer\(\);\s*loadBar\(\);/);
+  it("no 'Your Story' name and no 'Share a story' line under the own tile", () => {
+    expect(feed).not.toMatch(/>\s*Your Story\s*</);
+    expect(feed).not.toContain("Share a story");
+    expect(feed).toContain('aria-label="Your story"');
+  });
+
+  it("an unseen story's border is blue into gold", () => {
+    expect(feed).toContain('RING_UNSEEN = "bg-gradient-to-tr from-primary to-amber-400"');
+  });
+
+  it("a story has its own address: /<handle>/stories/<id>, and the bell opens /stories/<id>", () => {
+    expect(app).toContain('path="/:handle/stories/:storyId"');
+    expect(app).toContain('path="/stories/:storyId"');
+    expect(app.indexOf('path="/:handle/stories/:storyId"')).toBeLessThan(app.indexOf('path="/:customUrl"'));
+    expect(getNotifLink({ type: "story_comment", reference_id: "abc" })).toBe("/stories/abc");
+    expect(viewer).toContain("/stories/${storyKey}");
+  });
+});
+
+describe("Owner 7 Nov 2026 (go) — who saw it, every comment, My Stories, View post on own", () => {
+  const thread = read("components/comments/CommentThread.tsx");
+  const menu = read("components/UserMenu.tsx");
+  const sheet = read("components/MobileProfileSheet.tsx");
+  const mig = readFileSync(join(__dirname, "..", "..", "..", "supabase", "migrations", "20261111_0101_story_viewers.sql"), "utf8");
+
+  it("the owner taps the eye for 'Seen by' and the comment count for every comment", () => {
+    expect(viewer).toContain('aria-label="Seen by"');
+    expect(viewer).toContain('aria-label="All comments"');
+    expect(viewer).toContain("fetchStoryViewers(storyId, before)");
+  });
+
+  it("only the owner can read who saw a story (the database refuses anyone else)", () => {
+    expect(mig).toContain("ST-0101-001: only the story''s owner can see who saw it");
+    expect(mig).toMatch(/REVOKE ALL ON FUNCTION public\.story_viewers\(uuid, integer, timestamptz\) FROM PUBLIC, anon;/);
+  });
+
+  it("the comments scroll and the top brings older ones", () => {
+    expect(thread).toContain("overflow-y-auto");
+    expect(viewer).toContain("onTop()");
+    expect(viewer).toContain("fetchOlderStoryComments(story.id, first.created_at)");
+  });
+
+  it("'View post' shows on the owner's own post story too", () => {
+    expect(viewer).toMatch(/\{story\?\.post_id && \(/);
+    expect(viewer).not.toMatch(/!own && story\?\.post_id/);
+  });
+
+  it("'My Stories' is a page under My Content (computer and phone menus)", () => {
+    expect(app).toContain('path="/my-stories"');
+    expect(menu).toContain('label: "My Stories", to: "/my-stories"');
+    expect(sheet).toContain('label: "My Stories", to: "/my-stories"');
   });
 });

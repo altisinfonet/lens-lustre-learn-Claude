@@ -59,7 +59,7 @@ const srcRaw = (rel: string) => readFileSync(join(__dirname, "..", "..", rel), "
 const CONVERTED_FILES = [
   "lib/logger.ts",
   "lib/errorCodes.ts",
-  "components/feed/FeedStoriesBar.tsx",
+  "components/stories/StoryViewer.tsx",
   "components/profile/ProfileStories.tsx",
   "components/WallPosts.tsx",
   "hooks/feed/useCaptionMentions.ts",
@@ -116,7 +116,7 @@ const CONVERTED_FILES = [
 
 /** Files that must actually EMIT structured logs, not merely avoid console. */
 const MUST_LOG = [
-  "components/feed/FeedStoriesBar.tsx",
+  "components/stories/StoryViewer.tsx",
   "components/profile/ProfileStories.tsx",
   "components/WallPosts.tsx",
   "hooks/feed/useCaptionMentions.ts",
@@ -279,7 +279,7 @@ describe("rule: every persisted log answers the owner's questions", () => {
       code: "STORY-6001",
       event: "STORY_DELETE_MATCHED_NO_ROWS",
       fn: "handleDeleteOwn",
-      file: "src/components/feed/FeedStoriesBar.tsx",
+      file: "src/components/stories/StoryViewer.tsx",
       message: "Deleting the member's own story",
       reason: "The delete returned zero rows.",
       expected: "Exactly one story row deleted",
@@ -295,7 +295,7 @@ describe("rule: every persisted log answers the owner's questions", () => {
     expect(args._event).toBe("STORY_DELETE_MATCHED_NO_ROWS");
     expect(args._severity).toBe("error");
     expect(args._fn).toBe("handleDeleteOwn");
-    expect(args._file).toContain("FeedStoriesBar.tsx");
+    expect(args._file).toContain("StoryViewer.tsx");
     expect(args._reason).toContain("zero rows");
     expect(args._expected).toContain("one story row");
     expect(args._actual).toBe("0 rows");
@@ -401,7 +401,7 @@ describe("rule: the converted files really do emit structured logs", () => {
     // 2026-08-05: "Once updated user unable to delete". The delete was working;
     // nothing recorded that it had matched zero rows. That must never again be
     // invisible, in either viewer.
-    for (const rel of ["components/feed/FeedStoriesBar.tsx", "components/profile/ProfileStories.tsx"]) {
+    for (const rel of ["components/stories/StoryViewer.tsx", "components/profile/ProfileStories.tsx"]) {
       expect(src(rel)).toContain("STORY-6001");
       expect(src(rel)).toContain("STORY_DELETE_MATCHED_NO_ROWS");
     }
