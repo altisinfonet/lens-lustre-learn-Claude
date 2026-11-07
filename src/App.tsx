@@ -464,6 +464,11 @@ const App = () => {
                     vanity-route discriminator below. */}
                 <Route path="/IDverification" element={<IDVerification />} />
                 <Route path="/IDverification/:idNumber" element={<IDVerification />} />
+                {/* Stories v2 (Owner 7 Nov): a story's own address opens it over the feed.
+                    /stories/<id> is the short form the bell and push use; the viewer then
+                    shows /<handle>/stories/<id> in the address bar. */}
+                <Route path="/stories/:storyId" element={<Feed />} />
+                <Route path="/:handle/stories/:storyId" element={<Feed />} />
                 {/* Custom vanity URL - must be BEFORE catch-all but AFTER all known routes */}
                 <Route path="/:customUrl" element={<CustomUrlOrIdVerification />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

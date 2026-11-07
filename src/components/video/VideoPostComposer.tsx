@@ -359,7 +359,7 @@ export default function VideoPostComposer({ open, onOpenChange, encode, initialF
               maxLength={2200}
             />
             <PostAudienceChooser value={privacy} onChange={setPrivacy} variant="row" rowLabel={t("composer.audience", "Post audience")} />
-            <AddToStoryBox checked={addToStory} onChange={setAddToStory} className="" />
+            <AddToStoryBox checked={addToStory} onChange={setAddToStory} audience={privacy} className="" />
             <CategoryChips value={categories} onChange={setCategories} />
             {!server && (
               <label className="flex min-h-11 items-center gap-2 text-sm">

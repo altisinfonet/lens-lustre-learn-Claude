@@ -2173,7 +2173,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                     )}
 
                     {(imagePreviews.length > 0 || resumedUrls.length > 0) && !scheduleAt && (
-                      <Suspense fallback={null}><AddToStoryBox checked={addToStory} onChange={setAddToStory} className="mt-3" /></Suspense>
+                      <Suspense fallback={null}><AddToStoryBox checked={addToStory} onChange={setAddToStory} audience={newPrivacy} className="mt-3" /></Suspense>
                     )}
 
                     {/* A resumed draft's images are already in storage — shown as
@@ -2285,7 +2285,7 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
                           </div>
                         )}
                         {(imagePreviews.length > 0 || resumedUrls.length > 0) && !scheduleAt && (
-                          <Suspense fallback={null}><AddToStoryBox checked={addToStory} onChange={setAddToStory} className="mb-3" /></Suspense>
+                          <Suspense fallback={null}><AddToStoryBox checked={addToStory} onChange={setAddToStory} audience={newPrivacy} className="mb-3" /></Suspense>
                         )}
                         {/* A resumed draft has no local File objects to preview,
                             so it keeps the thumbnail it always had. */}
