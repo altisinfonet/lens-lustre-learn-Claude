@@ -27,9 +27,11 @@ describe("App Store review compliance", () => {
     expect(read("src/pages/Feed.tsx")).toMatch(/blockedIds/);
   });
 
-  it("5.1.1(v) — Delete Account is reachable from both account menus", () => {
+  it("5.1.1(v) — Delete Account is reachable: computer menu item, and Settings in the app / phone menu", () => {
     expect(read("src/components/UserMenu.tsx")).toMatch(/Delete Account/);
-    expect(read("src/components/MobileProfileSheet.tsx")).toMatch(/Delete Account/);
+    // Owner 7 Nov 2026: the app / phone menu has no separate item; deletion lives in Settings.
+    expect(read("src/components/MobileProfileSheet.tsx")).toMatch(/label: "Settings", to: "\/dashboard\?tab=settings", show: true/);
+    expect(read("src/pages/Dashboard.tsx")).toMatch(/<DeleteAccountSection \/>/);
   });
 
   it("3.1.1 — the wallet is not offered in the iOS app", () => {
