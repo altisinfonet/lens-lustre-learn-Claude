@@ -20,6 +20,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
+import { storySampleOn, sampleBar, sampleUserStories, sampleComments, sampleViewers, sampleOlderComments } from "./storySample";
 import type { FakeRoute } from "./fakeBackend";
 import {
   HARNESS_USER_ID,
@@ -387,7 +388,13 @@ const RPCS: Record<string, (body: Record<string, unknown>, params: URLSearchPara
   // No active stories anywhere, matching the empty `stories` table. The two
   // must agree — a ring here and an empty table there would photograph a
   // combination the app can never actually be in.
-  get_feed_stories_bar: () => [],
+  // Stories v2: empty, matching the empty `stories` table — unless a scene asks
+  // for the approved sample (?stories=1, storySample.ts).
+  get_feed_stories_bar: () => (storySampleOn() ? sampleBar() : []),
+  get_user_stories: (body) => (storySampleOn() ? sampleUserStories(String(body._user_id ?? "")) : []),
+  story_comments_list: () => (storySampleOn() ? sampleComments() : []),
+  story_comments_page: (body) => (storySampleOn() ? sampleOlderComments(String(body._before ?? "")) : []),
+  story_viewers: () => (storySampleOn() ? sampleViewers() : []),
   get_my_story_view_counts: () => [],
 
   // Contributor score drives a small rank chip. Nobody has one here, which is

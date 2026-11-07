@@ -545,6 +545,18 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     description: "A story was deleted and removed from the screen.",
     resolution: "None — success marker for the owner's 'delete anytime' rule.",
   },
+  {
+    code: "STORY-6004",
+    severity: "warn",
+    description: "A member's stories did not load in the story viewer (Stories v2).",
+    resolution: "Read the reason for the RPC error; check get_user_stories exists on this lane (20261111_0100) and that the caller is signed in.",
+  },
+  {
+    code: "STORY-6005",
+    severity: "warn",
+    description: "A new post with 'Also add to my story' ticked did not reach the story. The post itself succeeded.",
+    resolution: "Read the reason: ST-0100-00x codes come from story_add_post (not signed in, banned, not the post's owner). Check the function on this lane.",
+  },
 
   // ── JUDGE ─────────────────────────────────────────────────────────────────
   //

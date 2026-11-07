@@ -44,6 +44,7 @@
  * substitutes content. From `ready` on it is the device path's own publish.
  * ─────────────────────────────────────────────────────────────────────────────
  */
+import { shareNewPostToStory } from "@/lib/stories/storyRules";
 import { recordTiming } from "@/lib/telemetry";
 import { backoffMs } from "@/lib/offline/outbox";
 import { isNetworkError } from "@/lib/offline/retryPolicy";
@@ -80,7 +81,8 @@ export interface VideoJob {
   videoId?: string;
   versionNo?: number;
   uploaded: string[];         // file names confirmed in R2
-  post: { content: string; categories: string[]; privacy: string; idempotencyKey: string };
+  /** addToStory: Stories v2 — the post screen's ticked box, applied once the post exists. */
+  post: { content: string; categories: string[]; privacy: string; idempotencyKey: string; addToStory?: boolean };
   /** VID-5 · an AD video: the creative it is for. The ready step links it there instead of posting. */
   ad?: { creativeId: string };
   postId?: string;
@@ -146,7 +148,7 @@ function newKey(): string {
 /** Put an encoded video on the device as a job. Both idempotency keys are made HERE, once. */
 export async function createJob(input: {
   userId: string; purpose: VideoPurpose; manifest: VideoManifest; manifestSha256: string;
-  files: Map<string, Uint8Array>; post: { content: string; categories: string[]; privacy: string };
+  files: Map<string, Uint8Array>; post: { content: string; categories: string[]; privacy: string; addToStory?: boolean };
   ad?: { creativeId: string };
 }, now = Date.now()): Promise<VideoJob> {
   const s = getStore();
@@ -326,6 +328,7 @@ export async function advanceJob(job: VideoJob, d: JobDeps, opts: { beginOnly?: 
         throw new Refused(error.message, error.code ?? codeOf(error.message));
       }
       if (typeof data !== "string" || !data) throw new Error("publish: no id");
+      shareNewPostToStory(data, j.post.addToStory);
       j = { ...j, postId: data, step: "published" };
       await s.deleteFiles(j.id);
       await s.deleteJob(j.id);
@@ -432,7 +435,7 @@ async function jobById(id: string): Promise<VideoJob | undefined> {
  */
 export async function createServerJob(input: {
   userId: string; purpose: VideoPurpose; file: Blob; name: string;
-  post: { content: string; categories: string[]; privacy: string };
+  post: { content: string; categories: string[]; privacy: string; addToStory?: boolean };
   ad?: { creativeId: string };
 }, now = Date.now()): Promise<VideoJob> {
   const s = getStore();

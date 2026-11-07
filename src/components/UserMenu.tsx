@@ -21,7 +21,7 @@ import {
 import {
   LogOut, Shield, Scale, Wallet, LayoutDashboard, User, ImageIcon,
   Users, MessageSquare, Compass, Rss, UserPlus, HelpCircle, Settings,
-  Trophy, Edit2, Award, Camera, Bell, Trash2,
+  Trophy, Edit2, Award, Camera, Bell, Trash2, Aperture,
 } from "lucide-react";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { Badge } from "@/components/ui/badge";
@@ -140,6 +140,7 @@ const UserMenu = ({ onNavigate, variant = "desktop" }: UserMenuProps) => {
         // the screen that claims one rather than at their id.
         { icon: MessageSquare, label: "My Wall", to: wallPath, show: true, tooltip: "Your posts & updates" },
         { icon: Camera, label: "My Photos", to: "/photos", show: true, tooltip: "Your photo collection" },
+        { icon: Aperture, label: "My Stories", to: "/my-stories", show: true, tooltip: "Last 24 hours" },
         { icon: Trophy, label: "Competitions", to: "/competitions", show: true, tooltip: "Browse & enter" },
         { icon: Award, label: "My Certificates", to: "/certificates", show: true, tooltip: "Your achievements" },
       ],
