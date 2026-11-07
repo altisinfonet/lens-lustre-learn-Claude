@@ -21,6 +21,8 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { STORY_DISPLAY_MS } from "@/lib/storyTiming";
 import { STORY_RULES } from "@/lib/stories/storyData";
+import { STORY_BOX_HINT } from "@/components/stories/AddToStoryBox";
+import { getNotifLink } from "@/lib/notificationLinks";
 import { stripComments } from "@/test-utils/sourceText";
 
 const read = (rel: string) => stripComments(readFileSync(join(__dirname, "..", "..", "..", "src", rel), "utf8"))
@@ -31,6 +33,7 @@ const profile = read("components/profile/ProfileStories.tsx");
 const viewer = read("components/stories/StoryViewer.tsx");
 const rules = read("lib/stories/storyRules.ts");
 const viewerData = read("lib/stories/storyViewerData.ts");
+const app = read("App.tsx");
 
 describe("rule 4 — a story stays 10 seconds", () => {
   it("the shared constant is exactly 10 000 ms (was 5 000)", () => {
@@ -90,5 +93,31 @@ describe("rule 2 — the owner can delete ANYTIME, and the delete is verified", 
 describe("rule 6 — posts go to the story by default", () => {
   it("the box starts ticked", () => {
     expect(STORY_RULES.addToStoryByDefault).toBe(true);
+  });
+});
+
+describe("Owner 7 Nov 2026 — small changes after the staging check", () => {
+  it("the box says 'Shows for 24 hours publicly.' for a public post, and never 'publicly' for a smaller audience", () => {
+    expect(STORY_BOX_HINT.public).toBe("Shows for 24 hours publicly.");
+    expect(STORY_BOX_HINT.friends).not.toMatch(/public/i);
+    expect(STORY_BOX_HINT.private).not.toMatch(/public/i);
+  });
+
+  it("no 'Your Story' name and no 'Share a story' line under the own tile", () => {
+    expect(feed).not.toMatch(/>\s*Your Story\s*</);
+    expect(feed).not.toContain("Share a story");
+    expect(feed).toContain('aria-label="Your story"');
+  });
+
+  it("an unseen story's border is blue into gold", () => {
+    expect(feed).toContain('RING_UNSEEN = "bg-gradient-to-tr from-primary to-amber-400"');
+  });
+
+  it("a story has its own address: /<handle>/stories/<id>, and the bell opens /stories/<id>", () => {
+    expect(app).toContain('path="/:handle/stories/:storyId"');
+    expect(app).toContain('path="/stories/:storyId"');
+    expect(app.indexOf('path="/:handle/stories/:storyId"')).toBeLessThan(app.indexOf('path="/:customUrl"'));
+    expect(getNotifLink({ type: "story_comment", reference_id: "abc" })).toBe("/stories/abc");
+    expect(viewer).toContain("/stories/${storyKey}");
   });
 });

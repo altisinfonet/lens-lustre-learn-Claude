@@ -271,6 +271,29 @@ export default function StoryViewer({ people, startIndex, viewerId, onClose, onC
   const story = slide?.story ?? null;
   const stopped = paused || holding || typing || picker;
 
+  // Owner 7 Nov: a story has its own address. While a story is on screen the
+  // address bar shows /<handle>/stories/<id> — replaceState, so no extra Back
+  // step and the router is not involved; App.tsx routes that address back here.
+  // Closing puts the page's own address back.
+  const openedAt = useRef(window.location.pathname + window.location.search + window.location.hash);
+  const storyKey = story?.id ?? null;
+  const ownerId = person?.userId ?? null;
+  useEffect(() => {
+    if (!storyKey || !ownerId) return;
+    let gone = false;
+    void fetchProfileMap([ownerId]).then((m) => {
+      const base = memberPath(m.get(ownerId)?.custom_url);
+      if (!gone && base) window.history.replaceState(window.history.state, "", `${base}/stories/${storyKey}`);
+    }).catch(() => { /* no handle: the address simply stays as it was */ });
+    return () => { gone = true; };
+  }, [storyKey, ownerId]);
+  useEffect(() => () => {
+    // a story address opened directly is left to the feed (it goes to /feed)
+    if (!/\/stories\//.test(openedAt.current) && /\/stories\//.test(window.location.pathname)) {
+      window.history.replaceState(window.history.state, "", openedAt.current);
+    }
+  }, []);
+
   // load the person's slides
   useEffect(() => {
     if (!person) return;

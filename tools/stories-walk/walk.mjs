@@ -157,7 +157,7 @@ if (A && B) {
   await step("A sees seen / likes / comments on the own story", async () => {
     const p = A.page;
     await feed(p);
-    await p.locator("button", { hasText: "Your Story" }).first().click();
+    await p.locator('button[aria-label="Your story"]').first().click();
     await V(p).getByText("Highlight").first().waitFor({ timeout: 15000 });
     await pause(p);
     await p.waitForTimeout(2000);
@@ -172,7 +172,7 @@ if (A && B) {
   await step("A adds a plain story with +, B comments, A deletes it", async () => {
     const a = A.page;
     await feed(a);
-    await a.locator("button", { hasText: "Your Story" }).first().locator('input[type="file"]').setInputFiles([await photo(150, 70, 40, "Plain")]);
+    await a.locator('button[aria-label="Your story"]').first().locator('input[type="file"]').setInputFiles([await photo(150, 70, 40, "Plain")]);
     await a.waitForTimeout(8000);
     const b = B.page;
     await feed(b);
@@ -192,7 +192,7 @@ if (A && B) {
     await shot(b, "09-B-plain-story-comment");
 
     await feed(a);
-    await a.locator("button", { hasText: "Your Story" }).first().click();
+    await a.locator('button[aria-label="Your story"]').first().click();
     await V(a).getByText("Highlight").first().waitFor({ timeout: 15000 });
     const m = await bars(a);
     for (let i = 0; i < m - 1; i++) { await V(a).getByRole("button", { name: "Next", exact: true }).click(); await a.waitForTimeout(800); }

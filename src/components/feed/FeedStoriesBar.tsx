@@ -1,6 +1,6 @@
 import { memberPhotoSrc } from "@/lib/photoProtection";
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus } from "lucide-react";
 import { useAuth } from "@/hooks/core/useAuth";
@@ -19,13 +19,19 @@ import {
  *
  * Under the category tabs (unchanged), one SQUARE tile with rounded corners
  * per person: the newest story's PHOTO, the person's face small in the corner,
- * a coloured border while unseen and grey once seen. "Your Story" first, with
- * a + to add a photo story. Tapping opens the one StoryViewer.
+ * a blue → gold border while unseen and grey once seen. The member's own tile
+ * first, with a + to add a photo story. Tapping opens the one StoryViewer.
  *
  * Approved screen: _control/out/OWNER/stories-sample/approved-2026-11-06/new-1-feed-phone.png
  * — sizes and spacing are copied from it; change them only with a new yes.
+ * Owner, 7 Nov 2026: no "Your Story" name and no "Share a story…" line under
+ * the own tile; border "blue gold". A story has its own address,
+ * /<handle>/stories/<id> (and /stories/<id> from the bell), which opens it here.
  */
 const headingFont = { fontFamily: "var(--font-heading)" };
+/** Unseen story: the brand blue into gold (Owner 7 Nov). Seen: grey. */
+const RING_UNSEEN = "bg-gradient-to-tr from-primary to-amber-400";
+const RING_SEEN = "bg-muted-foreground/25";
 
 // The viewer loads only when a story is opened (P13 entry-bundle ceiling).
 const StoryViewer = lazy(() => import("@/components/stories/StoryViewer"));
@@ -38,7 +44,15 @@ const FeedStoriesBar = () => {
   const [uploading, setUploading] = useState(false);
   const [open, setOpen] = useState<{ people: StoryPerson[]; start: number; storyId?: string } | null>(null);
   const [params, setParams] = useSearchParams();
-  const linkedStory = params.get("story");
+  // /<handle>/stories/<id> or /stories/<id> (route) — or the older /feed?story=<id>
+  const { storyId: routeStory } = useParams<{ storyId?: string }>();
+  const navigate = useNavigate();
+  const linkedStory = routeStory ?? params.get("story");
+  /** Leave a story address for the plain feed once the linked story is closed or gone. */
+  const clearLink = useCallback(() => {
+    if (routeStory) navigate("/feed", { replace: true });
+    else setParams((p) => { p.delete("story"); return p; }, { replace: true });
+  }, [routeStory, navigate, setParams]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadBar = useCallback(async () => {
@@ -65,7 +79,7 @@ const FeedStoriesBar = () => {
       if (gone) return;
       if (!owner) {
         toast({ title: "This story has ended", description: "Stories stay for 24 hours." });
-        setParams((p) => { p.delete("story"); return p; }, { replace: true });
+        clearLink();
         return;
       }
       const isOwn = owner === user.id;
@@ -119,20 +133,21 @@ const FeedStoriesBar = () => {
 
   const closeViewer = useCallback(() => {
     setOpen(null);
-    if (linkedStory) setParams((p) => { p.delete("story"); return p; }, { replace: true });
+    if (linkedStory) clearLink();
     void loadBar(); // seen state, deletes
-  }, [loadBar, linkedStory, setParams]);
+  }, [loadBar, linkedStory, clearLink]);
 
-  const hasAnything = ownStories.length > 0 || bar.length > 0;
-  // Always render (the "Your Story" add tile is a persistent entry point)
+  // Always render (the own tile is a persistent entry point)
   if (!user) return null;
 
   return (
     <>
       <div className="mb-4 md:mb-6">
-        <div className="flex items-center gap-3.5 overflow-x-auto pb-2 scrollbar-hide px-1">
-          <button onClick={openOwn} className="flex-shrink-0 flex flex-col items-center gap-1.5 group">
-            <div className={`relative h-[88px] w-[88px] rounded-[18px] p-[3px] ${ownStories.length > 0 ? "bg-gradient-to-tr from-primary via-primary/60 to-accent" : "bg-transparent"}`}>
+        {/* items-start: the own tile has no name under it (Owner 7 Nov), so the
+            squares line up along their top edge, not their middles. */}
+        <div className="flex items-start gap-3.5 overflow-x-auto pb-2 scrollbar-hide px-1">
+          <button onClick={openOwn} aria-label="Your story" className="flex-shrink-0 flex flex-col items-center gap-1.5 group">
+            <div className={`relative h-[88px] w-[88px] rounded-[18px] p-[3px] ${ownStories.length > 0 ? RING_UNSEEN : "bg-transparent"}`}>
               <div className={`w-full h-full rounded-[15px] overflow-hidden border-2 border-background bg-muted flex items-center justify-center ${ownStories.length > 0 ? "" : "border-dashed border-primary/40 group-hover:border-primary"}`}>
                 {uploading ? (
                   <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -151,7 +166,6 @@ const FeedStoriesBar = () => {
                 </span>
               )}
             </div>
-            <span className="text-[10px] tracking-[0.05em] text-muted-foreground truncate max-w-[80px]" style={headingFont}>Your Story</span>
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAddStory} />
           </button>
 
@@ -161,7 +175,7 @@ const FeedStoriesBar = () => {
               onClick={() => setOpen({ people, start: i })}
               className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
             >
-              <div className={`relative h-[88px] w-[88px] rounded-[18px] p-[3px] ${b.has_unseen ? "bg-gradient-to-tr from-primary via-accent to-amber-500" : "bg-muted-foreground/25"}`}>
+              <div className={`relative h-[88px] w-[88px] rounded-[18px] p-[3px] ${b.has_unseen ? RING_UNSEEN : RING_SEEN}`}>
                 <div className="w-full h-full rounded-[15px] overflow-hidden border-2 border-background bg-muted">
                   {(b.cover_url || b.avatar_url) && (
                     <OptimizedImage src={memberPhotoSrc(b.cover_url, 320) ?? b.avatar_url ?? ""} alt={b.full_name || "Story"} className="w-full h-full object-cover" />
@@ -175,11 +189,6 @@ const FeedStoriesBar = () => {
             </button>
           ))}
         </div>
-        {!hasAnything && (
-          <p className="text-[10px] text-muted-foreground/60 px-1 -mt-1" style={headingFont}>
-            Share a story — it stays visible for 24 hours.
-          </p>
-        )}
       </div>
 
       {open && (

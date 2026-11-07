@@ -9,10 +9,24 @@
  * to it (P13 entry-bundle ceiling).
  */
 import { Check } from "lucide-react";
+import type { Privacy } from "@/components/post/PostAudienceChooser";
 
-export default function AddToStoryBox({ checked, onChange, className = "m-4" }: {
+/**
+ * Owner, 7 Nov 2026: "Shows for 24 hours publicly." A story is seen by the
+ * same people as its post, so a Friends / Only-me post says so instead —
+ * "publicly" would be untrue there.
+ */
+export const STORY_BOX_HINT: Record<Privacy, string> = {
+  public: "Shows for 24 hours publicly.",
+  friends: "Shows for 24 hours to your friends.",
+  private: "Shows for 24 hours, only to you.",
+};
+
+export default function AddToStoryBox({ checked, onChange, audience = "public", className = "m-4" }: {
   checked: boolean;
   onChange: (on: boolean) => void;
+  /** the post's audience — the story's audience is the same */
+  audience?: Privacy;
   /** the outer spacing of the screen it sits on (the approved card: m-4) */
   className?: string;
 }) {
@@ -27,7 +41,7 @@ export default function AddToStoryBox({ checked, onChange, className = "m-4" }: 
       </span>
       <span>
         <span className="block text-sm font-semibold">Also add to my story</span>
-        <span className="block text-xs text-muted-foreground">Shows for 24 hours, to the same people as this post. Untick to skip.</span>
+        <span className="block text-xs text-muted-foreground">{STORY_BOX_HINT[audience] ?? STORY_BOX_HINT.public}</span>
       </span>
     </label>
   );
