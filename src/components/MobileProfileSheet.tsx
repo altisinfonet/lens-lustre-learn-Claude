@@ -16,7 +16,7 @@ import {
 import {
   LogOut, Shield, Scale, Wallet, LayoutDashboard, User, ImageIcon,
   Users, Rss, UserPlus, HelpCircle, Settings, Trophy, Edit2, Compass,
-  Sun, Moon, Globe, BookOpen, Award, FileText, Download, Image as ImageLucide, Crown, Bell, Trash2, Aperture,
+  Sun, Moon, Globe, BookOpen, Award, FileText, Download, Image as ImageLucide, Crown, Bell, Aperture,
 } from "lucide-react";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { useTheme } from "@/hooks/core/useTheme";
@@ -148,9 +148,11 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
           ) : null,
         },
         { icon: Shield, label: "Admin", to: "/admin", show: hasAdminPanelAccess },
+        // App Store 5.1.1(v) / Google Play: account deletion is reachable in the app
+        // through Settings (DeleteAccountSection). Owner, 7 Nov 2026: no separate
+        // "Delete Account" item in this (app / phone) menu — it is already in Settings.
+        // The computer menu (UserMenu) keeps its item.
         { icon: Settings, label: "Settings", to: "/dashboard?tab=settings", show: true },
-        // App Store 5.1.1(v): account deletion is reachable from the account menu.
-        { icon: Trash2, label: "Delete Account", to: "/dashboard?tab=settings#delete-account", show: true },
         { icon: HelpCircle, label: "Help", to: "/help-support", show: true },
       ];
 
