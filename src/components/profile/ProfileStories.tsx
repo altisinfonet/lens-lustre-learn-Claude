@@ -1,6 +1,6 @@
 import { memberPhotoSrc } from "@/lib/photoProtection";
 import { Suspense, lazy, useEffect, useState, useRef } from "react";
-import { Plus, X, ChevronLeft, ChevronRight, Eye, Radio, TrendingUp, Trash2, Clock, Star, Users } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
 import { toast } from "@/hooks/core/use-toast";
@@ -8,12 +8,11 @@ import { uploadImage } from "@/lib/imageUpload";
 import { storageSafeFileName } from "@/lib/storageSafeName";
 import { compressImage } from "@/lib/imageCompression";
 import { AnimatePresence, motion } from "framer-motion";
-import { displayEngagement, formatEngagementCount } from "@/lib/displayEngagement";
 import { Button } from "@/components/ui/button";
-import { STORY_DISPLAY_MS } from "@/lib/storyTiming";
 import { logger, newCorrelationId } from "@/lib/logger";
-import { fetchUserStories } from "@/lib/stories/storyData";
+import { addPhotoStory, fetchUserStories, STORY_RULES, type StoryPerson, type StorySlide } from "@/lib/stories/storyData";
 import { useProfileCore } from "@/hooks/profile/useProfileData";
+import { StoryTile, STORY_TILE_LABEL } from "@/components/stories/StoryTile";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 
@@ -25,11 +24,8 @@ const MAX_HIGHLIGHTS = 20;
 
 interface Story {
   id: string;
-  user_id: string;
   image_url: string;
-  caption: string | null;
   created_at: string;
-  expires_at: string;
 }
 
 interface HighlightItem {
@@ -37,6 +33,7 @@ interface HighlightItem {
   image_url: string;
   caption: string | null;
   highlight_id: string;
+  story_id: string | null;
 }
 
 interface Highlight {
@@ -45,15 +42,6 @@ interface Highlight {
   cover_url: string | null;
   created_at?: string;
   items: HighlightItem[];
-}
-
-interface ViewerImage {
-  url: string;
-  caption: string | null;
-  id: string;
-  createdAt: string;
-  type: "story" | "highlight";
-  parentId?: string;
 }
 
 interface Props {
@@ -73,15 +61,44 @@ async function compressForUpload(file: File): Promise<File> {
   }
 }
 
+/** A highlight's photos as viewer slides (one photo each, the story timing). */
+function highlightSlides(hl: Highlight, ownerId: string): StorySlide[] {
+  return hl.items.map((item) => ({
+    key: `${hl.id}:${item.id}`,
+    kind: "photo" as const,
+    src: item.image_url,
+    video: null,
+    durationMs: STORY_RULES.photoMs,
+    story: {
+      // a highlighted story keeps its own id, so its comments come with it
+      id: item.story_id ?? item.id,
+      user_id: ownerId,
+      created_at: hl.created_at || new Date().toISOString(),
+      expires_at: "",
+      post_id: null,
+      caption: item.caption,
+      media: [item.image_url],
+      thumbs: [],
+      is_video: false,
+      like_count: 0,
+      comment_count: 0,
+      i_liked: false,
+      view_count: null,
+    },
+  }));
+}
+
+/**
+ * The profile's stories and highlights (Owner, 7 Nov 2026: "no circle anywhere
+ * more" — stories and highlights are the feed's rounded squares, profile
+ * pictures stay round). Every tile is the one StoryTile; every story and every
+ * highlight opens in the one StoryViewer.
+ */
 const ProfileStories = ({ userId, isOwner }: Props) => {
   const { user } = useAuth();
   const [stories, setStories] = useState<Story[]>([]);
   const [highlights, setHighlights] = useState<Highlight[]>([]);
-  const [viewerOpen, setViewerOpen] = useState(false);
-  const [viewerImages, setViewerImages] = useState<ViewerImage[]>([]);
-  const [viewerIdx, setViewerIdx] = useState(0);
   const [uploading, setUploading] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [showHighlightPrompt, setShowHighlightPrompt] = useState(false);
   const [highlightTitle, setHighlightTitle] = useState("");
   const [pendingHighlightFile, setPendingHighlightFile] = useState<File | null>(null);
@@ -105,16 +122,15 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
     const [storiesRes, highlightsRes] = await Promise.all([
       // Stories v2: the same visibility rule as everywhere (get_user_stories)
       fetchUserStories(userId).then((rows) => ({ data: rows.slice().reverse().map((r) => ({
-        id: r.id, user_id: r.user_id, image_url: r.thumbs[0] ?? r.media[0] ?? "", caption: r.caption,
-        created_at: r.created_at, expires_at: r.expires_at,
+        id: r.id, image_url: r.thumbs[0] ?? r.media[0] ?? "", created_at: r.created_at,
       })) }), () => ({ data: [] })),
       supabase
         .from("highlights" as any)
-        .select("id, title, cover_url, sort_order, created_at, items:highlight_items(id, highlight_id, image_url, caption, sort_order)")
+        .select("id, title, cover_url, sort_order, created_at, items:highlight_items(id, highlight_id, image_url, caption, sort_order, story_id)")
         .eq("user_id", userId)
         .order("sort_order"),
     ]);
-    setStories((storiesRes.data as any[]) || []);
+    setStories((storiesRes.data as Story[]) || []);
 
     const hlData = (highlightsRes.data as any[]) || [];
     setHighlights(
@@ -143,17 +159,16 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
   }, [stories.length, highlights.length]);
 
   const handleAddStory = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files?.[0] || !user) return;
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
     if (stories.length >= MAX_ACTIVE_STORIES) {
       toast({ title: "Limit reached", description: `Maximum ${MAX_ACTIVE_STORIES} active stories allowed`, variant: "destructive" });
       return;
     }
     setUploading(true);
     try {
-      const compressed = await compressForUpload(e.target.files[0]);
-      const path = `${user.id}/stories/${Date.now()}-${storageSafeFileName(compressed.name, "story")}`;
-      const result = await uploadImage({ bucket: "avatars", file: compressed, path, type: "gallery" });
-      await supabase.from("stories" as any).insert({ user_id: user.id, image_url: result.url } as any);
+      // the one story upload (storyData), same as the feed row's "+"
+      await addPhotoStory(user.id, file);
       await loadData();
       toast({ title: "Story added!", description: "Visible for 24 hours" });
     } catch (err: any) {
@@ -208,160 +223,42 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
   };
 
   const handleDeleteHighlight = async (highlightId: string) => {
-    if (!user || deleting) return;
-    setDeleting(true);
+    if (!user) return;
+    const correlationId = newCorrelationId();
     try {
-      await supabase.from("highlight_items" as any).delete().eq("highlight_id", highlightId);
-      await supabase.from("highlights" as any).delete().eq("id", highlightId);
+      const items = await supabase.from("highlight_items" as any).delete().eq("highlight_id", highlightId);
+      if (items.error) throw new Error(items.error.message);
+      const { data, error } = await supabase.from("highlights" as any).delete().eq("id", highlightId).select("id");
+      if (error) throw new Error(error.message);
+      if (!data || (data as unknown[]).length === 0) throw new Error("Highlight could not be deleted.");
       setHighlights(prev => prev.filter(h => h.id !== highlightId));
       toast({ title: "Highlight removed" });
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    }
-    setDeleting(false);
-    setViewerOpen(false);
-  };
-
-  const handleDeleteStory = async (storyId: string) => {
-    const correlationId = newCorrelationId();
-    const startedAt = Date.now();
-
-    if (!user) {
-      logger.warn({
-        code: "AUTH-1001",
-        event: "STORY_DELETE_WITHOUT_SESSION",
-        fn: "handleDeleteStory",
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      logger.error({
+        code: "STORY-6006",
+        event: "HIGHLIGHT_DELETE_FAILED",
+        fn: "handleDeleteHighlight",
         file: "src/components/profile/ProfileStories.tsx",
-        message: "Deleting a story from the profile viewer.",
-        reason: "The delete button was reachable with no signed-in member.",
-        expected: "A signed-in member",
-        actual: "user is null",
-        recordId: storyId,
+        message: "Deleting a highlight from the story viewer.",
+        reason,
+        expected: "The highlight and its items deleted",
+        actual: reason === "Highlight could not be deleted." ? "0 rows" : "database error",
+        nextStep: "Check pg_policies for 'highlights' / 'highlight_items' and confirm the caller owns the row.",
+        recordId: highlightId,
         correlationId,
       });
-      return;
+      toast({ title: "Could not delete", description: "Please try again.", variant: "destructive" });
     }
-    if (deleting) return;
-
-    setDeleting(true);
-    try {
-      // .select("id") returns the rows actually deleted — a delete matching
-      // nothing must surface as an error, never as a false "Story removed".
-      const { data, error } = await supabase.from("stories" as any).delete().eq("id", storyId).select("id");
-
-      if (error) {
-        logger.error({
-          code: "STORY-6002",
-          event: "STORY_DELETE_DB_ERROR",
-          fn: "handleDeleteStory",
-          file: "src/components/profile/ProfileStories.tsx",
-          message: "Deleting a story from the profile viewer.",
-          reason: `The database refused the delete: ${error.message}`,
-          expected: "One row deleted",
-          actual: `error ${(error as any).code ?? "unknown"}`,
-          recordId: storyId,
-          durationMs: Date.now() - startedAt,
-          correlationId,
-          detail: { pgCode: (error as any).code },
-        });
-        throw error;
-      }
-
-      if (!data || (data as any[]).length === 0) {
-        logger.error({
-          code: "STORY-6001",
-          event: "STORY_DELETE_MATCHED_NO_ROWS",
-          fn: "handleDeleteStory",
-          file: "src/components/profile/ProfileStories.tsx",
-          message: "Deleting a story from the profile viewer.",
-          reason: "The delete succeeded but changed zero rows.",
-          expected: "Exactly one story row deleted",
-          actual: "0 rows",
-          nextStep:
-            "Check pg_policies for 'stories' and confirm the signed-in member owns this story.",
-          recordId: storyId,
-          durationMs: Date.now() - startedAt,
-          correlationId,
-        });
-        throw new Error("Story could not be deleted.");
-      }
-
-      setStories(prev => prev.filter(s => s.id !== storyId));
-      toast({ title: "Story removed" });
-
-      logger.info({
-        code: "STORY-6003",
-        event: "STORY_DELETED",
-        fn: "handleDeleteStory",
-        file: "src/components/profile/ProfileStories.tsx",
-        message: "Deleting a story from the profile viewer.",
-        reason: "The database confirmed one deleted row and it left the screen.",
-        expected: "Exactly one story row deleted",
-        actual: `${(data as any[]).length} row(s)`,
-        recordId: storyId,
-        durationMs: Date.now() - startedAt,
-        correlationId,
-      });
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    }
-    setDeleting(false);
-    setViewerOpen(false);
   };
 
-  // Stories v2: a story opens in the ONE StoryViewer (feed, profile, bell).
+  // Stories v2: stories AND highlights open in the ONE StoryViewer (feed, profile, bell).
   const { data: owner } = useProfileCore(userId);
   const [storyOpenId, setStoryOpenId] = useState<string | null>(null);
-  const openStoryViewer = (storyList: Story[], startIdx: number) => {
-    const s = storyList[startIdx];
-    if (s) setStoryOpenId(s.id);
+  const [highlightOpen, setHighlightOpen] = useState<Highlight | null>(null);
+  const person: StoryPerson = {
+    userId, name: owner?.full_name || "Photographer", avatar: owner?.avatar_url ?? null, cover: null, isOwn: isOwner,
   };
-
-  const openHighlightViewer = (hl: Highlight) => {
-    if (hl.items.length === 0) return;
-    setViewerImages(hl.items.map(item => ({
-      url: item.image_url,
-      caption: item.caption,
-      id: item.id,
-      createdAt: hl.created_at || new Date().toISOString(),
-      type: "highlight" as const,
-      parentId: hl.id,
-    })));
-    setViewerIdx(0);
-    setViewerOpen(true);
-  };
-
-  const currentViewerItem = viewerImages[viewerIdx];
-  // REAL story view counts for the owner's own stories (counts only — the RPC
-  // cannot return viewer identities). Replaces the removed simulated figures.
-  const [storyViewCounts, setStoryViewCounts] = useState<Record<string, number>>({});
-  useEffect(() => {
-    if (!isOwner) return;
-    let cancelled = false;
-    void (async () => {
-      const { data } = await supabase.rpc("get_my_story_view_counts" as any);
-      if (cancelled) return;
-      const map: Record<string, number> = {};
-      ((data as any[]) || []).forEach((r: any) => { map[r.story_id] = r.view_count ?? 0; });
-      setStoryViewCounts(map);
-    })();
-    return () => { cancelled = true; };
-  }, [isOwner]);
-
-  // REAL story view counts (story_views), own stories only — counts, never names.
-  // Still loaded and still the source of truth in the database; see below for
-  // why the viewer renders the display figures instead.
-  const currentStats = currentViewerItem ? { views: storyViewCounts[currentViewerItem.id] } : null;
-
-  // Reach / Viewed-by for the story currently on screen. DISPLAY figures, not
-  // measurements — the reasoning is documented in src/lib/displayEngagement.ts.
-  // NOTE: displayEngagement holds everything for the first 24 hours, and a
-  // story expires at 24 hours, so in practice this is always null for stories
-  // and the block below never renders. That follows from the owner's 24-hour
-  // rule; it is not an accident. Highlights, which outlive 24 hours, do show.
-  const currentDisplay = currentViewerItem
-    ? displayEngagement({ id: currentViewerItem.id, createdAt: currentViewerItem.createdAt })
-    : null;
 
   const hasContent = stories.length > 0 || highlights.length > 0;
   if (!hasContent && !isOwner) return null;
@@ -391,53 +288,43 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
 
         <div
           ref={scrollContainerRef}
-          className="flex items-center gap-4 overflow-x-auto pb-2 scrollbar-hide md:px-2"
+          className="flex items-start gap-3.5 overflow-x-auto pb-2 scrollbar-hide px-1 md:px-2"
         >
-          {/* Add Story button (owner only) */}
+          {/* Add Story (owner only) */}
           {isOwner && (
-            <label className="flex-shrink-0 flex flex-col items-center gap-1 cursor-pointer group relative">
-              {/* MATCHED TO THE REAL INSTAGRAM REFERENCE: a thin light ring
-                  with a single "+" — no clock, no star, no fill. Owner's spec
-                  section 9: "Use a clean '+' icon inside a subtle circle." */}
-              <div className="h-[68px] w-[68px] sm:h-20 sm:w-20 rounded-full border-[1.5px] border-foreground/35 group-hover:border-foreground/70 flex items-center justify-center transition-colors">
-                {uploading ? (
-                  <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Plus className="h-6 w-6 text-foreground/80" strokeWidth={1.75} />
-                )}
-              </div>
-              <span className="text-[14px] text-foreground/90" style={headingFont}>New Story</span>
+            <label className="flex-shrink-0 flex flex-col items-center gap-1.5 cursor-pointer group relative">
+              <StoryTile
+                ring="none"
+                dashed
+                center={uploading
+                  ? <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  : <Plus className="h-5 w-5 text-primary/70 group-hover:text-primary" />}
+              />
+              <span className={STORY_TILE_LABEL} style={headingFont}>New Story</span>
               <input type="file" accept="image/*" className="hidden" onChange={handleAddStory} />
             </label>
           )}
 
-          {/* Add Highlight button (owner only) */}
+          {/* Add Highlight (owner only) */}
           {isOwner && (
-            <div className="flex-shrink-0 flex flex-col items-center gap-1 cursor-pointer group"
+            <div className="flex-shrink-0 flex flex-col items-center gap-1.5 cursor-pointer group"
               onClick={() => highlightInputRef.current?.click()}
             >
-              <div className="h-[68px] w-[68px] sm:h-20 sm:w-20 rounded-full border-[1.5px] border-foreground/35 group-hover:border-foreground/70 flex items-center justify-center transition-colors">
-                <Plus className="h-6 w-6 text-foreground/80" strokeWidth={1.75} />
-              </div>
-              <span className="text-[14px] text-foreground/90" style={headingFont}>Highlights</span>
+              <StoryTile ring="none" dashed center={<Plus className="h-5 w-5 text-primary/70 group-hover:text-primary" />} />
+              <span className={STORY_TILE_LABEL} style={headingFont}>Highlights</span>
               <input ref={highlightInputRef} type="file" accept="image/*" className="hidden" onChange={handleHighlightFileSelect} />
             </div>
           )}
 
-          {/* Active Stories */}
-          {stories.map((story, i) => (
+          {/* Active stories */}
+          {stories.map((story) => (
             <button
               key={story.id}
-              onClick={() => openStoryViewer(stories, i)}
-              className="flex-shrink-0 flex flex-col items-center gap-1 group"
+              onClick={() => setStoryOpenId(story.id)}
+              className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
             >
-              <div className="relative h-[68px] w-[68px] sm:h-20 sm:w-20 rounded-full p-0.5 bg-gradient-to-tr from-primary via-primary/60 to-accent">
-                <img loading="lazy" decoding="async" src={memberPhotoSrc(story.image_url, 320) ?? undefined} alt="Story" className="w-full h-full rounded-full object-cover border-2 border-background" />
-                <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[7px] font-bold px-1.5 py-0.5 rounded-full leading-none">
-                  24h
-                </span>
-              </div>
-              <span className="text-[8px] tracking-[0.1em] uppercase text-muted-foreground mt-0.5" style={headingFont}>
+              <StoryTile ring="unseen" cover={memberPhotoSrc(story.image_url, 320)} alt="Story" />
+              <span className={STORY_TILE_LABEL} style={headingFont}>
                 {new Date(story.created_at).toLocaleDateString("en", { hour: "numeric", minute: "2-digit" }).split(",")[0]}
               </span>
             </button>
@@ -447,24 +334,20 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
           {highlights.map((hl) => (
             <button
               key={hl.id}
-              onClick={() => openHighlightViewer(hl)}
-              className="flex-shrink-0 flex flex-col items-center gap-1 group"
+              onClick={() => { if (hl.items.length > 0) setHighlightOpen(hl); }}
+              className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
             >
-              <div className="relative h-[68px] w-[68px] sm:h-20 sm:w-20 rounded-full p-0.5 bg-gradient-to-tr from-accent via-accent/60 to-amber-500">
-                <div className="w-full h-full rounded-full overflow-hidden border-2 border-background">
-                  {hl.cover_url || hl.items[0]?.image_url ? (
-                    <img loading="lazy" decoding="async" src={hl.cover_url || memberPhotoSrc(hl.items[0]?.image_url, 320) || undefined} alt={hl.title} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full bg-muted" />
-                  )}
-                </div>
-                <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 bg-accent text-accent-foreground text-[7px] font-bold px-1.5 py-0.5 rounded-full leading-none flex items-center gap-0.5">
-                  <Star className="h-2 w-2" fill="currentColor" /> Pinned
-                </span>
-              </div>
-              <span className="text-[8px] tracking-[0.1em] uppercase text-muted-foreground truncate max-w-16 mt-0.5" style={headingFont}>
-                {hl.title}
-              </span>
+              <StoryTile
+                ring="seen"
+                cover={memberPhotoSrc(hl.cover_url || hl.items[0]?.image_url, 320)}
+                alt={hl.title}
+                corner={
+                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-accent text-accent-foreground text-[8px] font-bold px-1.5 py-0.5 rounded-md leading-none flex items-center gap-0.5 border-2 border-background">
+                    <Star className="h-2 w-2" fill="currentColor" /> Pinned
+                  </span>
+                }
+              />
+              <span className={STORY_TILE_LABEL} style={headingFont}>{hl.title}</span>
             </button>
           ))}
         </div>
@@ -522,180 +405,28 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
         )}
       </AnimatePresence>
 
-      {/* Story/Highlight Viewer Modal.
-          Owner, 2026-08-05: "When opened stories full page like instagram must
-          be opened" — so STORIES render full-bleed with timed top progress bars
-          (the shared 10s) and tap zones, exactly like the feed viewer.
-          Highlights keep the boxed modal they always had. */}
-      <AnimatePresence>
-        {viewerOpen && viewerImages.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
-            onClick={() => setViewerOpen(false)}
-          >
-            {/* Instagram-style progress bars — stories only, 10s per story,
-                auto-advances, closes after the last one. */}
-            {currentViewerItem?.type === "story" && (
-              <div className="absolute top-3 left-3 right-3 z-50 flex gap-1">
-                {viewerImages.map((img, i) => (
-                  <div key={img.id} className="flex-1 h-0.5 bg-white/30 rounded-full overflow-hidden">
-                    {i < viewerIdx ? (
-                      <div className="h-full w-full bg-white" />
-                    ) : i === viewerIdx ? (
-                      <motion.div
-                        key={`story-progress-${img.id}`}
-                        className="h-full bg-white"
-                        initial={{ width: "0%" }}
-                        animate={{ width: "100%" }}
-                        transition={{ duration: STORY_DISPLAY_MS / 1000, ease: "linear" }}
-                        onAnimationComplete={() => {
-                          if (viewerIdx < viewerImages.length - 1) setViewerIdx((n) => n + 1);
-                          else setViewerOpen(false);
-                        }}
-                      />
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Top bar: type badge */}
-            <div className={`absolute ${currentViewerItem?.type === "story" ? "top-6" : "top-4"} left-4 z-50`}>
-              {currentViewerItem?.type === "story" ? (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/20 text-primary text-[10px] font-semibold uppercase tracking-wider">
-                  <Clock className="h-3 w-3" /> Story · 24h
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent/20 text-accent text-[10px] font-semibold uppercase tracking-wider">
-                  <Star className="h-3 w-3" /> Highlight · Permanent
-                </span>
-              )}
-            </div>
-
-            {/* Close + Delete — stacked vertically on mobile for no overlap.
-                The delete button is here for BOTH stories and highlights, so
-                the owner can delete ANYTIME simply by opening their story. */}
-            <div className={`absolute ${currentViewerItem?.type === "story" ? "top-6" : "top-4"} right-4 z-50 flex flex-col items-end gap-2 sm:flex-row sm:items-center`}>
-              {isOwner && currentViewerItem && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (deleting) return;
-                    if (currentViewerItem.type === "story") {
-                      handleDeleteStory(currentViewerItem.id);
-                    } else if (currentViewerItem.parentId) {
-                      handleDeleteHighlight(currentViewerItem.parentId);
-                    }
-                  }}
-                  disabled={deleting}
-                  className="p-2.5 rounded-full bg-white/10 hover:bg-destructive/30 text-white/70 hover:text-destructive transition-colors disabled:opacity-50"
-                  title={currentViewerItem.type === "story" ? "Delete story" : "Delete highlight"}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              )}
-              <button onClick={() => setViewerOpen(false)} className="p-2 text-white/70 hover:text-white">
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-
-            {/* Navigation */}
-            {viewerIdx > 0 && (
-              <button onClick={(e) => { e.stopPropagation(); setViewerIdx(i => i - 1); }} className={`absolute left-4 z-50 text-white/70 hover:text-white ${currentViewerItem?.type === "story" ? "hidden sm:block" : ""}`}>
-                <ChevronLeft className="h-8 w-8" />
-              </button>
-            )}
-            {viewerIdx < viewerImages.length - 1 && (
-              <button onClick={(e) => { e.stopPropagation(); setViewerIdx(i => i + 1); }} className={`absolute right-4 z-50 text-white/70 hover:text-white mt-16 sm:mt-0 ${currentViewerItem?.type === "story" ? "hidden sm:block" : ""}`}>
-                <ChevronRight className="h-8 w-8" />
-              </button>
-            )}
-
-            {currentViewerItem?.type === "story" ? (
-              <>
-                {/* Full-page story, like the feed viewer */}
-                <img
-                  key={viewerImages[viewerIdx].id}
-                  src={viewerImages[viewerIdx].url}
-                  alt="Story"
-                  className="max-h-[92vh] max-w-[100vw] sm:max-w-[440px] object-contain select-none"
-                  draggable={false}
-                  onClick={(e) => e.stopPropagation()}
-                />
-                {viewerImages[viewerIdx].caption && (
-                  <div className="absolute bottom-8 left-4 right-4 z-20 text-center">
-                    <p className="text-white text-sm inline-block bg-black/40 rounded-lg px-3 py-1.5" style={headingFont}>
-                      {viewerImages[viewerIdx].caption}
-                    </p>
-                  </div>
-                )}
-                {/* Tap zones: left = back, right = forward */}
-                <button
-                  aria-label="Previous"
-                  onClick={(e) => { e.stopPropagation(); if (viewerIdx > 0) setViewerIdx(i => i - 1); }}
-                  className="absolute left-0 top-16 bottom-0 w-1/3 z-10"
-                />
-                <button
-                  aria-label="Next"
-                  onClick={(e) => { e.stopPropagation(); if (viewerIdx < viewerImages.length - 1) setViewerIdx(i => i + 1); else setViewerOpen(false); }}
-                  className="absolute right-0 top-16 bottom-0 w-1/3 z-10"
-                />
-              </>
-            ) : (
-              <div className="max-w-lg w-full max-h-[85vh] flex flex-col items-center" onClick={e => e.stopPropagation()}>
-                <img loading="lazy" decoding="async" src={viewerImages[viewerIdx].url} alt="Media" className="max-h-[65vh] w-full object-contain rounded-sm" />
-
-                {viewerImages[viewerIdx].caption && (
-                  <p className="text-white/80 text-sm mt-3 text-center">{viewerImages[viewerIdx].caption}</p>
-                )}
-
-                {/* Own stories only. Reach and Viewed-by are DISPLAY figures
-                    (src/lib/displayEngagement.ts), stable per story and growing
-                    with its age — not the raw story_views count, which is still
-                    recorded in the database and still owner-only. */}
-                {isOwner && currentDisplay && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center gap-4 mt-3 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm"
-                  >
-                    <div className="flex items-center gap-1.5 text-white/80">
-                      <Users className="h-3.5 w-3.5" />
-                      <span className="text-xs font-medium">Reached by</span>
-                      <span className="text-xs font-bold text-white">{formatEngagementCount(currentDisplay.reach)}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-white/80">
-                      <Eye className="h-3.5 w-3.5" />
-                      <span className="text-xs font-medium">Viewed by</span>
-                      <span className="text-xs font-bold text-white">{formatEngagementCount(currentDisplay.views)}</span>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* Progress dots */}
-                <div className="flex gap-1.5 mt-3">
-                  {viewerImages.map((_, i) => (
-                    <div key={i} className={`h-1 rounded-full transition-all ${i === viewerIdx ? "w-6 bg-white" : "w-1.5 bg-white/30"}`} />
-                  ))}
-                </div>
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {storyOpenId && (
         <Suspense fallback={null}>
           <StoryViewer
-            people={[{ userId, name: owner?.full_name || "Photographer", avatar: owner?.avatar_url ?? null, cover: null, isOwn: isOwner }]}
+            people={[person]}
             startIndex={0}
             startStoryId={storyOpenId}
             viewerId={user?.id ?? null}
             onClose={() => { setStoryOpenId(null); void loadData(); }}
             onChanged={() => void loadData()}
+          />
+        </Suspense>
+      )}
+
+      {highlightOpen && (
+        <Suspense fallback={null}>
+          <StoryViewer
+            people={[person]}
+            startIndex={0}
+            viewerId={user?.id ?? null}
+            loadSlides={async () => highlightSlides(highlightOpen, userId)}
+            highlight={{ title: highlightOpen.title, onDelete: () => handleDeleteHighlight(highlightOpen.id) }}
+            onClose={() => setHighlightOpen(null)}
           />
         </Suspense>
       )}

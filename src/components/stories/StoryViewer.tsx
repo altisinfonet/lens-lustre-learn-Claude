@@ -104,6 +104,8 @@ interface FrameProps {
   onOlder: () => void;
   /** a panel drawn over this story (Seen by / All comments) */
   children?: ReactNode;
+  /** a highlight is playing: its title in the header; no likes, comment box or Seen by */
+  highlightTitle?: string;
 }
 
 /** One story on screen — phone full screen, or the computer's middle card. */
@@ -165,8 +167,8 @@ export function StoryFrame(p: FrameProps) {
           ) : (
             <div className="h-9 w-9 rounded-full border border-white/60 bg-white/20" />
           )}
-          <p className="text-sm font-semibold" style={hf}>{own ? "Your story" : person.name}</p>
-          {story && <span className="text-sm text-white/75">{storyAge(story.created_at)}</span>}
+          <p className="text-sm font-semibold" style={hf}>{p.highlightTitle ?? (own ? "Your story" : person.name)}</p>
+          {story && p.highlightTitle === undefined && <span className="text-sm text-white/75">{storyAge(story.created_at)}</span>}
           {own ? <Users className="h-3.5 w-3.5 text-white/75" /> : <Globe className="h-3.5 w-3.5 text-white/75" />}
           <div className="ml-auto flex items-center gap-4">
             <button type="button" aria-label={p.paused ? "Play" : "Pause"} onClick={p.onTogglePause}>
@@ -187,7 +189,13 @@ export function StoryFrame(p: FrameProps) {
             <ImageIcon className="h-4 w-4" /> View post <ArrowUpRight className="h-4 w-4" />
           </button>
         )}
-        {own ? (
+        {p.highlightTitle !== undefined ? (
+          own && (
+            <div className="flex justify-end pt-1 text-xs">
+              <button type="button" onClick={p.onDelete} className="flex flex-col items-center gap-1"><Trash2 className="h-5 w-5" />Delete</button>
+            </div>
+          )
+        ) : own ? (
           <div className="flex items-center justify-between pt-1">
             <span className="flex items-center gap-3 text-sm font-semibold">
               <button type="button" aria-label="Seen by" onClick={() => p.onOpenSheet("viewers")} className="flex items-center gap-1.5"><Eye className="h-5 w-5" />{story?.view_count ?? 0}</button>
@@ -323,11 +331,17 @@ export interface StoryViewerProps {
   loadSlides?: (person: StoryPerson) => Promise<StorySlide[]>;
   /** open on this story (a notification) */
   startStoryId?: string;
+  /**
+   * Owner 7 Nov: a highlight plays in this same viewer. Its slides come from
+   * loadSlides; the address bar stays, nothing is marked seen, and the owner's
+   * Delete removes the whole highlight.
+   */
+  highlight?: { title: string; onDelete: () => Promise<void> };
 }
 
 const defaultLoader = async (p: StoryPerson) => slidesOf(await fetchUserStories(p.userId));
 
-export default function StoryViewer({ people, startIndex, viewerId, onClose, onChanged, loadSlides = defaultLoader, startStoryId }: StoryViewerProps) {
+export default function StoryViewer({ people, startIndex, viewerId, onClose, onChanged, loadSlides = defaultLoader, startStoryId, highlight }: StoryViewerProps) {
   const navigate = useNavigate();
   const desktop = useIsDesktop();
   const [pi, setPi] = useState(startIndex);
@@ -357,7 +371,7 @@ export default function StoryViewer({ people, startIndex, viewerId, onClose, onC
   // step and the router is not involved; App.tsx routes that address back here.
   // Closing puts the page's own address back.
   const openedAt = useRef(window.location.pathname + window.location.search + window.location.hash);
-  const storyKey = story?.id ?? null;
+  const storyKey = highlight ? null : story?.id ?? null;
   const ownerId = person?.userId ?? null;
   useEffect(() => {
     if (!storyKey || !ownerId) return;
@@ -407,7 +421,7 @@ export default function StoryViewer({ people, startIndex, viewerId, onClose, onC
   // seen + comments + preload the next photo
   useEffect(() => {
     if (!slide || !person) return;
-    if (!person.isOwn && viewerId && !seen.current.has(slide.story.id)) {
+    if (!highlight && !person.isOwn && viewerId && !seen.current.has(slide.story.id)) {
       seen.current.add(slide.story.id);
       void markStorySeen(slide.story.id, viewerId).catch(() => {});
     }
@@ -504,6 +518,12 @@ export default function StoryViewer({ people, startIndex, viewerId, onClose, onC
   };
   const onDelete = async () => {
     if (!story) return;
+    if (highlight) {
+      // the opener deletes, logs and tells the member; the viewer just closes
+      await highlight.onDelete();
+      onClose();
+      return;
+    }
     try {
       await deleteOwnStory(story.id);
       logger.info({ code: "STORY-6003", event: "STORY_DELETED", fn: "StoryViewer.onDelete", file: FILE,
@@ -565,7 +585,7 @@ export default function StoryViewer({ people, startIndex, viewerId, onClose, onC
       onClose={onClose} onTogglePause={() => setPaused((x) => !x)} onMenu={onMenu} onViewPost={onViewPost}
       onLike={() => void onLike()} onSend={(t) => void onSend(t)} onHighlight={() => setPicker(true)} onDelete={() => void onDelete()}
       onInputFocus={setTyping} onPrev={prev} onNext={next} onHold={setHolding}
-      onOpenSheet={setSheet} onOlder={() => void loadOlder()}
+      onOpenSheet={setSheet} onOlder={() => void loadOlder()} highlightTitle={highlight?.title}
     >
       {sheet === "viewers" && story && (
         <StorySheet title={`Seen by ${story.view_count ?? 0}`} onClose={() => setSheet(null)}>
