@@ -1,3 +1,12 @@
+Build 1.2.42 - 2026-11-07 - FROM MAIN AFTER THE NO-CIRCLE + COUNT LINKS RELEASE
+
+  Owner, 7 Nov ("no circle anywhere more"; "HYPERLINK ON Friends · Followers ·
+  Following"; "when App build Delete ... Delete account from App main menu as
+  its already there in settings"): main carries #957 — square story and
+  highlight tiles on the profile too, highlights open in the one story viewer,
+  the profile counts open their lists, and the app menu has no separate
+  Delete Account item (it stays in Settings). 1.2.41 (run 145) is spent.
+
 Build 1.2.41 - 2026-11-07 - FROM MAIN AFTER THE STORIES RELEASE
 
   Owner, 7 Nov ("make it live into main and build App - App screen must be

@@ -820,6 +820,10 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
+          # 2026-11-07 (evening): bumped 1.2.41 -> 1.2.42. 1.2.41 (run 145, 42352647141 on bf3b2ed7) is spent (handed to the Owner).
+          # 1.2.42 carries #957 (Owner 7 Nov): square story + highlight tiles everywhere (no circle), highlights in the
+          # one story viewer, profile Friends / Followers / Following counts are links, no Delete Account item in the
+          # app menu (it stays in Settings). No switch is changed.
           # 2026-11-07: bumped 1.2.40 -> 1.2.41. 1.2.40 (run 144, 42252316524 on f6c1afaa) is spent (handed to the Owner).
           # 1.2.41 carries Stories v2.2 (#949 SQL + #952 website, Owner 7 Nov "make it live and build App"):
           # square story tiles, post-to-story box, story likes/comments, Seen by, My Stories. No switch is changed.
@@ -948,8 +952,8 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
-          sed -i 's/versionName "1.0"/versionName "1.2.41"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.41 (1.2.40 is spent - run 144)"
+          sed -i 's/versionName "1.0"/versionName "1.2.42"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.42 (1.2.41 is spent - run 145)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
           # S11: prove both edits landed — exactly one versionCode, the derived
