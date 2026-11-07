@@ -54,11 +54,19 @@ async function member(email, opts, tag) {
   });
   await page.goto(`${SITE}/login`, { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Essential only" }).first().click({ timeout: 4000 }).catch(() => {});
-  await page.locator('input[type="email"]').first().fill(email);
-  const pw = page.locator('input[type="password"]').first();
-  await pw.fill(WALK_PW);
-  await pw.press("Enter");
-  await page.waitForURL(/\/feed/, { timeout: 30000 });
+  try {
+    // two steps: e-mail → Proceed, then the password
+    const mail = page.locator('input[type="email"]').first();
+    await mail.fill(email);
+    await mail.press("Enter");
+    const pw = page.locator('input[type="password"]').first();
+    await pw.fill(WALK_PW, { timeout: 15000 });
+    await pw.press("Enter");
+    await page.waitForURL(/\/feed/, { timeout: 30000 });
+  } catch (e) {
+    await shot(page, `00-${tag}-sign-in-failed`).catch(() => {});
+    throw e;
+  }
   await page.waitForTimeout(2500);
   await page.keyboard.press("Escape").catch(() => {});
   return { ctx, page };
