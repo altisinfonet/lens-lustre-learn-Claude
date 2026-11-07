@@ -20,7 +20,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-import { storySampleOn, sampleBar, sampleUserStories, sampleComments, sampleViewers, sampleOlderComments } from "./storySample";
+import { storySampleOn, sampleBar, sampleHighlights, sampleUserStories, sampleComments, sampleViewers, sampleOlderComments } from "./storySample";
 import type { FakeRoute } from "./fakeBackend";
 import {
   HARNESS_USER_ID,
@@ -575,6 +575,8 @@ export const fixtureRoutes: FakeRoute[] = [
     const m = /^\/rest\/v1\/([A-Za-z0-9_]+)$/.exec(path);
     if (!m) return undefined;
     const table = m[1];
+    // ?stories=1 only: the profile's highlights row for the Stories renders.
+    if (table === "highlights" && storySampleOn()) return countable(sampleHighlights(), method);
     if (table in EMPTY_BY_DESIGN) return countable([], method);
     const rows = table === "user_roles" ? harnessRoleRows() ?? TABLES[table] : TABLES[table];
     if (!rows) return undefined; // unknown table: report it, never invent it

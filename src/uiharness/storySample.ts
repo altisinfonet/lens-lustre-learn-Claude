@@ -28,6 +28,15 @@ export function sampleBar() {
   }));
 }
 
+/** The profile's highlights (v2.3 renders: square tiles, open in the one viewer). */
+export function sampleHighlights() {
+  const hl = (id: string, title: string, photos: number[]) => ({
+    id, title, cover_url: pic(photos[0], 300, 300), sort_order: 0, created_at: at(60 * 24 * 9),
+    items: photos.map((p, i) => ({ id: `${id}-i${i}`, highlight_id: id, image_url: pic(p), caption: null, sort_order: i, story_id: null })),
+  });
+  return [hl("h-street", "Street", [1011, 1012]), hl("h-travel", "Travel", [1016])];
+}
+
 /** get_user_stories: each person's stories as the database returns them. */
 export function sampleUserStories(userId: string) {
   if (userId === HARNESS_USER_ID) {

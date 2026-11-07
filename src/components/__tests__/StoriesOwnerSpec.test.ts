@@ -48,8 +48,11 @@ describe("rule 4 — a story stays 10 seconds", () => {
 
 describe("rule 1 (v2) — square tiles with rounded corners, showing the photo", () => {
   it("feed tiles are 88 px squares with rounded corners — no round rings", () => {
-    expect(feed).toContain("h-[88px] w-[88px] rounded-[18px] p-[3px]");
-    expect(feed).toContain("rounded-[15px]");
+    // the one tile (StoryTile.tsx) the feed draws — since v2.3, 7 Nov
+    const tile = read("components/stories/StoryTile.tsx");
+    expect(tile).toContain("h-[88px] w-[88px] rounded-[18px] p-[3px]");
+    expect(tile).toContain("rounded-[15px]");
+    expect(feed).toContain("<StoryTile");
     expect(feed).not.toContain("h-20 w-20 sm:h-24 sm:w-24");
   });
 
@@ -58,9 +61,25 @@ describe("rule 1 (v2) — square tiles with rounded corners, showing the photo",
     expect(feed).toContain("absolute -bottom-1 -right-1 h-7 w-7 rounded-full");
   });
 
-  it("profile rings keep the 2026-08-16 size and no dashed placeholders", () => {
-    expect(profile).toContain("h-[68px] w-[68px] sm:h-20 sm:w-20");
-    expect(profile).not.toContain("border-dashed");
+  it("Owner 7 Nov: no circle anywhere — feed and profile draw the ONE square StoryTile", () => {
+    const tile = read("components/stories/StoryTile.tsx");
+    expect(tile).toContain("relative h-[88px] w-[88px] rounded-[18px] p-[3px]");
+    expect(tile).toContain("rounded-[15px] overflow-hidden border-2 border-background");
+    for (const f of [feed, profile]) {
+      expect(f).toContain('from "@/components/stories/StoryTile"');
+      expect(f).toContain("<StoryTile");
+      // no hand-drawn story ring left behind
+      expect(f).not.toMatch(/rounded-\[18px\] p-\[3px\]/);
+    }
+    // the old round profile bubbles are gone
+    expect(profile).not.toContain("h-[68px] w-[68px]");
+    expect(profile).not.toMatch(/rounded-full p-0\.5 bg-gradient/);
+  });
+
+  it("highlights open in the one StoryViewer, not a separate modal", () => {
+    expect(profile).toContain("highlight={{ title:");
+    expect(profile).toContain("loadSlides={async () => highlightSlides(");
+    expect(viewer).toContain("highlight?: { title: string; onDelete: () => Promise<void> }");
   });
 });
 
@@ -110,7 +129,7 @@ describe("Owner 7 Nov 2026 — small changes after the staging check", () => {
   });
 
   it("an unseen story's border is blue into gold", () => {
-    expect(feed).toContain('RING_UNSEEN = "bg-gradient-to-tr from-primary to-amber-400"');
+    expect(read("components/stories/StoryTile.tsx")).toContain('RING_UNSEEN = "bg-gradient-to-tr from-primary to-amber-400"');
   });
 
   it("a story has its own address: /<handle>/stories/<id>, and the bell opens /stories/<id>", () => {

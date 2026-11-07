@@ -557,6 +557,12 @@ export const ERROR_CATALOG: readonly ErrorCodeEntry[] = [
     description: "A new post with 'Also add to my story' ticked did not reach the story. The post itself succeeded.",
     resolution: "Read the reason: ST-0100-00x codes come from story_add_post (not signed in, banned, not the post's owner). Check the function on this lane.",
   },
+  {
+    code: "STORY-6006",
+    severity: "error",
+    description: "A highlight delete (from the story viewer on the profile) failed or matched zero rows.",
+    resolution: "Read the reason: '0 rows' means the DELETE policy did not match. Check pg_policies for 'highlights' / 'highlight_items' and confirm the caller owns the row.",
+  },
 
   // ── JUDGE ─────────────────────────────────────────────────────────────────
   //
