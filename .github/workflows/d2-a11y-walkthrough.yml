@@ -33,7 +33,10 @@ permissions:
 jobs:
   a11y-walkthrough:
     name: P23 keyboard + screen-reader walkthrough (Chromium + WebKit)
-    runs-on: ubuntu-latest
+    # ubuntu-24.04, not -latest: on 2026-11-07 ubuntu-latest became 26.04, where
+    # Playwright's WebKit cannot start (libicudata.so.74 missing). Pin until
+    # Playwright ships a WebKit build for 26.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
