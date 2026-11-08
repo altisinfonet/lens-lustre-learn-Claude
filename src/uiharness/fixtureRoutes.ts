@@ -20,6 +20,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
+import { unreadSampleOn, sampleUnreadGroups } from "./storySample";
 import { storySampleOn, sampleBar, sampleHighlights, sampleUserStories, sampleComments, sampleViewers, sampleOlderComments } from "./storySample";
 import type { FakeRoute } from "./fakeBackend";
 import {
@@ -258,7 +259,7 @@ const RPCS: Record<string, (body: Record<string, unknown>, params: URLSearchPara
 
   // An inbox with nothing unread: the bell shows no dot, which is the layout
   // that must be right for the member who has just caught up.
-  get_my_unread_notifications_grouped: () => [],
+  get_my_unread_notifications_grouped: () => (unreadSampleOn() ? sampleUnreadGroups() : []),
 
   /**
    * ── /notifications, AND THE FALSE GREEN IT ALMOST GAVE ME ────────────────

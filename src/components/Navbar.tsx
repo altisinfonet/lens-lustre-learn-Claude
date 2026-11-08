@@ -36,6 +36,7 @@ import GlobalSearch from "@/components/GlobalSearch";
 import { useTheme } from "@/hooks/core/useTheme";
 import UserMenu from "@/components/UserMenu";
 import NotificationBell from "@/components/NotificationBell";
+import MobileTopMenu from "@/components/MobileTopMenu";
 import { useT } from "@/i18n/I18nContext";
 import { navKeyForLabel } from "@/i18n/translations";
 import { useNavigationMenu, type MenuTree } from "@/hooks/core/useNavigationMenu";
@@ -246,7 +247,7 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
          * side of it — that is why it stays a separate absolute element rather
          * than a third flex child.
          */}
-        <div className="container mx-auto px-3 py-3 md:py-5 flex items-center justify-between relative">
+        <div className="container mx-auto px-3 py-0.5 md:py-5 flex items-center justify-between relative">
           {/* ── THE LEFT-HAND GROUP: logo, then "+ Create" ──
               ⚠ THESE TWO MUST STAY IN ONE WRAPPER. The bar is
               `justify-between`, and on the app the <Link> below collapses to
@@ -375,7 +376,7 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
               only below lg and only on the normal (non-hero) bar. */}
           {!transparent && (
             <span
-              className="lg:hidden pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-sm font-semibold tracking-[0.2em] uppercase"
+              className="lg:hidden pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-base font-semibold tracking-[0.2em] uppercase"
               style={{ fontFamily: "var(--font-heading)" }}
             >
               50mm Retina World
@@ -452,9 +453,14 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
            * still leaves 44px of tappable area each. `ml-3` is the breathing
            * space after the wordmark. Measured at 360px in the harness.
            */}
-          <div className="flex items-center gap-0.5 lg:hidden">
-            {user && <NotificationBell />}
-            {user && <GlobalSearch />}
+          {/* Owner, 8 Nov 2026: the phone / app bar is [+] [50mm Retina World] [☰];
+              bell and search live under ☰ (MobileTopMenu). The bell stays mounted,
+              out of sight, so its unread count, sound and live updates keep running;
+              search stays mounted so ☰ → Search opens its sheet. */}
+          <div className="flex items-center lg:hidden">
+            {user && <div className="hidden"><NotificationBell /></div>}
+            {user && <GlobalSearch hideTrigger />}
+            {user && <MobileTopMenu />}
           </div>
         </div>
       </nav>
