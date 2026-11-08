@@ -1,3 +1,13 @@
+Build 1.2.43 - 2026-11-08 - FROM MAIN AFTER THE APP TOP BAR RELEASE
+
+  Owner, 8 Nov ("go on App - I will check on App directly"; "Must match the
+  Screenshot pixel to pixel all"): main carries #963 — the app top bar
+  [+] [50mm Retina World] [☰], the approved Bottom Dock menu under ☰ (search
+  and Notifications), a tighter feed top, and Back with a story open closes
+  the story. Renders matched the approved samples (menu 0.00 %, feed 0.00 %
+  at 320/390, 0.02 % at 430 = the animated camera logo). 1.2.42 (run 146) is
+  spent.
+
 Build 1.2.42 - 2026-11-07 - FROM MAIN AFTER THE NO-CIRCLE + COUNT LINKS RELEASE
 
   Owner, 7 Nov ("no circle anywhere more"; "HYPERLINK ON Friends · Followers ·

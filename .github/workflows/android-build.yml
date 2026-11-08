@@ -820,6 +820,10 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
+          # 2026-11-08: bumped 1.2.42 -> 1.2.43. 1.2.42 (run 146, 42394574762 on 4dd20e6f) is spent (handed to the Owner).
+          # 1.2.43 carries #963 (carry of #961, Owner 8 Nov "go on App"): app top bar + · 50mm Retina World · ☰,
+          # ☰ = Bottom Dock menu (search + Notifications), tighter feed top, Back with a story open closes the
+          # story instead of leaving the app. No switch is changed.
           # 2026-11-07 (evening): bumped 1.2.41 -> 1.2.42. 1.2.41 (run 145, 42352647141 on bf3b2ed7) is spent (handed to the Owner).
           # 1.2.42 carries #957 (Owner 7 Nov): square story + highlight tiles everywhere (no circle), highlights in the
           # one story viewer, profile Friends / Followers / Following counts are links, no Delete Account item in the
@@ -952,8 +956,8 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
-          sed -i 's/versionName "1.0"/versionName "1.2.42"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.42 (1.2.41 is spent - run 145)"
+          sed -i 's/versionName "1.0"/versionName "1.2.43"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.43 (1.2.42 is spent - run 146)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
           # S11: prove both edits landed — exactly one versionCode, the derived
