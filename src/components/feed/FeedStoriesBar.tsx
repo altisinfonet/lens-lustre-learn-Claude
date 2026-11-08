@@ -140,10 +140,10 @@ const FeedStoriesBar = () => {
 
   return (
     <>
-      <div className="mb-4 md:mb-6">
+      <div className="md:mb-6">
         {/* items-start: the own tile has no name under it (Owner 7 Nov), so the
             squares line up along their top edge, not their middles. */}
-        <div className="flex items-start gap-3.5 overflow-x-auto pb-2 scrollbar-hide px-1">
+        <div className="flex items-start gap-3.5 overflow-x-auto pb-1 md:pb-2 scrollbar-hide px-1">
           <button onClick={openOwn} aria-label="Your story" className="flex-shrink-0 flex flex-col items-center gap-1.5 group">
             <StoryTile
               ring={ownStories.length > 0 ? "unseen" : "none"}

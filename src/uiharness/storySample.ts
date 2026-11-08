@@ -28,6 +28,20 @@ export function sampleBar() {
   }));
 }
 
+// ?unread=1 — three unread likes, so the ☰ menu's dot and "3 new" can be photographed
+// (Owner-approved Style 2 sample, 8 Nov 2026).
+const UNREAD = typeof location !== "undefined" && location.search.includes("unread=1");
+export const unreadSampleOn = () => UNREAD;
+export function sampleUnreadGroups() {
+  return [{
+    group_key: "like:post-me-0", type: "post_like", notification_ids: ["n1", "n2", "n3"],
+    actor_ids: ["a1", "a2", "a3"], actor_names: ["Dipannita Sen", "Rahul Das", "Mitali Roy"], actor_usernames: ["", "", ""],
+    actor_avatars: [PEOPLE[0].avatar_url, PEOPLE[1].avatar_url, PEOPLE[2].avatar_url], actor_count: 3, event_count: 3,
+    unread_count: 3, reference_id: "post-me-0", thumbnail_url: null, title: "", message: "liked your post",
+    latest_at: at(5), total_unread: 3, actor_known: [true, true, true],
+  }];
+}
+
 /** The profile's highlights (v2.3 renders: square tiles, open in the one viewer). */
 export function sampleHighlights() {
   const hl = (id: string, title: string, photos: number[]) => ({
