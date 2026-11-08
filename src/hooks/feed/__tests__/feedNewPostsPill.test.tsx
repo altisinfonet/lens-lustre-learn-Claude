@@ -177,7 +177,7 @@ describe("where the feed puts it", () => {
   const feed = stripComments(readFileSync(join(process.cwd(), "src/pages/Feed.tsx"), "utf8")).replace(/\r\n/g, "\n");
 
   it("inside the sticky category strip — its containing block — and not in the list", () => {
-    const strip = feed.indexOf('<div className="sticky top-0 z-20 -mx-4 mb-3">');
+    const strip = feed.indexOf('<div className="sticky top-0 z-20 -mx-4 mb-2 md:mb-3">');
     const stories = feed.indexOf("<FeedStoriesBar />");
     const pill = feed.indexOf("<NewPostsPill");
     const list = feed.indexOf("{posts.map((post, i) => (");

@@ -378,7 +378,7 @@ const Feed = () => {
 
   return (
     <PullToRefresh onRefresh={async () => { await refetch(); }}>
-    <div className="py-3 md:py-14">
+    <div className="pb-3 md:py-14">
       <div className="min-w-0">
         {/* Stage D — the category strip.
 
@@ -391,7 +391,7 @@ const Feed = () => {
             Sticky, so it stays reachable while scrolling a long feed. "All" is
             the default and applies no predicate, which is what keeps the posts
             created before categories existed visible. */}
-        <div className="sticky top-0 z-20 -mx-4 mb-3">
+        <div className="sticky top-0 z-20 -mx-4 mb-2 md:mb-3">
           {showTabs && <FeedTabs value={feedTab} onChange={setFeedTab} />}
           <CategoryStrip value={activeCategory} onChange={setActiveCategory} />
           {/* Stage L2 — floats just below the strip (absolute; the sticky strip

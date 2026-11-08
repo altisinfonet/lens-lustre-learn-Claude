@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useDismissOnRouteChange } from "@/hooks/core/useDismissOnRouteChange";
 import { logger } from "@/lib/logger";
+import { OPEN_SEARCH_EVENT } from "@/components/MobileTopMenu";
 
 const FILE = "src/components/GlobalSearch.tsx";
 
@@ -73,9 +74,21 @@ const typeConfig = {
 
 type SectionFilter = "all" | "competition" | "course" | "article" | "person" | "post";
 
-const GlobalSearch = () => {
+/**
+ * `hideTrigger` — the phone / app top bar has no search icon (Owner, 8 Nov 2026:
+ * search lives under the ☰ menu). The sheet stays mounted here and opens on the
+ * menu's OPEN_SEARCH_EVENT.
+ */
+const GlobalSearch = ({ hideTrigger = false }: { hideTrigger?: boolean } = {}) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  useEffect(() => {
+    // only the phone bar's instance answers ☰ → Search (the computer header has its own)
+    if (!hideTrigger) return;
+    const onOpen = () => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50); };
+    window.addEventListener(OPEN_SEARCH_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_SEARCH_EVENT, onOpen);
+  }, [hideTrigger]);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   // -1 = no row highlighted. Only the ArrowUp/ArrowDown keys set this; on
@@ -506,7 +519,7 @@ const GlobalSearch = () => {
          * lg:inline`), so a hard width would either clip that or leave a hole
          * on a phone. The height is the part a thumb needs.
          */
-        className="inline-flex min-h-11 items-center justify-center gap-2 w-11 -mr-0.5 lg:mr-0 lg:w-auto lg:px-1 text-muted-foreground hover:text-foreground transition-colors duration-300"
+        className={`${hideTrigger ? "hidden" : "inline-flex"} min-h-11 items-center justify-center gap-2 w-11 -mr-0.5 lg:mr-0 lg:w-auto lg:px-1 text-muted-foreground hover:text-foreground transition-colors duration-300`}
         aria-label="Search"
       >
         <Search className="h-6 w-6" />

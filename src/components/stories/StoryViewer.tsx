@@ -605,7 +605,7 @@ export default function StoryViewer({ people, startIndex, viewerId, onClose, onC
   if (!person) return null;
 
   const body = desktop ? (
-    <div className="fixed inset-0 z-[200] flex h-screen items-center justify-center gap-10 bg-neutral-950" role="dialog" aria-label="Story">
+    <div className="fixed inset-0 z-[200] flex h-screen items-center justify-center gap-10 bg-neutral-950" role="dialog" aria-modal="true" data-state="open" aria-label="Story">
       <button type="button" aria-label="Close" onClick={onClose} className="absolute right-6 top-6"><X className="h-7 w-7 text-white" /></button>
       {pi > 0 ? <SideCard person={people[pi - 1]} onClick={() => setPi(pi - 1)} /> : <div className="h-[400px] w-[225px] flex-shrink-0" />}
       <button type="button" aria-label="Previous story" onClick={prev}>
@@ -619,7 +619,7 @@ export default function StoryViewer({ people, startIndex, viewerId, onClose, onC
       {picker && slide && <StoryHighlightPicker slide={slide} onDone={() => setPicker(false)} />}
     </div>
   ) : (
-    <div className="fixed inset-0 z-[200] bg-black" role="dialog" aria-label="Story" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+    <div className="fixed inset-0 z-[200] bg-black" role="dialog" aria-modal="true" data-state="open" aria-label="Story" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       {frame}
       {picker && slide && <StoryHighlightPicker slide={slide} onDone={() => setPicker(false)} />}
     </div>
