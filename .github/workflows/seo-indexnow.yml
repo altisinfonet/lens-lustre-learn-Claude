@@ -1,0 +1,45 @@
+name: SEO · IndexNow — tell search engines about new pages (production)
+
+# SEO plan step A4 (Owner 2026-11-09). Reads the LIVE sitemap and submits URLs
+# changed in the last 2 days to IndexNow (Bing, Yandex, Seznam, Naver). Touches
+# nothing of ours: no secrets, no database, no deploy. Manual run with
+# full=true submits every URL once (first run after release).
+
+on:
+  schedule:
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "true = submit every sitemap URL (first run); false = last 2 days"
+        required: false
+        type: choice
+        options: ["false", "true"]
+        default: "false"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seo-indexnow
+  cancel-in-progress: false
+
+jobs:
+  submit:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            scripts/indexnow-submit.mjs
+            public/*.txt
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Submit changed URLs
+        env:
+          FULL: ${{ inputs.full == 'true' && '1' || '0' }}
+        run: node scripts/indexnow-submit.mjs
