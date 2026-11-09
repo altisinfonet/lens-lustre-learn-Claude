@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { canonicalOrigin } from "../_shared/laneConfig.ts"; // one address (A2)
+import { postPath } from "../_shared/postPath.ts"; // A3: one post-address rule
 // Call-time, not module load: a module-level throw would kill the whole function
 // before it can report why.
 const SITE_URL = () => canonicalOrigin();
@@ -191,16 +192,23 @@ Deno.serve(async () => {
     // 8. Public posts — SOW §5.3: only privacy=public AND indexing_disabled=false
     const { data: posts } = await supabase
       .from("posts")
-      .select("id, created_at, image_url")
+      .select("id, created_at, image_url, user_id")
       .eq("privacy", "public")
       .eq("indexing_disabled", false)
       .order("created_at", { ascending: false })
       .limit(HARD_CAP_PER_SECTION);
 
     if (posts) {
+      // A3: each post under its author's handle — one profiles read for all.
+      const authorIds = [...new Set((posts as any[]).map((p) => p.user_id).filter(Boolean))];
+      const handles = new Map<string, string | null>();
+      if (authorIds.length) {
+        const { data: authors } = await supabase.from("profiles").select("id, custom_url").in("id", authorIds);
+        for (const a of (authors ?? []) as any[]) handles.set(a.id, a.custom_url ?? null);
+      }
       for (const p of posts as any[]) {
         xml += urlEntry(
-          `${SITE_URL()}/post/${p.id}`,
+          `${SITE_URL()}${postPath(p.id, handles.get(p.user_id) ?? null)}`,
           p.created_at?.split("T")[0],
           "monthly",
           "0.4",

@@ -1,5 +1,6 @@
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { isWalletNotificationType } from "@/lib/native/iosReview";
+import { postPath } from "@/lib/posts/postPath";
 /**
  * Single source of truth for "where does this notification take me?".
  *
@@ -47,14 +48,14 @@ export function getNotifLink(notif: NotifLinkInput): string {
     // which is the exact bug new_post_from_following had.
     case "tagged_post_reaction":
     case "tagged_post_comment":
-      return notif.reference_id ? `/post/${notif.reference_id}` : "/feed";
+      return notif.reference_id ? postPath(notif.reference_id) : "/feed";
     // A reply to a comment. Measured on production 2026-08-02: of 11 rows,
     // 9 reference_ids are live posts, 2 are posts that have since been deleted,
     // and NONE is a gallery image — so this is a post reply in practice and
     // "/discover" was sending people to a gallery that has nothing to do with
     // the reply they were told about.
     case "comment_reply":
-      return notif.reference_id ? `/post/${notif.reference_id}` : "/feed";
+      return notif.reference_id ? postPath(notif.reference_id) : "/feed";
     // Stories v2 (Owner 6 Nov): "X commented on your story" — reference_id is
     // the story; /stories/<id> opens it in the one StoryViewer (Owner 7 Nov:
     // a story has its own address; the viewer shows /<handle>/stories/<id>).
@@ -70,7 +71,7 @@ export function getNotifLink(notif: NotifLinkInput): string {
     // production. This was the single highest-volume type with no case at all,
     // so it fell through to the default and landed every member on /dashboard.
     case "new_post_from_following":
-      return notif.reference_id ? `/post/${notif.reference_id}` : "/feed";
+      return notif.reference_id ? postPath(notif.reference_id) : "/feed";
     case "competition_vote":
     case "entry_approved":
     case "entry_rejected":
@@ -104,7 +105,7 @@ export function getNotifLink(notif: NotifLinkInput): string {
     case "course_published":
       return notif.reference_id ? `/courses/${notif.reference_id}` : "/courses";
     case "post_tag":
-      return notif.reference_id ? `/post/${notif.reference_id}` : "/feed";
+      return notif.reference_id ? postPath(notif.reference_id) : "/feed";
     // A reply on a sponsored ad. reference_id is the ad_creatives row, which
     // has its own page — an ad is not a post, so /post/<id> would 404.
     case "ad_comment_reply":

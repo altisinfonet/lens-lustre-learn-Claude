@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import { useDismissOnRouteChange } from "@/hooks/core/useDismissOnRouteChange";
 import { logger } from "@/lib/logger";
 import { OPEN_SEARCH_EVENT } from "@/components/MobileTopMenu";
+import { postPathOf } from "@/lib/posts/postPath";
 
 const FILE = "src/components/GlobalSearch.tsx";
 
@@ -281,7 +282,7 @@ const GlobalSearch = ({ hideTrigger = false }: { hideTrigger?: boolean } = {}) =
         type: "post" as const,
         // Open THE post (PostDetail route) — never just the feed, where a
         // tap while already on /feed looked like nothing happened.
-        url: `/post/${p.id}`,
+        url: postPathOf(p),
         subtitle: p.created_at ? `Posted ${format(new Date(p.created_at), "MMM d, yyyy")}` : undefined,
         date: p.created_at,
       })),
