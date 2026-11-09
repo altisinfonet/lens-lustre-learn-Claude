@@ -103,8 +103,14 @@ const GONE_POST = "00000000-0000-4000-8000-00000000dead";
 /** px the feed may differ from where it was left and still count as "exactly". */
 const SCROLL_TOLERANCE = 2;
 
-/** Where the router is: path + query, read from the page itself. */
-const where = (page) => page.evaluate(() => location.pathname + location.search);
+/** Where the router is: path + query, read from the page itself, exactly. */
+const rawWhere = (page) => page.evaluate(() => location.pathname + location.search);
+/**
+ * Where the member is. A3 (Owner 7 Nov): a post page shows /<handle>/post/<id>
+ * once its author is known — the same page as /post/<id>, so journeys compare
+ * the post page by id. rawWhere proves the long form itself (first journey).
+ */
+const where = async (page) => (await rawWhere(page)).replace(/^\/[a-z0-9_][a-z0-9._]{1,28}[a-z0-9_](\/post\/)/, "$1");
 const histLen = (page) => page.evaluate(() => history.length);
 const scrollY = (page) => page.evaluate(() => Math.round(window.scrollY));
 const dialog = (page) => page.getByRole("dialog");
@@ -434,6 +440,9 @@ control("/post/<id> (opened in-app, as the bell does) → comments → Back ×2 
   await page.getByTestId("to-post").click();
   await waitWhere(page, `/post/${postId}`);
   await commentButtons(page).first().waitFor({ timeout: 60000 });
+  // A3: the address bar carries the author's name, and no history step was added for it.
+  const shown = await rawWhere(page);
+  if (!/^\/[a-z0-9_][a-z0-9._]{1,28}[a-z0-9_]\/post\//.test(shown)) throw new Error(`A3: the post address is ${shown}, not /<handle>/post/<id>`);
   await openComments(page);
   await page.goBack();
   await waitWhere(page, `/post/${postId}`);

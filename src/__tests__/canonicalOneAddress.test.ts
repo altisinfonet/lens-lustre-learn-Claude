@@ -43,7 +43,7 @@ describe("one address — no second source of truth", () => {
   it("nothing builds a URL from seo_global.canonical_base", () => {
     const hits = all.filter((f) => /canonical_base\s*\}|canonical_base\s*\?\s*`|canonical_base\s*\|\|/.test(readFileSync(f, "utf8")));
     expect(hits.map((f) => f.slice(ROOT.length))).toEqual([]);
-  });
+  }, 30_000); // scans every source file; slow disks need more than 5 s
 
   it.each(["src/components/PageSEO.tsx", "src/hooks/core/useSEO.ts", "src/lib/publicUrl.ts", "src/components/admin/AdminSEO.tsx"])(
     "%s uses the served origin, not the printed apex",

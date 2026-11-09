@@ -45,6 +45,7 @@ import { photoSetMarker } from "@/lib/imageLadder";
 import { useOldPhotoCreditRead } from "@/lib/photoOldCredit";
 import { useFeedCopiesRead } from "@/lib/photoFeedCopies";
 import { usePhotoBlursRead } from "@/lib/photoBlur";
+import { postPath } from "@/lib/posts/postPath";
 
 const displayFont = { fontFamily: "var(--font-display)" };
 const headingFont = { fontFamily: "var(--font-heading)" };
@@ -318,7 +319,7 @@ const PostCard = ({
   const copyLink = () => {
     // S12-F1 · a share click is a signal (a no-op outside the feed; own post never recorded).
     signals.shareClick(post.id, post.user_id);
-    navigator.clipboard.writeText(publicUrl(`/post/${post.id}`));
+    navigator.clipboard.writeText(publicUrl(postPath(post.id, post.author_handle)));
     toast({ title: "Link copied to clipboard!" });
   };
 

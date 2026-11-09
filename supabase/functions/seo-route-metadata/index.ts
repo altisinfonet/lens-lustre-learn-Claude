@@ -13,6 +13,7 @@ const corsHeaders = {
 };
 
 import { canonicalOrigin } from "../_shared/laneConfig.ts"; // one address (A2)
+import { postPath } from "../_shared/postPath.ts"; // A3: one post-address rule
 const SITE_URL = () => canonicalOrigin();
 const SITE_NAME_FALLBACK = "50mm Retina World";
 const DEFAULT_TITLE = "50mm Retina World — Competitions, Education & Journal for Photographers";
@@ -316,6 +317,15 @@ async function resolvePost(postId: string, meta: Metadata, global: any) {
     .eq("id", postId)
     .maybeSingle();
   if (!data) return false;
+  // A3: the canonical is the long form /<handle>/post/<id> whenever the author
+  // has a valid handle (same rule as src/lib/posts/postPath.ts), so /post/<id>
+  // and an old handle both consolidate onto one address.
+  const { data: author } = await supabase
+    .from("profiles")
+    .select("custom_url")
+    .eq("id", (data as any).user_id)
+    .maybeSingle();
+  meta.canonical = `${SITE_URL()}${postPath(data.id, (author as any)?.custom_url ?? null)}`;
   // SOW §5.3 — only public posts are indexable; per-post opt-out forces noindex
   if (data.privacy !== "public" || (data as any).indexing_disabled === true) {
     meta.noindex = true;
@@ -363,6 +373,9 @@ async function resolve(path: string): Promise<Metadata> {
       await resolveManagedPage(segments[1], meta, global);
     } else if ((segments[0] === "post" || segments[0] === "posts") && segments[1]) {
       await resolvePost(segments[1], meta, global);
+    } else if (segments.length === 3 && segments[1] === "post" && segments[2]) {
+      // A3 (Owner 7 Nov): /<handle>/post/<id>, the long form of every post address.
+      await resolvePost(segments[2], meta, global);
     } else if (segments[0] === "profile" && segments[1]) {
       // /profile/:id — just use defaults; ID-based, hard to resolve cleanly
       meta.source = "profile-id-fallback";

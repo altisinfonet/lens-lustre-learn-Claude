@@ -33,6 +33,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import PageSEO from "@/components/PageSEO";
 import { avatarInitial } from "@/lib/displayName";
 import { memberPhotoSrc } from "@/lib/photoProtection";
+import { postPath } from "@/lib/posts/postPath";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -167,6 +168,20 @@ const PostDetail = () => {
     else navigate("/feed", { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notFound]);
+
+  /*
+   * A3 (Owner 7 Nov): the address bar always shows the long form
+   * /<handle>/post/<id> (src/lib/posts/postPath.ts). The short form, or an old
+   * handle after a rename, is rewritten in place — replaceState with the
+   * router's own history state, like StoryViewer's /<handle>/stories/<id>, so
+   * no Back step is added and the page is not mounted twice.
+   */
+  useEffect(() => {
+    if (!post || post.id !== postId) return;
+    const want = postPath(post.id, post.author_handle);
+    if (window.location.pathname === want) return;
+    window.history.replaceState(window.history.state, "", `${want}${window.location.search}${window.location.hash}`);
+  }, [post?.id, post?.author_handle, postId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!postId) return;
@@ -309,7 +324,7 @@ const PostDetail = () => {
   };
 
   const copyLink = () => {
-    navigator.clipboard.writeText(publicUrl(`/post/${postId}`));
+    navigator.clipboard.writeText(publicUrl(postPath(postId!, post?.author_handle)));
     toast({ title: "Link copied!" });
   };
 

@@ -13,6 +13,7 @@ import type { SidebarData } from "@/hooks/core/useDashboardInit";
 import { useCompetitionVoting } from "@/hooks/competition/useCompetitionVoting";
 import { useCompetitionVoteRealtime } from "@/hooks/competition/useCompetitionVoteRealtime";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
+import { postPath } from "@/lib/posts/postPath";
 import {
   buildCompetitionVotingPhotoKey,
   mapSidebarVotingEntriesToVotingPhotos,
@@ -199,7 +200,7 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
                  */
                 const href =
                   photo.source === "entry" ? `/entry/${photo.id}`
-                  : photo.source === "post" ? `/post/${photo.id}`
+                  : photo.source === "post" ? postPath(photo.id)
                   : null;
 
                 const inner = (

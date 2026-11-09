@@ -38,6 +38,7 @@ import { fetchProfileMap } from "@/lib/profileMapCache";
 import { memberPath } from "@/lib/urlHelpers";
 import StoryHighlightPicker from "./StoryHighlightPicker";
 import { CommentFloatList } from "@/components/comments/CommentThread";
+import { postPath } from "@/lib/posts/postPath";
 
 const FILE = "src/components/stories/StoryViewer.tsx";
 const hf = { fontFamily: "var(--font-heading)" };
@@ -550,7 +551,7 @@ export default function StoryViewer({ people, startIndex, viewerId, onClose, onC
   const onViewPost = () => {
     if (!story?.post_id) return;
     onClose();
-    navigate(`/post/${story.post_id}`);
+    navigate(postPath(story.post_id));
   };
   const onMenu = () => {
     if (person?.isOwn) void onDelete();
