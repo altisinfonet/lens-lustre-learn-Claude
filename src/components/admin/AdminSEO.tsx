@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { SITE_DISPLAY_ORIGIN } from "@/lib/env";
+import { SITE_ORIGIN } from "@/lib/env";
 import { useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,7 +41,7 @@ const defaultGlobalSEO: GlobalSEO = {
   default_og_image: "",
   site_name: "50mm Retina World",
   twitter_handle: "",
-  canonical_base: SITE_DISPLAY_ORIGIN,
+  canonical_base: SITE_ORIGIN,
   google_verification: "",
   bing_verification: "",
 };
@@ -62,7 +62,7 @@ Disallow: /judge
 Disallow: /reset-password
 Disallow: /forgot-password
 
-Sitemap: ${SITE_DISPLAY_ORIGIN}/sitemap.xml`;
+Sitemap: ${SITE_ORIGIN}/sitemap.xml`;
 
 export default function AdminSEO({ user }: { user: User | null }) {
   const queryClient = useQueryClient();
@@ -316,7 +316,7 @@ export default function AdminSEO({ user }: { user: User | null }) {
   };
 
   const generateSitemap = async () => {
-    const base = globalSEO.canonical_base || SITE_DISPLAY_ORIGIN;
+    const base = SITE_ORIGIN;
 
     // Fetch dynamic slugs
     const [{ data: articles }, { data: courses }, { data: comps }, { data: artists }] = await Promise.all([
@@ -477,8 +477,9 @@ ${urls.map((u) => `  <url>
                 <input value={globalSEO.twitter_handle} onChange={(e) => setGlobalSEO((p) => ({ ...p, twitter_handle: e.target.value }))} className={inputClass} style={bodyFont} placeholder="@yourhandle" />
               </div>
               <div>
-                <label className={labelClass} style={headingFont}>Canonical Base URL</label>
-                <input value={globalSEO.canonical_base} onChange={(e) => setGlobalSEO((p) => ({ ...p, canonical_base: e.target.value }))} className={inputClass} style={bodyFont} placeholder="https://yourdomain.com" />
+                <label className={labelClass} style={headingFont}>Canonical Base URL (fixed)</label>
+                {/* One address (Owner 2026-11-09, A2): every canonical names the served origin. Not editable here. */}
+                <input value={SITE_ORIGIN} readOnly aria-readonly="true" className={inputClass} style={bodyFont} />
               </div>
               <div>
                 <label className={labelClass} style={headingFont}>Google Verification Code</label>

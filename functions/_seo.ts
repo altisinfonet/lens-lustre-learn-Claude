@@ -59,9 +59,21 @@ export function supabaseAnon(env: SeoEnv | undefined): string {
   return laneValue("SUPABASE_ANON_KEY", env?.SUPABASE_ANON_KEY);
 }
 
+/**
+ * ONE ADDRESS (Owner 2026-11-09, SEO plan A2): a bare two-label apex origin
+ * canonicalises to its www host (the apex 301s there); anything else is already
+ * the served origin. Same rule, same name, in supabase/functions/_shared/
+ * laneConfig.ts — src/__tests__/canonicalOneAddress.test.ts holds them equal.
+ */
+export function canonicalOf(origin: string): string {
+  const o = origin.replace(/\/+$/, "");
+  const apex = o.match(/^https:\/\/([a-z0-9-]+\.[a-z0-9-]+)$/i);
+  return apex ? `https://www.${apex[1]}` : o;
+}
+
 /** This lane's public origin — what canonical URLs and JSON-LD must name. */
 export function site(env: SeoEnv | undefined): string {
-  return laneValue("SITE_ORIGIN", env?.SITE_ORIGIN).replace(/\/+$/, "");
+  return canonicalOf(laneValue("SITE_ORIGIN", env?.SITE_ORIGIN));
 }
 export const DEFAULT_OG =
   "https://pub-f3e7af944f2746b7bb4fb6e679dd78de.r2.dev/site-assets/seo/1775321074863-k3b5rusybos.jpg";

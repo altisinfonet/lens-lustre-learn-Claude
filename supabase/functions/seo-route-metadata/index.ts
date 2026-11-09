@@ -12,8 +12,8 @@ const corsHeaders = {
   "Content-Type": "application/json",
 };
 
-import { siteOrigin } from "../_shared/laneConfig.ts";
-const SITE_URL = () => siteOrigin();
+import { canonicalOrigin } from "../_shared/laneConfig.ts"; // one address (A2)
+const SITE_URL = () => canonicalOrigin();
 const SITE_NAME_FALLBACK = "50mm Retina World";
 const DEFAULT_TITLE = "50mm Retina World — Competitions, Education & Journal for Photographers";
 const DEFAULT_DESC = "Join 50mm Retina World — the ultimate platform for photographers.";
@@ -79,9 +79,8 @@ function baseMeta(path: string, global: any): Metadata {
     description: global.default_description || DEFAULT_DESC,
     ogImage: global.default_og_image || "",
     ogType: "website",
-    canonical: global.canonical_base
-      ? `${global.canonical_base}${path}`
-      : buildCanonical(path),
+    // One address (Owner 2026-11-09, A2): never seo_global.canonical_base.
+    canonical: buildCanonical(path),
     noindex: false,
     jsonLd: [],
     source: "default",
