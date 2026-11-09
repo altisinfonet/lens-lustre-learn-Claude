@@ -79,7 +79,7 @@ function blanketDisallow(robots) {
 const sitemapLines = (r) => (r ? r.split("\n").filter((l) => /^\s*sitemap:/i.test(l)).length : -1);
 const locCount = (s) => (s ? (s.match(/<loc>/g) || []).length : -1);
 
-const PROD_ROBOTS_EXPECT = "https://50mmretina.com";
+const PROD_ROBOTS_EXPECT = "https://www.50mmretina.com"; // one address, Owner 2026-11-09 (A2)
 
 /** The full case set. `gen` lets mutants reuse it unchanged. */
 function runCases(gen, { quiet = false } = {}) {
@@ -172,7 +172,7 @@ function runCases(gen, { quiet = false } = {}) {
   // ---- llms.txt (the AI-reader guide, 2026-11-04) --------------------------
   // Production: full addresses on the production display origin, no leftover
   // placeholder. Built by concatenation for the autolink reason given at GREEN-6.
-  const PROD_LINK = "](" + "https://" + "50mmretina.com";
+  const PROD_LINK = "](" + "https://" + "www.50mmretina.com";
   const prodLinks = (r1.llms || "").split(PROD_LINK).length - 1;
   record("GREEN-10 production llms.txt links the production site with full addresses",
     r1.code === 0 && prodLinks >= 15 && !/__[A-Z_]+__/.test(r1.llms || "") && /^# 50mm Retina World\n/.test(r1.llms || ""),
