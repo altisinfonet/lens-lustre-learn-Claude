@@ -26,9 +26,19 @@ const DRY = process.env.DRY === "1";
 const ENDPOINT = "https://api.indexnow.org/indexnow";
 const BATCH = 10000; // IndexNow's per-request limit
 
-const res = await fetch(`${SITE}/sitemap.xml`, { headers: { "User-Agent": "50mm-indexnow/1.0" } });
-if (!res.ok) { console.error(`sitemap HTTP ${res.status}`); process.exit(1); }
-const xml = await res.text();
+const UA = { "User-Agent": "Mozilla/5.0 (compatible; 50mm-indexnow/1.1; +https://www.50mmretina.com)" };
+// The live sitemap serves a short static copy while its cache refills (header
+// x-sitemap-source: static-fallback). Ask again until the full list arrives.
+let xml = "";
+for (let attempt = 1; attempt <= 6; attempt++) {
+  const res = await fetch(`${SITE}/sitemap.xml?n=${attempt}`, { headers: UA });
+  if (!res.ok) { console.error(`sitemap HTTP ${res.status}`); process.exit(1); }
+  xml = await res.text();
+  const source = res.headers.get("x-sitemap-source") || "";
+  if (source !== "static-fallback") break;
+  console.log(`sitemap attempt ${attempt}: static fallback (${(xml.match(/<loc>/g) || []).length} URLs) — waiting for the full list`);
+  await new Promise((r) => setTimeout(r, 10_000));
+}
 const entries = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => ({
   loc: m[1].match(/<loc>([^<]+)<\/loc>/)?.[1]?.trim(),
   lastmod: m[1].match(/<lastmod>([^<]+)<\/lastmod>/)?.[1]?.trim(),
@@ -50,8 +60,12 @@ let failed = 0;
 for (const [host, urls] of byHost) {
   // the key must be reachable on this host before submitting
   const keyUrl = `https://${host}/${KEY}.txt`;
-  const k = await fetch(keyUrl).then((r) => (r.ok ? r.text() : "")).catch(() => "");
-  if (k.trim() !== KEY) { console.error(`key file not served at ${keyUrl} — not submitting ${urls.length} URLs`); failed++; continue; }
+  // A pre-check only: IndexNow fetches the key itself and refuses a wrong one.
+  // From a data-centre runner the site may answer with a bot challenge, so a
+  // failed pre-check is reported but does not stop the submission.
+  const kr = await fetch(keyUrl, { headers: UA }).catch(() => null);
+  const k = kr && kr.ok ? (await kr.text()).trim() : "";
+  if (k !== KEY) console.warn(`key pre-check at ${keyUrl}: HTTP ${kr ? kr.status : "error"} — submitting anyway; IndexNow verifies the key itself`);
   for (let i = 0; i < urls.length; i += BATCH) {
     const urlList = urls.slice(i, i + BATCH);
     if (DRY) { console.log(`DRY ${host}: would submit ${urlList.length}`); continue; }
