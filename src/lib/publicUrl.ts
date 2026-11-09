@@ -28,7 +28,8 @@
 
 // Lane-derived since 2026-08-22. Was a literal, so a staging build copied
 // PRODUCTION links to members' clipboards from every share button.
-import { SITE_DISPLAY_ORIGIN as SITE_ORIGIN } from "@/lib/env";
+// One address (Owner 2026-11-09, A2): links that leave the app name the served origin (www on production).
+import { SITE_ORIGIN } from "@/lib/env";
 export { SITE_ORIGIN };
 
 /** Absolute public URL for an app path: publicUrl("/post/123") */

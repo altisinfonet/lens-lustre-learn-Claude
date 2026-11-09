@@ -65,6 +65,25 @@ export function siteOrigin(): string {
   return raw;
 }
 
+/**
+ * ONE ADDRESS (Owner 2026-11-09, SEO plan A2) — the origin canonical URLs,
+ * sitemaps and JSON-LD name. A lane named by a bare two-label apex
+ * (`https://x.com`) is served on `https://www.x.com` (the apex 301s there), so
+ * the canonical is the www host; any other origin (`staging.x.com`, `www.x.com`)
+ * is already the served one. Same rule, same name, in functions/_seo.ts
+ * (`canonicalOf`) — src/__tests__/canonicalOneAddress.test.ts holds them equal.
+ */
+export function canonicalOf(origin: string): string {
+  const o = origin.replace(/\/+$/, "");
+  const apex = o.match(/^https:\/\/([a-z0-9-]+\.[a-z0-9-]+)$/i);
+  return apex ? `https://www.${apex[1]}` : o;
+}
+
+/** canonicalOf(siteOrigin()). */
+export function canonicalOrigin(): string {
+  return canonicalOf(siteOrigin());
+}
+
 /** This lane's origin plus a rooted path: siteUrl("/dashboard"). */
 export function siteUrl(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;

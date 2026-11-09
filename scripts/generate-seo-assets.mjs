@@ -37,9 +37,13 @@ const siteOrigin = JSON.parse(define.__LANE_SITE_ORIGIN__);
 const siteHost = JSON.parse(define.__LANE_SITE_HOST__);
 const apexHost = JSON.parse(define.__LANE_SITE_APEX_HOST__);
 
-// Canonical URLs have always named the apex where one exists — see
-// SITE_DISPLAY_ORIGIN in src/lib/env.ts. Keep production byte-identical.
-const displayOrigin = `https://${apexHost || siteHost}`;
+// ONE ADDRESS (Owner 2026-11-09, plan step A2): canonical URLs name the address
+// the site is actually served from — production is https://www.50mmretina.com
+// whichever spelling the build was given (the apex 301s to it). Before this the
+// canonical named the apex while the site lived on www. Non-production lanes
+// name themselves. SITE_DISPLAY_ORIGIN (src/lib/env.ts) stays for PRINTED text.
+const servedOrigin = (o) => o.replace(/\/+$/, "");
+let displayOrigin = servedOrigin(siteOrigin) || `https://${apexHost || siteHost}`;
 
 if (!existsSync("dist")) {
   console.error("generate-seo-assets FAIL: dist/ missing — run the build first.");
@@ -56,6 +60,7 @@ if (!existsSync("dist")) {
 // not a thing anyone builds.
 const PRODUCTION_HOST = PRODUCTION_SITE_ORIGIN.replace(/^https?:\/\//, "").replace(/^www\./, "");
 const isProduction = siteHost.replace(/^www\./, "") === PRODUCTION_HOST;
+if (isProduction) displayOrigin = servedOrigin(PRODUCTION_SITE_ORIGIN);
 
 if (!isProduction) {
   // No sitemap reference: advertising one to a crawler that has been told to
