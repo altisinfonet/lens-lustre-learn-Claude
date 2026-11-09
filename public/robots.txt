@@ -1,18 +1,22 @@
+# 50mm Retina World — rules for robots.
+# Owner decision 2026-11-09: search engines and AI SEARCH / ANSWER robots may read
+# and link to the site; AI TRAINING robots may not copy members' photos or posts.
+# A robot obeys the most specific group that names it; "*" covers everyone else.
+
+# Search engines and AI search / answer robots (they show a link back to us).
 User-agent: Googlebot
-Allow: /
-Disallow: /admin
-Disallow: /edit-profile
-Disallow: /dashboard
-Disallow: /wallet
-Disallow: /judge
-Disallow: /photos
-Disallow: /referrals
-Disallow: /friends
-Disallow: /settings/
-Disallow: /reset-password
-Disallow: /forgot-password
-
+User-agent: Googlebot-Image
 User-agent: Bingbot
+User-agent: Applebot
+User-agent: DuckDuckBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: DuckAssistBot
+User-agent: MistralAI-User
 Allow: /
 Disallow: /admin
 Disallow: /edit-profile
@@ -26,12 +30,35 @@ Disallow: /settings/
 Disallow: /reset-password
 Disallow: /forgot-password
 
+# Link previews when a member shares a link.
 User-agent: Twitterbot
-Allow: /
-
 User-agent: facebookexternalhit
+User-agent: LinkedInBot
+User-agent: WhatsApp
 Allow: /
 
+# AI TRAINING robots — not allowed anywhere. (Google-Extended and
+# Applebot-Extended only control AI training; Google Search, Google AI
+# answers and Apple search still use Googlebot / Applebot above.)
+User-agent: GPTBot
+User-agent: ClaudeBot
+User-agent: anthropic-ai
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: CCBot
+User-agent: Meta-ExternalAgent
+User-agent: FacebookBot
+User-agent: Bytespider
+User-agent: cohere-training-data-crawler
+User-agent: AI2Bot
+User-agent: Diffbot
+User-agent: Omgilibot
+User-agent: ImagesiftBot
+User-agent: img2dataset
+User-agent: Timpibot
+Disallow: /
+
+# Everyone else.
 User-agent: *
 Allow: /
 Disallow: /admin
