@@ -301,8 +301,8 @@ async function resolveProfile(customUrl: string, meta: Metadata, global: any) {
   meta.description = clampDesc(data.bio || `${name} on ${SITE_NAME_FALLBACK} — photographer profile.`);
   if (data.avatar_url) meta.ogImage = data.avatar_url;
   // B: a banned or suspended member's page is not offered to search.
-  const { data: moderated } = await supabase.rpc("filter_moderated_user_ids", { _ids: [(data as any).id] });
-  if (Array.isArray(moderated) && moderated.length) {
+  const moderated = await moderatedIds([(data as any).id]);
+  if (moderated.length) {
     meta.noindex = true;
     meta.source = "profile-moderated";
     return true;
@@ -362,8 +362,8 @@ async function resolvePost(postId: string, meta: Metadata, global: any) {
     return true;
   }
   if ((data as any).indexing_disabled === true) meta.noindex = true;
-  const { data: moderated } = await supabase.rpc("filter_moderated_user_ids", { _ids: [data.user_id] });
-  if (Array.isArray(moderated) && moderated.length) {
+  const moderated = await moderatedIds([data.user_id]);
+  if (moderated.length) {
     meta.noindex = true;
     meta.source = "post-author-moderated";
     return true;
@@ -427,6 +427,17 @@ async function resolvePost(postId: string, meta: Metadata, global: any) {
   return true;
 }
 
+/**
+ * B: banned or suspended members (same rule as public.filter_moderated_user_ids),
+ * read straight from the profiles_public_data view — a read, never an rpc, in an
+ * open function holding the service role.
+ */
+async function moderatedIds(ids: string[]): Promise<string[]> {
+  if (!ids.length) return [];
+  const { data } = await supabase.from("profiles_public_data").select("id, is_banned, is_suspended").in("id", ids);
+  return ((data ?? []) as any[]).filter((p) => p.is_banned || p.is_suspended).map((p) => p.id);
+}
+
 function breadcrumbs(items: Array<[string, string]>): object {
   return {
     "@context": "https://schema.org",
@@ -450,8 +461,7 @@ async function publicPostItems(filter: { userId?: string; ids?: string[] }, hand
     const { data: ps } = await supabase.from("profiles").select("id, custom_url, full_name").in("id", ids);
     for (const p of (ps ?? []) as any[]) handles.set(p.id, { h: p.custom_url ?? null, n: p.full_name || "" });
   }
-  const { data: moderated } = ids.length ? await supabase.rpc("filter_moderated_user_ids", { _ids: ids }) : { data: [] };
-  const hidden = new Set(((moderated ?? []) as any[]).map((m) => m.id));
+  const hidden = new Set(await moderatedIds(ids));
   return list.filter((r) => !hidden.has(r.user_id)).map((r) => {
     const a = handles.get(r.user_id);
     const by = a?.n || (a?.h ? `@${a.h}` : "a photographer");
