@@ -155,12 +155,22 @@ jobs:
         run: |
           set -euo pipefail
           test -f dist/robots.txt
-          if grep -qiE '^[[:space:]]*Disallow:[[:space:]]*/[[:space:]]*$' dist/robots.txt; then
-            echo "FAIL: the production lane shipped a blanket Disallow: /" >&2
+          # A blanket "Disallow: /" is refused in the groups search engines use
+          # ("*", Googlebot, Bingbot). The AI-TRAINING group carries one on
+          # purpose (Owner 2026-11-09, SEO plan A1) and is not a search group.
+          if ! awk '
+            /^[[:space:]]*#/ { next }
+            tolower($1) == "user-agent:" { if (inrules) { agents = ""; inrules = 0 } agents = agents " " tolower($2); next }
+            tolower($1) == "allow:" || tolower($1) == "disallow:" { inrules = 1 }
+            tolower($1) == "disallow:" && $2 == "/" && NF == 2 && agents ~ / (\*|googlebot|bingbot)( |$)/ { bad = 1 }
+            END { exit bad }
+          ' dist/robots.txt; then
+            echo "FAIL: the production lane shipped a blanket Disallow: / for a search group" >&2
             cat dist/robots.txt >&2
             exit 1
           fi
-          grep -qiE '^[[:space:]]*Sitemap:[[:space:]]*https://50mmretina\.com/sitemap\.xml' dist/robots.txt
+          # One address (SEO plan A2): the sitemap is advertised on www.
+          grep -qiE '^[[:space:]]*Sitemap:[[:space:]]*https://www\.50mmretina\.com/sitemap\.xml' dist/robots.txt
           grep -q '<loc>' dist/sitemap.xml
           echo "production robots.txt is indexable and advertises the production sitemap"
 
