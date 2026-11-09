@@ -13,7 +13,8 @@ const corsHeaders = {
 };
 
 import { canonicalOrigin } from "../_shared/laneConfig.ts"; // one address (A2)
-import { postPath } from "../_shared/postPath.ts"; // A3: one post-address rule
+import { isPostHandle, postPath } from "../_shared/postPath.ts"; // A3: one post-address rule
+import { captionTags, listBody, postBody, snippet } from "./readable.ts"; // B: readable pages
 const SITE_URL = () => canonicalOrigin();
 const SITE_NAME_FALLBACK = "50mm Retina World";
 const DEFAULT_TITLE = "50mm Retina World — Competitions, Education & Journal for Photographers";
@@ -28,6 +29,10 @@ interface Metadata {
   noindex: boolean;
   jsonLd: object[];
   source: string; // debug: which branch matched
+  /** B: readable HTML for robots that do not run JavaScript (readable.ts). Public content only. */
+  body?: string;
+  /** B: 404 when the thing the address names does not exist (the middleware sends this status). */
+  status?: number;
 }
 
 const supabase = createClient(
@@ -286,7 +291,7 @@ async function resolveProfile(customUrl: string, meta: Metadata, global: any) {
     .select("id, full_name, custom_url, bio, avatar_url, indexing_disabled")
     .eq("custom_url", customUrl)
     .maybeSingle();
-  if (!data) return false;
+  if (!data) return false; // never 404 here: a one-segment path may be an app route (/feed, /explore …), not a member
   // SOW §5.3 — honor per-profile search engine opt-out
   if ((data as any).indexing_disabled === true) {
     meta.noindex = true;
@@ -295,17 +300,36 @@ async function resolveProfile(customUrl: string, meta: Metadata, global: any) {
   meta.title = applyTitleTemplate(name, global);
   meta.description = clampDesc(data.bio || `${name} on ${SITE_NAME_FALLBACK} — photographer profile.`);
   if (data.avatar_url) meta.ogImage = data.avatar_url;
-  meta.jsonLd = [{
-    "@context": "https://schema.org",
-    "@type": "ProfilePage",
-    url: meta.canonical,
-    mainEntity: {
-      "@type": "Person",
-      name,
-      ...(data.bio ? { description: data.bio } : {}),
-      ...(data.avatar_url ? { image: data.avatar_url } : {}),
+  // B: a banned or suspended member's page is not offered to search.
+  const moderated = await moderatedIds([(data as any).id]);
+  if (moderated.length) {
+    meta.noindex = true;
+    meta.source = "profile-moderated";
+    return true;
+  }
+  const items = (data as any).indexing_disabled === true ? [] : await publicPostItems({ userId: (data as any).id }, customUrl, 24);
+  meta.title = applyTitleTemplate(`${name} (@${customUrl}) — photographer`, global);
+  meta.jsonLd = [
+    {
+      "@context": "https://schema.org",
+      "@type": "ProfilePage",
+      url: meta.canonical,
+      mainEntity: {
+        "@type": "Person",
+        name,
+        alternateName: `@${customUrl}`,
+        url: meta.canonical,
+        ...(data.bio ? { description: data.bio } : {}),
+        ...(data.avatar_url ? { image: data.avatar_url } : {}),
+      },
+      ...(items.length ? {
+        hasPart: items.map((it) => ({ "@type": "SocialMediaPosting", url: it.url, headline: it.title })),
+      } : {}),
     },
-  }];
+    breadcrumbs([[SITE_NAME_FALLBACK, `${SITE_URL()}/`], [name, meta.canonical]]),
+  ];
+  meta.body = listBody("profile", `${name} (@${customUrl})`,
+    data.bio ? String(data.bio) : `Photographer on ${SITE_NAME_FALLBACK}.`, items, SITE_URL());
   meta.source = "profile";
   return true;
 }
@@ -316,7 +340,7 @@ async function resolvePost(postId: string, meta: Metadata, global: any) {
     .select("id, content, image_url, privacy, created_at, indexing_disabled, user_id")
     .eq("id", postId)
     .maybeSingle();
-  if (!data) return false;
+  if (!data) { meta.status = 404; meta.noindex = true; meta.source = "post-missing"; return false; }
   // A3: the canonical is the long form /<handle>/post/<id> whenever the author
   // has a valid handle (same rule as src/lib/posts/postPath.ts), so /post/<id>
   // and an old handle both consolidate onto one address.
@@ -325,16 +349,164 @@ async function resolvePost(postId: string, meta: Metadata, global: any) {
     .select("custom_url")
     .eq("id", (data as any).user_id)
     .maybeSingle();
-  meta.canonical = `${SITE_URL()}${postPath(data.id, (author as any)?.custom_url ?? null)}`;
-  // SOW §5.3 — only public posts are indexable; per-post opt-out forces noindex
-  if (data.privacy !== "public" || (data as any).indexing_disabled === true) {
-    meta.noindex = true;
-  }
-  const snippet = (data.content || "").replace(/\s+/g, " ").trim();
-  if (snippet) meta.description = clampDesc(snippet);
-  if (data.image_url) meta.ogImage = data.image_url;
+  const handle = (author as any)?.custom_url ?? null;
+  meta.canonical = `${SITE_URL()}${postPath(data.id, handle)}`;
   meta.ogType = "article";
   meta.source = "post";
+  // SOW §5.3 — only public posts are indexable; per-post opt-out forces noindex.
+  // B: a post that is NOT public gives away nothing — no caption, no photo
+  // address (this function reads with the service role, so it must check).
+  if (data.privacy !== "public") {
+    meta.noindex = true;
+    meta.source = "post-not-public";
+    return true;
+  }
+  if ((data as any).indexing_disabled === true) meta.noindex = true;
+  const moderated = await moderatedIds([data.user_id]);
+  if (moderated.length) {
+    meta.noindex = true;
+    meta.source = "post-author-moderated";
+    return true;
+  }
+
+  const [{ data: who }, { count: likes }, { count: comments }] = await Promise.all([
+    supabase.from("profiles").select("full_name").eq("id", data.user_id).maybeSingle(),
+    supabase.from("post_reactions").select("post_id", { count: "exact", head: true }).eq("post_id", data.id),
+    supabase.from("post_comments").select("post_id", { count: "exact", head: true }).eq("post_id", data.id),
+  ]);
+  const name = (who as any)?.full_name || (handle ? `@${handle}` : "a photographer");
+  const caption = (data.content || "").trim();
+  const tags = captionTags(caption);
+  const authorUrl = isPostHandle(handle) ? `${SITE_URL()}/${handle}` : undefined;
+
+  meta.title = clampTitle(
+    caption ? `${name}: “${snippet(caption.replace(/#[A-Za-z0-9_]+/g, ""), 48)}”` : `Photo by ${name}`,
+    global.site_name || SITE_NAME_FALLBACK,
+  ) + ` | ${SITE_NAME_FALLBACK}`;
+  meta.description = clampDesc(caption ? `Photo by ${name} on ${SITE_NAME_FALLBACK}: ${caption}` : `Photo by ${name} on ${SITE_NAME_FALLBACK}.`);
+  if (data.image_url) meta.ogImage = data.image_url;
+
+  const person = { "@type": "Person", name, ...(authorUrl ? { url: authorUrl } : {}) };
+  meta.jsonLd = [
+    {
+      "@context": "https://schema.org",
+      "@type": "SocialMediaPosting",
+      "@id": meta.canonical,
+      url: meta.canonical,
+      headline: snippet(caption, 110) || `Photo by ${name}`,
+      ...(caption ? { articleBody: caption } : {}),
+      datePublished: data.created_at,
+      author: person,
+      ...(data.image_url ? {
+        image: {
+          "@type": "ImageObject",
+          contentUrl: data.image_url,
+          creator: person,
+          creditText: name,
+          copyrightNotice: `© ${name}`,
+          ...(caption ? { caption: snippet(caption, 200) } : {}),
+        },
+      } : {}),
+      ...(tags.length ? { keywords: tags.map((t) => `#${t}`).join(", ") } : {}),
+      interactionStatistic: [
+        { "@type": "InteractionCounter", interactionType: "https://schema.org/LikeAction", userInteractionCount: likes ?? 0 },
+        { "@type": "InteractionCounter", interactionType: "https://schema.org/CommentAction", userInteractionCount: comments ?? 0 },
+      ],
+      isPartOf: { "@type": "WebSite", name: SITE_NAME_FALLBACK, url: SITE_URL() },
+    },
+    breadcrumbs([
+      [SITE_NAME_FALLBACK, `${SITE_URL()}/`],
+      ...(authorUrl ? [[name, authorUrl] as [string, string]] : []),
+      ["Photo", meta.canonical],
+    ]),
+  ];
+  meta.body = postBody({
+    url: meta.canonical, path: postPath(data.id, handle), author: name, authorUrl, caption,
+    image: data.image_url || undefined, date: data.created_at, likes: likes ?? 0, comments: comments ?? 0, tags,
+  }, SITE_URL());
+  return true;
+}
+
+/**
+ * B: banned or suspended members (same rule as public.filter_moderated_user_ids),
+ * read straight from the profiles_public_data view — a read, never an rpc, in an
+ * open function holding the service role.
+ */
+async function moderatedIds(ids: string[]): Promise<string[]> {
+  if (!ids.length) return [];
+  const { data } = await supabase.from("profiles_public_data").select("id, is_banned, is_suspended").in("id", ids);
+  return ((data ?? []) as any[]).filter((p) => p.is_banned || p.is_suspended).map((p) => p.id);
+}
+
+function breadcrumbs(items: Array<[string, string]>): object {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map(([name, item], i) => ({ "@type": "ListItem", position: i + 1, name, item })),
+  };
+}
+
+/** Recent public posts of one author (or of a list of ids), newest first, as list items. */
+async function publicPostItems(filter: { userId?: string; ids?: string[] }, handle: string | null, limit: number) {
+  let q = supabase.from("posts").select("id, content, image_url, user_id, created_at")
+    .eq("privacy", "public").eq("indexing_disabled", false)
+    .order("created_at", { ascending: false }).limit(limit);
+  if (filter.userId) q = q.eq("user_id", filter.userId);
+  if (filter.ids) q = q.in("id", filter.ids.length ? filter.ids : ["00000000-0000-0000-0000-000000000000"]);
+  const { data: rows } = await q;
+  const list = (rows ?? []) as any[];
+  const handles = new Map<string, { h: string | null; n: string }>();
+  const ids = [...new Set(list.map((r) => r.user_id))];
+  if (ids.length) {
+    const { data: ps } = await supabase.from("profiles").select("id, custom_url, full_name").in("id", ids);
+    for (const p of (ps ?? []) as any[]) handles.set(p.id, { h: p.custom_url ?? null, n: p.full_name || "" });
+  }
+  const hidden = new Set(await moderatedIds(ids));
+  return list.filter((r) => !hidden.has(r.user_id)).map((r) => {
+    const a = handles.get(r.user_id);
+    const by = a?.n || (a?.h ? `@${a.h}` : "a photographer");
+    const cap = snippet((r.content || "").trim(), 90);
+    return {
+      url: `${SITE_URL()}${postPath(r.id, handle ?? a?.h ?? null)}`,
+      title: cap ? `${cap} — photo by ${by}` : `Photo by ${by}`,
+      image: r.image_url || undefined,
+    };
+  });
+}
+
+async function resolveHashtag(raw: string, meta: Metadata, global: any) {
+  const tag = decodeURIComponent(raw).replace(/^#/, "").toLowerCase();
+  if (!/^[a-z0-9_]{1,60}$/.test(tag)) { meta.status = 404; meta.noindex = true; meta.source = "hashtag-invalid"; return false; }
+  const { data: h } = await supabase.from("hashtags")
+    .select("id, tag, display_tag, unique_user_count, post_count").eq("tag", tag).maybeSingle();
+  if (!h || !(h as any).post_count) { meta.status = 404; meta.noindex = true; meta.source = "hashtag-missing"; return false; }
+  const { data: links } = await supabase.from("post_hashtags").select("post_id")
+    .eq("hashtag_id", (h as any).id).order("created_at", { ascending: false }).limit(60);
+  const items = await publicPostItems({ ids: ((links ?? []) as any[]).map((l) => l.post_id) }, null, 24);
+  const shown = `#${(h as any).display_tag || tag}`;
+  const people = (h as any).unique_user_count ?? 0;
+  meta.title = clampTitle(`${shown} — ${people} photographer${people === 1 ? "" : "s"}`, global.site_name || SITE_NAME_FALLBACK) + ` | ${SITE_NAME_FALLBACK}`;
+  meta.description = clampDesc(`${shown} photography on ${SITE_NAME_FALLBACK}: ${(h as any).post_count} posts by ${people} photographer${people === 1 ? "" : "s"}.`);
+  if (items[0]?.image) meta.ogImage = items[0].image;
+  if (!items.length) meta.noindex = true; // nothing public to show
+  meta.jsonLd = [
+    {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      url: meta.canonical,
+      name: `${shown} on ${SITE_NAME_FALLBACK}`,
+      about: { "@type": "Thing", name: shown },
+      mainEntity: {
+        "@type": "ItemList",
+        numberOfItems: items.length,
+        itemListElement: items.map((it, i) => ({ "@type": "ListItem", position: i + 1, url: it.url, name: it.title })),
+      },
+    },
+    breadcrumbs([[SITE_NAME_FALLBACK, `${SITE_URL()}/`], [shown, meta.canonical]]),
+  ];
+  meta.body = listBody("hashtag", `${shown} photography`,
+    `${(h as any).post_count} posts by ${people} photographer${people === 1 ? "" : "s"} on ${SITE_NAME_FALLBACK}.`, items, SITE_URL());
+  meta.source = "hashtag";
   return true;
 }
 
@@ -373,6 +545,8 @@ async function resolve(path: string): Promise<Metadata> {
       await resolveManagedPage(segments[1], meta, global);
     } else if ((segments[0] === "post" || segments[0] === "posts") && segments[1]) {
       await resolvePost(segments[1], meta, global);
+    } else if (segments[0] === "hashtag" && segments[1] && segments.length === 2) {
+      await resolveHashtag(segments[1], meta, global); // B: hashtag pages readable
     } else if (segments.length === 3 && segments[1] === "post" && segments[2]) {
       // A3 (Owner 7 Nov): /<handle>/post/<id>, the long form of every post address.
       await resolvePost(segments[2], meta, global);
