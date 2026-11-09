@@ -1,6 +1,7 @@
 import { useMemo, useSyncExternalStore } from "react";
 import { useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import { SITE_ORIGIN } from "@/lib/env";
 
 interface PageSEO {
   path: string;
@@ -76,7 +77,9 @@ export function useSEO(pageTitle?: string) {
       noindex: false,
       siteName: global?.site_name || defaultMeta.siteName,
       twitterHandle: global?.twitter_handle || "",
-      canonicalUrl: global?.canonical_base ? `${global.canonical_base}${pathname}` : "",
+      // One address (Owner 2026-11-09, A2): the served origin, never the editable
+      // seo_global.canonical_base — one knob that could split the site in two.
+      canonicalUrl: `${SITE_ORIGIN}${pathname}`,
       googleVerification: global?.google_verification || "",
       bingVerification: global?.bing_verification || "",
     };

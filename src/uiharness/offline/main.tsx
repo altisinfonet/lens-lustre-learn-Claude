@@ -33,6 +33,7 @@ import { installFakeBackend } from "../fakeBackend";
 import { fixtureRoutes } from "../fixtureRoutes";
 import { createFakeTables, CONSTRAINTS, toResponse } from "../fakeTables";
 import { SITE_API } from "@/lib/net/siteApi";
+import { postPath } from "@/lib/posts/postPath";
 import "../../index.css";
 
 if (!import.meta.env.DEV) throw new Error("offline harness is development-only");
@@ -90,7 +91,7 @@ const PostDetail = lazy(() => import("@/pages/PostDetail"));
 const PublicProfile = lazy(() => import("@/pages/PublicProfile"));
 
 const [route, path, Page] =
-  screen === "post" ? [`/post/${screenId}`, "/post/:postId", PostDetail]
+  screen === "post" ? [postPath(screenId), "/post/:postId", PostDetail]
   : screen === "profile" ? [`/profile/${screenId}`, "/profile/:userId", PublicProfile]
   : ["/feed", "/feed", Feed];
 

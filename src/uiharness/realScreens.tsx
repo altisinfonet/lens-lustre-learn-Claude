@@ -27,6 +27,7 @@ import { mapSidebarVotingEntriesToVotingPhotos } from "@/lib/competitionVotingPh
 import { unmatched } from "./fakeBackend";
 import { ServerJobsTray } from "@/components/video/ServerVideoJobs";
 import { serverJob } from "./serverVideoFixtures";
+import { postPath } from "@/lib/posts/postPath";
 
 /**
  * Pages are lazy in App.tsx and are imported the same way here, so a scene
@@ -294,7 +295,7 @@ export const REAL_SCREENS: Record<string, () => JSX.Element> = {
   /** One post, open, with comments. `path` carries the id or the page
    *  renders its not-found state and photographs as a tidy empty screen. */
   "screen-post-detail": () =>
-    screen(<PostDetail />, `/post/${posts[0].id}`, "/post/:postId"),
+    screen(<PostDetail />, postPath(posts[0].id), "/post/:postId"),
 
   /**
    * THE ACCOUNT SHEET, OPEN — added 2026-08-16.

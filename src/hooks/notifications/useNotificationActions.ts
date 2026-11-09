@@ -18,6 +18,7 @@ import { notificationEntryState } from "@/lib/navigationContract";
 import { queryKeys } from "@/lib/queryKeys";
 import { markGroupRead, deleteGroup } from "@/hooks/notifications/useNotificationHistory";
 import type { NotificationGroup } from "@/lib/notificationText";
+import { postPath } from "@/lib/posts/postPath";
 
 export function useNotificationActions(handles: Map<string, string>) {
   const navigate = useNavigate();
@@ -59,7 +60,7 @@ export function useNotificationActions(handles: Map<string, string>) {
 
   const replyTo = async (group: NotificationGroup, commentId: string) => {
     if (isUnread(group)) await markRead(group);
-    navigate(`/post/${group.reference_id}?comment=${commentId}`, { state: notificationEntryState(group.type) });
+    navigate(`${postPath(group.reference_id)}?comment=${commentId}`, { state: notificationEntryState(group.type) });
   };
 
   /**

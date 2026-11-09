@@ -37,6 +37,7 @@ import { notificationEntryState } from "@/lib/navigationContract";
 import PushNotificationsGate from "@/components/PushNotificationsGate";
 import NotificationBell from "@/components/NotificationBell";
 import { Toaster } from "@/components/ui/toaster";
+import { postPath } from "@/lib/posts/postPath";
 import "../../index.css";
 
 if (!import.meta.env.DEV) throw new Error("navigation harness is development-only");
@@ -261,9 +262,9 @@ const Links = () => (
     <NotificationBell />
     <Link to="/below" data-testid="to-below">Go to the page below</Link>
     <Link to="/feed" data-testid="to-feed">Go to the feed</Link>
-    <Link to={`/post/${POST_ID}`} data-testid="to-post">Open the post (as the notification bell does)</Link>
+    <Link to={postPath(POST_ID)} data-testid="to-post">Open the post (as the notification bell does)</Link>
     {/* S4-b: a COMMENT notification row — the same link and the same entry state the bell and the Notifications page give it. */}
-    <Link to={`/post/${POST_ID}`} state={notificationEntryState("post_comment")} data-testid="to-post-comment">A comment notification</Link>
+    <Link to={postPath(POST_ID)} state={notificationEntryState("post_comment")} data-testid="to-post-comment">A comment notification</Link>
   </nav>
 );
 
@@ -283,6 +284,7 @@ const Pages = () => (
       <Route path="/below" element={<main data-testid="below"><h1>The page below</h1><Links /></main>} />
       <Route path="/feed" element={<><Links /><Feed /></>} />
       <Route path="/post/:postId" element={<PostDetail />} />
+      <Route path="/:handle/post/:postId" element={<PostDetail />} />
       <Route path="/notifications" element={<Notifications />} />
     </Routes>
   </>
