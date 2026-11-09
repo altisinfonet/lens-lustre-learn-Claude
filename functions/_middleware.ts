@@ -67,10 +67,37 @@ export interface RouteMeta {
   noindex?: boolean;
   jsonLd?: unknown[];
   source?: string;
+  /** SEO plan B: readable HTML for robots that do not run JavaScript (public content only). */
+  body?: string;
+  /** SEO plan B: 404 when the post / hashtag the address names does not exist. */
+  status?: number;
 }
 
 /** The Worker's own budget for the metadata call. */
 const META_TIMEOUT_MS = 1500;
+/**
+ * SEO plan B: a search or AI robot waits longer than a person (they allow
+ * seconds; a cold post read is ~1.7 s), so it gets the full page on the FIRST
+ * visit instead of the bare shell while the cache fills.
+ */
+export const BOT_META_TIMEOUT_MS = 5000;
+const BOT_UA = /bot\b|crawler|spider|slurp|googlebot|bingbot|applebot|duckduck|oai-searchbot|chatgpt-user|claude-(search|user)|perplexity|mistralai|facebookexternalhit|linkedinbot|twitterbot|whatsapp|telegrambot|discordbot|slackbot|embedly|yandex|baidu|petalbot|seznam|naver/i;
+export function isRobot(ua: string | null | undefined): boolean {
+  return BOT_UA.test(String(ua || ""));
+}
+
+/**
+ * SEO plan B: the readable page goes INSIDE <div id="root">, after the brand
+ * loader. A person never sees it — the loader covers the screen and React
+ * empties #root when it starts — while a robot that does not run JavaScript
+ * reads it. Only a fragment produced by seo-route-metadata/readable.ts (all
+ * member text escaped there) is accepted, and never a <script>.
+ */
+export function readableBlock(m: RouteMeta): string {
+  const b = typeof m.body === "string" ? m.body : "";
+  if (!b.startsWith("<main data-seo-readable=") || /<\s*script|<\s*iframe|\son[a-z]+\s*=/i.test(b)) return "";
+  return b;
+}
 /** The Worker asked Cloudflare to hold the metadata 300 s (cf.cacheTtl). */
 export const FRESH_S = 300;
 /** Serve-stale window while one refresh runs; same as seo-route-metadata's own SWR. */
@@ -204,7 +231,7 @@ function cacheable(meta: RouteMeta | null): meta is RouteMeta {
 }
 
 /** Metadata for a path: colo cache first (stale-while-revalidate), Supabase on a miss. */
-export async function routeMeta(env: Env, pathname: string, waitUntil?: (p: Promise<unknown>) => void): Promise<RouteMeta | null> {
+export async function routeMeta(env: Env, pathname: string, waitUntil?: (p: Promise<unknown>) => void, waitMs: number = META_TIMEOUT_MS): Promise<RouteMeta | null> {
   const url = metadataUrl(env, pathname);
   if (!url) return null;
   const cache = typeof caches === "undefined" ? undefined : caches.default;
@@ -237,7 +264,7 @@ export async function routeMeta(env: Env, pathname: string, waitUntil?: (p: Prom
   const pending = fetchMeta(url, FILL_TIMEOUT_MS);
   const fill = pending.then((m) => (cache && cacheable(m) ? store(cache, key, m) : undefined));
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const late = new Promise<undefined>((r) => { timer = setTimeout(() => r(undefined), META_TIMEOUT_MS); });
+  const late = new Promise<undefined>((r) => { timer = setTimeout(() => r(undefined), waitMs); });
   const meta = await Promise.race([pending, late]);
   clearTimeout(timer);
   if (typeof waitUntil === "function") waitUntil(fill); else if (meta !== undefined) await fill;
@@ -274,7 +301,8 @@ export const onRequest = async (context: Ctx): Promise<Response> => {
   if (request.headers.get("cf-worker")) return passthrough(res, "worker-in-front");
   if ((env?.SEO_INJECT || "").trim().toLowerCase() === "off") return passthrough(res, "off");
 
-  const meta = await routeMeta(env, url.pathname, context.waitUntil?.bind(context));
+  const robot = isRobot(request.headers.get("user-agent"));
+  const meta = await routeMeta(env, url.pathname, context.waitUntil?.bind(context), robot ? BOT_META_TIMEOUT_MS : undefined);
   if (!meta || !meta.title) return passthrough(res, "fallback");
 
   try {
@@ -283,7 +311,12 @@ export const onRequest = async (context: Ctx): Promise<Response> => {
     for (const sel of STRIP_SELECTORS) rw = rw.on(sel, strip);
     const block = headBlock(meta);
     rw = rw.on("head", { element(el: { append(h: string, o: { html: boolean }): void }) { el.append(block, { html: true }); } });
-    const out = new Response(rw.transform(res).body, res);
+    const readable = readableBlock(meta);
+    if (readable) rw = rw.on("div#root", { element(el: { append(h: string, o: { html: boolean }): void }) { el.append(readable, { html: true }); } });
+    // SEO plan B: a post or hashtag that does not exist answers 404 (the app
+    // still loads and shows its own "not found"); everything else keeps its status.
+    const status = meta.status === 404 ? 404 : res.status;
+    const out = new Response(rw.transform(res).body, { status, statusText: status === 404 ? "Not Found" : res.statusText, headers: res.headers });
     out.headers.set("x-seo-edge", `injected:${meta.source || "ok"}`);
     out.headers.set("x-seo-render", "pages:injected");
     // Cache-Control is left as Pages set it (public/_headers: HTML is no-store,
