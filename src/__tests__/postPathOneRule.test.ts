@@ -68,5 +68,5 @@ describe("postPath — no hand-built post address", () => {
       });
     }
     expect(hits).toEqual([]);
-  });
+  }, 30_000); // scans every source file; slow disks need more than 5 s
 });

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { SITE_DISPLAY_ORIGIN } from "@/lib/env";
+import { SITE_ORIGIN } from "@/lib/env";
 import { Helmet } from "react-helmet-async";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSEO } from "@/hooks/core/useSEO";
@@ -48,7 +48,8 @@ interface PageSEOProps {
   rawJsonLd?: string;
 }
 
-const SITE_URL = SITE_DISPLAY_ORIGIN;
+// One address (Owner 2026-11-09, A2): canonical + JSON-LD name the served origin (www on production).
+const SITE_URL = SITE_ORIGIN;
 const SITE_NAME = "50mm Retina World";
 
 function buildJsonLd(data: JsonLdData, canonicalUrl: string): object {

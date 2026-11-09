@@ -1,10 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-import { siteOrigin } from "../_shared/laneConfig.ts";
+import { canonicalOrigin } from "../_shared/laneConfig.ts"; // one address (A2)
 import { postPath } from "../_shared/postPath.ts"; // A3: one post-address rule
 // Call-time, not module load: a module-level throw would kill the whole function
 // before it can report why.
-const SITE_URL = () => siteOrigin();
+const SITE_URL = () => canonicalOrigin();
 
 const corsHeaders = {
   "Content-Type": "application/xml; charset=utf-8",
