@@ -54,6 +54,7 @@ import {
 } from "@/hooks/feed/useScheduledPosts";
 import { toast } from "@/hooks/core/use-toast";
 import EditScheduledPostDialog from "@/components/post/EditScheduledPostDialog";
+import { postPath } from "@/lib/posts/postPath";
 
 type TabKey = "upcoming" | "issues" | "published";
 
@@ -299,7 +300,7 @@ export default function ScheduledPostsList() {
                     </DropdownMenuItem>
                     {p.status === "published" && p.published_post_id && (
                       <DropdownMenuItem asChild>
-                        <Link to={`/post/${p.published_post_id}`}>
+                        <Link to={postPath(p.published_post_id)}>
                           <ExternalLink className="h-4 w-4 mr-2" />
                           View published
                         </Link>

@@ -23,6 +23,7 @@ import ImageEngagement from "@/components/ImageEngagement";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import { useT } from "@/i18n/I18nContext";
 import { useGridPhotoSrc } from "@/hooks/core/useGridPhotoUrl";
+import { postPath } from "@/lib/posts/postPath";
 
 const PAGE_SIZE = 20;
 
@@ -64,7 +65,7 @@ const SquarePhotoCard = ({ imageUrl, postId, index, overlay, onClick }: {
     return <div onClick={onClick}>{inner}</div>;
   }
   if (postId) {
-    return <Link to={`/post/${postId}`}>{inner}</Link>;
+    return <Link to={postPath(postId)}>{inner}</Link>;
   }
   return inner;
 };

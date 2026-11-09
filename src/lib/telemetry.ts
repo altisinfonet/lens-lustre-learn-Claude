@@ -93,6 +93,8 @@ function appBuild(): string {
 export function normaliseRoute(pathname: string): string {
   const segs = String(pathname || "/").split(/[?#]/)[0].split("/").filter(Boolean);
   if (segs.length === 0) return "/";
+  // A3: /<handle>/post/<id> is a post page, same bucket as /post/<id>.
+  if (segs.length > 2 && segs[1].toLowerCase() === "post") return "/post/:x";
   const first = segs[0].toLowerCase();
   const head = KNOWN_ROUTES.has(first) ? first : "other";
   return segs.length > 1 ? `/${head}/:x` : `/${head}`;

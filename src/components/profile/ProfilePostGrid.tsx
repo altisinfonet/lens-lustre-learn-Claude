@@ -63,6 +63,7 @@ import FeedCardWindow from "@/components/feed/FeedCardWindow";
 import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
 import { photoSetGridUrl, photoSetMarker } from "@/lib/imageLadder";
 import { memberPhotoFallbackSrc, memberPhotoSrc } from "@/lib/photoProtection";
+import { postPathOf } from "@/lib/posts/postPath";
 
 interface Props {
   posts: UnifiedPost[];
@@ -242,7 +243,7 @@ const GridTile = memo(function GridTile({ post }: { post: UnifiedPost }) {
       setRevealed(true);
       return;
     }
-    navigate(`/post/${post.id}`);
+    navigate(postPathOf(post));
   };
 
   return (
@@ -324,7 +325,7 @@ const ShowcaseTile = memo(function ShowcaseTile({ post }: { post: UnifiedPost })
   return (
     <button
       type="button"
-      onClick={() => navigate(`/post/${post.id}`)}
+      onClick={() => navigate(postPathOf(post))}
       aria-label={tileLabel(post)}
       style={{ aspectRatio: String(SHOWCASE_ASPECT) }}
       className="group relative col-span-3 w-full overflow-hidden bg-muted/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"

@@ -7,6 +7,7 @@ import { Camera, Plus, Trash2, ChevronLeft, Images } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { postPath } from "@/lib/posts/postPath";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -35,7 +36,7 @@ const AlbumView = ({ album, onBack }: { album: PhotoAlbum; onBack: () => void })
           {photos.map((photo) => (
             <Link
               key={photo.id}
-              to={photo.post_id ? `/post/${photo.post_id}` : "#"}
+              to={photo.post_id ? postPath(photo.post_id) : "#"}
               className="aspect-square rounded-sm overflow-hidden hover:opacity-80 transition-opacity"
             >
               <img

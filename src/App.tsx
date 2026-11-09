@@ -450,6 +450,8 @@ const App = () => {
                 <Route path="/dashboard/submission/:competitionId/entry/:entryId/photo/:photoIndex" element={<SubmissionDetail />} />
                 <Route path="/hashtag/:tag" element={<HashtagFeed />} />
                 <Route path="/post/:postId" element={<PostDetail />} />
+                {/* A3 (Owner 7 Nov): the long form every post address uses — src/lib/posts/postPath.ts. */}
+                <Route path="/:handle/post/:postId" element={<PostDetail />} />
                 {/* A sponsored ad on a page of its own. Added 2026-08-11 so an ad
                     can be shared and so a reply notification has somewhere to open. */}
                 <Route path="/ad/:creativeId" element={<AdDetail />} />
