@@ -33,12 +33,12 @@ import { stripComments } from "@/test-utils/sourceText";
 
 describe("publicUrl", () => {
   it("is the canonical production origin, hard-coded", () => {
-    expect(SITE_ORIGIN).toBe("https://50mmretina.com");
+    expect(SITE_ORIGIN).toBe("https://www.50mmretina.com");
   });
 
   it("joins paths with and without a leading slash", () => {
-    expect(publicUrl("/post/abc")).toBe("https://50mmretina.com/post/abc");
-    expect(publicUrl("signup?ref=XYZ")).toBe("https://50mmretina.com/signup?ref=XYZ");
+    expect(publicUrl("/post/abc")).toBe("https://www.50mmretina.com/post/abc");
+    expect(publicUrl("signup?ref=XYZ")).toBe("https://www.50mmretina.com/signup?ref=XYZ");
   });
 
   it("never produces a localhost URL, whatever jsdom's origin is", () => {
