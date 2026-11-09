@@ -32,7 +32,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          sparse-checkout: scripts/indexnow-submit.mjs
+          sparse-checkout: |
+            scripts/indexnow-submit.mjs
+            public/*.txt
           sparse-checkout-cone-mode: false
       - uses: actions/setup-node@v4
         with:

@@ -11,8 +11,15 @@
  *
  * env: SITE (default https://www.50mmretina.com), DAYS (default 2), FULL=1, DRY=1
  */
+import { readdirSync, readFileSync } from "node:fs";
+
 const SITE = (process.env.SITE || "https://www.50mmretina.com").replace(/\/+$/, "");
-const KEY = "1b13fead5c15fa88c91ee3657382a3ca";
+// The key is the name of the one public/<32 hex>.txt file (and its content) —
+// read from there, so it is written in exactly one place.
+const keyFiles = readdirSync("public").filter((f) => /^[0-9a-f]{32}\.txt$/.test(f));
+if (keyFiles.length !== 1) { console.error(`expected exactly one public/<key>.txt, found ${keyFiles.length}`); process.exit(1); }
+const KEY = keyFiles[0].slice(0, 32);
+if (readFileSync(`public/${keyFiles[0]}`, "utf8").trim() !== KEY) { console.error("public key file content does not match its name"); process.exit(1); }
 const DAYS = Number(process.env.DAYS || 2);
 const FULL = process.env.FULL === "1";
 const DRY = process.env.DRY === "1";
