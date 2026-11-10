@@ -962,13 +962,14 @@ const CommentThread = ({
           the comment's text column, and it STAYS here when the replies open
           below it, so the member's finger finds it in the same place.
 
-          Its region: the button reaches 12 px DOWN — exactly the gap under it
-          (comments v3, 10 Nov: gap-3; at 16 px it took 4 px of the first
-          reply's name); only the WORDS reach 16 px UP (`before:` — 12 px of gap
-          plus 4 px of the Reply row's empty middle, so the finger still gets
-          44 px), because the strip
-          above the dash belongs to Reply's region, and the words start past
-          Reply's 44 px (ps on the dash), so the two never claim one pixel.
+          Its region (comments v3, 10 Nov — gaps are 12 px now):
+           • `::before` = the whole button + 12 px DOWN, exactly the gap under
+             it (16 px took 4 px of the first reply's name);
+           • `::after`  = over the WORDS only (from 44 px in), 16 px UP + 12
+             DOWN = 44 px — 12 px of gap plus 4 px of the Reply row's empty
+             middle. The strip above the dash belongs to Reply's region, and the
+             words start past Reply's 44 px, so the two never claim one pixel.
+             `::after` is the region the size gates read (capture.mjs: ≥ 32).
         */}
         {depth === 0 && replyCount > 0 && !expandReplies && (
           <button
@@ -976,10 +977,10 @@ const CommentThread = ({
             data-comment-replies-toggle=""
             aria-expanded={repliesShown}
             onClick={() => setRepliesOpen(comment.id, !repliesShown)}
-            className={`${HIT} after:inset-x-0 after:top-0 after:-bottom-3 ms-comment-indent mt-3 flex h-4 items-center gap-5 rounded-sm text-xs font-semibold leading-4 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background`}
+            className={`${HIT} after:start-11 after:end-0 after:-top-4 after:-bottom-3 before:absolute before:content-[''] before:inset-x-0 before:top-0 before:-bottom-3 ms-comment-indent mt-3 flex h-4 items-center gap-5 rounded-sm text-xs font-semibold leading-4 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background`}
           >
             <span aria-hidden="true" className="h-px w-6 shrink-0 bg-muted-foreground/60" />
-            <span className="relative before:absolute before:inset-x-0 before:-top-4 before:bottom-0 before:content-['']">
+            <span>
               {repliesShown
                 ? t("cmt.hideReplies", "Hide replies")
                 : replyCount === 1
