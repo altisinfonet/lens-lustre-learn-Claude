@@ -16,7 +16,8 @@
  * CommentsSection of a competition entry), web and the Android shell, in
  * Chromium, Firefox and WebKit, and measures in CSS px:
  *
- *   text → meta     the text's last line box → the Reply line box      ≤ 4
+ *   text → meta     the text's last line box → the Reply line box      ≤ 5
+ *                   (was 4; comments v3, Owner OK 10 Nov: 14px text, 4.8 px)
  *   meta → next     the Reply line (or "View replies" line) → the next
  *                   comment's avatar top                               12–16
  *   meta → toggle   Reply line → "View N more replies" line            ≤ 16
@@ -60,7 +61,7 @@ const ENGINES = (arg("--browsers", "chromium,firefox,webkit")).split(",").map((s
 const PORT = 5191;
 const BASE = arg("--base", null) || `http://127.0.0.1:${PORT}`;
 
-const LIMITS = { textToMetaMax: 4, nextMin: 12, nextMax: 16, toggleMax: 16, heartDelta: 2, indent: 44, hit: 44 };
+const LIMITS = { textToMetaMax: 5, nextMin: 12, nextMax: 16, toggleMax: 16, heartDelta: 2, indent: 44, hit: 44 };
 
 let server = null;
 const stop = () => {

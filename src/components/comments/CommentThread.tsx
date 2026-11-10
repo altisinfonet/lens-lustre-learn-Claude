@@ -68,6 +68,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useOnline } from "@/lib/presence/online";
 import { useT } from "@/i18n/I18nContext";
 import MentionInput from "@/components/MentionInput";
+import CommentComposer from "@/components/comments/CommentComposer";
+import { toReplyTarget, useReplyTarget, type ReplyTarget } from "@/components/comments/replyTarget";
 import RichContentRenderer from "@/components/RichContentRenderer";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
 import { timeAgo } from "@/lib/postUtils";
@@ -264,6 +266,15 @@ export interface CommentThreadProps {
    * toggle would hide the very match the member searched for.
    */
   expandReplies?: boolean;
+  /**
+   * ONE REPLY FLOW (replyTarget.ts, Owner 10 Nov 2026). When the caller draws the
+   * bottom box itself (`hideComposer`), it passes the comment being answered and
+   * the setter: Reply calls `onReplyStart`, and that comment is softly
+   * highlighted. Without them the thread's own bottom box does the same job.
+   * There is no second box inside a comment any more.
+   */
+  replyTarget?: ReplyTarget | null;
+  onReplyStart?: (target: ReplyTarget) => void;
 }
 
 /**
@@ -287,7 +298,7 @@ export interface CommentThreadProps {
  *
  *   • the 16 px band BELOW a comment's meta line is owned by that line's
  *     controls (they reach 12 px down);
- *   • the meta line's controls reach 16 px UP into the comment's own text,
+ *   • the meta line's controls reach 17 px UP into the comment's own text,
  *     which is not a control — and a mention / hashtag link in that text wins
  *     every contested pixel (`[&_a]:relative [&_a]:z-[1]` on the text), so
  *     F-109 (a region taking a link's pixels) cannot happen here;
@@ -300,10 +311,13 @@ export interface CommentThreadProps {
  */
 /** Reply / menu / avatar regions are transparent, out of flow, and move nothing. */
 const HIT = "relative after:absolute after:content-['']";
-/** Reply: 16 px tall line → 44 px (16 up into the text, 12 down), at least 44 px wide. */
-const META_HIT = `${HIT} after:-top-4 after:-bottom-3 after:-start-1.5 after:-end-1.5 after:min-w-[44px]`;
+/** Reply: 16 px tall line → 45 px (17 up into the text, 12 down), at least 44 px wide.
+ *  17, not 16 (comments v3, 10 Nov): 14px × 1.4 text leaves sub-pixel line
+ *  positions and Firefox snapped the region to 43.5 px; the extra px is the
+ *  comment's own text, never another control. */
+const META_HIT = `${HIT} after:-top-[17px] after:-bottom-3 after:-start-1.5 after:-end-1.5 after:min-w-[44px]`;
 /** The row menu's dots: 16 × 16 → 44 × 44, reaching back over the dots' gap, never into the heart's column. */
-const MENU_HIT = `${HIT} after:-top-4 after:-bottom-3 after:-start-4 after:-end-3`;
+const MENU_HIT = `${HIT} after:-top-[17px] after:-bottom-3 after:-start-4 after:-end-3`;
 /** Avatar 32 → 44 (24 → 44 on a reply): 4 px up (the free strip of the gap), the rest down its own column. */
 const AVATAR_HIT = `${HIT} after:-top-1 after:-bottom-2 after:-start-1.5 after:-end-1.5`;
 const AVATAR_HIT_XS = `${HIT} after:-top-1 after:-bottom-4 after:-start-2.5 after:-end-2.5`;
@@ -336,7 +350,9 @@ export const Avatar = ({
   return (
     <span className={`relative inline-block ${cls}`}>
       {src ? (
-        <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={src} alt="" className={`${cls} rounded-full object-cover`} />
+        // alt = the name: the avatar is the only content of its profile link, so
+        // an empty alt left that link with no name (axe link-name, 10 Nov).
+        <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={src} alt={name ?? ""} className={`${cls} rounded-full object-cover`} />
       ) : (
         <div className={`${cls} rounded-full bg-muted flex items-center justify-center font-semibold text-muted-foreground`}>
           {avatarInitial(name)}
@@ -384,7 +400,13 @@ const CommentThread = ({
   onBlockUser,
   highlightId = null,
   expandReplies = false,
+  replyTarget: externalReplyTarget,
+  onReplyStart,
 }: CommentThreadProps) => {
+  // The thread's own bottom box answers comments when the caller has none.
+  const ownReply = useReplyTarget();
+  const activeReply = onReplyStart ? externalReplyTarget ?? null : ownReply.target;
+  const startReply = onReplyStart ?? ownReply.start;
   const t = useT();
   const canReact = features?.reactions ?? true;
   const canPinHere = (features?.pinning ?? true) && canPin;
@@ -392,9 +414,6 @@ const CommentThread = ({
   const canSort = features?.sorting ?? true;
   const canEdit = features?.editing ?? true;
 
-  const [commentInput, setCommentInput] = useState("");
-  const [replyTo, setReplyTo] = useState<string | null>(null);
-  const [replyInput, setReplyInput] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editInput, setEditInput] = useState("");
   const [reportingId, setReportingId] = useState<string | null>(null);
@@ -442,29 +461,20 @@ const CommentThread = ({
     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
   });
 
-  const submitComment = async (parentId: string | null = null) => {
+  /** The thread's own bottom box (CommentComposer) posts through here. */
+  const submitComment = async (text: string, parentId: string | null) => {
     if (!currentUserId || submitting) return;
-    const text = parentId ? replyInput.trim() : commentInput.trim();
-    if (!text) return;
-    if (parentId) {
-      setReplyInput("");
-      setReplyTo(null);
-      // The member's own new reply must be in view, not folded behind "View replies".
-      setRepliesOpen(parentId, true);
-    } else {
-      setCommentInput("");
-    }
-    const ok = await onAdd(text, parentId);
-    // Only a surface that explicitly reports failure gets the text back; the
-    // post path resolves undefined because its mutation rolls itself back.
-    if (ok === false) {
-      if (parentId) {
-        setReplyTo(parentId);
-        setReplyInput(text);
-      } else {
-        setCommentInput(text);
-      }
-    }
+    // The member's own new reply must be in view, not folded behind "View replies".
+    if (parentId) setRepliesOpen(parentId, true);
+    // Only a surface that explicitly reports failure gets the text back (the
+    // composer restores it); the post path resolves undefined.
+    return onAdd(text, parentId);
+  };
+
+  /** Reply tapped: hand the comment to the ONE bottom box and open its replies. */
+  const replyToComment = (comment: ThreadComment, depth: number) => {
+    if (depth === 0) setRepliesOpen(comment.id, true);
+    startReply(toReplyTarget(comment));
   };
 
   const saveEdit = async (commentId: string) => {
@@ -514,14 +524,15 @@ const CommentThread = ({
       //
       // `ms-comment-indent` (tokens.ts) = the parent's avatar (32) + its gap (12): a reply's avatar
       // starts exactly under the text it answers. Logical, so RTL mirrors it.
-      <div key={comment.id} data-comment-block="" className={depth > 0 ? "ms-comment-indent mt-4" : ""}>
+      <div key={comment.id} data-comment-block="" className={depth > 0 ? "ms-comment-indent mt-3" : ""}>
         <div
           data-comment-id={comment.id}
           data-comment-row=""
           data-highlighted={comment.id === highlightId ? "true" : undefined}
+          data-replying={comment.id === activeReply?.id ? "true" : undefined}
           // #509 review: the mark is not colour alone — assistive tech hears it too.
           aria-current={comment.id === highlightId ? "true" : undefined}
-          className={`flex gap-3 group/comment ${comment.id === highlightId ? "-mx-2 -my-1.5 px-2 py-1.5 rounded-md bg-primary/10" : ""}`}
+          className={`flex gap-3 group/comment ${comment.id === highlightId || comment.id === activeReply?.id ? "-mx-2 -my-1.5 px-2 py-1.5 rounded-md bg-primary/10" : ""}`}
         >
           <ProfileLink
             userId={comment.user_id}
@@ -645,7 +656,8 @@ const CommentThread = ({
                 {/* `[&_a]:relative [&_a]:z-[1]`: a mention or hashtag link in the
                     text sits ABOVE the Reply / menu regions that reach up into
                     the text, so a link never loses a pixel to them (F-109). */}
-                <p className="text-[15px] leading-[1.45] text-foreground whitespace-pre-wrap break-words [&_a]:relative [&_a]:z-[1]">
+                {/* Compact (Owner 10 Nov): 14px text on a 1.4 line, under the 13px name. */}
+                <p className="text-[14px] leading-[1.4] text-foreground whitespace-pre-wrap break-words [&_a]:relative [&_a]:z-[1]">
                   <RichContentRenderer content={comment.content} />
                 </p>
 
@@ -707,16 +719,7 @@ const CommentThread = ({
                   {canReply && (
                     <button
                       type="button"
-                      onClick={() => {
-                        const opening = replyTo !== comment.id;
-                        setReplyTo(opening ? comment.id : null);
-                        if (opening) {
-                          const name = comment.author_name || "Photographer";
-                          setReplyInput(`@[${name}](${comment.user_id}) `);
-                        } else {
-                          setReplyInput("");
-                        }
-                      }}
+                      onClick={() => replyToComment(comment, depth)}
                       className={`${META_HIT} flex h-4 items-center rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background`}
                     >
                       {t("cmt.reply", "Reply")}
@@ -820,22 +823,8 @@ const CommentThread = ({
                   )}
                 </AnimatePresence>
 
-                {/* Reply input */}
-                {replyTo === comment.id && (
-                  <div className="flex gap-2 mt-3">
-                    <Avatar src={viewer?.avatar_url} name={viewer?.full_name} size="xs" />
-                    <MentionInput
-                      value={replyInput}
-                      onChange={setReplyInput}
-                      onSubmit={() => submitComment(comment.id)}
-                      placeholder={`${t("cmt.phReplyTo", "Reply to")} ${comment.author_name || "Photographer"}...`}
-                      disabled={submitting}
-                      maxLength={maxLength}
-                      autoFocus
-                      className="bg-muted rounded-full px-3 py-1.5 text-sm"
-                    />
-                  </div>
-                )}
+                {/* No reply box here any more: Reply hands this comment to the
+                    ONE bottom box ("Replying to …"), see replyTarget.ts. */}
               </>
             )}
           </div>
@@ -973,10 +962,14 @@ const CommentThread = ({
           the comment's text column, and it STAYS here when the replies open
           below it, so the member's finger finds it in the same place.
 
-          Its region: the button reaches 16 px DOWN (the gap under it is its
-          own); only the WORDS reach 12 px UP (`before:`), because the strip
-          above the dash belongs to Reply's region, and the words start past
-          Reply's 44 px (ps on the dash), so the two never claim one pixel.
+          Its region (comments v3, 10 Nov — gaps are 12 px now):
+           • `::before` = the whole button + 12 px DOWN, exactly the gap under
+             it (16 px took 4 px of the first reply's name);
+           • `::after`  = over the WORDS only (from 44 px in), 16 px UP + 12
+             DOWN = 44 px — 12 px of gap plus 4 px of the Reply row's empty
+             middle. The strip above the dash belongs to Reply's region, and the
+             words start past Reply's 44 px, so the two never claim one pixel.
+             `::after` is the region the size gates read (capture.mjs: ≥ 32).
         */}
         {depth === 0 && replyCount > 0 && !expandReplies && (
           <button
@@ -984,10 +977,10 @@ const CommentThread = ({
             data-comment-replies-toggle=""
             aria-expanded={repliesShown}
             onClick={() => setRepliesOpen(comment.id, !repliesShown)}
-            className={`${HIT} after:inset-x-0 after:top-0 after:-bottom-4 ms-comment-indent mt-3 flex h-4 items-center gap-5 rounded-sm text-xs font-semibold leading-4 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background`}
+            className={`${HIT} after:start-11 after:end-0 after:-top-4 after:-bottom-3 before:absolute before:content-[''] before:inset-x-0 before:top-0 before:-bottom-3 ms-comment-indent mt-3 flex h-4 items-center gap-5 rounded-sm text-xs font-semibold leading-4 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background`}
           >
             <span aria-hidden="true" className="h-px w-6 shrink-0 bg-muted-foreground/60" />
-            <span className="relative before:absolute before:inset-x-0 before:-top-3 before:bottom-0 before:content-['']">
+            <span>
               {repliesShown
                 ? t("cmt.hideReplies", "Hide replies")
                 : replyCount === 1
@@ -1042,7 +1035,7 @@ const CommentThread = ({
       {loading ? (
         <div className="text-sm text-muted-foreground animate-pulse py-4 text-center">Loading comments…</div>
       ) : (
-        <div data-comment-list="" className="flex flex-col gap-4">
+        <div data-comment-list="" className="flex flex-col gap-3">
           {emptyLabel && sortedComments.length === 0 && (
             <div className="text-xs text-muted-foreground">{emptyLabel}</div>
           )}
@@ -1055,17 +1048,17 @@ const CommentThread = ({
       {/* New comment input — omitted when the caller pins its own
           <CommentComposer> outside this thread's scroll area. */}
       {!hideComposer && currentUserId && (
-        <div className="flex gap-2 pt-2 pb-1">
-          <Avatar src={viewer?.avatar_url} name={viewer?.full_name} size="sm" />
-          <MentionInput
-            value={commentInput}
-            onChange={setCommentInput}
-            onSubmit={() => submitComment(null)}
-            placeholder={composerPlaceholder}
-            disabled={submitting}
-            maxLength={maxLength}
-          />
-        </div>
+        <CommentComposer
+          className="pt-2 pb-1"
+          currentUserId={currentUserId}
+          viewer={viewer}
+          submitting={submitting}
+          maxLength={maxLength}
+          placeholder={composerPlaceholder}
+          replyTo={ownReply.target}
+          onCancelReply={ownReply.cancel}
+          onSubmit={submitComment}
+        />
       )}
     </div>
   );
