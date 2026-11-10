@@ -160,6 +160,7 @@ const Phase7BadgesQA = lazyRetry(() => import("./pages/dev/Phase7BadgesQA"), "Ph
 const FeaturedArtistPage = lazyRetry(() => import("./pages/FeaturedArtistPage"), "FeaturedArtistPage");
 const Referrals = lazyRetry(() => import("./pages/Referrals"), "Referrals");
 const HelpSupport = lazyRetry(() => import("./pages/HelpSupport"), "HelpSupport");
+const Answers = lazyRetry(() => import("./pages/Answers"), "Answers");
 const ManagedPageView = lazyRetry(() => import("./pages/ManagedPageView"), "ManagedPageView");
 const SubmissionDetail = lazyRetry(() => import("./pages/SubmissionDetail"), "SubmissionDetail");
 const HashtagFeed = lazyRetry(() => import("./pages/HashtagFeed"), "HashtagFeed");
@@ -444,6 +445,8 @@ const App = () => {
                 <Route path="/featured-artist/:slug" element={<FeaturedArtistPage />} />
                 <Route path="/referrals" element={isNativeIOSApp() ? <Navigate to="/dashboard" replace /> : <Referrals />} />
                 <Route path="/help-support" element={<HelpSupport />} />
+                <Route path="/help" element={<Answers />} />
+                <Route path="/help/:slug" element={<Answers />} />
                 <Route path="/page/:slug" element={<ManagedPageView />} />
                 <Route path="/dashboard/submission/:competitionId" element={<SubmissionDetail />} />
                 <Route path="/dev/phase7-badges" element={import.meta.env.DEV ? <Phase7BadgesQA /> : <NotFound />} />
