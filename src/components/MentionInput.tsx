@@ -413,6 +413,12 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
             borderRadius: "18px",
             color: "hsl(var(--foreground))",
             maxHeight: "116px",
+            // react-mentions hides plain text in the highlighter by default
+            // (`substring: visibility hidden`) because its textarea normally
+            // draws it. Ours is transparent (Meta-style coloured names), so the
+            // highlighter must draw ALL the text — measured: without this the
+            // words typed after a name were invisible.
+            substring: { visibility: "visible" },
           },
           /**
            * ── THE @NAME LIST ─────────────────────────────────────────────────
