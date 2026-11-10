@@ -47,6 +47,12 @@ describe("one hashtag rule — the same letters in the database, the app and the
     expect(offenders).toEqual([]);
   });
 
+  it("H4: the sitemap lists hashtag pages with public posts, at the encoded address the app links", () => {
+    const sitemap = SOURCES["/supabase/functions/sitemap/index.ts"];
+    expect(sitemap).toMatch(/\.from\("hashtags"\)[\s\S]{0,200}\.gt\("post_count", 0\)/);
+    expect(sitemap).toMatch(/\/hashtag\/\$\{encodeURIComponent\(t\.tag\)\}/);
+  });
+
   it("the hashtag page reads the store, never a caption search", () => {
     const page = readFileSync("src/pages/HashtagFeed.tsx", "utf8");
     expect(page).toMatch(/useHashtagPosts\(/);
