@@ -20,18 +20,17 @@
  * is not possible: the text is the tag.)
  */
 
-/** Characters PostgreSQL's `#([A-Za-z0-9_]{1,60})` accepts inside a tag. */
-const TAG_CHAR = /[A-Za-z0-9_]/;
+import { isHashtagChar, MAX_TAG_LENGTH } from "@/lib/hashtags/hashtagRule";
 
-/** The database refuses anything longer; stop offering before that. */
-export const MAX_TAG_LENGTH = 60;
+/** The database refuses anything longer; stop offering before that. Same constant as the one rule. */
+export { MAX_TAG_LENGTH };
 
 /**
  * The active "#query" being typed, measured from the caret.
  *
  * ⚠ DELIBERATELY NOT word-boundary anchored, and this is the one place worth
- * reading twice. `RichContentRenderer` matches `#(\w+)` ANYWHERE in the text,
- * and the database trigger matches `#([A-Za-z0-9_]{1,60})` anywhere too. So in
+ * reading twice. `RichContentRenderer` and the database trigger both match a
+ * tag ANYWHERE in the text (one rule: src/lib/hashtags/hashtagRule.ts). So in
  * "C#sharp" the platform already treats "#sharp" as a real, clickable, counted
  * hashtag. If this function required whitespace before the "#", the suggestion
  * list would stay silent for a tag that is nonetheless about to be created and
@@ -59,8 +58,9 @@ export function activeHashtagQuery(
   // other: in "#street @par" the hashtag query would contain a space, so it
   // closes on its own the moment the member moves on to a mention.
   if (query.length > MAX_TAG_LENGTH) return null;
+  // Every language the database counts (src/lib/hashtags/hashtagRule.ts).
   for (const ch of query) {
-    if (!TAG_CHAR.test(ch)) return null;
+    if (!isHashtagChar(ch)) return null;
   }
 
   return { query, start: at };
