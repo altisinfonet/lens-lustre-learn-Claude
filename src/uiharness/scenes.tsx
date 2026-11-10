@@ -23,6 +23,7 @@ import HashtagSuggestions from "@/components/post/HashtagSuggestions";
 import MentionInput from "@/components/MentionInput";
 import CommentThread, { type ThreadComment } from "@/components/comments/CommentThread";
 import CommentComposer from "@/components/comments/CommentComposer";
+import { useReplyTarget } from "@/components/comments/replyTarget";
 import CommentSearchBar from "@/components/comments/CommentSearchBar";
 import { commentPlaceholderFor } from "@/components/comments/CommentThread";
 import { filterComments, countComments } from "@/lib/commentSearch";
@@ -331,6 +332,80 @@ const FIXTURE_THREAD: ThreadComment[] = [
     user_reaction: "like",
   }),
 ];
+
+/**
+ * COMMENTS v3 SAMPLE (Owner 10 Nov 2026: Meta-style mentions, ONE reply box,
+ * compact). Its own thread so the existing baselines keep their fixture. Posting
+ * really adds the comment here, so "after sending" can be photographed.
+ */
+const avatarPic = (id: number) => `https://picsum.photos/id/${id}/96/96`;
+const V3_AMIT = "fxu-amit";
+const V3_THREAD: ThreadComment[] = [
+  fixtureComment({
+    id: "v3a", user_id: V3_AMIT, content: "Wonderful picture", author_name: "Amit Baran Sen", author_handle: "amit.baran",
+    author_avatar: avatarPic(1005), created_at: new Date(Date.now() - 60_000).toISOString(), like_count: 3,
+  }),
+  fixtureComment({
+    id: "v3b", content: "Nice @[Amit Baran Sen](fxu-amit) — the light on the turban is perfect", author_name: "Dipannita Sen",
+    author_handle: "dipannita", author_avatar: avatarPic(64), author_badges: ["featured_creator"], like_count: 12, user_reaction: "like",
+    replies: [
+      fixtureComment({ id: "v3c", content: "Thank you so much!", author_name: "Rahul Das", author_handle: "rahuldas", author_avatar: avatarPic(91), parent_id: "v3b", like_count: 1 }),
+      fixtureComment({ id: "v3d", content: "Agreed, beautiful tones", author_name: "Mitali Roy", author_handle: "mitali", author_avatar: avatarPic(65), parent_id: "v3b" }),
+    ],
+  }),
+  fixtureComment({ id: "v3e", content: "Which lens did you use? 50mm?", author_name: "Sourav Pal", author_handle: "sourav", author_avatar: avatarPic(177), like_count: 2 }),
+];
+
+function CommentsV3SampleHarness() {
+  const [thread, setThread] = useState<ThreadComment[]>(V3_THREAD);
+  const reply = useReplyTarget();
+  const add = (content: string, parentId: string | null) => {
+    const c = fixtureComment({
+      id: `v3n${Date.now()}`, user_id: "harness-viewer", content, parent_id: parentId, author_name: "Dipannita Sen",
+      author_handle: "dipannita", author_avatar: avatarPic(64), created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    });
+    setThread((t) => (parentId
+      ? t.map((x) => (x.id === parentId ? { ...x, replies: [...x.replies, c] } : { ...x, replies: x.replies.map((r) => (r.id === parentId ? { ...r, replies: [...r.replies, c] } : r)) }))
+      : [...t, c]));
+  };
+  return (
+    <SheetChrome>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="shrink-0 border-b border-border/60">
+          <CommentSearchBar value="" onChange={() => {}} expanded={false} onExpandedChange={() => {}} subjectLabel="Challenge Me If You Can!" resultCount={0} />
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <CommentThread
+            comments={thread}
+            loading={false}
+            currentUserId="harness-viewer"
+            viewer={{ full_name: "Dipannita Sen", avatar_url: avatarPic(64) }}
+            isAdmin={false}
+            hideComposer
+            replyTarget={reply.target}
+            onReplyStart={reply.start}
+            onAdd={() => {}}
+            onEdit={async () => true}
+            onDelete={() => {}}
+            onToggleLike={() => {}}
+            onReact={() => {}}
+          />
+        </div>
+        <div className="shrink-0 border-t border-border bg-background px-3 py-2.5" style={{ paddingBottom: "max(0.625rem, env(safe-area-inset-bottom))" }}>
+          <CommentComposer
+            currentUserId="harness-viewer"
+            viewer={{ full_name: "Dipannita Sen", avatar_url: avatarPic(64) }}
+            quickReactions
+            placeholder={commentPlaceholderFor("dipannita")}
+            replyTo={reply.target}
+            onCancelReply={reply.cancel}
+            onSubmit={(content, parentId) => add(content, parentId)}
+          />
+        </div>
+      </div>
+    </SheetChrome>
+  );
+}
 
 /** The sheet's handle and title — a stand-in for the screenshot, see above. */
 function SheetChrome({ children }: { children: JSX.Element }) {
@@ -943,6 +1018,8 @@ export const SCENES: Record<string, () => JSX.Element> = {
 
   /** The comments panel as it ships — search row, thread, composer. */
   "comments-panel": () => <CommentsPanelHarness />,
+  /** Comments v3 sample for the Owner (10 Nov 2026) — not a baseline scene. */
+  "comments-v3-sample": () => <CommentsV3SampleHarness />,
 
   /** VID-1: the video upload screen — a 16:9 video fitted into the 9:16 card. */
   "video-composer-landscape": () => <VideoComposerHarness src={landscapeVideoUrl} name="landscape.webm" />,
