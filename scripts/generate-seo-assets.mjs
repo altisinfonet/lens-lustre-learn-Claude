@@ -86,12 +86,18 @@ if (!isProduction) {
     "# 50mm Retina World (test copy)\n\n" +
       `> This is a non-production copy of the site (${siteOrigin}). It is not for indexing, training or citation.\n`,
   );
+  // The full fact sheet (Owner-approved 2026-11-10) — same rule: the test copy says so and links nowhere.
+  writeFileSync(
+    "dist/llms-full.txt",
+    "# 50mm Retina World (test copy)\n\n" +
+      `> This is a non-production copy of the site (${siteOrigin}). It is not for indexing, training or citation.\n`,
+  );
   console.log(`generate-seo-assets OK: non-production lane ${siteOrigin} — robots.txt blocks all crawling, sitemap.xml empty.`);
   process.exit(0);
 }
 
 let written = 0;
-for (const file of ["robots.txt", "sitemap.xml", "llms.txt"]) {
+for (const file of ["robots.txt", "sitemap.xml", "llms.txt", "llms-full.txt"]) {
   const template = `public/${file}`;
   if (!existsSync(template)) {
     console.error(`generate-seo-assets FAIL: ${template} missing.`);
@@ -125,13 +131,16 @@ if (strayOrigins.length) {
 
 // llms.txt links into this site with full addresses; one naming any other site
 // (besides the Google Play listing) would send AI readers to the wrong place.
-const llms = readFileSync("dist/llms.txt", "utf8");
-const strayLlms = [...new Set(llms.match(/https?:\/\/[a-z0-9.-]+/gi) || [])].filter(
-  (u) => u !== displayOrigin && u !== "https://play.google.com",
-);
-if (strayLlms.length) {
-  console.error(`generate-seo-assets FAIL: llms.txt names other origins: ${strayLlms.join(", ")}`);
-  process.exit(1);
+// The same holds for the full fact sheet, llms-full.txt.
+for (const file of ["llms.txt", "llms-full.txt"]) {
+  const llms = readFileSync(`dist/${file}`, "utf8");
+  const strayLlms = [...new Set(llms.match(/https?:\/\/[a-z0-9.-]+/gi) || [])].filter(
+    (u) => u !== displayOrigin && u !== "https://play.google.com",
+  );
+  if (strayLlms.length) {
+    console.error(`generate-seo-assets FAIL: ${file} names other origins: ${strayLlms.join(", ")}`);
+    process.exit(1);
+  }
 }
 
 console.log(`generate-seo-assets OK: ${written} files; origin=${displayOrigin}`);
