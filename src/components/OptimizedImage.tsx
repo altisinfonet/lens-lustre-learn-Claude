@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef, useState } from "react";
+import { cdnSrcSet, originalOnError } from "@/lib/cdnImage";
 
 interface OptimizedImageProps {
   src: string;
@@ -9,6 +10,14 @@ interface OptimizedImageProps {
   sizes?: string;
   /** Optional 256px low-quality placeholder URL shown until in-viewport */
   placeholder?: string;
+  /**
+   * Opt-in (2026-11-10, covers): right-sized copies from OUR CDN at these
+   * widths, as `srcset` + `sizes`, with the original as the onError fallback
+   * (lib/cdnImage.ts rules). Other hosts are untouched. NOT for a carousel that
+   * unmounts every few seconds (Stories, PhotoOfTheDay) — a size the CDN has
+   * not made yet can lose that race; see PhotoOfTheDay.tsx.
+   */
+  srcSetWidths?: number[];
 }
 
 /**
@@ -46,6 +55,7 @@ const OptimizedImage = memo(({
   fetchPriority = "auto",
   sizes,
   placeholder,
+  srcSetWidths,
 }: OptimizedImageProps) => {
   const eager = loading === "eager";
   const ref = useRef<HTMLImageElement | null>(null);
@@ -78,12 +88,17 @@ const OptimizedImage = memo(({
   const effectiveSrc = visible ? src : (lqip ?? src);
   const webpSrc = effectiveSrc.replace(/\.(jpg|jpeg|png)$/i, ".webp");
   const isLocalImage = src.startsWith("/images/");
+  // "" unless asked for AND the file is on our CDN (cdnSrcSet returns "" otherwise).
+  const cdnSet = srcSetWidths ? cdnSrcSet(src, srcSetWidths) : "";
 
   if (!isLocalImage) {
     return (
       <img
         ref={ref}
         src={effectiveSrc}
+        srcSet={cdnSet || undefined}
+        sizes={cdnSet ? sizes ?? "100vw" : undefined}
+        onError={cdnSet ? originalOnError(src) : undefined}
         alt={alt}
         className={className}
         loading={loading}

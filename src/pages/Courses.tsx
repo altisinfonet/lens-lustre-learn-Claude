@@ -7,6 +7,8 @@ import { BookOpen, GraduationCap, Star, Users } from "lucide-react";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
 import UserIdentityBlock from "@/components/UserIdentityBlock";
+import CoverImage from "@/components/CoverImage";
+import FilterChipRow from "@/components/FilterChipRow";
 import { useCourses, CourseListItem } from "@/hooks/content/useCourses";
 import { useT } from "@/i18n/I18nContext";
 
@@ -52,12 +54,12 @@ const Courses = () => {
         </motion.div>
 
         {categories.length > 0 && (
-          <div className="flex gap-2 mb-6 md:mb-12 overflow-x-auto scrollbar-hide">
+          <FilterChipRow className="mb-6 md:mb-12">
             <button onClick={() => setSelectedCategory(null)} className={`text-[10px] tracking-[0.15em] uppercase px-3 md:px-4 py-1.5 md:py-2 border rounded-full md:rounded-none transition-all duration-300 whitespace-nowrap ${!selectedCategory ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"}`} style={{ fontFamily: "var(--font-heading)" }}>{t("comp.filterAll")}</button>
             {categories.map((cat) => (
               <button key={cat} onClick={() => setSelectedCategory(cat)} className={`text-[10px] tracking-[0.15em] uppercase px-3 md:px-4 py-1.5 md:py-2 border rounded-full md:rounded-none transition-all duration-300 whitespace-nowrap ${selectedCategory === cat ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"}`} style={{ fontFamily: "var(--font-heading)" }}>{cat}</button>
             ))}
-          </div>
+          </FilterChipRow>
         )}
 
         {loading ? (
@@ -83,7 +85,7 @@ const Courses = () => {
                   {/* 1:1 Square image */}
                   <div className="relative aspect-square overflow-hidden">
                     {course.cover_image_url ? (
-                      <img src={course.cover_image_url} alt={course.title} className="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-[1.03]" loading="lazy" />
+                      <CoverImage src={course.cover_image_url} alt={course.title} priority={i === 0} className="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-[1.03]" />
                     ) : (
                       <div className="w-full h-full bg-muted flex items-center justify-center">
                         <BookOpen className="h-10 w-10 text-muted-foreground/30" />

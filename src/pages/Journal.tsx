@@ -5,6 +5,8 @@ import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, Clock, Tag, PenLine } from "lucide-react";
 import EngagementFooter from "@/components/EngagementFooter";
+import CoverImage from "@/components/CoverImage";
+import FilterChipRow from "@/components/FilterChipRow";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useIsAdmin } from "@/hooks/core/useIsAdmin";
@@ -73,7 +75,7 @@ const Journal = () => {
 
         {/* Tag filters */}
         {allTags.length > 0 && (
-          <div className="flex gap-2 mb-6 md:mb-12 overflow-x-auto scrollbar-hide">
+          <FilterChipRow className="mb-6 md:mb-12">
             <button
               onClick={() => setSelectedTag(null)}
               className={`text-[10px] tracking-[0.15em] uppercase px-3 md:px-4 py-1.5 md:py-2 border rounded-full md:rounded-none transition-all duration-300 whitespace-nowrap ${
@@ -99,7 +101,7 @@ const Journal = () => {
                 {tag}
               </button>
             ))}
-          </div>
+          </FilterChipRow>
         )}
 
         {/* Content */}
@@ -135,11 +137,11 @@ const Journal = () => {
                       <div className="grid md:grid-cols-2 gap-4 md:gap-8 items-center">
                         {hero.cover_image_url && (
                           <div className="relative overflow-hidden">
-                            <img
+                            <CoverImage
                               src={hero.cover_image_url}
                               alt={hero.title}
+                              priority
                               className="w-full h-48 md:h-[26rem] object-cover transition-transform duration-[1.5s] group-hover:scale-[1.03] rounded-xl md:rounded-none"
-                              loading="eager"
                             />
                             <div className="absolute top-4 left-4">
                               <span
@@ -189,8 +191,10 @@ const Journal = () => {
                                 year: "numeric",
                               })}
                             </span>
+                            {/* Owner 2026-11-10: "1 min read" sat under the date, out of line — it
+                                joins the author · date row: one baseline, one left edge. */}
+                            <EngagementFooter inline wordCount={200} />
                           </div>
-                          <EngagementFooter wordCount={200} className="mt-3 px-0" />
                           <div className="mt-6 flex items-center gap-2 text-xs tracking-[0.15em] uppercase text-primary" style={{ fontFamily: "var(--font-heading)" }}>
                             Read Article <ArrowRight className="h-3.5 w-3.5" />
                           </div>
@@ -223,11 +227,11 @@ const Journal = () => {
                           <Link to={`/journal/${article.slug}`} className="group block">
                             {article.cover_image_url && (
                               <div className="relative overflow-hidden mb-3 md:mb-4 rounded-xl md:rounded-none">
-                                <img
+                                <CoverImage
                                   src={article.cover_image_url}
                                   alt={article.title}
+                                  sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
                                   className="w-full h-40 md:h-56 object-cover transition-transform duration-[1.5s] group-hover:scale-[1.03]"
-                                  loading="lazy"
                                 />
                               </div>
                             )}
@@ -265,8 +269,8 @@ const Journal = () => {
                                   year: "numeric",
                                 })}
                               </span>
+                              <EngagementFooter inline wordCount={150} />
                             </div>
-                            <EngagementFooter wordCount={150} className="mt-2 px-0" />
                           </Link>
                         </motion.article>
                       ))}
