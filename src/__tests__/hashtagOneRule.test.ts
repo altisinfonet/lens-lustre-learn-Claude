@@ -9,22 +9,19 @@
  * #land returned #landscape and #পাহাড় was not a tag anywhere.
  */
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
 import { HASHTAG_CHAR_CLASS, extractHashtags, isHashtagChar, hashtagPath } from "@/lib/hashtags/hashtagRule";
 import { HASHTAG_CHAR_CLASS as DENO_CLASS } from "../../supabase/functions/_shared/hashtagRule";
 
 const MIGRATION = "supabase/migrations/20261112_0100_h1_hashtag_page.sql";
 const sql = readFileSync(MIGRATION, "utf8");
 
-function walk(dir: string, out: string[] = []): string[] {
-  for (const name of readdirSync(dir)) {
-    const p = join(dir, name);
-    if (statSync(p).isDirectory()) { if (name !== "node_modules" && name !== "__tests__") walk(p, out); }
-    else if (/\.(ts|tsx)$/.test(name)) out.push(p.replace(/\\/g, "/"));
-  }
-  return out;
-}
+// Every app and edge source file, as text (tests themselves excluded). Listed by
+// Vite rather than a directory walk, so this never reads the migrations folder.
+const SOURCES: Record<string, string> = {
+  ...import.meta.glob(["/src/**/*.{ts,tsx}", "!/src/**/__tests__/**"], { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob(["/supabase/functions/**/*.ts", "!/supabase/functions/**/__tests__/**"], { query: "?raw", import: "default", eager: true }),
+} as Record<string, string>;
 
 describe("one hashtag rule — the same letters in the database, the app and the edge", () => {
   // SQL writes À; a TS file may hold the escape or the character itself.
@@ -42,13 +39,11 @@ describe("one hashtag rule — the same letters in the database, the app and the
   });
 
   it("no other hand-written hashtag pattern exists in src/ or the edge functions", () => {
-    const allowed = new Set(["src/lib/hashtags/hashtagRule.ts", "supabase/functions/_shared/hashtagRule.ts"]);
-    const offenders: string[] = [];
-    for (const f of [...walk("src"), ...walk("supabase/functions")]) {
-      if (allowed.has(f)) continue;
-      const s = readFileSync(f, "utf8");
-      if (/#\(\\w|#\(\[A-Za-z0-9_\]|#\[A-Za-z0-9_\]|ilike\([^)]*#/.test(s)) offenders.push(f);
-    }
+    const allowed = new Set(["/src/lib/hashtags/hashtagRule.ts", "/supabase/functions/_shared/hashtagRule.ts"]);
+    const files = Object.keys(SOURCES);
+    expect(files.length).toBeGreaterThan(200); // the glob really listed the tree
+    const offenders = files.filter((f) => !allowed.has(f)
+      && /#\(\\w|#\(\[A-Za-z0-9_\]|#\[A-Za-z0-9_\]|ilike\([^)]*#/.test(SOURCES[f]));
     expect(offenders).toEqual([]);
   });
 
