@@ -48,6 +48,7 @@
  * emoji row, blocking an author, the placeholder and the empty line are the
  * box's, so they are the same everywhere it opens.
  */
+import { useReplyTarget } from "@/components/comments/replyTarget";
 import { useMemo, useState } from "react";
 import CommentThread, { commentPlaceholderFor, type ThreadComment } from "@/components/comments/CommentThread";
 import CommentComposer from "@/components/comments/CommentComposer";
@@ -127,6 +128,7 @@ export const CommentsBox = ({ source, ownerHandle, subjectLabel, highlightId = n
    */
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const reply = useReplyTarget(); // ONE reply flow: Reply fills the bottom box
   const searching = searchQuery.trim().length > 0;
   const visibleComments = useMemo(
     () => filterComments(unblockedComments, searchQuery),
@@ -163,6 +165,8 @@ export const CommentsBox = ({ source, ownerHandle, subjectLabel, highlightId = n
           editSubmitting={editSubmitting}
           maxLength={maxLength}
           hideComposer
+          replyTarget={reply.target}
+          onReplyStart={reply.start}
           emptyLabel={searching ? undefined : COMMENTS_EMPTY_LABEL}
           features={{
             reactions: !!source.setReaction,
@@ -199,7 +203,9 @@ export const CommentsBox = ({ source, ownerHandle, subjectLabel, highlightId = n
             maxLength={maxLength}
             quickReactions
             placeholder={commentPlaceholderFor(ownerHandle)}
-            onSubmit={(content) => source.addComment(content, null)}
+            replyTo={reply.target}
+            onCancelReply={reply.cancel}
+            onSubmit={(content, parentId) => source.addComment(content, parentId)}
           />
         </div>
       )}
