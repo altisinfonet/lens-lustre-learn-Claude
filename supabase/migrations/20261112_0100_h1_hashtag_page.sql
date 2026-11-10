@@ -171,6 +171,7 @@ CREATE TRIGGER trg_post_hashtags_fill_post_time
   BEFORE INSERT ON public.post_hashtags
   FOR EACH ROW EXECUTE FUNCTION public.post_hashtags_fill_post_time();
 
+-- P28: post_hashtags · ~1 row per hashtag per post (~5 per post; ~5M rows at 1M posts) · the hashtag page's Recent list and keyset paging read (hashtag_id, post_created_at, post_id) in index order instead of sorting every post of a tag
 CREATE INDEX IF NOT EXISTS idx_post_hashtags_tag_time
   ON public.post_hashtags (hashtag_id, post_created_at DESC, post_id DESC);
 
@@ -206,6 +207,7 @@ CREATE TABLE public.hashtag_follows (
   created_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, hashtag_id)
 );
+-- P28: hashtag_follows · 0 rows at launch, ≤ 1000 per member · FK hashtag_id → hashtags ON DELETE CASCADE and "who follows this tag" (H2 feed); without it each hashtag delete scans the table
 CREATE INDEX idx_hashtag_follows_hashtag ON public.hashtag_follows (hashtag_id);
 
 COMMENT ON TABLE public.hashtag_follows IS
