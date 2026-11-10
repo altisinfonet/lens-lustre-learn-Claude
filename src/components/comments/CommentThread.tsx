@@ -298,7 +298,7 @@ export interface CommentThreadProps {
  *
  *   • the 16 px band BELOW a comment's meta line is owned by that line's
  *     controls (they reach 12 px down);
- *   • the meta line's controls reach 16 px UP into the comment's own text,
+ *   • the meta line's controls reach 17 px UP into the comment's own text,
  *     which is not a control — and a mention / hashtag link in that text wins
  *     every contested pixel (`[&_a]:relative [&_a]:z-[1]` on the text), so
  *     F-109 (a region taking a link's pixels) cannot happen here;
@@ -311,10 +311,13 @@ export interface CommentThreadProps {
  */
 /** Reply / menu / avatar regions are transparent, out of flow, and move nothing. */
 const HIT = "relative after:absolute after:content-['']";
-/** Reply: 16 px tall line → 44 px (16 up into the text, 12 down), at least 44 px wide. */
-const META_HIT = `${HIT} after:-top-4 after:-bottom-3 after:-start-1.5 after:-end-1.5 after:min-w-[44px]`;
+/** Reply: 16 px tall line → 45 px (17 up into the text, 12 down), at least 44 px wide.
+ *  17, not 16 (comments v3, 10 Nov): 14px × 1.4 text leaves sub-pixel line
+ *  positions and Firefox snapped the region to 43.5 px; the extra px is the
+ *  comment's own text, never another control. */
+const META_HIT = `${HIT} after:-top-[17px] after:-bottom-3 after:-start-1.5 after:-end-1.5 after:min-w-[44px]`;
 /** The row menu's dots: 16 × 16 → 44 × 44, reaching back over the dots' gap, never into the heart's column. */
-const MENU_HIT = `${HIT} after:-top-4 after:-bottom-3 after:-start-4 after:-end-3`;
+const MENU_HIT = `${HIT} after:-top-[17px] after:-bottom-3 after:-start-4 after:-end-3`;
 /** Avatar 32 → 44 (24 → 44 on a reply): 4 px up (the free strip of the gap), the rest down its own column. */
 const AVATAR_HIT = `${HIT} after:-top-1 after:-bottom-2 after:-start-1.5 after:-end-1.5`;
 const AVATAR_HIT_XS = `${HIT} after:-top-1 after:-bottom-4 after:-start-2.5 after:-end-2.5`;
@@ -347,7 +350,9 @@ export const Avatar = ({
   return (
     <span className={`relative inline-block ${cls}`}>
       {src ? (
-        <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={src} alt="" className={`${cls} rounded-full object-cover`} />
+        // alt = the name: the avatar is the only content of its profile link, so
+        // an empty alt left that link with no name (axe link-name, 10 Nov).
+        <img referrerPolicy="no-referrer" loading="lazy" decoding="async" src={src} alt={name ?? ""} className={`${cls} rounded-full object-cover`} />
       ) : (
         <div className={`${cls} rounded-full bg-muted flex items-center justify-center font-semibold text-muted-foreground`}>
           {avatarInitial(name)}
@@ -957,8 +962,11 @@ const CommentThread = ({
           the comment's text column, and it STAYS here when the replies open
           below it, so the member's finger finds it in the same place.
 
-          Its region: the button reaches 16 px DOWN (the gap under it is its
-          own); only the WORDS reach 12 px UP (`before:`), because the strip
+          Its region: the button reaches 12 px DOWN — exactly the gap under it
+          (comments v3, 10 Nov: gap-3; at 16 px it took 4 px of the first
+          reply's name); only the WORDS reach 16 px UP (`before:` — 12 px of gap
+          plus 4 px of the Reply row's empty middle, so the finger still gets
+          44 px), because the strip
           above the dash belongs to Reply's region, and the words start past
           Reply's 44 px (ps on the dash), so the two never claim one pixel.
         */}
@@ -968,10 +976,10 @@ const CommentThread = ({
             data-comment-replies-toggle=""
             aria-expanded={repliesShown}
             onClick={() => setRepliesOpen(comment.id, !repliesShown)}
-            className={`${HIT} after:inset-x-0 after:top-0 after:-bottom-4 ms-comment-indent mt-3 flex h-4 items-center gap-5 rounded-sm text-xs font-semibold leading-4 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background`}
+            className={`${HIT} after:inset-x-0 after:top-0 after:-bottom-3 ms-comment-indent mt-3 flex h-4 items-center gap-5 rounded-sm text-xs font-semibold leading-4 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background`}
           >
             <span aria-hidden="true" className="h-px w-6 shrink-0 bg-muted-foreground/60" />
-            <span className="relative before:absolute before:inset-x-0 before:-top-3 before:bottom-0 before:content-['']">
+            <span className="relative before:absolute before:inset-x-0 before:-top-4 before:bottom-0 before:content-['']">
               {repliesShown
                 ? t("cmt.hideReplies", "Hide replies")
                 : replyCount === 1
