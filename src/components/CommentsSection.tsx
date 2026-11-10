@@ -16,6 +16,7 @@
  * `comment_reports`. Data, sorting and moderation are unchanged.
  * ─────────────────────────────────────────────────────────────────────────────
  */
+import { useReplyTarget } from "@/components/comments/replyTarget";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { MessageCircle, ChevronDown } from "lucide-react";
@@ -85,6 +86,7 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
   const [commentUserIds, setCommentUserIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const reply = useReplyTarget(); // ONE reply flow: Reply fills the bottom box
   const [expanded, setExpanded] = useState(!articleId); // collapsed by default on articles, open elsewhere
 
   const { profileMap } = useProfileMap(commentUserIds);
@@ -373,7 +375,9 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
               submitting={submitting}
               maxLength={2200}
               placeholder={t("cmt.phWrite")}
-              onSubmit={(content) => handlePost(null, content)}
+              replyTo={reply.target}
+              onCancelReply={reply.cancel}
+              onSubmit={(content, parentId) => handlePost(parentId, content)}
             />
           </div>
         ) : (
@@ -405,6 +409,8 @@ const CommentsSection = ({ articleId, entryId }: Props) => {
               editSubmitting={submitting}
               maxLength={2200}
               hideComposer
+              replyTarget={reply.target}
+              onReplyStart={reply.start}
               features={{ reactions: true, pinning: true, reporting: true, sorting: true }}
               onAdd={(content, parentId) => handlePost(parentId, content)}
               onEdit={editComment}
