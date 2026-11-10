@@ -53,7 +53,17 @@ vi.mock("@/integrations/supabase/client", () => {
   };
   return {
     supabase: {
-      rpc: async (fn: string) => ({ data: fn === "feature_allowed_me" ? false : [], error: null }),
+      // H1: the page reads hashtag_page_posts (rows { post, page_cursor }) and hashtag_page_info.
+      rpc: async (fn: string) => {
+        if (fn === "feature_allowed_me") return { data: false, error: null };
+        if (fn === "hashtag_page_posts") {
+          return { data: (tables.posts ?? []).map((post, i) => ({ post, page_cursor: String(i + 1) })), error: null };
+        }
+        if (fn === "hashtag_page_info") {
+          return { data: [{ tag: "street", display_tag: "street", people_count: 1, post_count: (tables.posts ?? []).length, is_following: false, related: [] }], error: null };
+        }
+        return { data: [], error: null };
+      },
       from,
       channel: () => ({ on: () => ({ subscribe: () => ({}) }), subscribe: () => ({}) }),
       removeChannel: () => {},
@@ -144,8 +154,11 @@ function dom(card: Element): string {
   return card.outerHTML.replace(/radix-[^"]*/g, "radix").replace(/:r[0-9a-z]+:/g, ":r:");
 }
 
+/** Opens the page in its Cards layout (the grid is the default since H1). */
 async function openHashtagPage() {
   const view = shell(<HashtagFeed />);
+  await settle();
+  fireEvent.click(screen.getByRole("tab", { name: "Cards" }));
   await settle();
   return view;
 }
@@ -180,6 +193,19 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+});
+
+describe("/hashtag/:tag — H1 header and layouts (approved sample 2026-11-10)", () => {
+  it("opens on Top in the photo grid, with photographers · posts and Follow", async () => {
+    const { container } = shell(<HashtagFeed />);
+    await settle();
+    expect(screen.getByRole("tab", { name: "Top" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Grid" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("hashtag-counts")).toHaveTextContent("1 photographer · 1 post");
+    expect(screen.getAllByRole("button", { name: /^Follow$/ }).length).toBeGreaterThan(0);
+    // grid tiles, not cards
+    expect(container.querySelector('[data-post-id="p1"]')).toBeNull();
+  });
 });
 
 describe("/hashtag/:tag — the same card as /feed", () => {
@@ -261,7 +287,7 @@ describe("/hashtag/:tag — the same card as /feed", () => {
     blocked.ids = new Set([AUTHOR]);
     const { container } = await openHashtagPage();
     expect(container.querySelector('[data-post-id="p1"]')).toBeNull();
-    expect(screen.getByText("No public posts found with #street")).toBeInTheDocument();
+    expect(screen.getByText("No posts with #street yet")).toBeInTheDocument();
   });
 });
 
@@ -271,9 +297,9 @@ describe("src/pages/HashtagFeed.tsx — page chrome only", () => {
   it("renders posts through PostCard and builds them with the wall's one builder", () => {
     expect(src).toMatch(/import PostCard from "@\/components\/post\/PostCard"/);
     expect(src).toMatch(/<PostCard\b/);
-    expect(src).toMatch(/fetchHashtagPosts\(/);
-    const builder = stripComments(readFileSync("src/hooks/feed/useUserPostsQuery.ts", "utf8"));
-    expect(builder).toMatch(/return enrichPostRows\(visiblePosts, viewerId\);/);
+    expect(src).toMatch(/useHashtagPosts\(/);
+    const builder = stripComments(readFileSync("src/hooks/feed/useHashtagPage.ts", "utf8"));
+    expect(builder).toMatch(/await enrichPostRows\(/);
   });
 
   it("has no hand-built card left: none of the pieces of a card, none of its own post shape", () => {

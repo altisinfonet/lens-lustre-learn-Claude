@@ -11,6 +11,7 @@ import { useReactToPost, useUnreactToPost } from "@/hooks/feed/usePostReactionMu
 import { useFollowHashtag, useHashtagInfo, useHashtagPosts, type HashtagSort } from "@/hooks/feed/useHashtagPage";
 import PostCard from "@/components/post/PostCard";
 import ProfilePostGrid from "@/components/profile/ProfilePostGrid";
+import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import type { WallView } from "@/components/profile/WallViewToggle";
 import type { ReactionType } from "@/components/ReactionPicker";
 import PageSEO from "@/components/PageSEO";
@@ -33,7 +34,9 @@ type Page = { posts: UnifiedPost[]; nextCursor: string | null };
  */
 const HashtagFeed = () => {
   const { tag: rawTag } = useParams<{ tag: string }>();
-  const tag = (rawTag ?? "").toLowerCase();
+  // Sent as written: the server's normalize_hashtag alone decides which tags are
+  // the same (hashtagRule.ts), so the page can never look up a different tag.
+  const tag = rawTag ?? "";
   const { user, loading: authLoading } = useAuth();
   const { blockedIds } = useBlockedUsers();
   const { removePost } = useFeedCacheUpdaters();
@@ -252,13 +255,14 @@ const HashtagFeed = () => {
             />
           ))
         )}
-        {list.hasNextPage && (
-          <div className="py-6 text-center">
-            <button type="button" onClick={() => list.fetchNextPage()} disabled={list.isFetchingNextPage}
-              className="h-9 rounded-lg bg-muted px-5 text-[14px] font-semibold text-foreground hover:bg-muted/80" style={headingFont}>
-              {list.isFetchingNextPage ? "Loading…" : "More"}
-            </button>
-          </div>
+        {posts.length > 0 && (
+          <InfiniteScrollSentinel
+            onLoadMore={() => { void list.fetchNextPage(); }}
+            hasNextPage={!!list.hasNextPage}
+            isFetching={list.isFetchingNextPage}
+            showEndMarker={false}
+            rootMargin="1200px"
+          />
         )}
       </div>
     </div>

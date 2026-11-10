@@ -207,7 +207,8 @@ const RPCS: Record<string, (body: Record<string, unknown>, params: URLSearchPara
   filter_moderated_user_ids: () => [],
   /** H1 hashtag page: header row (counts, follow, related) and the paged list (hashtagSample.ts, ?hashtag=1). */
   hashtag_page_info: (body) => sampleHashtagInfo(String(body._tag ?? "")),
-  hashtag_page_posts: (body) => (body._cursor ? [] : sampleHashtagPosts(String(body._sort ?? "top"))),
+  hashtag_page_posts: (body) =>
+    body._cursor ? [] : sampleHashtagPosts(String(body._sort ?? "top")).map(({ page_cursor, ...post }) => ({ post, page_cursor })),
   follow_hashtag: () => null,
   unfollow_hashtag: () => null,
 

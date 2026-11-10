@@ -53,9 +53,11 @@ export function useHashtagPosts(tag: string, sort: HashtagSort, viewerId: string
         _tag: tag, _sort: sort, _cursor: pageParam ?? null, _limit: HASHTAG_PAGE_SIZE,
       } as never);
       if (error) throw error;
-      const rows = (data as Array<Record<string, unknown> & { page_cursor?: string }>) ?? [];
-      const nextCursor = rows.length === HASHTAG_PAGE_SIZE ? String(rows[rows.length - 1].page_cursor ?? "") || null : null;
-      return { posts: rows.length ? await enrichPostRows(rows, viewerId) : [], nextCursor };
+      // Each row: { post: <posts row the caller may see>, page_cursor }.
+      const rows = ((data as Array<{ post: Record<string, unknown>; page_cursor: string | null }>) ?? [])
+        .filter((r) => r && r.post);
+      const nextCursor = rows.length === HASHTAG_PAGE_SIZE ? rows[rows.length - 1].page_cursor || null : null;
+      return { posts: rows.length ? await enrichPostRows(rows.map((r) => r.post), viewerId) : [], nextCursor };
     },
     getNextPageParam: (last) => last.nextCursor,
   });

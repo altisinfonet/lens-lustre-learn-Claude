@@ -15,6 +15,7 @@ const corsHeaders = {
 import { canonicalOrigin } from "../_shared/laneConfig.ts"; // one address (A2)
 import { isPostHandle, postPath } from "../_shared/postPath.ts"; // A3: one post-address rule
 import { captionTags, listBody, postBody, snippet } from "./readable.ts"; // B: readable pages
+import { hashtagKey, hashtagPattern } from "../_shared/hashtagRule.ts"; // H1: one hashtag rule
 const SITE_URL = () => canonicalOrigin();
 const SITE_NAME_FALLBACK = "50mm Retina World";
 const DEFAULT_TITLE = "50mm Retina World — Competitions, Education & Journal for Photographers";
@@ -380,7 +381,7 @@ async function resolvePost(postId: string, meta: Metadata, global: any) {
   const authorUrl = isPostHandle(handle) ? `${SITE_URL()}/${handle}` : undefined;
 
   meta.title = clampTitle(
-    caption ? `${name}: “${snippet(caption.replace(/#[A-Za-z0-9_]+/g, ""), 48)}”` : `Photo by ${name}`,
+    caption ? `${name}: “${snippet(caption.replace(hashtagPattern(), ""), 48)}”` : `Photo by ${name}`,
     global.site_name || SITE_NAME_FALLBACK,
   ) + ` | ${SITE_NAME_FALLBACK}`;
   meta.description = clampDesc(caption ? `Photo by ${name} on ${SITE_NAME_FALLBACK}: ${caption}` : `Photo by ${name} on ${SITE_NAME_FALLBACK}.`);
@@ -475,13 +476,14 @@ async function publicPostItems(filter: { userId?: string; ids?: string[] }, hand
 }
 
 async function resolveHashtag(raw: string, meta: Metadata, global: any) {
-  const tag = decodeURIComponent(raw).replace(/^#/, "").toLowerCase();
-  if (!/^[a-z0-9_]{1,60}$/.test(tag)) { meta.status = 404; meta.noindex = true; meta.source = "hashtag-invalid"; return false; }
+  // H1: tags in every language (one rule, _shared/hashtagRule.ts).
+  const tag = hashtagKey(raw);
+  if (!tag) { meta.status = 404; meta.noindex = true; meta.source = "hashtag-invalid"; return false; }
   const { data: h } = await supabase.from("hashtags")
     .select("id, tag, display_tag, unique_user_count, post_count").eq("tag", tag).maybeSingle();
   if (!h || !(h as any).post_count) { meta.status = 404; meta.noindex = true; meta.source = "hashtag-missing"; return false; }
   const { data: links } = await supabase.from("post_hashtags").select("post_id")
-    .eq("hashtag_id", (h as any).id).order("created_at", { ascending: false }).limit(60);
+    .eq("hashtag_id", (h as any).id).order("post_created_at", { ascending: false }).limit(60);
   const items = await publicPostItems({ ids: ((links ?? []) as any[]).map((l) => l.post_id) }, null, 24);
   const shown = `#${(h as any).display_tag || tag}`;
   const people = (h as any).unique_user_count ?? 0;
