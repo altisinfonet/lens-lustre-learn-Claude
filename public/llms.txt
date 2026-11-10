@@ -1,16 +1,18 @@
 # 50mm Retina World
 
-> 50mm Retina World is an online community for photographers. Members share photos in a social feed, enter juried photography competitions, earn verifiable certificates, learn from photography courses and read a journal about the craft. It runs on the web at __SITE_HOST__ and as an Android app.
+> 50mm Retina World is an online community for photographers. Members share photos in a social feed, enter juried photography competitions, earn verifiable certificates, learn from photography courses and read a journal about the craft. It runs on the web at __SITE_HOST__ and as apps for Android and iPhone (iOS).
+
+The full fact sheet — who runs it, membership, competition fees and prizes, judging, courses, contact — is at [llms-full.txt](__SITE_ORIGIN__/llms-full.txt).
 
 50mm Retina World is built around the photograph. Every member has a public profile with their own body of work; posts appear in a community feed and on hashtag pages; competitions are judged rounds with published winners; certificates for competition results and completed courses carry a link anyone can use to check that they are genuine.
 
 Key facts:
 
-- Audience: photographers of every level, worldwide. Membership is for adults only (18+); the age is checked when the account is created.
+- Audience: photographers of every level, worldwide. Joining is free. Membership is for adults only (18+); the age is checked when the account is created.
 - Main activities: posting photos to the feed, liking and commenting, entering competitions, taking courses, reading the journal.
 - Competitions: each competition has its own page with its brief, rules and dates; results are shown on the Winners page.
 - Certificates: every certificate has a verification link; the Verify page confirms whether a certificate is authentic.
-- Ownership: every photo belongs to the photographer who posted it. Please link to the post or profile rather than reproducing the image, and credit the photographer by name.
+- Ownership: every photo belongs solely to the photographer who posted it. Please link to the post or profile rather than reproducing the image, and credit the photographer by name. Photos on 50mm Retina World are never used to train AI.
 
 ## Main pages
 
@@ -31,17 +33,18 @@ Key facts:
 Individual items follow fixed patterns, useful for linking:
 
 - Competition: `__SITE_ORIGIN__/competitions/{competition-id}`
-- Photo post: `__SITE_ORIGIN__/post/{post-id}`
+- Photo post: `__SITE_ORIGIN__/{handle}/post/{post-id}`
 - Hashtag: `__SITE_ORIGIN__/hashtag/{tag}`
 - Journal article: `__SITE_ORIGIN__/journal/{article-slug}`
 - Course: `__SITE_ORIGIN__/courses/{course-slug}`
 - Featured artist: `__SITE_ORIGIN__/featured-artist/{artist-slug}`
-- Member profile: `__SITE_ORIGIN__/profile/{member-id}`
+- Member profile: `__SITE_ORIGIN__/{handle}`
 - Certificate check: `__SITE_ORIGIN__/verify/{certificate-token}`
 
 ## Apps
 
 - [Android app on Google Play](https://play.google.com/store/apps/details?id=com.fiftymmretina.app): The same community as the website.
+- iPhone (iOS) app: the same account and community as the website.
 
 ## Policies and help
 
@@ -56,5 +59,6 @@ Individual items follow fixed patterns, useful for linking:
 
 ## Optional
 
+- [Full fact sheet](__SITE_ORIGIN__/llms-full.txt): Every approved fact about 50mm Retina World in one file.
 - [Sitemap](__SITE_ORIGIN__/sitemap.xml): Every public page meant for indexing.
 - [robots.txt](__SITE_ORIGIN__/robots.txt): Crawling rules. Account, settings, wallet and admin areas are private and are not for indexing. Search engines and AI search / answer assistants may read and cite public pages with a link back; AI training crawlers may not copy members' photos or posts.
