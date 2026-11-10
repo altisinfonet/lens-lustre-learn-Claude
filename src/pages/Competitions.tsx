@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import { fadeUp } from "@/lib/motionVariants";
 import PageSEO from "@/components/PageSEO";
+import CoverImage from "@/components/CoverImage";
+import FilterChipRow from "@/components/FilterChipRow";
 import { Calendar, Trophy, Clock, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
@@ -46,7 +48,8 @@ const Competitions = () => {
           </motion.p>
 
           {/* Filters */}
-          <motion.div variants={fadeUp} custom={3} className="flex gap-2 mb-4 md:mb-12 overflow-x-auto scrollbar-hide px-2 md:px-0">
+          <motion.div variants={fadeUp} custom={3}>
+          <FilterChipRow className="mb-4 md:mb-12 px-2 md:px-0">
             {(["all", "submission_open", "voting", "judging", "result"] as PhaseFilter[]).map((s) => (
                 <button
                 key={s}
@@ -59,6 +62,7 @@ const Competitions = () => {
                 {filterLabels[s]}
               </button>
             ))}
+          </FilterChipRow>
           </motion.div>
         </motion.div>
 
@@ -99,11 +103,11 @@ const Competitions = () => {
                   {/* Image with hover-reveal overlay */}
                   <div className="relative aspect-[2/3] overflow-hidden bg-muted">
                     {comp.cover_image_url ? (
-                      <img
+                      <CoverImage
                         src={comp.cover_image_url}
                         alt={comp.title}
+                        sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
                         className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110 group-data-[expanded=true]:scale-110"
-                        loading="lazy"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { queryKeys } from "@/lib/queryKeys";
+import { fetchProfilesDetailByIds } from "@/lib/profileBatch";
 
 export interface JournalArticle {
   id: string;
@@ -28,21 +29,17 @@ export const useJournal = () => {
       if (error) throw error;
       if (!data) return [];
 
-      const authorIds = [...new Set(data.map((a) => a.author_id))];
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, full_name, custom_url")
-        .in("id", authorIds);
-
-      const profileMap = new Map(profiles?.map((p) => [p.id, p.full_name]) || []);
-      // F-95 — the handle comes back on the same row as the name, so the
-      // article byline can link to /<handle> without a second lookup.
-      const handleMap = new Map(profiles?.map((p) => [p.id, p.custom_url]) || []);
+      // Owner 2026-11-10: signed out, every byline read "Unknown". This read the
+      // base `profiles` table, which RLS locks to self/admins — so a visitor got
+      // no rows. Names come from the public view, through the one shared helper
+      // (F-95: the handle arrives on the same row as the name).
+      const authorIds = [...new Set(data.map((a) => a.author_id))].sort();
+      const authors = await fetchProfilesDetailByIds(authorIds);
       return data.map((a) => ({
         ...a,
         profiles: {
-          full_name: profileMap.get(a.author_id) || null,
-          custom_url: handleMap.get(a.author_id) ?? null,
+          full_name: authors.get(a.author_id)?.full_name || null,
+          custom_url: authors.get(a.author_id)?.custom_url ?? null,
         },
       }));
     },
