@@ -247,7 +247,13 @@ const Navbar = ({ transparent = false }: NavbarProps) => {
          * side of it — that is why it stays a separate absolute element rather
          * than a third flex child.
          */}
-        <div className="container mx-auto px-3 py-0.5 md:py-5 flex items-center justify-between relative">
+        {/* `max-lg:min-h-12`: THE PHONE/APP BAR IS 48px FOR EVERYONE. Its height
+            used to come only from its buttons ([+] and ☰ are 44px + 2×2px), and a
+            SIGNED-OUT visitor has neither — so the bar collapsed to 4px and the
+            absolutely-centred "50mm Retina World" sat half above the screen on
+            every page (Owner, 10 Nov 2026, phone screenshots). Measured in the
+            harness: 4px / title top −10px before, 48px / title inside after. */}
+        <div className="container mx-auto px-3 py-0.5 md:py-5 max-lg:min-h-12 flex items-center justify-between relative">
           {/* ── THE LEFT-HAND GROUP: logo, then "+ Create" ──
               ⚠ THESE TWO MUST STAY IN ONE WRAPPER. The bar is
               `justify-between`, and on the app the <Link> below collapses to
