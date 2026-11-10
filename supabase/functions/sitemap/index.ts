@@ -217,6 +217,28 @@ Deno.serve(async () => {
       }
     }
 
+    // 9. Hashtag pages (H4) — tags with at least one PUBLIC post (hashtags counts are
+    // public-only, kept by recount_hashtags), most photographers first. The address
+    // is the same one RichContentRenderer links (encoded, every language).
+    const { data: tags } = await supabase
+      .from("hashtags")
+      .select("tag, last_used_at, unique_user_count, post_count")
+      .gt("post_count", 0)
+      .order("unique_user_count", { ascending: false })
+      .order("post_count", { ascending: false })
+      .limit(HARD_CAP_PER_SECTION);
+
+    if (tags) {
+      for (const t of tags as any[]) {
+        xml += urlEntry(
+          `${SITE_URL()}/hashtag/${encodeURIComponent(t.tag)}`,
+          t.last_used_at?.split("T")[0],
+          "daily",
+          "0.5"
+        );
+      }
+    }
+
     xml += `</urlset>`;
 
     return new Response(xml, { headers: corsHeaders });
