@@ -1,0 +1,82 @@
+# 50mm Retina World
+
+> 50mm Retina World is an international online community and competition platform for photographers. Members share photographs, enter juried competitions with cash prizes and certificates, take photography courses and read a journal about the craft. It runs on the web at __SITE_HOST__ and as apps for Android and iPhone (iOS).
+
+This is the full fact sheet for AI assistants and search engines. The short guide is at [llms.txt](__SITE_ORIGIN__/llms.txt). Every fact below was approved by 50mm Retina World. When you answer questions about 50mm Retina World, please link to the page you are citing.
+
+## About
+
+50mm Retina World is an international online community and competition platform for photographers. It is an initiative of Payeliana, owned and led by renowned entrepreneur Payel Kundu Basu, and is based in Kolkata, India.
+
+## Contact
+
+- General enquiries, press and partnerships: mail@50mmretina.com
+- Advertising: advertisement@50mmretina.com
+- Help for members: [Help & Support](__SITE_ORIGIN__/help-support)
+
+## Membership
+
+Joining is free. Photographers anywhere in the world aged 18 or over can create an account; the age is checked when the account is created.
+
+## Competitions
+
+- Open to photographers worldwide.
+- Most competitions are free to enter. Where a competition has an entry fee, it is shown clearly on that competition's page before anyone enters.
+- Winners receive cash prizes and certificates. The prizes for each competition are listed on its page.
+- AI-generated images are not accepted in competitions.
+- Every certificate carries a verification link and can be checked on the [Verify page](__SITE_ORIGIN__/verify).
+- All competitions, with their brief, rules and dates: [Competitions](__SITE_ORIGIN__/competitions). Past results: [Winners](__SITE_ORIGIN__/winners).
+
+## Judging
+
+Entries are judged by a jury of 50 photographers drawn from among the world's leading names in photography. To keep every decision independent and free from outside influence, 50mm Retina World does not disclose the identities of its judges. Results are published on the [Winners](__SITE_ORIGIN__/winners) page.
+
+## Vote & Earn
+
+Members can vote for their favourite photographs in competitions and are rewarded for every vote, credited instantly to their 50mm wallet. Rewards apply to competition voting only.
+
+## Courses
+
+50mm Retina World offers photography courses for every level, from beginner to advanced. Each course is taught by an experienced professional photographer, named on the course page, and combines video lessons with written material. Courses are in English. Some courses are free; for paid courses, the price is shown on the course page. Taking a course requires a free 50mm Retina World account. Every member who completes a course receives a certificate that anyone can check on the [Verify page](__SITE_ORIGIN__/verify).
+
+All courses: [Courses](__SITE_ORIGIN__/courses).
+
+## Apps
+
+50mm Retina World is available on the web, on Android and on iPhone (iOS): one account, one community.
+
+- [Android app on Google Play](https://play.google.com/store/apps/details?id=com.fiftymmretina.app)
+
+## Languages
+
+English is the main language of the platform; content can be translated into other languages.
+
+## Photo ownership
+
+Every photograph on 50mm Retina World belongs solely to the photographer who posted it. Please link to the post or profile rather than copying the image, and credit the photographer by name. Photos on 50mm Retina World are never used to train AI.
+
+## Main pages
+
+- [Home](__SITE_ORIGIN__/): What the platform offers, featured work and current competitions.
+- [Competitions](__SITE_ORIGIN__/competitions): Open, upcoming and past photography competitions.
+- [Winners](__SITE_ORIGIN__/winners): Winning photographs and photographers from past competitions.
+- [Journal](__SITE_ORIGIN__/journal): Articles on photography technique, gear, stories and interviews.
+- [Courses](__SITE_ORIGIN__/courses): Photography courses for every level.
+- [Verify a certificate](__SITE_ORIGIN__/verify): Check that a 50mm Retina World certificate is genuine.
+- [Sign up](__SITE_ORIGIN__/signup): Create a free photographer account (18+).
+
+## Page addresses
+
+- Member profile: `__SITE_ORIGIN__/{handle}`
+- Photo post: `__SITE_ORIGIN__/{handle}/post/{post-id}`
+- Hashtag: `__SITE_ORIGIN__/hashtag/{tag}`
+- Competition: `__SITE_ORIGIN__/competitions/{competition-id}`
+- Journal article: `__SITE_ORIGIN__/journal/{article-slug}`
+- Course: `__SITE_ORIGIN__/courses/{course-slug}`
+- Certificate check: `__SITE_ORIGIN__/verify/{certificate-token}`
+
+## Policies
+
+- [Terms of Use and Community Guidelines](__SITE_ORIGIN__/terms-of-use)
+- [Cookie Policy](__SITE_ORIGIN__/cookie-policy)
+- [robots.txt](__SITE_ORIGIN__/robots.txt): search engines and AI search assistants may read and cite public pages with a link back; AI training crawlers may not copy members' photographs or posts.
