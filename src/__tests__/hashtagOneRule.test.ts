@@ -27,15 +27,18 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 
 describe("one hashtag rule — the same letters in the database, the app and the edge", () => {
+  // SQL writes À; a TS file may hold the escape or the character itself.
+  const decode = (s: string) => s.replace(/\\u([0-9A-Fa-f]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+
   it("the migration names the class once in its header and uses exactly it in the parser and the CHECK", () => {
-    const declared = sql.match(/^-- HASHTAG_CHAR_CLASS = (\S+)$/m)?.[1];
-    expect(declared).toBe(HASHTAG_CHAR_CLASS);
+    const declared = sql.match(/^-- HASHTAG_CHAR_CLASS = (\S+)\r?$/m)?.[1] ?? "";
+    expect(decode(declared)).toBe(decode(HASHTAG_CHAR_CLASS));
     // extract_hashtags + hashtags_tag_shape
-    expect(sql.split(`[${HASHTAG_CHAR_CLASS}]`).length - 1).toBeGreaterThanOrEqual(2);
+    expect(sql.split(`[${declared}]`).length - 1).toBeGreaterThanOrEqual(2);
   });
 
   it("the edge copy equals the app copy", () => {
-    expect(DENO_CLASS).toBe(HASHTAG_CHAR_CLASS);
+    expect(decode(DENO_CLASS)).toBe(decode(HASHTAG_CHAR_CLASS));
   });
 
   it("no other hand-written hashtag pattern exists in src/ or the edge functions", () => {
@@ -77,7 +80,8 @@ describe("what counts as a tag (mirrors the migration's POST checks)", () => {
   });
 
   it("letters yes; spaces, punctuation and emoji no", () => {
-    for (const ch of ["a", "Z", "7", "_", "é", "প", "া", "ড়", "ह", "ж", "ع", "中", "‍"]) expect(isHashtagChar(ch), ch).toBe(true);
+    // one code point each (ড় = Bengali ড় precomposed, ় = its nukta)
+    for (const ch of ["a", "Z", "7", "_", "é", "প", "া", "ড়", "়", "ह", "ж", "ع", "中", "‍"]) expect(isHashtagChar(ch), ch).toBe(true);
     for (const ch of [" ", "#", ".", ",", "!", "-", "।", "॥", "،", "😀", "\n"]) expect(isHashtagChar(ch), JSON.stringify(ch)).toBe(false);
   });
 
