@@ -10,6 +10,7 @@
  * per-comment likes, one level of replies, and no editing, because this table's
  * moderation (blocklist trigger, moderate-comment) runs on INSERT only.
  */
+import { useReplyTarget } from "@/components/comments/replyTarget";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Heart, ThumbsUp, MessageCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,6 +60,7 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, panelScrolls = fa
    *  PostCommentsSection.tsx. */
   const [commentsRolling, setCommentsRolling] = useState(true);
   const [posting, setPosting] = useState(false);
+  const reply = useReplyTarget(); // ONE reply flow: Reply fills the bottom box
   const [commentCount, setCommentCount] = useState(0);
 
   const fetchReactions = useCallback(async () => {
@@ -291,7 +293,9 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, panelScrolls = fa
                   viewer={viewer ?? null}
                   submitting={posting}
                   maxLength={2200}
-                  onSubmit={(content) => submitComment(content)}
+                  replyTo={reply.target}
+                  onCancelReply={reply.cancel}
+                  onSubmit={(content, parentId) => submitComment(content, parentId)}
                 />
               </div>
             ) : (
@@ -313,6 +317,8 @@ const ImageEngagement = ({ imageType, imageId, photoIndex = 0, panelScrolls = fa
                   maxLength={2200}
                   maxReplyDepth={1}
                   hideComposer
+                  replyTarget={reply.target}
+                  onReplyStart={reply.start}
                   features={{ reactions: false, pinning: false, reporting: true, sorting: false, editing: false }}
                   onAdd={(content, parentId) => submitComment(content, parentId)}
                   onEdit={async () => false}

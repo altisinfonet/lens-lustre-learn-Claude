@@ -374,7 +374,7 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
             // 18px, not a pill. At one line it still looks round; at four lines
             // a 9999px radius would bow the sides out like a capsule.
             borderRadius: "18px",
-            fontSize: "15px",
+            fontSize: "14px", // compact (Owner 10 Nov); the 20px line keeps the box heights
             // 15px text + 20px line + 8px padding top and bottom = 36px for a
             // single line, which is exactly the height the box had before. Each
             // further line adds exactly 20px.
@@ -395,7 +395,11 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
             border: "none",
             outline: "none",
             borderRadius: "18px",
-            color: "hsl(var(--foreground))",
+            // TRANSPARENT text, visible caret: the highlighter underneath draws
+            // every character, so a mention can be coloured (Meta style) while
+            // ordinary text keeps the foreground colour. Selection still shows.
+            color: "transparent",
+            caretColor: "hsl(var(--foreground))",
             // The library's multi-line default is overflow:hidden. `auto` lets
             // a long comment scroll inside the capped box; react-mentions
             // mirrors this scroll onto the highlighter via its own onScroll
@@ -515,7 +519,9 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
           trigger="@"
           data={fetchUsers}
           markup="@[__display__](__id__)"
-          displayTransform={(_id, display) => `@${display}`}
+          // Meta style (Owner 10 Nov): the picked person shows as their NAME,
+          // highlighted, with no "@"; it deletes as one piece.
+          displayTransform={(_id, display) => display}
           appendSpaceOnAdd
           renderSuggestion={(suggestion: UserSuggestion, _search, highlightedDisplay) => (
             <div className="flex min-w-0 items-center gap-2.5">
@@ -538,10 +544,15 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
               <span className="truncate font-medium">{highlightedDisplay}</span>
             </div>
           )}
+          // The name is drawn by the highlighter (the textarea's own text is
+          // transparent, see `input` above), so it can be blue while the rest of
+          // the text stays the normal colour. NOT bold: a heavier weight is wider
+          // than the textarea's invisible text and would put the caret in the
+          // wrong place.
           style={{
-            backgroundColor: "hsl(var(--primary) / 0.15)",
+            backgroundColor: "hsl(var(--primary) / 0.14)",
             color: "hsl(var(--primary))",
-            borderRadius: "3px",
+            borderRadius: "4px",
           }}
         />
       </MentionsInput>

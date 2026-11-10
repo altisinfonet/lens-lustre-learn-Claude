@@ -78,11 +78,11 @@ const RichContentRenderer = ({ content, className = "" }: Props) => {
             to={mentionHref}
             className="text-primary font-semibold hover:underline"
           >
-            @{match[1]}
+            {match[1]}
           </Link>
         ) : (
           <span key={`m-${match.index}`} className="text-primary font-semibold">
-            @{match[1]}
+            {match[1]}
           </span>
         )
       );
