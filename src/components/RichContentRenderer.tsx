@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { memberPath } from "@/lib/urlHelpers";
 import { useMemberHandles } from "@/hooks/profile/useMemberHandles";
 import { sanitizeUserContent } from "@/lib/htmlSanitizer";
+import { HASHTAG_TOKEN_SOURCE, MAX_TAGS_PER_POST, hashtagPath, sameTagKey } from "@/lib/hashtags/hashtagRule";
 
 /**
  * Renders text content with:
@@ -15,8 +16,10 @@ interface Props {
   className?: string;
 }
 
-// Matches @[Display Name](uuid) or #word
-const TOKEN_REGEX = /@\[([^\]]+)\]\(([^)]+)\)|#(\w+)/g;
+// Matches @[Display Name](uuid) or #tag — the tag part is THE hashtag rule
+// (src/lib/hashtags/hashtagRule.ts, mirrored from the database), so a tag in
+// any language is a link, and a link is always a tag the hashtag page knows.
+const TOKEN_REGEX = new RegExp(String.raw`@\[([^\]]+)\]\(([^)]+)\)|` + HASHTAG_TOKEN_SOURCE, "gu");
 
 const RichContentRenderer = ({ content, className = "" }: Props) => {
   if (!content) return null;
@@ -29,7 +32,7 @@ const RichContentRenderer = ({ content, className = "" }: Props) => {
    */
   const mentionIds: string[] = [];
   {
-    const scan = new RegExp(TOKEN_REGEX.source, "g");
+    const scan = new RegExp(TOKEN_REGEX.source, "gu");
     let m: RegExpExecArray | null;
     while ((m = scan.exec(content)) !== null) {
       if (m[1] && m[2]) mentionIds.push(m[2]);
@@ -41,7 +44,10 @@ const RichContentRenderer = ({ content, className = "" }: Props) => {
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
-  const regex = new RegExp(TOKEN_REGEX.source, "g");
+  const regex = new RegExp(TOKEN_REGEX.source, "gu");
+  // The server counts the first 30 distinct tags of a post; a 31st stays text,
+  // so no link ever opens a hashtag page this post is not on.
+  const linkedTags = new Set<string>();
 
   while ((match = regex.exec(content)) !== null) {
     // Text before match
@@ -82,15 +88,21 @@ const RichContentRenderer = ({ content, className = "" }: Props) => {
       );
     } else if (match[3]) {
       // #hashtag
-      parts.push(
-        <Link
-          key={`h-${match.index}`}
-          to={`/hashtag/${match[3]}`}
-          className="text-primary font-medium hover:underline"
-        >
-          #{match[3]}
-        </Link>
-      );
+      const key = sameTagKey(match[3]);
+      if (linkedTags.has(key) || linkedTags.size < MAX_TAGS_PER_POST) {
+        linkedTags.add(key);
+        parts.push(
+          <Link
+            key={`h-${match.index}`}
+            to={hashtagPath(match[3])}
+            className="text-primary font-medium hover:underline"
+          >
+            #{match[3]}
+          </Link>
+        );
+      } else {
+        parts.push(<Fragment key={`h-${match.index}`}>{match[0]}</Fragment>);
+      }
     }
 
     lastIndex = match.index + match[0].length;

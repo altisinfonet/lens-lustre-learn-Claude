@@ -22,6 +22,7 @@
 
 import { unreadSampleOn, sampleUnreadGroups } from "./storySample";
 import { storySampleOn, sampleBar, sampleHighlights, sampleUserStories, sampleComments, sampleViewers, sampleOlderComments } from "./storySample";
+import { sampleHashtagInfo, sampleHashtagPosts } from "./hashtagSample";
 import type { FakeRoute } from "./fakeBackend";
 import {
   HARNESS_USER_ID,
@@ -204,6 +205,12 @@ const RPCS: Record<string, (body: Record<string, unknown>, params: URLSearchPara
   get_feed_page: (body) => posts.map((p, i) => ({ source: null, caught_up_after: false, ...p, feed_pos: Number(body._after ?? 0) + i + 1 })),
   /** The hashtag page's banned/suspended authors: nobody in the fixture set. */
   filter_moderated_user_ids: () => [],
+  /** H1 hashtag page: header row (counts, follow, related) and the paged list (hashtagSample.ts, ?hashtag=1). */
+  hashtag_page_info: (body) => sampleHashtagInfo(String(body._tag ?? "")),
+  hashtag_page_posts: (body) =>
+    body._cursor ? [] : sampleHashtagPosts(String(body._sort ?? "top")).map(({ page_cursor, ...post }) => ({ post, page_cursor })),
+  follow_hashtag: () => null,
+  unfollow_hashtag: () => null,
 
   /** The home page's Top Contributors card (2026-10-13): three ranked members of the fixture set. */
   get_top_contributors_v3: () => topContributors,

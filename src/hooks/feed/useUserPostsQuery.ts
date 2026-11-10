@@ -221,37 +221,10 @@ export async function enrichPostRows(postsData: any[], currentUserId: string | u
   });
 }
 
-/** The public posts carrying a tag, built by the same enrichPostRows as the wall (K1). */
-export async function fetchHashtagPosts(tag: string, viewerId: string | undefined): Promise<UnifiedPost[]> {
-  // BUG-087: sanitize the URL-supplied tag to the hashtag charset — this both
-  // prevents PostgREST .or() filter injection and normalizes matching. Use a
-  // single parameterized ilike (value is not interpolated into filter syntax)
-  // that catches the tag anywhere, not only when followed by a space/end.
-  const safeTag = tag.replace(/[^a-zA-Z0-9_]/g, "");
-  if (!safeTag) return [];
-
-  const { data } = await supabase
-    .from("posts")
-    .select("*")
-    .ilike("content", `%#${safeTag}%`)
-    .eq("privacy", "public")
-    .order("created_at", { ascending: false })
-    .limit(50);
-
-  if (!data || data.length === 0) return [];
-
-  // BUG-119: mirror BUG-088 — hashtag results must exclude banned/suspended
-  // authors (the hashtag query only filtered privacy='public'). anon has no
-  // SELECT on the mirror's moderation flags (BUG-121), so use the anon-callable
-  // ban-aware RPC which returns the moderated subset of these author ids.
-  const authorIds = [...new Set(data.map((p) => p.user_id))];
-  const moderatedRes = await supabase.rpc("filter_moderated_user_ids", { _ids: authorIds } as any);
-  const blockedAuthors = new Set(((moderatedRes.data as any[]) || []).map((r) => r.id));
-  const visiblePosts = data.filter((p) => !blockedAuthors.has(p.user_id));
-
-  if (visiblePosts.length === 0) return [];
-  return enrichPostRows(visiblePosts, viewerId);
-}
+// H1 (2026-11-10): the hashtag page's caption search (fetchHashtagPosts, ilike on
+// posts.content) is gone — the page reads the hashtag store through
+// hashtag_page_posts (src/hooks/feed/useHashtagPage.ts), which applies the posts
+// SELECT rule and the banned/suspended rule (BUG-119) on the server.
 
 /**
  * `enabled: false` is for the COMPOSER-ONLY mount.

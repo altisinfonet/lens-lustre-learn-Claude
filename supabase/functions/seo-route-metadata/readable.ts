@@ -12,6 +12,8 @@
  * Only PUBLIC content ever reaches this file (callers check privacy first).
  */
 
+import { captionHashtagKeys } from "../_shared/hashtagRule.ts";
+
 export function esc(s: unknown): string {
   return String(s ?? "")
     .replace(/&/g, "&amp;")
@@ -28,11 +30,9 @@ export function snippet(text: string | null | undefined, max: number): string {
   return t.slice(0, max - 1).replace(/\s+\S*$/, "").trim() + "…";
 }
 
-/** Hashtags in a caption (same shape as public.extract_hashtags: [A-Za-z0-9_]{1,60}). */
+/** Hashtags in a caption — THE hashtag rule (_shared/hashtagRule.ts = public.extract_hashtags). */
 export function captionTags(text: string | null | undefined): string[] {
-  const out = new Set<string>();
-  for (const m of String(text ?? "").matchAll(/#([A-Za-z0-9_]{1,60})/g)) out.add(m[1].toLowerCase());
-  return [...out];
+  return captionHashtagKeys(text);
 }
 
 export interface ReadablePost {
@@ -60,7 +60,7 @@ export function postBody(p: ReadablePost, site: string): string {
   if (p.image) h += `<img src="${esc(p.image)}" alt="${esc(alt)}" loading="lazy">`;
   if (p.caption) h += `<p>${esc(p.caption)}</p>`;
   if (p.tags.length) {
-    h += `<p>Hashtags: ${p.tags.map((t) => `<a href="${esc(`${site}/hashtag/${t}`)}">#${esc(t)}</a>`).join(" ")}</p>`;
+    h += `<p>Hashtags: ${p.tags.map((t) => `<a href="${esc(`${site}/hashtag/${encodeURIComponent(t)}`)}">#${esc(t)}</a>`).join(" ")}</p>`;
   }
   h += `<p>Posted ${esc(fmtDate(p.date))} on 50mm Retina World · ${p.likes} likes · ${p.comments} comments</p>`;
   if (p.authorUrl) h += `<p><a href="${esc(p.authorUrl)}">More photographs by ${esc(p.author)}</a></p>`;
