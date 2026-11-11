@@ -820,6 +820,10 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
+          # 2026-11-10 (later): bumped 1.2.44 -> 1.2.45. 1.2.44 (run 148, 42779574612 on 525633cb) is spent (handed to the Owner).
+          # 1.2.45 carries comments v3 (#997, Owner 10 Nov "comments OK": one reply flow in the bottom box, mentions as
+          # names, 14px), the signed-out top bar fix (#993), the 4 page fixes (#998: course covers, journal byline,
+          # chip rows) and the /help answer pages (AEO). No switch is changed.
           # 2026-11-10: bumped 1.2.43 -> 1.2.44. 1.2.43 (run 147, 42483045124 on 2738a852) is spent (handed to the Owner).
           # 1.2.44 carries H1 (#987, Owner 10 Nov "make it LIVE Site and App"): new hashtag page (photographers ·
           # posts, Follow, related tags, Top|Recent, grid|cards), hashtags in every language, plus A3 post addresses
@@ -960,8 +964,8 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
-          sed -i 's/versionName "1.0"/versionName "1.2.44"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.44 (1.2.43 is spent - run 147)"
+          sed -i 's/versionName "1.0"/versionName "1.2.45"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.45 (1.2.44 is spent - run 148)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
           # S11: prove both edits landed — exactly one versionCode, the derived
