@@ -47,6 +47,11 @@ Individual items follow fixed patterns, useful for linking:
 - [Android app on Google Play](https://play.google.com/store/apps/details?id=com.fiftymmretina.app): The same community as the website.
 - iPhone (iOS) app: the same account and community as the website.
 
+## Official pages
+
+- [Facebook](https://www.facebook.com/50mmretinaworld)
+- [Instagram](https://www.instagram.com/50mmretinaworld)
+
 ## Policies and help
 
 - [Terms of Use and Community Guidelines](__SITE_ORIGIN__/terms-of-use): The rules for using the platform and for what may be posted.

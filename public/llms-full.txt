@@ -47,6 +47,13 @@ All courses: [Courses](__SITE_ORIGIN__/courses).
 
 - [Android app on Google Play](https://play.google.com/store/apps/details?id=com.fiftymmretina.app)
 
+## Official pages
+
+The only official pages of 50mm Retina World outside this website:
+
+- [Facebook](https://www.facebook.com/50mmretinaworld)
+- [Instagram](https://www.instagram.com/50mmretinaworld)
+
 ## Languages
 
 English is the main language of the platform; content can be translated into other languages.
