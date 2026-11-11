@@ -10,6 +10,7 @@ import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 
 import { motion } from "framer-motion";
 import PageSEO from "@/components/PageSEO";
+import CoverImage from "@/components/CoverImage";
 import { useState, useMemo, useCallback, useEffect } from "react";
 
 import { useAuth } from "@/hooks/core/useAuth";
@@ -208,7 +209,7 @@ const CompetitionDetail = () => {
       {/* Hero */}
       <div className="relative h-48 md:h-96 overflow-hidden bg-muted">
         {competition.cover_image_url ? (
-          <img loading="eager" decoding="async" fetchPriority="high" src={competition.cover_image_url} alt={competition.title} className="w-full h-full object-cover" />
+          <CoverImage priority sizes="100vw" src={competition.cover_image_url} alt={competition.title} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-card to-background" />
         )}
