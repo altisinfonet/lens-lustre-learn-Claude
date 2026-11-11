@@ -16,7 +16,7 @@ import { canonicalOrigin } from "../_shared/laneConfig.ts"; // one address (A2)
 import { isPostHandle, postPath } from "../_shared/postPath.ts"; // A3: one post-address rule
 import { answersBody, captionTags, listBody, postBody, snippet } from "./readable.ts"; // B: readable pages
 import { hashtagKey, hashtagPattern } from "../_shared/hashtagRule.ts"; // H1: one hashtag rule
-import { ANSWERS, ANSWERS_INTRO, ANSWERS_TITLE, answerBySlug, faqJsonLd } from "../_shared/answers.ts"; // AEO: one answer list
+import { ANSWERS, ANSWERS_INTRO, ANSWERS_TITLE, answerBySlug, faqJsonLd, withOfficialProfiles } from "../_shared/answers.ts"; // AEO: one answer list + official pages
 const SITE_URL = () => canonicalOrigin();
 const SITE_NAME_FALLBACK = "50mm Retina World";
 const DEFAULT_TITLE = "50mm Retina World — Competitions, Education & Journal for Photographers";
@@ -112,7 +112,9 @@ function siteSchemas(globals: any[]): object[] {
   for (const s of globals) {
     if (!s?.json) continue;
     try {
-      out.push(JSON.parse(s.json));
+      // AEO (Owner 2026-11-11): an Organization block always carries the one site
+      // address and the official Facebook / Instagram / Play pages (sameAs).
+      out.push(withOfficialProfiles(JSON.parse(s.json), SITE_URL()) as object);
     } catch { /* skip invalid */ }
   }
   return out;

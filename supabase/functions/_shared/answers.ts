@@ -155,6 +155,28 @@ export function answerBySlug(slug: string): Answer | undefined {
   return ANSWERS.find((a) => a.slug === slug);
 }
 
+/**
+ * The ONLY official pages of 50mm Retina World elsewhere (Owner 2026-11-11: "No other pages have").
+ * Search engines join these to the site through the Organization `sameAs` list.
+ */
+export const OFFICIAL_PROFILES: string[] = [
+  "https://www.facebook.com/50mmretinaworld",
+  "https://www.instagram.com/50mmretinaworld",
+  "https://play.google.com/store/apps/details?id=com.fiftymmretina.app",
+];
+
+/**
+ * Every Organization block about us names the one site address and the official pages.
+ * Other schema types pass through unchanged. `site` = canonical origin, no trailing slash.
+ */
+export function withOfficialProfiles(schema: unknown, site: string): unknown {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) return schema;
+  const s = schema as Record<string, unknown>;
+  if (s["@type"] !== "Organization") return schema;
+  const had = Array.isArray(s.sameAs) ? s.sameAs.filter((x): x is string => typeof x === "string") : [];
+  return { ...s, url: `${site}/`, sameAs: [...new Set([...had, ...OFFICIAL_PROFILES])] };
+}
+
 /** schema.org FAQPage for one or more answers. `site` = canonical origin, no trailing slash. */
 export function faqJsonLd(items: Answer[], site: string): Record<string, unknown> {
   return {

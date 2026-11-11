@@ -7,7 +7,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ANSWERS, faqJsonLd } from "@/lib/answers/answers";
+import { ANSWERS, OFFICIAL_PROFILES, faqJsonLd, withOfficialProfiles } from "@/lib/answers/answers";
 import { ANSWERS as DENO_ANSWERS } from "../../supabase/functions/_shared/answers";
 import { answersBody } from "../../supabase/functions/seo-route-metadata/readable";
 
@@ -46,6 +46,25 @@ describe("answers — one source", () => {
     expect(html.startsWith('<main data-seo-readable="answers">')).toBe(true);
     expect(html).not.toMatch(/<\s*script|\son[a-z]+\s*=/i);
     for (const a of ANSWERS) expect(html).toContain(`/help/${a.slug}`);
+  });
+
+  it("an Organization block names the one address and the official pages; others pass through", () => {
+    const site = "https://www.50mmretina.com";
+    const org = withOfficialProfiles(
+      { "@type": "Organization", name: "50mm Retina World", url: "https://50mmretina.com/", sameAs: ["https://x.example/a"] },
+      site,
+    ) as { url: string; sameAs: string[] };
+    expect(org.url).toBe(`${site}/`);
+    expect(org.sameAs).toEqual(["https://x.example/a", ...OFFICIAL_PROFILES]);
+    expect((withOfficialProfiles({ "@type": "Organization" }, site) as { sameAs: string[] }).sameAs).toEqual(OFFICIAL_PROFILES);
+    const web = { "@type": "WebSite", name: "x" };
+    expect(withOfficialProfiles(web, site)).toBe(web);
+    expect(withOfficialProfiles(null, site)).toBe(null);
+    for (const u of OFFICIAL_PROFILES) expect(u).toMatch(/^https:\/\/(www\.facebook\.com|www\.instagram\.com|play\.google\.com)\//);
+    for (const f of ["public/llms.txt", "public/llms-full.txt"]) {
+      const txt = readFileSync(join(ROOT, f), "utf8");
+      for (const u of OFFICIAL_PROFILES) expect(txt).toContain(u);
+    }
   });
 
   it("/help is a reserved first segment, so no member handle can shadow it", () => {
