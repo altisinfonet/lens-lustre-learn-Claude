@@ -55,6 +55,11 @@ const SiteFooter = () => {
           </Link>
         ))}
 
+        {/* AEO (Owner 2026-11-10): one link to the answer pages from every page. */}
+        <Link to="/help" className="hover:text-primary transition-colors">
+          Questions &amp; answers
+        </Link>
+
         <Link to="/cookie-policy" className="hover:text-primary transition-colors">
           Cookie Policy
         </Link>

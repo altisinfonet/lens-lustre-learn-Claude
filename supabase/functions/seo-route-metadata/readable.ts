@@ -68,6 +68,32 @@ export function postBody(p: ReadablePost, site: string): string {
   return h;
 }
 
+/**
+ * AEO (Owner 2026-11-10): the /help answer pages, as robots read them — the
+ * same Owner-approved text the app shows (_shared/answers.ts). `items` is one
+ * answer (its own page) or all of them (/help); `others` are linked below.
+ */
+export interface ReadableAnswer { slug: string; question: string; answer: string[]; links: Array<[string, string]> }
+export function answersBody(heading: string, intro: string, items: ReadableAnswer[], others: ReadableAnswer[], site: string): string {
+  const one = items.length === 1 && !intro;
+  let h = `<main data-seo-readable="answers">`;
+  if (!one) h += `<h1>${esc(heading)}</h1>${intro ? `<p>${esc(intro)}</p>` : ""}`;
+  for (const a of items) {
+    h += `<section id="${esc(a.slug)}">`;
+    h += one ? `<h1>${esc(a.question)}</h1>` : `<h2><a href="${esc(`${site}/help/${a.slug}`)}">${esc(a.question)}</a></h2>`;
+    for (const p of a.answer) h += `<p>${esc(p)}</p>`;
+    if (a.links.length) h += `<p>${a.links.map(([label, to]) => `<a href="${esc(site + to)}">${esc(label)}</a>`).join(" · ")}</p>`;
+    h += `</section>`;
+  }
+  if (others.length) {
+    h += `<nav><h2>More questions</h2><ul>`;
+    for (const a of others) h += `<li><a href="${esc(`${site}/help/${a.slug}`)}">${esc(a.question)}</a></li>`;
+    h += `</ul></nav>`;
+  }
+  h += `<nav><a href="${esc(site)}/">50mm Retina World — photography community, competitions and courses</a></nav></main>`;
+  return h;
+}
+
 export interface ReadableItem { url: string; title: string; image?: string }
 
 /** A list page (profile, hashtag): heading, intro and links to its posts. */

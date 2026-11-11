@@ -64,6 +64,7 @@ Every photograph on 50mm Retina World belongs solely to the photographer who pos
 - [Courses](__SITE_ORIGIN__/courses): Photography courses for every level.
 - [Verify a certificate](__SITE_ORIGIN__/verify): Check that a 50mm Retina World certificate is genuine.
 - [Sign up](__SITE_ORIGIN__/signup): Create a free photographer account (18+).
+- [Questions & answers](__SITE_ORIGIN__/help): The facts above as one page per question.
 
 ## Page addresses
 
@@ -74,6 +75,7 @@ Every photograph on 50mm Retina World belongs solely to the photographer who pos
 - Journal article: `__SITE_ORIGIN__/journal/{article-slug}`
 - Course: `__SITE_ORIGIN__/courses/{course-slug}`
 - Certificate check: `__SITE_ORIGIN__/verify/{certificate-token}`
+- Answer to one question: `__SITE_ORIGIN__/help/{question}`
 
 ## Policies
 

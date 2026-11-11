@@ -1,5 +1,6 @@
 import { Eye } from "lucide-react";
 import { formatCount, estimateReadTimeMin } from "@/lib/simulatedEngagement";
+import { cn } from "@/lib/utils";
 
 interface EngagementFooterProps {
   /** REAL view count for this item. Omit when no real source exists — the
@@ -46,7 +47,9 @@ const EngagementFooter = ({ views, wordCount, className = "", inline = false }: 
   if (inline) return <Stats views={views} readTimeMin={readTimeMin} />;
 
   return (
-    <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1.5 ${className}`}>
+    // cn (tailwind-merge): a caller's `px-0` must REPLACE the default px-3, not sit
+    // beside it — on 2026-11-10 both classes landed and px-3 won (12px out of line).
+    <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1.5", className)}>
       <Stats views={views} readTimeMin={readTimeMin} />
     </div>
   );
