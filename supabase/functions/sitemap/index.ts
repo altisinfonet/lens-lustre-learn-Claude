@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { canonicalOrigin } from "../_shared/laneConfig.ts"; // one address (A2)
 import { postPath } from "../_shared/postPath.ts"; // A3: one post-address rule
+import { ANSWERS } from "../_shared/answers.ts"; // AEO: one answer list
 // Call-time, not module load: a module-level throw would kill the whole function
 // before it can report why.
 const SITE_URL = () => canonicalOrigin();
@@ -27,6 +28,9 @@ const staticRoutes = [
   { path: "/help-support", priority: "0.4", changefreq: "monthly" },
   { path: "/cookie-policy", priority: "0.3", changefreq: "monthly" },
   { path: "/verify", priority: "0.3", changefreq: "monthly" },
+  // AEO (Owner 2026-11-10): the answer pages, from the one answer list.
+  { path: "/help", priority: "0.6", changefreq: "monthly" },
+  ...ANSWERS.map((a) => ({ path: `/help/${a.slug}`, priority: "0.5", changefreq: "monthly" })),
 ];
 
 function escapeXml(str: string): string {

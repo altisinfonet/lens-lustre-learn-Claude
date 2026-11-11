@@ -22,6 +22,7 @@ Key facts:
 - [Journal](__SITE_ORIGIN__/journal): Articles on photography technique, gear, stories and interviews.
 - [Courses](__SITE_ORIGIN__/courses): Photography courses and learning resources.
 - [Verify a certificate](__SITE_ORIGIN__/verify): Check that a 50mm Retina World certificate is genuine.
+- [Questions & answers](__SITE_ORIGIN__/help): Straight answers on joining, competitions, prizes, judging, certificates, courses, Vote & Earn and the apps — one page per question under /help/{question}.
 
 ## For members (sign-in required)
 

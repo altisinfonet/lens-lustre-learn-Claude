@@ -14,8 +14,9 @@ const corsHeaders = {
 
 import { canonicalOrigin } from "../_shared/laneConfig.ts"; // one address (A2)
 import { isPostHandle, postPath } from "../_shared/postPath.ts"; // A3: one post-address rule
-import { captionTags, listBody, postBody, snippet } from "./readable.ts"; // B: readable pages
+import { answersBody, captionTags, listBody, postBody, snippet } from "./readable.ts"; // B: readable pages
 import { hashtagKey, hashtagPattern } from "../_shared/hashtagRule.ts"; // H1: one hashtag rule
+import { ANSWERS, ANSWERS_INTRO, ANSWERS_TITLE, answerBySlug, faqJsonLd } from "../_shared/answers.ts"; // AEO: one answer list
 const SITE_URL = () => canonicalOrigin();
 const SITE_NAME_FALLBACK = "50mm Retina World";
 const DEFAULT_TITLE = "50mm Retina World — Competitions, Education & Journal for Photographers";
@@ -512,6 +513,23 @@ async function resolveHashtag(raw: string, meta: Metadata, global: any) {
   return true;
 }
 
+/** AEO (Owner 2026-11-10): /help and /help/<slug> — no database, the one answer list. */
+function resolveHelp(slug: string | undefined, meta: Metadata) {
+  const site = SITE_URL();
+  const one = slug ? answerBySlug(slug) : undefined;
+  if (slug && !one) { meta.status = 404; meta.noindex = true; meta.source = "help-missing"; return; }
+  const items = one ? [one] : ANSWERS;
+  meta.title = `${clampTitle(one ? one.question : ANSWERS_TITLE, SITE_NAME_FALLBACK)} | ${SITE_NAME_FALLBACK}`;
+  meta.description = clampDesc(one ? one.answer.join(" ") : ANSWERS_INTRO);
+  const crumbs: Array<[string, string]> = [[SITE_NAME_FALLBACK, `${site}/`], [ANSWERS_TITLE, `${site}/help`]];
+  if (one) crumbs.push([one.question, meta.canonical]);
+  meta.jsonLd = [faqJsonLd(items, site), breadcrumbs(crumbs)];
+  meta.body = one
+    ? answersBody(one.question, "", [one], ANSWERS.filter((a) => a.slug !== one.slug), site)
+    : answersBody(ANSWERS_TITLE, ANSWERS_INTRO, ANSWERS, [], site);
+  meta.source = one ? "help-answer" : "help";
+}
+
 // --------- Main router ---------
 
 async function resolve(path: string): Promise<Metadata> {
@@ -549,6 +567,8 @@ async function resolve(path: string): Promise<Metadata> {
       await resolvePost(segments[1], meta, global);
     } else if (segments[0] === "hashtag" && segments[1] && segments.length === 2) {
       await resolveHashtag(segments[1], meta, global); // B: hashtag pages readable
+    } else if (segments[0] === "help" && segments.length <= 2) {
+      resolveHelp(segments[1], meta); // AEO answer pages
     } else if (segments.length === 3 && segments[1] === "post" && segments[2]) {
       // A3 (Owner 7 Nov): /<handle>/post/<id>, the long form of every post address.
       await resolvePost(segments[2], meta, global);
