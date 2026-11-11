@@ -130,12 +130,14 @@ if (strayOrigins.length) {
 }
 
 // llms.txt links into this site with full addresses; one naming any other site
-// (besides the Google Play listing) would send AI readers to the wrong place.
+// (besides the Google Play listing and the Owner's official Facebook / Instagram
+// pages, 2026-11-11) would send AI readers to the wrong place.
 // The same holds for the full fact sheet, llms-full.txt.
+const OFFICIAL_ELSEWHERE = new Set(["https://play.google.com", "https://www.facebook.com", "https://www.instagram.com"]);
 for (const file of ["llms.txt", "llms-full.txt"]) {
   const llms = readFileSync(`dist/${file}`, "utf8");
   const strayLlms = [...new Set(llms.match(/https?:\/\/[a-z0-9.-]+/gi) || [])].filter(
-    (u) => u !== displayOrigin && u !== "https://play.google.com",
+    (u) => u !== displayOrigin && !OFFICIAL_ELSEWHERE.has(u),
   );
   if (strayLlms.length) {
     console.error(`generate-seo-assets FAIL: ${file} names other origins: ${strayLlms.join(", ")}`);
