@@ -85,6 +85,43 @@ export function canonicalOrigin(): string {
 }
 
 /**
+ * Every link in a mail's template data moved from this lane's apex to its www
+ * host (https://x.com/feed → https://www.x.com/feed). Links built by database
+ * triggers (comment / like / tag mails) carry the apex; Android opens the
+ * installed app only for the verified www host. ONE place, applied at both
+ * render points (send-transactional-email, process-email-queue). Never throws:
+ * on any doubt the data is returned unchanged — a mail is never lost to this.
+ */
+export function mailDataOnCanonical<T>(data: T): T {
+  let apex: string;
+  let canon: string;
+  try {
+    canon = canonicalOf(siteOrigin());
+    const m = canon.match(/^https:\/\/www\.(.+)$/i);
+    if (!m) return data;
+    apex = `https://${m[1]}`;
+  } catch {
+    return data;
+  }
+  const fix = (v: unknown): unknown => {
+    if (typeof v === "string") {
+      if (v === apex || /^[/?#]/.test(v.slice(apex.length, apex.length + 1)) && v.toLowerCase().startsWith(apex.toLowerCase())) {
+        return canon + v.slice(apex.length);
+      }
+      return v;
+    }
+    if (Array.isArray(v)) return v.map(fix);
+    if (v && typeof v === "object") {
+      const out: Record<string, unknown> = {};
+      for (const [k, x] of Object.entries(v as Record<string, unknown>)) out[k] = fix(x);
+      return out;
+    }
+    return v;
+  };
+  return fix(data) as T;
+}
+
+/**
  * A link in an e-mail: this lane's ONE address plus a rooted path,
  * siteUrl("/dashboard") → https://www.x.com/dashboard. Always the www
  * (canonical) host: the apex 301s, and Android opens the installed app only
