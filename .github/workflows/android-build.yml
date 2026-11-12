@@ -964,8 +964,11 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
-          sed -i 's/versionName "1.0"/versionName "1.2.45"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.45 (1.2.44 is spent - run 148)"
+          # 2026-11-12: bumped 1.2.45 -> 1.2.46. 1.2.45 (run 149, vc1149) is LIVE on Play. 1.2.46 carries app-first links
+          # (Owner 12 Nov: every 50mmretina.com link opens the app; verified https filter for www + assetlinks.json) and
+          # the new phone-check job (virtual phone proves the link opens the app before the Owner uploads). No switch changed.
+          sed -i 's/versionName "1.0"/versionName "1.2.46"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.46 (1.2.45 is spent - run 149)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
           # S11: prove both edits landed — exactly one versionCode, the derived
@@ -1744,3 +1747,70 @@ jobs:
             android/build/reports/
           if-no-files-found: ignore
           retention-days: 3
+
+  # ---------------------------------------------------------------------------
+  # PHONE CHECK — the new app on a virtual Android phone BEFORE the Owner gets
+  # the .aab (Owner 2026-11-12: "why can't you check before App uploading?").
+  # Installs THIS build, signed with the same upload key Play sees, and proves
+  # (scripts/android-phone-check.sh):
+  #   1. Android VERIFIES www.50mmretina.com for the app (live assetlinks.json +
+  #      the autoVerify filter) — so mail / WhatsApp / Gmail links open the app.
+  #   2. A https://www.50mmretina.com/login link opens INSIDE the app.
+  #   3. The app's Login / Join screens have NO "Get the App" button (web only).
+  # Screenshots: artifact "phone-check". Red here = do NOT upload to Play.
+  # ---------------------------------------------------------------------------
+  phone-check:
+    needs: build-aab
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/android-phone-check.sh
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: app-release-aab
+          path: aab
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Universal APK from the release bundle (same upload key)
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/ks.jks"
+          ALIAS=$(keytool -list -keystore "$RUNNER_TEMP/ks.jks" -storepass "$KEYSTORE_PASSWORD" | grep -m1 PrivateKeyEntry | cut -d, -f1)
+          curl -sSL -o "$RUNNER_TEMP/bundletool.jar" https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
+          java -jar "$RUNNER_TEMP/bundletool.jar" build-apks --mode=universal --bundle=aab/app-release.aab --output="$RUNNER_TEMP/app.apks" \
+            --ks="$RUNNER_TEMP/ks.jks" --ks-pass=pass:"$KEYSTORE_PASSWORD" --ks-key-alias="$ALIAS" --key-pass=pass:"$KEY_PASSWORD"
+          rm -f "$RUNNER_TEMP/ks.jks"
+          unzip -o "$RUNNER_TEMP/app.apks" universal.apk
+          ls -l universal.apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Virtual phone — install, verify links, open a link, screenshots
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: bash scripts/android-phone-check.sh universal.apk
+      - name: Upload phone-check screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phone-check
+          path: shots/
+          if-no-files-found: ignore
+          retention-days: 14
