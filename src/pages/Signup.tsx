@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { signInWithOAuth } from "@/lib/oauthHelper";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
+import { LoginViaAppButton } from "@/components/auth/LoginViaAppButton";
 import { z } from "zod";
 import SimpleCaptcha from "@/components/SimpleCaptcha";
 import { useCaptureReferral } from "@/hooks/notifications/useReferral";
@@ -299,6 +300,8 @@ const Signup = () => {
           {/* OAuth — only on step 1 */}
           {step === 1 && (
             <>
+              <LoginViaAppButton path="/signup" />
+
               {!isNativeIOSApp() && (
                 <GoogleSignInButton
                   onClick={() => handleOAuth("google")}

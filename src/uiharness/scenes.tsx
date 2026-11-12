@@ -338,7 +338,13 @@ const FIXTURE_THREAD: ThreadComment[] = [
  * compact). Its own thread so the existing baselines keep their fixture. Posting
  * really adds the comment here, so "after sending" can be photographed.
  */
-const avatarPic = (id: number) => `https://picsum.photos/id/${id}/96/96`;
+// Built-in avatars (inline SVG): the UI gate must never depend on an outside
+// site — picsum.photos answering 522 on 2026-11-12 failed every PR's gate.
+const avatarPic = (id: number) => {
+  const hue = (id * 47) % 360;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" fill="hsl(${hue},45%,55%)"/><circle cx="48" cy="38" r="18" fill="hsl(${hue},45%,80%)"/><rect x="18" y="62" width="60" height="34" rx="30" fill="hsl(${hue},45%,80%)"/></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+};
 const V3_AMIT = "fxu-amit";
 const V3_THREAD: ThreadComment[] = [
   fixtureComment({

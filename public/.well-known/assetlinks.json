@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.fiftymmretina.app",
+      "sha256_cert_fingerprints": [
+        "7B:04:2F:D6:0B:65:D8:DC:BF:E8:02:D8:76:11:CB:9C:C3:95:FF:87:0F:C4:5E:D0:CF:13:66:95:37:65:19:74",
+        "35:2F:82:CF:6F:E1:77:5E:3D:9C:EF:8A:2E:63:45:9F:EB:0A:F0:47:01:1D:C6:29:A3:A0:73:C1:A8:1D:99:12"
+      ]
+    }
+  }
+]

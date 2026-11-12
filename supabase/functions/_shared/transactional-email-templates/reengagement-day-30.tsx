@@ -5,7 +5,7 @@ import {
 import { BrandHeader } from './BrandHeader.tsx'
 import { Disclaimer } from './Disclaimer.tsx'
 import type { TemplateEntry } from './registry.ts'
-import { siteOrigin } from '../laneConfig.ts'
+import { siteUrl } from '../laneConfig.ts'
 
 const SITE_NAME = '50mm Retina World'
 
@@ -38,10 +38,10 @@ const Email = ({ participantName, newPostsCount = 0, activeCompetitions = 0, fri
           Your profile, your portfolio, and everything you've earned are exactly where you left them. Picking back up takes one tap.
         </Text>
         <Section style={ctaSection}>
-          <Button href={`${siteOrigin()}/feed`} style={button}>See What's New</Button>
+          <Button href={siteUrl('/feed')} style={button}>See What's New</Button>
         </Section>
         <Text style={ps}>
-          Prefer fewer emails? <a href={`${siteOrigin()}/notifications`} style={link}>Update your preferences</a> anytime.
+          Prefer fewer emails? <a href={siteUrl('/notifications')} style={link}>Update your preferences</a> anytime.
         </Text>
         <Hr style={hr} />
         <Text style={footer}>— The {SITE_NAME} Team</Text>

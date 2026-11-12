@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { signInWithOAuth } from "@/lib/oauthHelper";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
+import { LoginViaAppButton } from "@/components/auth/LoginViaAppButton";
 import { z } from "zod";
 import SimpleCaptcha from "@/components/SimpleCaptcha";
 import { useTrustedDevice } from "@/hooks/core/useTrustedDevice";
@@ -335,6 +336,8 @@ const Login = () => {
               an equivalent privacy-preserving login (Sign in with Apple) next to any
               third-party login, and the owner has chosen not to offer one - so the
               iOS build offers email sign-in only. Web and Android are unchanged. */}
+          <LoginViaAppButton path="/login" />
+
           {!isNativeIOSApp() && (
             <>
               <GoogleSignInButton

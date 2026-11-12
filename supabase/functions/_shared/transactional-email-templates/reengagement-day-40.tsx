@@ -5,7 +5,7 @@ import {
 import { BrandHeader } from './BrandHeader.tsx'
 import { Disclaimer } from './Disclaimer.tsx'
 import type { TemplateEntry } from './registry.ts'
-import { siteOrigin } from '../laneConfig.ts'
+import { siteUrl } from '../laneConfig.ts'
 
 const SITE_NAME = '50mm Retina World'
 
@@ -38,10 +38,10 @@ const Email = ({ participantName, activeCompetitions = 0 }: Props) => (
           </Section>
         )}
         <Section style={ctaSection}>
-          <Button href={`${siteOrigin()}/feed`} style={button}>Share One Photo</Button>
+          <Button href={siteUrl('/feed')} style={button}>Share One Photo</Button>
         </Section>
         <Text style={ps}>
-          Rather not get these? <a href={`${siteOrigin()}/notifications`} style={link}>Adjust your email preferences</a> — no hard feelings.
+          Rather not get these? <a href={siteUrl('/notifications')} style={link}>Adjust your email preferences</a> — no hard feelings.
         </Text>
         <Hr style={hr} />
         <Text style={footer}>— The {SITE_NAME} Team</Text>

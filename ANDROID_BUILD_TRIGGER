@@ -436,3 +436,9 @@ Then promote the AAB.
   Precondition run on ecdad73 -> 7e93dd8: 8 matches, of which 3 bundled (the rest are __tests__).
   The app BUNDLES these (capacitor.config.ts: webDir 'dist', no server.url), so a web deploy alone
   reaches app users NEVER — see docs/evidence/d1/observations/OBS-capacitor-bundled-assets.md
+
+Build 1.2.46 - 2026-11-12 - APP FIRST LINKS + PHONE CHECK
+
+  Owner, 12 Nov ("app first": every mail / push / WhatsApp link opens the app;
+  "why cant you check before App uploading"): verified https App Links for
+  www.50mmretina.com, links routed in-app, and the phone-check job.
