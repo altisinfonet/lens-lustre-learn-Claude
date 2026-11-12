@@ -10,7 +10,7 @@
  * audit row); a page that hides a control is never the enforcement.
  */
 export type FeatureKey = "video_posts" | "video_ads" | "copyright_music_check" | "personal_feed" | "media_ladder_feed" | "media_private_photos" | "photo_upload_resume"
-  | "photo_set_v2" | "competition_fullsize_purge";
+  | "photo_set_v2" | "competition_fullsize_purge" | "mention_groups" | "mention_all_blocked";
 export type FeatureMode = "off" | "selected" | "everyone";
 
 export const FEATURE_MODES: ReadonlyArray<{ mode: FeatureMode; label: string }> = [
@@ -53,6 +53,15 @@ export const FEATURE_INFO: Record<FeatureKey, { title: string; blurb: string }> 
     title: "Delete competition full-size files",
     blurb: "When on (All members), a competition entry's full-size photo is deleted 30 days after the final results are published; the entry keeps its credited 2048 copy. Off = nothing is ever deleted. \"Selected members\" does nothing here.",
   },
+  // @all / @followers (20261113_0100): the database decides; this is who may use the tags.
+  mention_groups: {
+    title: "@all and @followers",
+    blurb: "Who can use the tags. @followers tells the writer's followers (any member, 3 times a day). @all tells every member (blue tick members only, once a day; in a comment only on their own post). Counts only when a post or comment is first posted, never on an edit. Members can switch these off in their notification settings.",
+  },
+  mention_all_blocked: {
+    title: "Take @all away from a member",
+    blurb: "Choose \"Selected members\" and add a member: that member keeps the blue tick but can no longer use @all. Off = nobody is blocked. Do not choose \"All members\" — that blocks @all for everyone.",
+  },
 };
 
 export const NOTE_MAX = 500;
@@ -76,7 +85,7 @@ export interface FeatureState {
 }
 
 const FEATURES = new Set<string>(["video_posts", "video_ads", "copyright_music_check", "personal_feed", "media_ladder_feed", "media_private_photos", "photo_upload_resume",
-  "photo_set_v2", "competition_fullsize_purge"]);
+  "photo_set_v2", "competition_fullsize_purge", "mention_groups", "mention_all_blocked"]);
 const MODES = new Set<string>(["off", "selected", "everyone"]);
 
 /** feature_admin_state() → cards. Unknown features / modes are dropped, never guessed. */
