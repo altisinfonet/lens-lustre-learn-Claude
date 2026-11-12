@@ -11,7 +11,7 @@ import {
   PLAY_STORE_URL,
   androidAppIntentUrl,
   appLinkTarget,
-  shouldOfferAppOnThisDevice,
+  appOfferForThisDevice,
 } from "@/lib/native/appLinks";
 
 const root = resolve(__dirname, "../../../..");
@@ -91,11 +91,16 @@ describe("Login via App (web)", () => {
     expect(u).toContain(`package=${APP_PACKAGE};`);
     expect(u).toContain(`S.browser_fallback_url=${encodeURIComponent(PLAY_STORE_URL)};end`);
   });
-  it("offered only in an Android browser, never in the app, iPhone or desktop", () => {
+  it("Android browser → open the app; computer → Play Store; never in the app, iPhone or iPad", () => {
     const android = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/130 Mobile Safari/537.36";
-    expect(shouldOfferAppOnThisDevice(android, false)).toBe(true);
-    expect(shouldOfferAppOnThisDevice(android, true)).toBe(false);
-    expect(shouldOfferAppOnThisDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)", false)).toBe(false);
-    expect(shouldOfferAppOnThisDevice("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130", false)).toBe(false);
+    const windows = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130";
+    const mac = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15";
+    expect(appOfferForThisDevice(android, false, 5)).toBe("android");
+    expect(appOfferForThisDevice(android, true, 5)).toBe(null);
+    expect(appOfferForThisDevice(windows, false, 0)).toBe("desktop");
+    expect(appOfferForThisDevice(windows, true, 0)).toBe(null);
+    expect(appOfferForThisDevice(mac, false, 0)).toBe("desktop");
+    expect(appOfferForThisDevice(mac, false, 5)).toBe(null); // iPad says Macintosh
+    expect(appOfferForThisDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile/15E148", false, 5)).toBe(null);
   });
 });

@@ -5,7 +5,7 @@ import {
 import { BrandHeader } from './BrandHeader.tsx'
 import { Disclaimer } from './Disclaimer.tsx'
 import type { TemplateEntry } from './registry.ts'
-import { siteOrigin } from '../laneConfig.ts'
+import { siteUrl } from '../laneConfig.ts'
 
 const SITE_NAME = '50mm Retina World'
 
@@ -38,7 +38,7 @@ const Email = ({ participantName, newPostsCount = 0, activeCompetitions = 0, fri
           {activeCompetitions > 0 && <Text style={statLine}><strong>{activeCompetitions}</strong> live competitions waiting</Text>}
         </Section>
         <Section style={ctaSection}>
-          <Button href={`${siteOrigin()}/feed`} style={button}>Return to the Frame</Button>
+          <Button href={siteUrl('/feed')} style={button}>Return to the Frame</Button>
         </Section>
         <Hr style={hr} />
         <Text style={footer}>— {SITE_NAME}</Text>

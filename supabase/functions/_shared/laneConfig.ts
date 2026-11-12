@@ -84,10 +84,16 @@ export function canonicalOrigin(): string {
   return canonicalOf(siteOrigin());
 }
 
-/** This lane's origin plus a rooted path: siteUrl("/dashboard"). */
+/**
+ * A link in an e-mail: this lane's ONE address plus a rooted path,
+ * siteUrl("/dashboard") → https://www.x.com/dashboard. Always the www
+ * (canonical) host: the apex 301s, and Android opens the installed app only
+ * for the host it verified (www) — an apex link would open the browser
+ * (Owner 2026-11-12: every mail link opens the app, the website without it).
+ */
 export function siteUrl(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
-  return `${siteOrigin()}${p}`;
+  return `${canonicalOf(siteOrigin())}${p}`;
 }
 
 /**
