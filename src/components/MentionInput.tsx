@@ -1,6 +1,7 @@
 import { useCallback, useEffect, forwardRef, useRef, useState } from "react";
 import GroupMentionRow from "@/components/GroupMentionRow";
 import { groupMentionOptions } from "@/lib/groupMentions";
+import { refreshGroupMentions } from "@/lib/groupMentionsLoad";
 import { Send } from "lucide-react";
 import { MentionsInput, Mention, SuggestionDataItem } from "react-mentions";
 import { profilesPublic } from "@/lib/profilesPublic";
@@ -103,7 +104,9 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
 
   const fetchUsers = useCallback(
     async (query: string, callback: (data: UserSuggestion[]) => void) => {
-      // @followers / @all on top (src/lib/groupMentions.ts; off = none).
+      // @followers / @all on top — only what the server offers this member today
+      // (mention_groups_me via groupMentionsLoad.ts; off = none).
+      await refreshGroupMentions();
       const groups: UserSuggestion[] = groupMentionOptions(query);
       if (!query) {
         callback(groups);

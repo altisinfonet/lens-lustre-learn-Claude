@@ -16,6 +16,7 @@ const prefs = {
   email_weekly_digest: true, email_reengagement: true,
   push_enabled: true, push_reactions: true, push_comments: true, push_friend_requests: true,
   push_new_followers: true, push_competition_updates: true, push_new_posts: true, push_announcements: true,
+  inapp_mentions_everyone: true, push_mentions_everyone: true,
 };
 
 describe("NotificationSettingsTable", () => {
@@ -66,7 +67,7 @@ describe("NotificationSettingsTable", () => {
   it("the phone master switch greys out EVERY phone switch, not just one", () => {
     render(<NotificationSettingsTable preferences={{ ...prefs, push_enabled: false }} onChange={vi.fn()} />);
     const phone = screen.getAllByRole("switch").filter((s) => / — Phone$/.test(s.getAttribute("aria-label") || ""));
-    expect(phone.length).toBe(7);   // incl. new photos from people you follow (push_new_posts)
+    expect(phone.length).toBe(8);   // incl. new photos from people you follow (push_new_posts) and mentions to everyone
     for (const s of phone) expect(s).toBeDisabled();
     expect(screen.getByRole("switch", { name: /All phone notifications/ })).not.toBeDisabled();
   });
