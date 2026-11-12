@@ -22,8 +22,8 @@ export interface GroupMention {
 }
 
 export const GROUP_MENTIONS: readonly GroupMention[] = [
-  { id: "followers", display: "@followers", hint: "Tell all your followers", group: true, avatar_url: null },
-  { id: "all", display: "@all", hint: "Tell every member · blue tick only", group: true, avatar_url: null },
+  { id: "followers", display: "@followers", hint: "Tag your followers", group: true, avatar_url: null },
+  { id: "all", display: "@all", hint: "Tag everyone", group: true, avatar_url: null },
 ];
 
 let state = { on: false, canAll: false };
