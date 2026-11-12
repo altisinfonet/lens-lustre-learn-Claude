@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./App.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { isNativeIOSApp } from "@/lib/native/authDeepLink";
+import { isNativeCapacitorApp, isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { BrowserRouter, Routes, Route, Navigate, useParams, Outlet, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/core/useAuth";
 import OfflineDeviceStoreBridge from "@/components/OfflineDeviceStoreBridge";
@@ -127,6 +127,8 @@ const Index = lazyRetry(() => import("./pages/Index"), "Index");
 const VideoUploadBridge = lazyRetry(() => import("./components/video/VideoUploadBridge"), "VideoUploadBridge");
 const PhotoUploadBridge = lazyRetry(() => import("./components/upload/PhotoUploadBridge"), "PhotoUploadBridge");
 const CropTest = lazyRetry(() => import("./pages/CropTest"), "CropTest");
+// App links: in-app only, loaded lazily so the web entry bundle does not grow.
+const AppLinkGate = lazy(() => import("@/components/AppLinkGate"));
 const Login = lazyRetry(() => import("./pages/Login"), "Login");
 const Signup = lazyRetry(() => import("./pages/Signup"), "Signup");
 const ForgotPassword = lazyRetry(() => import("./pages/ForgotPassword"), "ForgotPassword");
@@ -392,6 +394,7 @@ const App = () => {
           <Suspense fallback={null}><VideoUploadBridge /></Suspense>
           <Suspense fallback={null}><PhotoUploadBridge /></Suspense>
           <PushNotificationsGate />
+          {isNativeCapacitorApp() && <Suspense fallback={null}><AppLinkGate /></Suspense>}
           <AdFullscreenProvider>
           <AppErrorBoundary>
           <Suspense fallback={allowSuspenseFallback ? <PageLoader /> : null}>
