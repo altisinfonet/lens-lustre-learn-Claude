@@ -24,6 +24,10 @@ DECLARE
   _a      uuid;      -- a plain member with a public post
   _p      uuid;      -- that post
   _others uuid[];    -- other posts
+  _x      uuid;      -- another member's public post
+  _mode   text;
+  _open   bigint;
+  _all    bigint;
   _got    text;
   _job    uuid;
   _st     text;
@@ -101,7 +105,10 @@ BEGIN
       current_setting('p32.lane');
     RETURN;
   END IF;
-  DELETE FROM public.mention_group_jobs WHERE actor_id = _a;            -- a clean day for the test member
+  -- the real state, read BEFORE the test changes anything (all of it is rolled back)
+  SELECT fa.mode INTO _mode FROM public.feature_access fa WHERE fa.feature = 'mention_groups';
+  SELECT count(*) FILTER (WHERE status IN ('queued', 'sending')), count(*) INTO _open, _all FROM public.mention_group_jobs;
+  DELETE FROM public.mention_group_jobs;                                -- a clean table for the test (rolled back)
   DELETE FROM public.feature_access_members WHERE feature = 'mention_all_blocked' AND user_id = _a;
 
   UPDATE public.feature_access SET mode = 'off' WHERE feature = 'mention_groups';
@@ -133,9 +140,9 @@ BEGIN
     RAISE EXCEPTION 'PROBE FAIL R5: a 2nd @all today gave %', _got;
   END IF;
 
-  SELECT po.id INTO _others[1] FROM public.posts po WHERE po.user_id <> _a AND po.privacy = 'public' LIMIT 1;
-  IF _others[1] IS NOT NULL THEN
-    _got := public.mention_group_refusal('all', _others[1], gen_random_uuid(), _a);
+  SELECT po.id INTO _x FROM public.posts po WHERE po.user_id <> _a AND po.privacy = 'public' LIMIT 1;
+  IF _x IS NOT NULL THEN
+    _got := public.mention_group_refusal('all', _x, gen_random_uuid(), _a);
     IF _got IS DISTINCT FROM 'not_own_post' THEN RAISE EXCEPTION 'PROBE FAIL R6: @all in a comment on another member''s post gave %', _got; END IF;
   END IF;
 
@@ -152,10 +159,7 @@ BEGIN
   END IF;
 
   RAISE NOTICE 'MG0100 PASS (lane %): R1–R9 hold; switch is % ; open jobs % ; jobs so far %',
-    current_setting('p32.lane'),
-    (SELECT mode FROM public.feature_access WHERE feature = 'mention_groups'),
-    (SELECT count(*) FROM public.mention_group_jobs WHERE status IN ('queued', 'sending') AND actor_id <> _a),
-    (SELECT count(*) FROM public.mention_group_jobs WHERE actor_id <> _a);
+    current_setting('p32.lane'), _mode, _open, _all;
 END
 $p$;
 
