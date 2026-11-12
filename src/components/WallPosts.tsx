@@ -59,6 +59,7 @@ import { reportClientError, memberFacingMessage, memberFacingFailure, describeTh
 import { useCaptionMentions } from "@/hooks/feed/useCaptionMentions";
 import { useCaptionHashtags } from "@/hooks/feed/useCaptionHashtags";
 import HashtagSuggestions from "@/components/post/HashtagSuggestions";
+import GroupMentionRow from "@/components/GroupMentionRow";
 import { PostAudienceChooser, type Privacy as AudiencePrivacy } from "@/components/post/PostAudienceChooser";
 import { logger, newCorrelationId } from "@/lib/logger";
 import {
@@ -660,14 +661,20 @@ const WallPosts = ({ targetUserId, isOwnWall, composerOnly }: WallPostsProps) =>
           onMouseEnter={() => captionMentions.setFocusIdx(i)}
           className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm ${i === captionMentions.focusIdx ? "bg-accent" : ""}`}
         >
-          {s.avatar_url ? (
-            <img src={s.avatar_url} alt="" loading="lazy" className="h-7 w-7 rounded-full object-cover" />
+          {s.group ? (
+            <GroupMentionRow display={s.display} hint={s.hint} id={s.id} />
           ) : (
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
-              {(s.display || "?")[0]?.toUpperCase()}
-            </div>
+            <>
+              {s.avatar_url ? (
+                <img src={s.avatar_url} alt="" loading="lazy" className="h-7 w-7 rounded-full object-cover" />
+              ) : (
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                  {(s.display || "?")[0]?.toUpperCase()}
+                </div>
+              )}
+              <span className="font-medium">{s.display}</span>
+            </>
           )}
-          <span className="font-medium">{s.display}</span>
         </button>
       ))}
     </div>
