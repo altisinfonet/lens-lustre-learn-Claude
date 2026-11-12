@@ -102,5 +102,6 @@ AS $fn$
            ELSE NULL
          END;
 $fn$;
+GRANT EXECUTE ON FUNCTION public.notif_action_phrase(text) TO anon, authenticated, service_role;   -- wording only, as before
 
 COMMIT;

@@ -191,6 +191,7 @@ AS $fn$
            ELSE NULL
          END;
 $fn$;
+GRANT EXECUTE ON FUNCTION public.notif_action_phrase(text) TO anon, authenticated, service_role;   -- wording only, as before
 
 -- ── 6. the jobs ────────────────────────────────────────────────────────────
 CREATE TABLE public.mention_group_jobs (
@@ -209,10 +210,14 @@ CREATE TABLE public.mention_group_jobs (
   finished_at   timestamptz
 );
 -- once per post / per comment, per tag — for ever (rule 5 of the plan)
+-- P28: mention_group_jobs (0 rows at launch) · UNIQUE is the rule itself: one job per post per tag; reviewed by D1 2026-11-13.
 CREATE UNIQUE INDEX mention_group_jobs_post_once    ON public.mention_group_jobs (post_id, kind)    WHERE comment_id IS NULL;
+-- P28: mention_group_jobs · UNIQUE is the rule itself: one job per comment per tag; reviewed by D1 2026-11-13.
 CREATE UNIQUE INDEX mention_group_jobs_comment_once ON public.mention_group_jobs (comment_id, kind) WHERE comment_id IS NOT NULL;
 -- the daily count per writer, and the worker's "what is open" read
+-- P28: mention_group_jobs · the daily-limit count (actor, tag, today) runs on every tagged save; reviewed by D1 2026-11-13.
 CREATE INDEX mention_group_jobs_actor_day ON public.mention_group_jobs (actor_id, kind, created_at);
+-- P28: mention_group_jobs · the every-minute sender reads only open jobs (partial, stays tiny); reviewed by D1 2026-11-13.
 CREATE INDEX mention_group_jobs_open      ON public.mention_group_jobs (created_at) WHERE status IN ('queued', 'sending');
 ALTER TABLE public.mention_group_jobs ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.mention_group_jobs FROM PUBLIC, anon, authenticated;
