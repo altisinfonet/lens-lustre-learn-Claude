@@ -29,6 +29,7 @@ import {
 } from "@/lib/captionMentions";
 import { logger } from "@/lib/logger";
 import { groupMentionOptions } from "@/lib/groupMentions";
+import { refreshGroupMentions } from "@/lib/groupMentionsLoad";
 
 export interface MentionSuggestion {
   id: string;
@@ -65,16 +66,27 @@ export function useCaptionMentions({ textareaRef, value, setValue, maxAutoGrowPx
   // until you start typing a name).
   useEffect(() => {
     const q = active?.query?.trim() ?? "";
-    const groups = groupMentionOptions(q);
-    if (!q) {
-      // Just "@": the group tags (when on) are the whole list.
-      setSuggestions(active ? groups : []);
+    let cancelled = false;
+    if (!active) {
+      setSuggestions([]);
       setFocusIdx(0);
       return;
     }
-    let cancelled = false;
+    if (!q) {
+      // Just "@": the group tags (when the server offers them) are the whole list.
+      setSuggestions(groupMentionOptions(""));
+      setFocusIdx(0);
+      void refreshGroupMentions().then(() => {
+        if (!cancelled) setSuggestions(groupMentionOptions(""));
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
     const t = setTimeout(async () => {
       const startedAt = Date.now();
+      await refreshGroupMentions();
+      const groups = groupMentionOptions(q);
       const { data, error } = await profilesPublic()
         .select("id, full_name, avatar_url, custom_url")
         .ilike("full_name", `%${q}%`)

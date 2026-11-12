@@ -13,7 +13,7 @@
  *                      off really stops new rows of that kind reaching the bell.
  */
 export type NotificationBadge = "like" | "comment" | "follow" | "competition" | "mention";
-export type BellSetting = "inapp_reactions" | "inapp_comments" | "inapp_social" | "inapp_competitions";
+export type BellSetting = "inapp_reactions" | "inapp_comments" | "inapp_social" | "inapp_competitions" | "inapp_mentions_everyone";
 
 const BADGE: Record<string, NotificationBadge> = {
   post_reaction: "like",
@@ -26,6 +26,8 @@ const BADGE: Record<string, NotificationBadge> = {
   ad_comment_reply: "comment",
   story_comment: "comment",
   post_tag: "mention",
+  mention_all: "mention",
+  mention_followers: "mention",
   new_follower: "follow",
   friend_request: "follow",
   friend_accepted: "follow",
@@ -58,6 +60,8 @@ const BELL_SETTING: Record<string, BellSetting> = {
   ad_comment_reply: "inapp_comments",
   story_comment: "inapp_comments",
   post_tag: "inapp_social",
+  mention_all: "inapp_mentions_everyone",
+  mention_followers: "inapp_mentions_everyone",
   new_post_from_following: "inapp_social",
   new_follower: "inapp_social",
   friend_request: "inapp_social",
@@ -86,4 +90,5 @@ export const BELL_SETTING_COVERS: Record<BellSetting, { key: string; fallback: s
   inapp_comments: { key: "notifications.turn_off.comments", fallback: "Comments and replies" },
   inapp_social: { key: "notifications.turn_off.social", fallback: "Follows, friends, tags and new posts" },
   inapp_competitions: { key: "notifications.turn_off.competitions", fallback: "Competition votes and new competitions" },
+  inapp_mentions_everyone: { key: "notifications.turn_off.mentions_everyone", fallback: "Mentions to everyone (@all, @followers)" },
 };
