@@ -21,11 +21,15 @@
 // IMPORTANT: no @capacitor/* import (same rule as authDeepLink.ts) — the native
 // bridge is reached through window.Capacitor only, so the web build stays clean.
 
+import { SITE_APEX_HOST, SITE_HOST } from "@/lib/env";
+
 export const APP_PACKAGE = "com.fiftymmretina.app";
 export const PLAY_STORE_URL = `https://play.google.com/store/apps/details?id=${APP_PACKAGE}`;
 
-/** Hosts whose links the app opens. www is the one Android verifies. */
-export const APP_LINK_HOSTS: readonly string[] = ["www.50mmretina.com", "50mmretina.com"];
+/** Hosts whose links the app opens: this lane's site host (the one Android
+ *  verifies) and its apex. From env.ts — no host literal in src/, so a staging
+ *  bundle never carries the production domain (isolation guard R8). */
+export const APP_LINK_HOSTS: readonly string[] = [SITE_HOST, SITE_APEX_HOST].filter(Boolean);
 
 /**
  * Paths that are files for robots/browsers, not app screens. If one of these
@@ -82,7 +86,7 @@ export function appLinkTarget(url: string): AppLinkTarget | null {
 export function androidAppIntentUrl(path = "/login"): string {
   const clean = path.startsWith("/") ? path : `/${path}`;
   return (
-    `intent://www.50mmretina.com${clean}#Intent;scheme=https;package=${APP_PACKAGE};` +
+    `intent://${SITE_HOST}${clean}#Intent;scheme=https;package=${APP_PACKAGE};` +
     `S.browser_fallback_url=${encodeURIComponent(PLAY_STORE_URL)};end`
   );
 }
