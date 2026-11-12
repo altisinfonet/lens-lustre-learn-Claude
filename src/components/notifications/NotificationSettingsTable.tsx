@@ -35,6 +35,7 @@ const ROWS: Row[] = [
   { key: "followers", label: "New followers", bell: "inapp_social", phone: "push_new_followers", email: "email_new_followers" },
   { key: "friends", label: "Friend requests", bell: { same: "followers" }, phone: "push_friend_requests", email: "email_friend_requests" },
   { key: "new_posts", label: "New photos from people you follow", bell: { same: "followers" }, phone: "push_new_posts", email: "none" },
+  { key: "mentions_everyone", label: "Mentions to everyone (@all, @followers)", bell: "inapp_mentions_everyone", phone: "push_mentions_everyone", email: "none" },
   { key: "competitions", label: "Competitions", bell: "inapp_competitions", phone: "push_competition_updates", email: "email_competition_updates" },
   { key: "announcements", label: "Announcements (Journal, courses)", bell: "always", phone: "push_announcements", email: "email_course_updates" },
   { key: "gifts", label: "Gift credits", bell: "always", phone: "always", email: "email_gift_credits" },

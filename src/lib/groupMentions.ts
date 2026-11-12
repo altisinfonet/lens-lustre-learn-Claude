@@ -26,18 +26,20 @@ export const GROUP_MENTIONS: readonly GroupMention[] = [
   { id: "all", display: "@all", hint: "Tag everyone", group: true, avatar_url: null },
 ];
 
-let state = { on: false, canAll: false };
+let state = { on: false, canAll: false, allLeft: 0, followersLeft: 0 };
 
-/** Switched by the feature flag (and the sample harness). Off = no group tags offered. */
-export function setGroupMentions(next: { on: boolean; canAll: boolean }): void {
+/** Set from mention_groups_me() (groupMentionsLoad.ts). Off = no group tags offered. */
+export function setGroupMentions(next: { on: boolean; canAll: boolean; allLeft: number; followersLeft: number }): void {
   state = { ...next };
 }
 
-/** Group tags matching what was typed after "@" ("" = just "@"). @all only for a verified member. */
+/** Group tags matching what was typed after "@" ("" = just "@"). @all only for a verified member;
+ *  a tag with none left today is not offered (the server would refuse it). */
 export function groupMentionOptions(query: string): GroupMention[] {
   if (!state.on) return [];
   const q = query.trim().toLowerCase().replace(/^@/, "");
-  return GROUP_MENTIONS.filter((g) => (g.id !== "all" || state.canAll) && g.id.startsWith(q));
+  return GROUP_MENTIONS.filter((g) =>
+    g.id.startsWith(q) && (g.id === "all" ? state.canAll && state.allLeft > 0 : state.followersLeft > 0));
 }
 
 export const isGroupMention = (s: { group?: boolean } | null | undefined): s is GroupMention => s?.group === true;

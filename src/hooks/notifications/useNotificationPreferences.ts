@@ -47,6 +47,9 @@ export interface NotificationPreferences {
    * was missing.
    */
   push_announcements: boolean;
+  /** @all / @followers (20261113_0100): bell and phone, default on. */
+  inapp_mentions_everyone: boolean;
+  push_mentions_everyone: boolean;
 }
 
 const DEFAULTS: NotificationPreferences = {
@@ -74,6 +77,8 @@ const DEFAULTS: NotificationPreferences = {
   push_competition_updates: true,
   push_new_posts: true,
   push_announcements: true,
+  inapp_mentions_everyone: true,
+  push_mentions_everyone: true,
 };
 
 export function useNotificationPreferences() {
@@ -118,6 +123,8 @@ export function useNotificationPreferences() {
         push_competition_updates: (data as any).push_competition_updates ?? true,
         push_new_posts: (data as any).push_new_posts ?? true,
         push_announcements: (data as any).push_announcements ?? true,
+        inapp_mentions_everyone: (data as any).inapp_mentions_everyone ?? true,
+        push_mentions_everyone: (data as any).push_mentions_everyone ?? true,
       };
     },
     enabled: !!user,
