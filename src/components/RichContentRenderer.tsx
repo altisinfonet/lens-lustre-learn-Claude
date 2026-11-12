@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { memberPath } from "@/lib/urlHelpers";
 import { useMemberHandles } from "@/hooks/profile/useMemberHandles";
 import { sanitizeUserContent } from "@/lib/htmlSanitizer";
+import { isGroupMentionId } from "@/lib/groupMentions";
 import { HASHTAG_TOKEN_SOURCE, MAX_TAGS_PER_POST, hashtagPath, sameTagKey } from "@/lib/hashtags/hashtagRule";
 
 /**
@@ -35,7 +36,7 @@ const RichContentRenderer = ({ content, className = "" }: Props) => {
     const scan = new RegExp(TOKEN_REGEX.source, "gu");
     let m: RegExpExecArray | null;
     while ((m = scan.exec(content)) !== null) {
-      if (m[1] && m[2]) mentionIds.push(m[2]);
+      if (m[1] && m[2] && !isGroupMentionId(m[2])) mentionIds.push(m[2]);
     }
   }
   const mentionHandles = useMemberHandles(mentionIds);
@@ -70,7 +71,9 @@ const RichContentRenderer = ({ content, className = "" }: Props) => {
        * reads as "@Name" and still says who was mentioned; what it does not do
        * is offer an id address.
        */
-      const mentionHref = memberPath(mentionHandles.get(match[2]));
+      // @all / @followers: a tag, not a member — shown as "@all", never a link.
+      const group = isGroupMentionId(match[2]);
+      const mentionHref = group ? null : memberPath(mentionHandles.get(match[2]));
       parts.push(
         mentionHref ? (
           <Link
@@ -82,7 +85,7 @@ const RichContentRenderer = ({ content, className = "" }: Props) => {
           </Link>
         ) : (
           <span key={`m-${match.index}`} className="text-primary font-semibold">
-            {match[1]}
+            {group ? `@${match[1].replace(/^@/, "")}` : match[1]}
           </span>
         )
       );

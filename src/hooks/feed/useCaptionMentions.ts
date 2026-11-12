@@ -28,11 +28,15 @@ import {
   type PickedMention,
 } from "@/lib/captionMentions";
 import { logger } from "@/lib/logger";
+import { groupMentionOptions } from "@/lib/groupMentions";
 
 export interface MentionSuggestion {
   id: string;
   display: string;
   avatar_url: string | null;
+  /** @followers / @all (src/lib/groupMentions.ts). */
+  group?: boolean;
+  hint?: string;
 }
 
 interface Options {
@@ -61,8 +65,10 @@ export function useCaptionMentions({ textareaRef, value, setValue, maxAutoGrowPx
   // until you start typing a name).
   useEffect(() => {
     const q = active?.query?.trim() ?? "";
+    const groups = groupMentionOptions(q);
     if (!q) {
-      setSuggestions([]);
+      // Just "@": the group tags (when on) are the whole list.
+      setSuggestions(active ? groups : []);
       setFocusIdx(0);
       return;
     }
@@ -97,13 +103,14 @@ export function useCaptionMentions({ textareaRef, value, setValue, maxAutoGrowPx
         return;
       }
 
-      setSuggestions(
-        ((data as any[]) || []).map((u) => ({
+      setSuggestions([
+        ...groups,
+        ...((data as any[]) || []).map((u) => ({
           id: u.id,
           display: u.full_name || "Photographer",
           avatar_url: u.avatar_url,
         })),
-      );
+      ]);
       setFocusIdx(0);
     }, 200);
     return () => {
@@ -122,10 +129,12 @@ export function useCaptionMentions({ textareaRef, value, setValue, maxAutoGrowPx
       const caret = el.selectionStart ?? value.length;
       const before = value.slice(0, active.start);
       const after = value.slice(caret);
-      const inserted = `@${s.display} `;
+      // A group tag is stored by its bare name ("all"), shown as "@all".
+      const name = s.group ? s.display.replace(/^@/, "") : s.display;
+      const inserted = `@${name} `;
       const next = before + inserted + after;
       setValue(next);
-      pickedRef.current = [...pickedRef.current, { display: s.display, id: s.id }];
+      pickedRef.current = [...pickedRef.current, { display: name, id: s.id }];
       logger.debug({
         code: "UI-8001",
         event: "CAPTION_MENTION_PICKED",
