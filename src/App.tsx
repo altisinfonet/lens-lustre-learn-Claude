@@ -26,6 +26,7 @@ import AdFullscreenProvider from "@/components/ads/AdFullscreenProvider";
 import { I18nProvider } from "@/i18n/I18nContext";
 import LanguageAccountSync from "@/components/LanguageAccountSync";
 import PushNotificationsGate from "@/components/PushNotificationsGate";
+import AppLinkGate from "@/components/AppLinkGate";
 import AppUpdatePrompt from "@/components/AppUpdatePrompt";
 import AppErrorBoundary from "@/components/AppErrorBoundary";
 
@@ -392,6 +393,7 @@ const App = () => {
           <Suspense fallback={null}><VideoUploadBridge /></Suspense>
           <Suspense fallback={null}><PhotoUploadBridge /></Suspense>
           <PushNotificationsGate />
+          <AppLinkGate />
           <AdFullscreenProvider>
           <AppErrorBoundary>
           <Suspense fallback={allowSuspenseFallback ? <PageLoader /> : null}>

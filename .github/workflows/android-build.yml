@@ -1027,6 +1027,32 @@ jobs:
           print('Intent filter injected.')
           EOF
 
+      - name: Add verified App Links intent filter (https://www.50mmretina.com)
+        # App first (Owner 2026-11-12): every www.50mmretina.com link opens the
+        # app when installed. Android verifies the claim against
+        # public/.well-known/assetlinks.json (Play app-signing + upload key).
+        # Only www: the apex 301-redirects and verification never follows
+        # redirects. In-app routing: src/lib/native/appLinks.ts + AppLinkGate.
+        run: |
+          python3 - <<'EOF'
+          path = 'android/app/src/main/AndroidManifest.xml'
+          s = open(path).read()
+          f = '''
+                      <intent-filter android:autoVerify="true">
+                          <action android:name="android.intent.action.VIEW" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                          <category android:name="android.intent.category.BROWSABLE" />
+                          <data android:scheme="https" />
+                          <data android:host="www.50mmretina.com" />
+                      </intent-filter>
+          '''
+          assert '</activity>' in s, 'activity tag not found'
+          assert 'www.50mmretina.com' not in s, 'app link filter already present'
+          s = s.replace('</activity>', f + '\n        </activity>', 1)
+          open(path, 'w').write(s)
+          print('App Links intent filter injected.')
+          EOF
+
       - name: Generate icons and splash screens
         run: |
           npm install --no-audit --no-fund -D @capacitor/assets@3.0.5
