@@ -231,9 +231,6 @@ export const ACTION_CATALOG: Readonly<Record<string, ActionEntry>> = {
   friend_request: { one: "sent you a friend request." },
   friend_accepted: { one: "accepted your friend request." },
   post_tag: { one: "tagged you in a photo." },
-  // @all / @followers (Owner 2026-11-12).
-  mention_all: { one: "mentioned everyone in a post." },
-  mention_followers: { one: "mentioned their followers." },
   // Owner, 2026-08-11: "All tagged person will get all notification untill
   // bering removed the tag." These two are the fan-out to people tagged in
   // someone else's photo. They are deliberately NOT worded "your photo" — it
