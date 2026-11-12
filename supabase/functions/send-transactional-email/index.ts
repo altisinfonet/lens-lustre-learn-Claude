@@ -2,6 +2,7 @@ import * as React from 'npm:react@18.3.1'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
+import { mailDataOnCanonical } from '../_shared/laneConfig.ts'
 
 // Configuration baked in at scaffold time
 const SITE_NAME = "50mm Retina World"
@@ -307,6 +308,8 @@ Deno.serve(async (req) => {
   }
 
   // 4. Render React Email template to HTML and plain text
+  // Links on the www host so the installed app opens them (Owner 2026-11-12).
+  templateData = mailDataOnCanonical(templateData)
   const html = await renderAsync(
     React.createElement(template.component, templateData)
   )

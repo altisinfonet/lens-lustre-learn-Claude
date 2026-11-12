@@ -2,6 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import * as React from 'npm:react@18.3.1'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
+import { mailDataOnCanonical } from '../_shared/laneConfig.ts'
 
 const MAX_RETRIES = 5
 const DEFAULT_BATCH_SIZE = 10
@@ -292,9 +293,9 @@ Deno.serve(async (req) => {
           if (!entry) {
             throw new Error(`Unknown template: ${payload.template_name}`)
           }
-          const data = (payload.template_data && typeof payload.template_data === 'object')
+          const data = mailDataOnCanonical((payload.template_data && typeof payload.template_data === 'object')
             ? payload.template_data as Record<string, any>
-            : {}
+            : {})
           renderedHtml = await renderAsync(React.createElement(entry.component, data))
           renderedText = await renderAsync(React.createElement(entry.component, data), { plainText: true })
           if (!renderedSubject || renderedSubject.length === 0) {
