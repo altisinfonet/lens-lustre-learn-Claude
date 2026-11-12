@@ -16,7 +16,8 @@
 // still accepted here in case another app hands one over.
 //
 // Web side: androidAppIntentUrl() builds the "Login via App" link for Android
-// phone browsers — opens the app when installed, the Play Store when not.
+// phone browsers — opens the app when installed, the Play Store when not;
+// computers get "Get the App" (Play Store page). See appOfferForThisDevice().
 //
 // IMPORTANT: no @capacitor/* import (same rule as authDeepLink.ts) — the native
 // bridge is reached through window.Capacitor only, so the web build stays clean.
@@ -81,7 +82,7 @@ export function appLinkTarget(url: string): AppLinkTarget | null {
  * The "Login via App" link for an Android phone browser. Chrome opens the app
  * at `path` when it is installed (and verified for www), otherwise the Play
  * Store. Other browsers that do not understand intent: links are not shown it
- * — see shouldOfferAppOnThisDevice().
+ * — see appOfferForThisDevice().
  */
 export function androidAppIntentUrl(path = "/login"): string {
   const clean = path.startsWith("/") ? path : `/${path}`;
@@ -92,13 +93,21 @@ export function androidAppIntentUrl(path = "/login"): string {
 }
 
 /**
- * True on an Android phone/tablet BROWSER (never inside the app itself, never
- * iPhone or desktop — there is no iPhone app yet).
+ * Which app button the web Login / Join page shows on this device
+ * (Owner 2026-11-12: "Get the App — no QR code, open the Play Store"):
+ *   "android" — Android phone browser: "Login via App" opens the app (intent link).
+ *   "desktop" — computer browser: "Get the App" opens the Play Store page.
+ *   null      — inside the app, iPhone / iPad (no iPhone app yet), other phones.
  */
-export function shouldOfferAppOnThisDevice(
+export function appOfferForThisDevice(
   ua: string = typeof navigator !== "undefined" ? navigator.userAgent : "",
   isNativeApp = false,
-): boolean {
-  if (isNativeApp) return false;
-  return /Android/i.test(ua);
+  touchPoints: number = typeof navigator !== "undefined" ? navigator.maxTouchPoints ?? 0 : 0,
+): "android" | "desktop" | null {
+  if (isNativeApp) return null;
+  if (/Android/i.test(ua)) return "android";
+  if (/iPhone|iPad|iPod|Mobile/i.test(ua)) return null;
+  // iPadOS Safari says "Macintosh" — a Mac with a touch screen is an iPad.
+  if (/Macintosh/i.test(ua) && touchPoints > 1) return null;
+  return "desktop";
 }

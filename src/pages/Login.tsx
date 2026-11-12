@@ -336,7 +336,7 @@ const Login = () => {
               an equivalent privacy-preserving login (Sign in with Apple) next to any
               third-party login, and the owner has chosen not to offer one - so the
               iOS build offers email sign-in only. Web and Android are unchanged. */}
-          <LoginViaAppButton path="/login" label="Login via App" />
+          <LoginViaAppButton path="/login" />
 
           {!isNativeIOSApp() && (
             <>
