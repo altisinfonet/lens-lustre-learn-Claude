@@ -5,7 +5,7 @@ import {
 import { BrandHeader } from './BrandHeader.tsx'
 import { Disclaimer } from './Disclaimer.tsx'
 import type { TemplateEntry } from './registry.ts'
-import { siteOrigin } from '../laneConfig.ts'
+import { siteUrl } from '../laneConfig.ts'
 
 const SITE_NAME = '50mm Retina World'
 
@@ -36,10 +36,10 @@ const Email = ({ participantName }: Props) => (
           Whenever you're ready, you can pick up exactly where you left off — no setup, no starting over.
         </Text>
         <Section style={ctaSection}>
-          <Button href={`${siteOrigin()}/feed`} style={button}>Pick Up Where You Left Off</Button>
+          <Button href={siteUrl('/feed')} style={button}>Pick Up Where You Left Off</Button>
         </Section>
         <Text style={ps}>
-          Want to change how often we email you? <a href={`${siteOrigin()}/notifications`} style={link}>Manage preferences</a>.
+          Want to change how often we email you? <a href={siteUrl('/notifications')} style={link}>Manage preferences</a>.
         </Text>
         <Hr style={hr} />
         <Text style={footer}>— The {SITE_NAME} Team</Text>

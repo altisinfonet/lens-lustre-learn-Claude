@@ -300,7 +300,7 @@ const Signup = () => {
           {/* OAuth — only on step 1 */}
           {step === 1 && (
             <>
-              <LoginViaAppButton path="/signup" label="Join via App" />
+              <LoginViaAppButton path="/signup" />
 
               {!isNativeIOSApp() && (
                 <GoogleSignInButton
