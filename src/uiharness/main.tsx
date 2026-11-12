@@ -65,6 +65,10 @@ const name = params.get("scene") ?? "";
  * precisely because none of them touches app code.
  */
 installFakeBackend({ routes: fixtureRoutes, signedIn: !isSignedOutScene(name), consented: !isConsentPendingScene(name) });
+// @all / @followers sample (Owner plan 2026-11-12): offer the group tags in both @ lists.
+if (params.get("mentionall") === "1") {
+  void import("@/lib/groupMentions").then((m) => m.setGroupMentions({ on: true, canAll: params.get("verified") !== "0" }));
+}
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────

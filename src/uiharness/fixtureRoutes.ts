@@ -305,7 +305,12 @@ const RPCS: Record<string, (body: Record<string, unknown>, params: URLSearchPara
     return typeof f === "string" && on.includes(f);
   },
 
+  // @all / @followers sample bell rows (?mentionall=1, Owner plan 2026-11-12).
   get_my_notifications_grouped: () => [
+    ...(typeof location !== "undefined" && location.search.includes("mentionall=1") ? [
+      { group_key: "g-mention-all", type: "mention_all", notification_ids: ["nm1"], actor_ids: [profiles[1].id], actor_names: [profiles[1].full_name], actor_usernames: [profiles[1].custom_url], actor_avatars: [profiles[1].avatar_url ?? ""], actor_count: 1, event_count: 1, unread_count: 1, reference_id: "p1", thumbnail_url: null, title: "", message: "mentioned everyone in a post.", latest_at: "2026-09-05T09:30:00.000Z", actor_known: [true] },
+      { group_key: "g-mention-followers", type: "mention_followers", notification_ids: ["nm2"], actor_ids: [profiles[2].id], actor_names: [profiles[2].full_name], actor_usernames: [profiles[2].custom_url], actor_avatars: [profiles[2].avatar_url ?? ""], actor_count: 1, event_count: 1, unread_count: 1, reference_id: "p1", thumbnail_url: null, title: "", message: "mentioned their followers.", latest_at: "2026-09-05T09:20:00.000Z", actor_known: [true] },
+    ] : []),
     {
       group_key: "g-following",
       type: "new_post_from_following",
