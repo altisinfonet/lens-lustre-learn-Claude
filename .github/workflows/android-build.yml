@@ -964,6 +964,9 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
+          # 2026-11-13 (evening): bumped 1.2.48 -> 1.2.49. 1.2.48 (run 152, vc1152, d77cb59f) is spent (handed to the Owner).
+          # 1.2.49 carries the ONE Trending card in the app feed below the 4th post (#1033, Owner 13 Nov "Approved. GO",
+          # real renders trending-everywhere/). The app's feed videos keep starting with sound (Owner: "don't change it").
           # 2026-11-13 (later): bumped 1.2.47 -> 1.2.48. 1.2.47 (run 151, vc1151, 6f0785a3) is spent (handed to the Owner).
           # 1.2.48 carries the story fixes (#1020: paper plane = Share, story video plays with sound + 🔊, video tile frame),
           # A (#1027: a member's name always shows, never "Photographer"; database: no blank names) and B (#1026: Trending
@@ -974,8 +977,8 @@ jobs:
           # 2026-11-12: bumped 1.2.45 -> 1.2.46. 1.2.45 (run 149, vc1149) is LIVE on Play. 1.2.46 carries app-first links
           # (Owner 12 Nov: every 50mmretina.com link opens the app; verified https filter for www + assetlinks.json) and
           # the new phone-check job (virtual phone proves the link opens the app before the Owner uploads). No switch changed.
-          sed -i 's/versionName "1.0"/versionName "1.2.48"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.48 (1.2.47 run 151 vc1151 is spent - handed to the Owner)"
+          sed -i 's/versionName "1.0"/versionName "1.2.49"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.49 (1.2.48 run 152 vc1152 is spent - handed to the Owner)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
           # S11: prove both edits landed — exactly one versionCode, the derived
