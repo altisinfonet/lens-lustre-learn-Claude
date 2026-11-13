@@ -22,6 +22,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/core/use-toast";
 import AdZone from "@/components/ads/AdZone";
 import FeedFriendSuggestions from "@/components/feed/FeedFriendSuggestions";
+import { TrendingWeekCard } from "@/components/feed/TrendingWeekCard";
+import { useTrendingWeek } from "@/hooks/feed/useTrendingWeek";
+import { FEED_INSERTS } from "@/lib/feed/feedInserts";
 import { slotForPostIndex, shouldShowFeedAd } from "@/lib/ads/feedAdPlacement";
 import { useT } from "@/i18n/I18nContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -52,6 +55,8 @@ const bodyFont = { fontFamily: "var(--font-body)" };
 
 const Feed = () => {
   const { user, loading: authLoading } = useAuth();
+  // Trending this week — shared with the left column (one query, one card).
+  const trendingQ = useTrendingWeek(!!user);
   // The member's own profile (kept on the phone): their own new post is named from it even offline.
   const { data: me } = useProfileCore(user?.id);
   const meRef = useRef(me);
@@ -668,7 +673,14 @@ const Feed = () => {
                     and when there is nobody to suggest, so this stays a single
                     honest condition here rather than three.
                   */}
-                  {i === 9 && <FeedFriendSuggestions />}
+                  {i === FEED_INSERTS.people && <FeedFriendSuggestions />}
+
+                  {/* Owner 13 Nov 2026: Trending in the phone / app feed — the SAME card the computer shows in its left column (hidden from 1280 px, where that column is on screen). */}
+                  {i === FEED_INSERTS.trending && (
+                    <div className="xl:hidden">
+                      <TrendingWeekCard variant="feed" data={trendingQ.data ?? null} loading={false} />
+                    </div>
+                  )}
 
                   {(() => {
                     // Picture #N in the Story Card library owns a fixed place:
