@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { displayName } from "@/lib/displayName";
 
 /**
  * ONE REPLY FLOW (Owner, 10 Nov 2026: "when replying it is coming another box
@@ -27,7 +28,7 @@ export function replyPreview(content: string, max = 40): string {
 }
 
 export function toReplyTarget(c: { id: string; user_id: string; author_name: string | null; content: string }): ReplyTarget {
-  return { id: c.id, userId: c.user_id, name: c.author_name || "Photographer", preview: replyPreview(c.content) };
+  return { id: c.id, userId: c.user_id, name: displayName(c.author_name), preview: replyPreview(c.content) };
 }
 
 /** The shared state: who is being answered, if anyone. */

@@ -35,6 +35,7 @@ import type { FeedVideo } from "@/lib/video/postVideoRead";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { photoSetMarker } from "@/lib/imageLadder";
 import { memberPhotoSrc } from "@/lib/photoProtection";
+import { displayName } from "@/lib/displayName";
 
 const FILE = "src/pages/Index.tsx";
 
@@ -480,7 +481,7 @@ const Index = () => {
             const authorEntry = authorProfileMap.get(post.user_id);
             setLatestPost({
               user_id: post.user_id,
-              user_name: authorEntry?.full_name || "Photographer",
+              user_name: displayName(authorEntry?.full_name),
               // F-98 — the handle was ALREADY in this entry and was dropped here.
               user_handle: authorEntry?.custom_url ?? null,
               avatar_url: authorEntry?.avatar_url || null,
@@ -860,7 +861,7 @@ const Index = () => {
                         <div className="min-w-0">
                           <UserIdentityBlock
                             userId={latestPost.user_id}
-                            name={latestPost.user_name || t("home.photographer", "Photographer")}
+                            name={latestPost.user_name}
                             handle={latestPost.user_handle}
                             nameClassName="text-xs font-medium truncate [font-family:var(--font-body)]"
                           />
@@ -1136,7 +1137,7 @@ const Index = () => {
                         <div className="flex-1 min-w-0 relative z-10">
                           <UserIdentityBlock
                             userId={c.id}
-                            name={c.full_name || t("home.photographer", "Photographer")}
+                            name={c.full_name}
                             handle={c.custom_url}
                             nameClassName="text-xs truncate [font-family:var(--font-body)]"
                           />
