@@ -52,12 +52,41 @@ describe("Edit-Window Invariant on competition_entries", () => {
   });
 
   it("policy keeps owner check (user_id = auth.uid())", () => {
-    expect(sql).toMatch(/user_id\s*=\s*auth\.uid\(\)/);
+    // plain or initplan form: user_id = auth.uid()  |  user_id = (SELECT auth.uid())
+    expect(sql).toMatch(/user_id\s*=\s*(?:auth\.uid\(\)|\(\s*SELECT\s+auth\.uid\(\)\s*\))/i);
   });
 
-  it("WITH CHECK preserves immutability fence on judging columns", () => {
-    // Spot-check the critical frozen columns — status, placement,
-    // stage_key, progression_decision, current_round must remain blocked.
+  /**
+   * The column fence. Until 20261113_0802 it was written inside the policy's
+   * WITH CHECK as (SELECT ce2.col FROM competition_entries ce2 …) — a policy
+   * reading its own table, which Postgres refuses (42P17) for EVERY member
+   * update, the owner's title edit included (measured: staging PROBE 0801 run
+   * 43444508933). The fence is now the trigger trg_0_entry_member_write_guard
+   * (20261113_0800): an allow-list, so every other column is frozen.
+   */
+  const code = sql.replace(/--[^\n]*/g, "");
+  const guardSql = (() => {
+    for (const f of migrationsInSequence(MIGRATIONS_DIR).reverse()) {
+      const s = readFileSync(join(MIGRATIONS_DIR, f), "utf8");
+      if (/CREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+public\.tg_entry_member_write_guard\s*\(/i.test(s)) return s;
+    }
+    throw new Error("No migration creates public.tg_entry_member_write_guard()");
+  })();
+  const allowList = (() => {
+    const m = guardSql.match(/n\.key\s+NOT\s+IN\s*\(([^)]*)\)/i);
+    if (!m) throw new Error("tg_entry_member_write_guard has no allow-list");
+    return [...m[1].matchAll(/'([a-z_]+)'/g)].map((x) => x[1]).sort();
+  })();
+
+  it("the policy does not read competition_entries from inside itself (42P17 for every edit)", () => {
+    expect(/FROM\s+public\.competition_entries\s+ce2/i.test(code)).toBe(false);
+  });
+
+  it("the policy is only recreated where the column guard is proven installed", () => {
+    expect(code).toMatch(/trg_0_entry_member_write_guard/);
+  });
+
+  it("the guard freezes every judging column for a member's direct write", () => {
     for (const col of [
       "status",
       "placement",
@@ -66,13 +95,20 @@ describe("Edit-Window Invariant on competition_entries", () => {
       "current_round",
       "user_id",
       "competition_id",
+      "is_pinned",
+      "is_trending",
+      "view_count",
+      "certificate_ready",
     ]) {
-      const re = new RegExp(`NOT\\s*\\(\\s*${col}\\s+IS\\s+DISTINCT\\s+FROM`, "i");
-      expect(re.test(sql), `expected NOT-DISTINCT guard on column "${col}"`).toBe(true);
+      expect(allowList, `"${col}" must not be member-writable`).not.toContain(col);
     }
+    expect(guardSql).toMatch(/BEFORE\s+INSERT\s+OR\s+UPDATE\s+ON\s+public\.competition_entries/i);
   });
 
-  it("WITH CHECK intentionally DOES NOT freeze exif_data (gate 1a: owner-editable)", () => {
-    expect(/NOT\s*\(\s*exif_data\s+IS\s+DISTINCT\s+FROM/i.test(sql)).toBe(false);
+  it("the owner may edit exactly what the edit screen sends (exif_data included, gate 1a)", () => {
+    // useUpdateCompetitionEntry's patch + updated_at; current_round_int is generated.
+    expect(allowList).toEqual(
+      ["current_round_int", "description", "exif_data", "photo_meta", "photo_thumbnails", "photos", "title", "updated_at"],
+    );
   });
 });
