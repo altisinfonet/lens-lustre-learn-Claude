@@ -43,7 +43,7 @@ function TrendingVideo({ postId, variant }: { postId: string; variant: Variant }
   return (
     <div className={variant === "sidebar" ? "p-2" : ""} data-testid="trending-video">
       <div className={`relative aspect-[4/5] overflow-hidden bg-black ${variant === "sidebar" ? "rounded-sm" : ""}`}>
-        {media.video && <FeedVideoCard video={media.video} fillParent className="h-full w-full" />}
+        {media.video && <FeedVideoCard video={media.video} fillParent className="h-full w-full" startMuted />}
       </div>
       <Link to={postPath(postId)}
         className={`inline-flex items-center text-primary hover:underline ${variant === "sidebar" ? "mt-1.5 min-h-[24px] text-[10px]" : "min-h-[44px] px-3 text-sm font-semibold"}`}>
