@@ -52,6 +52,7 @@ import { hasSavedPreview, maybeSaveVideoPreview, offlineLoaderFor, savedPreviewI
 import {
   CONTROLS_HIDE_MS, autoplayWithSound, claimPlayback, getSoundPref, isAppleWebKit, isNativeApp, leavePlayback, levelCap,
   pickHlsEngine, releasePlayback, setSoundPref, shouldPlay, startPlayback, userActivated, videoStartPlan,
+  coveredByLayer, subscribeLayers,
 } from "@/lib/video/playback";
 import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
 import { getLinkKind, getSaveMobileData, savingDataNow } from "@/lib/dataSaver";
@@ -92,14 +93,40 @@ const hasMse = (): boolean => {
  * an ad zone, whose own frame (story card, banner …) sets the shape. The video
  * is still fitted whole over its blurred poster.
  */
-export default function FeedVideoCard({ video, className = "", fillParent = false, onWatchPct }: {
+/**
+ * STORY MODE (Owner 13 Nov 2026: "story video … no video playing like Meta
+ * does", "no sound"). The story viewer runs the card: its tap zones cover the
+ * picture, so the card draws none of its own buttons; the story's header has
+ * Pause and 🔊, its bar follows the video's real time, and the story moves on
+ * when the video ends (no loop). Sound follows the story's own choice (on by
+ * default — the tap that opened the story allows it); a browser that still
+ * refuses gets the video muted, and onState says so, so 🔊 never lies.
+ */
+export interface StoryPlayback {
+  /** the story is paused, held, typed into, or has a panel open */
+  held: boolean;
+  /** play with sound (the story's choice) */
+  sound: boolean;
+  onProgress: (time: number, duration: number) => void;
+  onEnded: () => void;
+  onState: (s: { playing: boolean; muted: boolean; needsTap: boolean }) => void;
+}
+/** Called from the story's own buttons, inside the tap (a browser allows sound / play only there). */
+export interface StoryVideoHandle { play: () => void; setSound: (on: boolean) => void }
+
+export default function FeedVideoCard({ video, className = "", fillParent = false, onWatchPct, story, handleRef }: {
   video: FeedVideo;
   className?: string;
   fillParent?: boolean;
   /** S12-F1 · the % of the video played so far, called when it grows (the feed records it as a signal). */
   onWatchPct?: (pct: number) => void;
+  /** story mode — see StoryPlayback */
+  story?: StoryPlayback;
+  handleRef?: { current: StoryVideoHandle | null };
 }) {
   const cardId = useId();
+  const storyRef = useRef(story);
+  storyRef.current = story;
   // Photo plan U4 (switch `photo_set_v2`): read when the stream's levels are known.
   const v2 = usePhotoSetV2();
   const v2Ref = useRef(v2);
@@ -113,7 +140,9 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
   const [near, setNear] = useState(false);
   const [poster, setPoster] = useState<string | null>(null);
   // What the next autoplay will do; the element's own `muted` is set right before play() (startPlayback).
-  const [muted, setMuted] = useState(() => !autoplayWithSound({ native: isNativeApp(), pref: getSoundPref(), hasAudio: video.hasAudio, userActivated: false }));
+  const [muted, setMuted] = useState(() => story
+    ? !(story.sound && video.hasAudio)
+    : !autoplayWithSound({ native: isNativeApp(), pref: getSoundPref(), hasAudio: video.hasAudio, userActivated: false }));
   const [failed, setFailed] = useState(false);
   /** S7b-6: the stream on the element comes from the phone (a saved preview), not the network. */
   const fromPhone = useRef(false);
@@ -268,7 +297,10 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     if (!(await ensureSource())) { playing.current = false; return; }
     if (!playing.current) return; // paused while the source was being fetched
     claimPlayback(cardId, pause, () => decideRef.current?.());
-    const sound = autoplayWithSound({ native: isNativeApp(), pref: getSoundPref(), hasAudio: video.hasAudio, userActivated: userActivated() });
+    const st = storyRef.current;
+    const sound = st
+      ? st.sound && video.hasAudio
+      : autoplayWithSound({ native: isNativeApp(), pref: getSoundPref(), hasAudio: video.hasAudio, userActivated: userActivated() });
     const r = await startPlayback(v, sound, { stillWanted: () => playing.current });
     setMuted(v.muted);
     if (!playing.current) { v.pause(); return; } // paused (scrolled away, another card) while it was starting
@@ -298,8 +330,11 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
         ratio, wasPlaying: playing.current,
         tabVisible: document.visibilityState === "visible",
         // S7b-6: with no network, a video saved on the phone still plays by itself.
-        online: getNetState().online || hasSavedPreview(video.id), reducedMotion: reducedMotion(),
-      });
+        online: getNetState().online || hasSavedPreview(video.id),
+        // A story is opened on purpose: it plays even for a reduced-motion member (Meta does too); it waits while held.
+        reducedMotion: storyRef.current ? false : reducedMotion(),
+        covered: coveredByLayer(node),
+      }) && !storyRef.current?.held;
       // Why it is NOT starting by itself, for a device test to read (reduced motion is a member's system setting).
       node.dataset.autoplayHold = reducedMotion() ? "reduced-motion" : !getNetState().online && !hasSavedPreview(video.id) ? "offline" : "";
       if (want && !playing.current) void start();
@@ -314,11 +349,18 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     const onPageHide = () => { if (playing.current) pause(); };
     window.addEventListener("pagehide", onPageHide);
     const off = subscribeNetState(decide);
+    // A full screen opening over this card / closing again (coveredByLayer).
+    const offLayers = subscribeLayers(decide);
     return () => {
       decideRef.current = null; near.disconnect(); view.disconnect();
-      document.removeEventListener("visibilitychange", decide); window.removeEventListener("pagehide", onPageHide); off();
+      document.removeEventListener("visibilitychange", decide); window.removeEventListener("pagehide", onPageHide); off(); offLayers();
     };
   }, [start, pause, video.id]);
+
+  // Story mode: held / let go → decide again; the story asks for the poster at once (it is on screen).
+  const storyHeld = story?.held;
+  useEffect(() => { if (story) decideRef.current?.(); }, [storyHeld]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (storyRef.current) setNear(true); }, []);
 
   // Poster only — the cheapest thing a card near the screen can do.
   useEffect(() => {
@@ -349,6 +391,23 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     if (!playing.current) { tapPlay(); reveal(); return; }
     if (controlsShown) hideNow(); else reveal();
   };
+  // Story mode: the story's own Play / 🔊 buttons, called inside the member's tap.
+  useEffect(() => {
+    if (!handleRef) return;
+    handleRef.current = {
+      play: () => { setNeedsTap(false); void start(); },
+      setSound: (on: boolean) => {
+        const v = el.current;
+        const m = !(on && video.hasAudio);
+        if (v) v.muted = m;
+        setMuted(m);
+      },
+    };
+    return () => { handleRef.current = null; };
+  }, [handleRef, start, video.hasAudio]);
+  // Story mode: what is really happening, so the story's 🔊 and Play never lie.
+  useEffect(() => { storyRef.current?.onState({ playing: isPlaying, muted, needsTap }); }, [isPlaying, muted, needsTap]);
+
   /** Sound only — never play/pause. The choice holds for the session (setSoundPref). */
   const toggleSound = () => {
     const v = el.current;
@@ -422,11 +481,18 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
   useEffect(() => {
     const v = el.current;
     if (!v) return;
-    const onTime = () => { if (!scrubbing.current) setTime(v.currentTime); };
+    const realLength = () => (Number.isFinite(v.duration) && v.duration > 0 ? v.duration : video.durationS || 0);
+    const onTime = () => {
+      if (!scrubbing.current) setTime(v.currentTime);
+      storyRef.current?.onProgress(v.currentTime, realLength());
+    };
     const onDur = () => { if (Number.isFinite(v.duration) && v.duration > 0) setDuration(v.duration); };
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
     const onVolume = () => setMuted(v.muted);
+    // Story mode: no loop — the end of the video is the end of the story.
+    const onEnded = () => storyRef.current?.onEnded();
+    v.addEventListener("ended", onEnded);
     v.addEventListener("timeupdate", onTime);
     v.addEventListener("durationchange", onDur);
     v.addEventListener("loadedmetadata", onDur);
@@ -434,6 +500,7 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     v.addEventListener("pause", onPause);
     v.addEventListener("volumechange", onVolume);
     return () => {
+      v.removeEventListener("ended", onEnded);
       v.removeEventListener("timeupdate", onTime);
       v.removeEventListener("durationchange", onDur);
       v.removeEventListener("loadedmetadata", onDur);
@@ -441,7 +508,7 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
       v.removeEventListener("pause", onPause);
       v.removeEventListener("volumechange", onVolume);
     };
-  }, []);
+  }, [video.durationS]);
 
   const seek = (to: number) => {
     const t = Math.max(0, Math.min(duration || to, to));
@@ -479,14 +546,14 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
         ref={el}
         muted={muted}
         playsInline
-        loop
+        loop={!story}
         preload="none"
         poster={poster ?? undefined}
         aria-label="Video post"
         className="relative h-full w-full object-contain"
         onClick={tapPicture}
       />
-      {(needsTap || (!isPlaying && !failed && (poster || (!getNetState().online && hasSavedPreview(video.id))))) && (
+      {!story && (needsTap || (!isPlaying && !failed && (poster || (!getNetState().online && hasSavedPreview(video.id))))) && (
         <button type="button" aria-label="Play video" onClick={() => { tapPlay(); reveal(); }}
           className="absolute inset-0 m-auto flex h-14 w-14 items-center justify-center rounded-full bg-black/60 text-white">
           <Play className="h-7 w-7" />
@@ -502,8 +569,9 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
           This video can't play right now.
         </p>
       )}
-      {/* The controls: hidden until a tap (Meta-style); never toggle playback themselves (taps stop here). */}
-      <div
+      {/* The controls: hidden until a tap (Meta-style); never toggle playback themselves (taps stop here).
+          Story mode: none — the story's header has Pause and 🔊. */}
+      {!story && <div
         data-testid="video-controls"
         data-visible={controlsShown ? "true" : "false"}
         onClick={(e) => e.stopPropagation()}
@@ -552,7 +620,7 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
             className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
           />
         </div>
-      </div>
+      </div>}
     </div>
   );
 }
