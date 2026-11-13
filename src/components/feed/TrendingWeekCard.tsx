@@ -17,6 +17,7 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { TrendingUp } from "lucide-react";
 import { memberPhotoSrc } from "@/lib/photoProtection";
+import OptimizedImage from "@/components/OptimizedImage";
 import { postPath } from "@/lib/posts/postPath";
 import { postMedia } from "@/lib/posts/subjectMedia";
 import { fetchPostVideoMap } from "@/lib/video/postVideoRead";
@@ -85,8 +86,8 @@ export function TrendingWeekCard({ variant, data, loading }: { variant: Variant;
               aria-label={photo.title ? `Open ${photo.title}` : "Open trending photograph"}
               className={`relative group aspect-square overflow-hidden block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${side ? "rounded-sm" : ""}`}
             >
-              <img src={memberPhotoSrc(photo.image_url, side ? 320 : 600) ?? undefined} alt={photo.title || "Trending photograph"}
-                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" decoding="async" />
+              <OptimizedImage src={memberPhotoSrc(photo.image_url, side ? 320 : 600) ?? photo.image_url} alt={photo.title || "Trending photograph"}
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="absolute bottom-1 left-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <p className="text-[8px] text-white truncate" style={headingFont}>{photo.title}</p>
