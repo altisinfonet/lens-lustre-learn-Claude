@@ -58,12 +58,31 @@ BEGIN
      AND e.status IN ('submitted', 'approved', 'round1_qualified', 'shortlisted', 'needs_review', 'hold', 'rejected')
    ORDER BY (e.status = 'submitted') DESC, e.created_at DESC
    LIMIT 1;
+  -- no member entry on this lane (production 13 Nov: none — PROBE 0801 run
+  -- 43456367522): make a test competition and entry, in this transaction only.
+  IF _e IS NULL THEN
+    SELECT u.id INTO _owner FROM auth.users u JOIN public.profiles p ON p.id = u.id
+     WHERE NOT coalesce(p.is_banned, false)
+       AND NOT EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = u.id AND ur.role::text = 'admin')
+     ORDER BY u.created_at LIMIT 1;
+    IF _owner IS NULL THEN
+      RAISE EXCEPTION 'PROBE FAIL: no plain member on this lane — cannot test';
+    END IF;
+    -- status "upcoming": notify_new_competition only announces status "open"
+    INSERT INTO public.competitions (title, starts_at, ends_at, created_by, status, phase)
+    VALUES ('PROBE 0800 test competition (rolled back)', now() - interval '1 day', now() + interval '1 day', _owner, 'upcoming', 'submission_open')
+    RETURNING id INTO _comp;
+    INSERT INTO public.competition_entries (competition_id, user_id, title, status, is_ai_advisory)
+    VALUES (_comp, _owner, 'PROBE 0800 test entry', 'submitted', false)
+    RETURNING id, status INTO _e, _st;
+    RAISE NOTICE 'FIXTURE no member entry on this lane — a test competition and entry were made inside this transaction (rolled back)';
+  END IF;
   SELECT u.id INTO _voter FROM auth.users u JOIN public.profiles p ON p.id = u.id
    WHERE u.id IS DISTINCT FROM _owner AND NOT coalesce(p.is_banned, false)
      AND NOT EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = u.id AND ur.role::text = 'admin')
    ORDER BY u.created_at DESC LIMIT 1;
-  IF _e IS NULL OR _voter IS NULL THEN
-    RAISE EXCEPTION 'PROBE FAIL: no plain member with an entry, or no second member, on this lane — cannot test';
+  IF _voter IS NULL THEN
+    RAISE EXCEPTION 'PROBE FAIL: no second plain member on this lane — cannot test';
   END IF;
 
   -- fixture, this transaction only: the competition takes entries and votes
@@ -107,6 +126,20 @@ BEGIN
   ELSE
     RAISE NOTICE 'A4 status step .................. n/a (test entry is %, not submitted)', _st;
   END IF;
+
+  -- a direct INSERT (the app submits through a server function; the policy still allows this path)
+  r := pg_temp.as_member(_voter, format(
+    'INSERT INTO public.competition_entries (competition_id, user_id, title, is_ai_advisory, placement) VALUES (%L, %L, %L, false, %L) RETURNING id::text',
+    _comp, _voter, 'PROBE direct entry', 'winner'));
+  RAISE NOTICE 'A8 new entry born a winner ...... %', r;
+  IF r LIKE 'ok %' THEN _bad := _bad || 'A8 insert with result'::text; END IF;
+  r := pg_temp.as_member(_voter, format(
+    'INSERT INTO public.competition_entries (competition_id, user_id, title, is_ai_advisory) VALUES (%L, %L, %L, false) RETURNING id::text',
+    _comp, _voter, 'PROBE direct entry'));
+  RAISE NOTICE 'N4 plain new entry, direct ...... %', r;
+  -- only the guard refusing a PLAIN entry is a break (0803 corrects that); a
+  -- competition's own limits (fee, entry limit) may refuse it for other reasons.
+  IF r LIKE '%A new entry starts as submitted%' THEN _fixture := _fixture || ('N4 ' || r); END IF;
 
   -- ── certificates ──
   UPDATE public.competition_entries SET certificate_ready = false WHERE id = _e;
