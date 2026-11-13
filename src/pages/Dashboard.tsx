@@ -642,7 +642,7 @@ const OverviewTab = ({ displayName, user, profile, myEntries, recentPosts, roles
               <div className="mt-1.5">
                 <UserIdentityBlock
                   userId={person.id}
-                  name={person.full_name || "Photographer"}
+                  name={person.full_name}
                   /*
                    * ⚠ null, DELIBERATELY: THIS WHOLE TILE IS ALREADY A LINK.
                    *

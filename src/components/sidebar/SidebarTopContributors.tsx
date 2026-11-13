@@ -58,7 +58,7 @@ const SidebarTopContributors = () => {
           <div className="flex-1 min-w-0">
             <UserIdentityBlock
               userId={c.id}
-              name={c.full_name || "Photographer"}
+              name={c.full_name}
               handle={c.custom_url}
               nameClassName="text-xs truncate group-hover:text-primary transition-colors [font-family:var(--font-body)]"
             />

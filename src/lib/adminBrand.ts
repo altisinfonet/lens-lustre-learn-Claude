@@ -50,7 +50,9 @@ export function resolveName(
   adminIds: Set<string>
 ): string {
   if (adminIds.has(userId)) return BRAND_NAME;
-  return originalName || "Photographer";
+  // Owner 13 Nov 2026: no made-up name. "" = not known yet; the name component
+  // (UserIdentityBlock → useMemberName) fetches it and shows a grey bar meanwhile.
+  return (originalName ?? "").trim();
 }
 
 /**

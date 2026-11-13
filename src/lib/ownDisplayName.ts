@@ -18,7 +18,7 @@ type AuthUserLike = {
   user_metadata?: { full_name?: unknown; name?: unknown } | null;
 } | null | undefined;
 
-export const OWN_NAME_PLACEHOLDER = "Photographer";
+export const OWN_NAME_PLACEHOLDER = "";
 
 export function ownDisplayName(profileFullName: string | null | undefined, user: AuthUserLike): string {
   // The profile name exactly as saved (only trimmed) — never re-cased.

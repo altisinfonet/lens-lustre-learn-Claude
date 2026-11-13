@@ -590,7 +590,7 @@ const CommentThread = ({
                 <div className="flex min-w-0 flex-wrap items-center gap-x-2">
                   <UserIdentityBlock
                     userId={comment.user_id}
-                    name={comment.author_name || "Photographer"}
+                    name={comment.author_name}
                     /**
                      * ⚠ PASS THE BADGES THE CALLER ALREADY RESOLVED.
                      *

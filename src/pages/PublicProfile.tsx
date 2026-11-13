@@ -32,6 +32,7 @@ import PageSEO from "@/components/PageSEO";
 import { useEntryPublicStatus } from "@/hooks/judging/useEntryPublicStatus";
 import { startVisibilityInterval } from "@/lib/timers/visibilityInterval";
 import { recordProfileVisit } from "@/lib/feed/feedSignals";
+import { displayName as displayNameOf } from "@/lib/displayName";
 
 /* ── Privacy Indicator (shown to owner only) ── */
 const PRIVACY_ICONS: Record<PrivacyLevel, { icon: typeof Globe; label: string }> = {
@@ -519,7 +520,7 @@ export const PublicProfileInner = ({ userId }: { userId: string }) => {
     );
   }
 
-  const displayName = profile.full_name || "Photographer";
+  const displayName = displayNameOf(profile.full_name);
   const memberSince = new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
   const isOwner = currentUser?.id === userId;

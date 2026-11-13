@@ -58,7 +58,7 @@ function makePost(minutesAfterT0: number, label: string): Row {
     likes_count: 0,
     comments_count: 0,
     shares_count: 0,
-    author_name: a.full_name ?? "Photographer",
+    author_name: a.full_name ?? null,
     author_avatar: null,
     categories: [],
   };

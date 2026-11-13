@@ -13,6 +13,7 @@ import { logger, newCorrelationId } from "@/lib/logger";
 import { addPhotoStory, fetchUserStories, STORY_RULES, type StoryPerson, type StorySlide } from "@/lib/stories/storyData";
 import { useProfileCore } from "@/hooks/profile/useProfileData";
 import { StoryTile, STORY_TILE_LABEL } from "@/components/stories/StoryTile";
+import { displayName } from "@/lib/displayName";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 
@@ -257,7 +258,7 @@ const ProfileStories = ({ userId, isOwner }: Props) => {
   const [storyOpenId, setStoryOpenId] = useState<string | null>(null);
   const [highlightOpen, setHighlightOpen] = useState<Highlight | null>(null);
   const person: StoryPerson = {
-    userId, name: owner?.full_name || "Photographer", avatar: owner?.avatar_url ?? null, cover: null, isOwn: isOwner,
+    userId, name: displayName(owner?.full_name), avatar: owner?.avatar_url ?? null, cover: null, isOwn: isOwner,
   };
 
   const hasContent = stories.length > 0 || highlights.length > 0;

@@ -276,7 +276,7 @@ const EntryDetail = () => {
               <div className="flex-1 min-w-0">
                 <UserIdentityBlock
                   userId={entry.user_id}
-                  name={entry.author_name || "Photographer"}
+                  name={entry.author_name}
                   handle={(entry as { author_handle?: string | null }).author_handle}
                   nameClassName="text-sm font-light hover:text-primary transition-colors truncate [font-family:var(--font-heading)]"
                 />

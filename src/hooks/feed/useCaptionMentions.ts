@@ -30,6 +30,7 @@ import {
 import { logger } from "@/lib/logger";
 import { groupMentionOptions } from "@/lib/groupMentions";
 import { refreshGroupMentions } from "@/lib/groupMentionsLoad";
+import { displayName } from "@/lib/displayName";
 
 export interface MentionSuggestion {
   id: string;
@@ -119,7 +120,7 @@ export function useCaptionMentions({ textareaRef, value, setValue, maxAutoGrowPx
         ...groups,
         ...((data as any[]) || []).map((u) => ({
           id: u.id,
-          display: u.full_name || "Photographer",
+          display: displayName(u.full_name),
           avatar_url: u.avatar_url,
         })),
       ]);
