@@ -26,11 +26,64 @@ export interface PlayInputs {
   tabVisible: boolean;
   online: boolean;
   reducedMotion: boolean;
+  /** an open full-screen layer (story, photo viewer) is drawn over this card — see coveredByLayer */
+  covered?: boolean;
 }
 
 export function shouldPlay(i: PlayInputs): boolean {
-  if (!i.tabVisible || !i.online || i.reducedMotion) return false;
+  if (!i.tabVisible || !i.online || i.reducedMotion || i.covered) return false;
   return i.ratio >= (i.wasPlaying ? PAUSE_RATIO : PLAY_RATIO);
+}
+
+/* ── A CARD UNDER AN OPEN FULL SCREEN NEVER PLAYS ──────────────────────────
+ * Owner 13 Nov 2026 ("story video uploaded but no video playing"): a story made
+ * from a video post opened over the feed, and the SAME video's feed card stayed
+ * "in view" behind it (IntersectionObserver cannot see a layer drawn on top),
+ * so it took playback back from the story. One rule for every player: while a
+ * full-screen layer (role=dialog + aria-modal="true": the story viewer, the
+ * photo viewers) is drawn, only cards INSIDE the topmost one may play. When the
+ * layer closes, the cards under it decide again by themselves. */
+export function coveredByLayer(node: Element, doc: Document = document): boolean {
+  const layers = Array.from(doc.querySelectorAll('[aria-modal="true"]')).filter((l) => l.getClientRects().length > 0);
+  const top = layers[layers.length - 1];
+  return !!top && !top.contains(node);
+}
+
+/**
+ * Stories play WITH sound (Owner 13 Nov: "in story video no sound why"), like
+ * Meta: the tap that opens a story allows it. A member who mutes a story keeps
+ * stories muted on this device until they turn 🔊 on again.
+ */
+const STORY_SOUND_KEY = "story_sound";
+let storySound: boolean | null = null;
+export function getStorySound(): boolean {
+  if (storySound !== null) return storySound;
+  try { storySound = localStorage.getItem(STORY_SOUND_KEY) !== "off"; } catch { storySound = true; }
+  return storySound;
+}
+export function setStorySound(on: boolean): void {
+  storySound = on;
+  try { localStorage.setItem(STORY_SOUND_KEY, on ? "on" : "off"); } catch { /* private window: this visit only */ }
+}
+
+const layerListeners = new Set<() => void>();
+let layerObserver: MutationObserver | null = null;
+/**
+ * Called when a layer may have opened or closed (a portal added to / removed
+ * from <body>). ONE observer for every card, only while a card listens.
+ */
+export function subscribeLayers(fn: () => void): () => void {
+  layerListeners.add(fn);
+  if (!layerObserver && typeof MutationObserver !== "undefined" && typeof document !== "undefined" && document.body) {
+    layerObserver = new MutationObserver(() => {
+      for (const f of Array.from(layerListeners)) { try { f(); } catch { /* one card must not stop the rest */ } }
+    });
+    layerObserver.observe(document.body, { childList: true });
+  }
+  return () => {
+    layerListeners.delete(fn);
+    if (layerListeners.size === 0) { layerObserver?.disconnect(); layerObserver = null; }
+  };
 }
 
 export interface LevelLike { height?: number; bitrate?: number }

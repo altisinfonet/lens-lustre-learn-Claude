@@ -8,6 +8,7 @@ import { isNetworkError } from "@/lib/offline/retryPolicy";
 import { feedSessionFor, startFeedSessionOver } from "@/lib/feedSessions";
 import { fetchProfileMap } from "@/lib/profileMapCache";
 import { getAdminIds, resolveName, resolveBadges } from "@/lib/adminBrand";
+import { authorIdentity } from "@/lib/feed/authorIdentity";
 import { queryKeys } from "@/lib/queryKeys";
 import type { ReactionType } from "@/components/ReactionPicker";
 
@@ -631,24 +632,11 @@ async function enrichPosts(
        * to know who the admins are, which is a second lookup and a second place
        * for that policy to drift.
        */
-      author_name: resolveName(
-        p.user_id,
-        (rpcHasIdentity ? p.author_name : null) ??
-          profileMap.get(p.user_id)?.full_name ??
-          null,
-        adminIds,
-      ),
-      author_avatar:
-        (rpcHasIdentity ? p.author_avatar : null) ??
-        profileMap.get(p.user_id)?.avatar_url ??
-        null,
-      author_handle: profileMap.get(p.user_id)?.custom_url ?? null,
-      author_last_active: profileMap.get(p.user_id)?.last_active_at ?? null,
-      author_badges: resolveBadges(
-        p.user_id,
-        profileMap.get(p.user_id)?.badges || [],
-        adminIds,
-      ),
+      // The one author rule (src/lib/feed/authorIdentity.ts) — the live-arriving post uses it too.
+      ...authorIdentity(p.user_id, profileMap.get(p.user_id), adminIds, {
+        name: rpcHasIdentity ? p.author_name : null,
+        avatar: rpcHasIdentity ? p.author_avatar : null,
+      }),
       like_count: p.likes_count || 0,
       comment_count: p.comments_count || 0,
       share_count: p.shares_count || 0,
