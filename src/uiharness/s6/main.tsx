@@ -36,7 +36,7 @@ const pool: Row[] = Array.from({ length: 1200 }, (_, i) => {
     created_at: new Date(T0 - i * 60_000).toISOString(),
     likes_count: 0, comments_count: 0, shares_count: 0,
     feed_tier: "unseen",
-    author_name: a.full_name ?? "Photographer",
+    author_name: a.full_name ?? null,
     author_avatar: null,
     categories: [],
   };

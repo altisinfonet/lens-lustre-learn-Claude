@@ -280,7 +280,7 @@ const FeedFriendSuggestions = () => {
               <div className="mt-2 w-full flex justify-center">
                 <UserIdentityBlock
                   userId={s.id}
-                  name={s.full_name || "Photographer"}
+                  name={s.full_name}
                   handle={handleFor(s)}
                   stack
                   align="center"

@@ -262,7 +262,7 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
                 <div className="flex-1 min-w-0">
                   <UserIdentityBlock
                     userId={m.id}
-                    name={m.full_name || "Photographer"}
+                    name={m.full_name}
                     handle={handleFor(m)}
                     nameClassName="text-xs font-medium truncate hover:text-primary transition-colors"
                   />
@@ -345,7 +345,7 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
                   <div className="flex-1 min-w-0">
                     <UserIdentityBlock
                       userId={u.id}
-                      name={u.full_name || "Photographer"}
+                      name={u.full_name}
                       handle={u.custom_url}
                       nameClassName="text-xs font-medium truncate hover:text-primary transition-colors"
                     />

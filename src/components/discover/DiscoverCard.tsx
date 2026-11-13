@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/core/useAuth";
 import { profilesPublic } from "@/lib/profilesPublic";
 import { useT } from "@/i18n/I18nContext";
+import { displayName } from "@/lib/displayName";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const displayFont = { fontFamily: "var(--font-display)" };
@@ -80,7 +81,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
    * button can never announce a different name from the one on the card.
    * ─────────────────────────────────────────────────────────────────────────
    */
-  const personName = profile.full_name || "Photographer";
+  const personName = displayName(profile.full_name);
   /** "Add Friend — Ranjana Bhattacharya Chowdhury". The dash is what a screen
    *  reader turns into a pause, so the action is heard before the name. */
   const named = (action: string) => `${action} — ${personName}`;
@@ -148,7 +149,7 @@ const DiscoverCard = memo(({ profile, onDismiss }: Props) => {
         {/* Name + Badge — clickable */}
         <UserIdentityBlock
           userId={profile.id}
-          name={profile.full_name || "Photographer"}
+          name={profile.full_name}
           handle={profile.custom_url}
           size="compact"
           nameClassName="text-sm md:text-[13px] font-semibold hover:text-primary transition-colors truncate"

@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useT } from "@/i18n/I18nContext";
+import { displayName } from "@/lib/displayName";
 
 
 interface Referral {
@@ -89,7 +90,7 @@ const Referrals = () => {
         .select("id, full_name, custom_url")
         .in("id", userIds);
       const nameMap = new Map(profiles?.map((p) => [p.id, p.full_name]) || []);
-      setReferrals(refs.map((r) => ({ ...r, referred_name: nameMap.get(r.referred_id) || "Photographer" })));
+      setReferrals(refs.map((r) => ({ ...r, referred_name: displayName(nameMap.get(r.referred_id)) })));
     } else {
       setReferrals([]);
     }

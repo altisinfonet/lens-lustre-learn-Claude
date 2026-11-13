@@ -34,7 +34,7 @@ import { useT } from "@/i18n/I18nContext";
 import { useSendFriendRequest } from "@/hooks/social/useFriendshipMutations";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
-import { avatarInitial } from "@/lib/displayName";
+import { avatarInitial, displayName } from "@/lib/displayName";
 import BlockUserDialog from "@/components/moderation/BlockUserDialog";
 import { PostCameraLine } from "@/components/post/CameraDetails";
 import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
@@ -415,7 +415,7 @@ const PostCard = ({
           <div className="flex flex-wrap items-center gap-x-1 min-w-0 text-sm">
             <UserIdentityBlock
               userId={post.user_id}
-              name={post.author_name || "Photographer"}
+              name={post.author_name}
               // ⚠ PASS THE BADGES THE QUERY ALREADY FETCHED. Every feed/wall/
               // hashtag query has computed `author_badges` for months and no
               // caller read it, so the tick fell back to a second per-name
@@ -846,7 +846,7 @@ const PostCard = ({
               userId={post.user_id} handle={post.author_handle}
               className="font-semibold text-foreground hover:text-primary transition-colors mr-1.5"
             >
-              {post.author_name || "Photographer"}
+              {displayName(post.author_name)}
             </ProfileLink>
           }
         />
