@@ -102,7 +102,13 @@ describe("Edit-Window Invariant on competition_entries", () => {
     ]) {
       expect(allowList, `"${col}" must not be member-writable`).not.toContain(col);
     }
-    expect(guardSql).toMatch(/BEFORE\s+INSERT\s+OR\s+UPDATE\s+ON\s+public\.competition_entries/i);
+    // the trigger that runs it (created once, in 0800; later files only replace the function)
+    const triggerMade = migrationsInSequence(MIGRATIONS_DIR).some((f) =>
+      /CREATE\s+TRIGGER\s+trg_0_entry_member_write_guard\s+BEFORE\s+INSERT\s+OR\s+UPDATE\s+ON\s+public\.competition_entries/i.test(
+        readFileSync(join(MIGRATIONS_DIR, f), "utf8"),
+      ),
+    );
+    expect(triggerMade).toBe(true);
   });
 
   it("the owner may edit exactly what the edit screen sends (exif_data included, gate 1a)", () => {
