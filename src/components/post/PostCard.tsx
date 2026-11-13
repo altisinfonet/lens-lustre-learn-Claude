@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import PendingMark from "@/components/offline/PendingMark";
 import { submit } from "@/lib/offline/outbox";
 import ProfileLink from "@/components/ProfileLink";
-import { publicUrl } from "@/lib/publicUrl";
+import { copyAddress, shareAddress, sharePostToWall } from "@/lib/share/shareActions";
 import { Link } from "react-router-dom";
 import { Share2, Copy, MoreHorizontal, Trash2, Flag, Ban, Eye, EyeOff, VolumeX, Pencil, UserPlus, UserCheck, UserMinus, Users } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
@@ -45,7 +45,6 @@ import { photoSetMarker } from "@/lib/imageLadder";
 import { useOldPhotoCreditRead } from "@/lib/photoOldCredit";
 import { useFeedCopiesRead } from "@/lib/photoFeedCopies";
 import { usePhotoBlursRead } from "@/lib/photoBlur";
-import { postPath } from "@/lib/posts/postPath";
 
 const displayFont = { fontFamily: "var(--font-display)" };
 const headingFont = { fontFamily: "var(--font-heading)" };
@@ -319,7 +318,7 @@ const PostCard = ({
   const copyLink = () => {
     // S12-F1 · a share click is a signal (a no-op outside the feed; own post never recorded).
     signals.shareClick(post.id, post.user_id);
-    navigator.clipboard.writeText(publicUrl(postPath(post.id, post.author_handle)));
+    void copyAddress(shareAddress({ postId: post.id, handle: post.author_handle }));
     toast({ title: "Link copied to clipboard!" });
   };
 
@@ -327,13 +326,8 @@ const PostCard = ({
     if (onShareToWall) {
       onShareToWall(post);
     } else if (currentUserId) {
-      // Only record the share reference — do NOT duplicate the post.
-      // BUG-062: no UPDATE policy on post_shares, so a repeat share must be a no-op.
-      const { error } = await supabase.from("post_shares" as any).upsert(
-        { post_id: post.id, user_id: currentUserId } as any,
-        { onConflict: "post_id,user_id", ignoreDuplicates: true }
-      );
-      if (!error) {
+      // The one share logic (src/lib/share/shareActions.ts) — the story's paper plane uses it too.
+      if (await sharePostToWall(post.id, currentUserId)) {
         onShareCountChange?.(post.id, 1);
         toast({ title: "Shared to your wall!" });
       } else {

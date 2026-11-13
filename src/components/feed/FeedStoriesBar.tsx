@@ -10,6 +10,7 @@ import { timedRpc } from "@/lib/logger";
 import OptimizedImage from "@/components/OptimizedImage";
 import { StoryTile, STORY_TILE_LABEL } from "@/components/stories/StoryTile";
 import { fetchProfileMap } from "@/lib/profileMapCache";
+import { useVideoPoster } from "@/hooks/video/useVideoPoster";
 import {
   addPhotoStory, fetchStoryBar, fetchUserStories, type StoryBarUser, type StoryPerson, type StoryRow,
 } from "@/lib/stories/storyData";
@@ -33,6 +34,19 @@ const headingFont = { fontFamily: "var(--font-heading)" };
 
 // The viewer loads only when a story is opened (P13 entry-bundle ceiling).
 const StoryViewer = lazy(() => import("@/components/stories/StoryViewer"));
+
+/** One person's tile: the newest photo, else the newest video's frame (Owner 13 Nov), else the face. */
+function BarTile({ b }: { b: StoryBarUser }) {
+  const poster = useVideoPoster(!b.cover_url && b.cover_video_id ? { videoId: b.cover_video_id } : null);
+  return (
+    <StoryTile
+      ring={b.has_unseen ? "unseen" : "seen"}
+      cover={memberPhotoSrc(b.cover_url, 320) ?? poster ?? b.avatar_url}
+      alt={b.full_name || "Story"}
+      corner={b.avatar_url && <OptimizedImage src={b.avatar_url} alt="" className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full border-2 border-background object-cover" />}
+    />
+  );
+}
 
 const FeedStoriesBar = () => {
   const { user } = useAuth();
@@ -119,9 +133,13 @@ const FeedStoriesBar = () => {
     isOwn: false,
   }));
 
-  const ownCover = ownStories.length > 0
+  const ownPhoto = ownStories.length > 0
     ? (ownStories[0].thumbs[0] ?? ownStories[0].media[0] ?? null)
     : null;
+  // Owner 13 Nov: a video story's tile shows the video's frame, never a bare "+".
+  const ownVideoPost = !ownPhoto ? ownStories.find((s) => s.is_video && s.post_id)?.post_id ?? null : null;
+  const ownPoster = useVideoPoster(ownVideoPost ? { postId: ownVideoPost } : null);
+  const ownCover = ownPhoto ?? ownPoster;
 
   const openOwn = () => {
     if (!user) return;
@@ -148,7 +166,7 @@ const FeedStoriesBar = () => {
             <StoryTile
               ring={ownStories.length > 0 ? "unseen" : "none"}
               dashed={ownStories.length === 0}
-              cover={!uploading && ownCover ? (memberPhotoSrc(ownCover, 320) ?? ownCover) : null}
+              cover={uploading ? null : ownPhoto ? (memberPhotoSrc(ownPhoto, 320) ?? ownPhoto) : ownPoster}
               alt="Your story"
               center={uploading
                 ? <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -171,12 +189,7 @@ const FeedStoriesBar = () => {
               onClick={() => setOpen({ people, start: i })}
               className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
             >
-              <StoryTile
-                ring={b.has_unseen ? "unseen" : "seen"}
-                cover={memberPhotoSrc(b.cover_url, 320) ?? b.avatar_url}
-                alt={b.full_name || "Story"}
-                corner={b.avatar_url && <OptimizedImage src={b.avatar_url} alt="" className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full border-2 border-background object-cover" />}
-              />
+              <BarTile b={b} />
               <span className={STORY_TILE_LABEL} style={headingFont}>
                 {b.is_official ? "50mm Retina" : (b.full_name || "Photographer")}
               </span>

@@ -31,6 +31,7 @@ import { useFeedQuery, useFeedRefresh, flattenFeedPages, getNetworkIds, type Fee
 import { useFeedCacheUpdaters } from "@/hooks/feed/useFeedCacheUpdaters";
 import PostCard from "@/components/post/PostCard";
 import { fetchPostAttachments, attachmentsFor } from "@/lib/posts/postAttachments";
+import { loadAuthorIdentity } from "@/lib/feed/authorIdentity";
 import PostCardSkeleton from "@/components/post/PostCardSkeleton";
 import WallPosts from "@/components/WallPosts";
 import { isNativeCapacitorApp } from "@/lib/native/authDeepLink";
@@ -237,9 +238,14 @@ const Feed = () => {
       // until a refresh: the bare row carries no video. Other people's posts
       // are read in ONE batch when the banner is tapped (handleShowNewPosts) —
       // not two reads per post on every open feed (review #415).
-      const [withMedia] = await attachLive([fp]);
+      // Owner 13 Nov: never "Photographer" — the author is named by the one rule
+      // (authorIdentity.ts) BEFORE the post reaches the screen, not by the reload.
+      const [[withMedia], who] = await Promise.all([
+        attachLive([fp]),
+        loadAuthorIdentity(rawPost.user_id).catch(() => null),
+      ]);
       if (!withMedia) return; // a video this viewer may not play: no empty post
-      insertPost(withMedia);
+      insertPost(who ? { ...withMedia, ...who } : withMedia);
       window.scrollTo({ top: 0, behavior: "smooth" });
       window.setTimeout(() => { void refetch(); }, 5000);
     } else {
