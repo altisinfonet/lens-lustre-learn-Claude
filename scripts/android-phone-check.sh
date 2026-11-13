@@ -40,6 +40,7 @@ fi
 # 3. A link opens INSIDE the app, and the app has no "Get the App" button.
 for path in login signup; do
   adb shell am force-stop "$PKG"
+  adb logcat -c || true
   adb shell am start -W -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d "https://$HOST/$path" | tee "shots/open-$path.txt"
   sleep 20
   f=$(focus); echo "$f" | tee -a "shots/open-$path.txt"
@@ -47,7 +48,13 @@ for path in login signup; do
   if echo "$f" | grep -q "$PKG"; then
     echo "PASS: https://$HOST/$path opened in the app"
   else
-    echo "::error::https://$HOST/$path did NOT open in the app ($f)"
+    # 1.2.48 run 43401528844, attempt 1: the app started on /signup and was gone 20 s later
+    # (passed on the re-run). WHY the app left is kept, never guessed: the phone's crash
+    # buffer + the app's own lines + the system's reason for ending the process.
+    adb logcat -d -b crash > "shots/logcat-crash-$path.txt" 2>&1 || true
+    adb logcat -d -b main,system | grep -iE "fiftymm|AndroidRuntime|ActivityManager|ActivityTaskManager|lowmemory|chromium|Capacitor" | tail -400 > "shots/logcat-$path.txt" 2>&1 || true
+    adb shell dumpsys activity exit-info "$PKG" | head -80 > "shots/exit-info-$path.txt" 2>&1 || true
+    echo "::error::https://$HOST/$path did NOT open in the app ($f) — logcat + exit reason saved in the phone-check artifact"
     fail=1
   fi
   adb shell uiautomator dump /sdcard/ui.xml > /dev/null 2>&1 && adb pull /sdcard/ui.xml "shots/ui-$path.xml" > /dev/null 2>&1
