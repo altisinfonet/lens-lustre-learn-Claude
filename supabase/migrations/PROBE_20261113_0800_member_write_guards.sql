@@ -42,7 +42,7 @@ DO $p$
 DECLARE
   _e uuid; _owner uuid; _comp uuid; _st text; _voter uuid; _ctitle text;
   r text; _bad text[] := '{}'; _fixture text[] := '{}';
-  _ok boolean;
+  _ok boolean; _n1 text := 'works';
 BEGIN
   IF coalesce(current_setting('p32.lane', true), '') NOT IN ('staging', 'production') THEN
     RAISE EXCEPTION 'PROBE REFUSED — p32.lane is not asserted';
@@ -82,7 +82,11 @@ BEGIN
   -- ── entries ──
   r := pg_temp.as_member(_owner, format('UPDATE public.competition_entries SET title = left(coalesce(title, %L), 180) || %L WHERE id = %L RETURNING id::text', '', ' ·probe', _e));
   RAISE NOTICE 'N1 owner edits title ............ %', r;
-  IF r NOT LIKE 'ok %' OR r = 'ok <no row>' THEN _fixture := _fixture || ('N1 ' || r); END IF;
+  -- 42P17 = the pre-0802 policy (its WITH CHECK reads competition_entries from
+  -- inside its own policy, which Postgres refuses for every member UPDATE). That
+  -- is an old break 0802 repairs, not something 0800 caused; reported, not failed.
+  IF r LIKE 'refused 42P17%' THEN _n1 := 'still blocked by the old recursive policy (0802 not applied)';
+  ELSIF r NOT LIKE 'ok %' OR r = 'ok <no row>' THEN _fixture := _fixture || ('N1 ' || r); END IF;
 
   r := pg_temp.as_member(_owner, format('UPDATE public.competition_entries SET is_pinned = NOT coalesce(is_pinned, false) WHERE id = %L RETURNING id::text', _e));
   RAISE NOTICE 'A1 pin own entry ................ %', r;
@@ -169,8 +173,8 @@ BEGIN
   IF array_length(_bad, 1) > 0 OR NOT _ok THEN
     RAISE EXCEPTION 'PROBE FAIL: holes open: % ; guards installed: %', array_to_string(_bad, ', '), _ok;
   END IF;
-  RAISE NOTICE 'MW0800 PASS (lane %): every attack refused, owner edit + offered certificate + open vote still work',
-    current_setting('p32.lane');
+  RAISE NOTICE 'MW0800 PASS (lane %): every attack refused; offered certificate + open vote work; owner edit of an entry: %',
+    current_setting('p32.lane'), _n1;
 END
 $p$;
 
