@@ -1,3 +1,82 @@
+Build 1.2.47 - 2026-11-13 - FROM MAIN AFTER APP LINKS + @ALL / @FOLLOWERS
+
+  Owner, 12-13 Nov ("I will upload 1.2.47 both at a once"; "@all OK"; "i will
+  check in main web and app get ready"): every www link opens the app (1.2.46,
+  not uploaded) plus @all / @followers in posts and comments.
+
+Build 1.2.45 - 2026-11-10 - FROM MAIN AFTER COMMENTS V3 + PAGE FIXES + ANSWER PAGES
+
+  Owner, 10 Nov ("approved fixing and check once AEO SEO GEO all done then app
+  build along with the comment box fixing" + "comments OK"): comments v3, the
+  signed-out top bar, course covers / journal byline / chip rows, /help answers.
+
+Build 1.2.44 - 2026-11-10 - FROM MAIN AFTER THE HASHTAG PAGE RELEASE (H1)
+
+  Owner, 10 Nov ("Once Done make it LIVE Site and App"): new hashtag page,
+  hashtags in every language, post addresses /<handle>/post/<id>, www share links.
+
+Build 1.2.43 - 2026-11-08 - FROM MAIN AFTER THE APP TOP BAR RELEASE
+
+  Owner, 8 Nov ("go on App - I will check on App directly"; "Must match the
+  Screenshot pixel to pixel all"): main carries #963 — the app top bar
+  [+] [50mm Retina World] [☰], the approved Bottom Dock menu under ☰ (search
+  and Notifications), a tighter feed top, and Back with a story open closes
+  the story. Renders matched the approved samples (menu 0.00 %, feed 0.00 %
+  at 320/390, 0.02 % at 430 = the animated camera logo). 1.2.42 (run 146) is
+  spent.
+
+Build 1.2.42 - 2026-11-07 - FROM MAIN AFTER THE NO-CIRCLE + COUNT LINKS RELEASE
+
+  Owner, 7 Nov ("no circle anywhere more"; "HYPERLINK ON Friends · Followers ·
+  Following"; "when App build Delete ... Delete account from App main menu as
+  its already there in settings"): main carries #957 — square story and
+  highlight tiles on the profile too, highlights open in the one story viewer,
+  the profile counts open their lists, and the app menu has no separate
+  Delete Account item (it stays in Settings). 1.2.41 (run 145) is spent.
+
+Build 1.2.41 - 2026-11-07 - FROM MAIN AFTER THE STORIES RELEASE
+
+  Owner, 7 Nov ("make it live into main and build App - App screen must be
+  matched with reference"): the app bundles the web code, so Stories v2.2
+  reaches app users only through a new build. Main carries #949 (Stories SQL,
+  applied on production with PROBE PASS) and #952 (Stories website): square
+  blue-to-gold story tiles, "Also add to my story" on new posts, story likes
+  and comments with the bell, Seen by, My Stories. App-vs-web renders of every
+  Stories screen matched 0.00 %. 1.2.40 (run 144) is spent.
+
+Build 1.2.40 - 2026-11-06 - FROM MAIN AFTER THE BLUR + WALL + SIGN-IN RELEASE
+
+  Owner, 6 Nov ("go stories", which builds 1.2.40 first): the app bundles the
+  web code, so the 6 Nov fixes reach app users only through a new build. Main
+  546d99c6 (#936) carries: blurred colour fill from saved blur codes on every
+  feed photo, the profile wall no longer stuck on an old saved copy, the 2x
+  password eye, the sign-up checkbox under "See our Terms..." with the picture
+  loading, one quiet retry for a video play pass. 1.2.39 (run 143) is spent.
+
+Build 1.2.39 - 2026-11-05 - FROM MAIN AFTER THE PHOTO SPEED + ROW GAP RELEASE
+
+  Owner, 5 Nov ("web okay"): the app bundles the web code, so the photo
+  fixes reach app users only through a new build. Main cdf5615c carries:
+  feed photo saves as .jpg with the drawn 22 px credit (#917), stored clean
+  copies so every feed photo is on screen fast (#920), Instagram row gap and
+  photo-first loading (#923). 1.2.38 (run 142) is spent: uploaded to Play.
+
+Build 1.2.38 - 2026-11-05 - FIRED FROM MAIN AFTER THE FEED PHOTO RELEASE
+
+  Owner, 4 Nov: one app build after the feed work. Main now carries the
+  Instagram feed gestures (#911/#912: no viewer on tap, pinch in place,
+  double-tap like) and the one feed photo set (#910/#913: 2048/1080/600 WebP,
+  credit drawn only on save, nothing extra stored). The entry below explains
+  why run 141 was cancelled and 1.2.38 is not spent.
+
+Build 1.2.38 - 2026-11-04 - FIRED AGAIN FROM MAIN AFTER THE CREDIT RELEASE
+
+  Run 141 (41872688108, on e58212e6) started by itself when the 1.2.38 bump
+  landed, before the credit release (#901, c8839f48: the server draws the
+  credit, 22 px) reached main. It was cancelled inside build-aab, before any
+  .aab existed, so 1.2.38 is not spent. This entry fires the build on a main
+  that carries the credit release too (Owner: credit first, then Android).
+
 Build 1.2.21 (RE-CUT) - 2026-09-15 - THE BADGE LABEL ACTUALLY CLEARS THE 12PX FLOOR NOW
 
   Android Build #123 (the entry directly below this one) reached build-aab and
@@ -363,3 +442,9 @@ Then promote the AAB.
   Precondition run on ecdad73 -> 7e93dd8: 8 matches, of which 3 bundled (the rest are __tests__).
   The app BUNDLES these (capacitor.config.ts: webDir 'dist', no server.url), so a web deploy alone
   reaches app users NEVER — see docs/evidence/d1/observations/OBS-capacitor-bundled-assets.md
+
+Build 1.2.46 - 2026-11-12 - APP FIRST LINKS + PHONE CHECK
+
+  Owner, 12 Nov ("app first": every mail / push / WhatsApp link opens the app;
+  "why cant you check before App uploading"): verified https App Links for
+  www.50mmretina.com, links routed in-app, and the phone-check job.

@@ -820,6 +820,32 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
+          # 2026-11-10 (later): bumped 1.2.44 -> 1.2.45. 1.2.44 (run 148, 42779574612 on 525633cb) is spent (handed to the Owner).
+          # 1.2.45 carries comments v3 (#997, Owner 10 Nov "comments OK": one reply flow in the bottom box, mentions as
+          # names, 14px), the signed-out top bar fix (#993), the 4 page fixes (#998: course covers, journal byline,
+          # chip rows) and the /help answer pages (AEO). No switch is changed.
+          # 2026-11-10: bumped 1.2.43 -> 1.2.44. 1.2.43 (run 147, 42483045124 on 2738a852) is spent (handed to the Owner).
+          # 1.2.44 carries H1 (#987, Owner 10 Nov "make it LIVE Site and App"): new hashtag page (photographers ·
+          # posts, Follow, related tags, Top|Recent, grid|cards), hashtags in every language, plus A3 post addresses
+          # /<handle>/post/<id> and www share links (#974). No switch is changed.
+          # 2026-11-08: bumped 1.2.42 -> 1.2.43. 1.2.42 (run 146, 42394574762 on 4dd20e6f) is spent (handed to the Owner).
+          # 1.2.43 carries #963 (carry of #961, Owner 8 Nov "go on App"): app top bar + · 50mm Retina World · ☰,
+          # ☰ = Bottom Dock menu (search + Notifications), tighter feed top, Back with a story open closes the
+          # story instead of leaving the app. No switch is changed.
+          # 2026-11-07 (evening): bumped 1.2.41 -> 1.2.42. 1.2.41 (run 145, 42352647141 on bf3b2ed7) is spent (handed to the Owner).
+          # 1.2.42 carries #957 (Owner 7 Nov): square story + highlight tiles everywhere (no circle), highlights in the
+          # one story viewer, profile Friends / Followers / Following counts are links, no Delete Account item in the
+          # app menu (it stays in Settings). No switch is changed.
+          # 2026-11-07: bumped 1.2.40 -> 1.2.41. 1.2.40 (run 144, 42252316524 on f6c1afaa) is spent (handed to the Owner).
+          # 1.2.41 carries Stories v2.2 (#949 SQL + #952 website, Owner 7 Nov "make it live and build App"):
+          # square story tiles, post-to-story box, story likes/comments, Seen by, My Stories. No switch is changed.
+          # 2026-11-06: bumped 1.2.39 -> 1.2.40. 1.2.39 (run 143, 42021446265 on 4be5bf1c) is spent (on Play).
+          # 1.2.40 carries main 546d99c6 (#936, Owner 6 Nov): photo blur codes, profile wall saved-copy refresh,
+          # bigger password eye, sign-up checkbox place + picture, one quiet video retry. No switch is changed.
+          # 2026-11-05: bumped 1.2.38 -> 1.2.39. 1.2.38 (run 142, 41922968514 on a563c308) is spent (uploaded to Play).
+          # 1.2.39 carries what main gained since a563c308 (Owner order, 5 Nov): every feed photo saves as .jpg
+          # with the 22 px credit drawn in the browser (#917), feed photo under 1 s via stored clean copies
+          # (#920), Instagram row gap + photo on screen first (#923). No switch is changed.
           # 2026-11-04: bumped 1.2.37 -> 1.2.38. 1.2.37 (run 140, 41534590843 on e92d4669) is spent.
           # 1.2.38 carries what main gained since 2 Nov (Owner order, 4 Nov): one age rule 18+ at sign-up
           # and Edit Profile, no tracking / no cookie box in the app, compact comments (competition too),
@@ -938,8 +964,14 @@ jobs:
           # The guard F-70 asks for is still NOT built. It is a separate unit,
           # and it must be shown failing on unfixed input first (C-34); writing
           # it in the same commit as a bump it would have caught proves nothing.
-          sed -i 's/versionName "1.0"/versionName "1.2.38"/' android/app/build.gradle
-          echo "versionCode=${VC} versionName=1.2.38 (1.2.37 is spent - run 140)"
+          # 2026-11-13: bumped 1.2.46 -> 1.2.47. 1.2.46 (run 150, vc1150, d4c2de34) is spent (built, Owner chose not to
+          # upload it). 1.2.47 carries the 1.2.46 app links plus @all / @followers (#1010/#1012/#1014 carried; Owner 12 Nov
+          # "@all OK", 13 Nov "i will check in main web and app get ready"). The @all switch stays as the Owner sets it.
+          # 2026-11-12: bumped 1.2.45 -> 1.2.46. 1.2.45 (run 149, vc1149) is LIVE on Play. 1.2.46 carries app-first links
+          # (Owner 12 Nov: every 50mmretina.com link opens the app; verified https filter for www + assetlinks.json) and
+          # the new phone-check job (virtual phone proves the link opens the app before the Owner uploads). No switch changed.
+          sed -i 's/versionName "1.0"/versionName "1.2.47"/' android/app/build.gradle
+          echo "versionCode=${VC} versionName=1.2.47 (1.2.46 run 150 is spent - not uploaded)"
           grep -E "versionCode|versionName" android/app/build.gradle
           cat android/variables.gradle
           # S11: prove both edits landed — exactly one versionCode, the derived
@@ -1718,3 +1750,70 @@ jobs:
             android/build/reports/
           if-no-files-found: ignore
           retention-days: 3
+
+  # ---------------------------------------------------------------------------
+  # PHONE CHECK — the new app on a virtual Android phone BEFORE the Owner gets
+  # the .aab (Owner 2026-11-12: "why can't you check before App uploading?").
+  # Installs THIS build, signed with the same upload key Play sees, and proves
+  # (scripts/android-phone-check.sh):
+  #   1. Android VERIFIES www.50mmretina.com for the app (live assetlinks.json +
+  #      the autoVerify filter) — so mail / WhatsApp / Gmail links open the app.
+  #   2. A https://www.50mmretina.com/login link opens INSIDE the app.
+  #   3. The app's Login / Join screens have NO "Get the App" button (web only).
+  # Screenshots: artifact "phone-check". Red here = do NOT upload to Play.
+  # ---------------------------------------------------------------------------
+  phone-check:
+    needs: build-aab
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/android-phone-check.sh
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: app-release-aab
+          path: aab
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Universal APK from the release bundle (same upload key)
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/ks.jks"
+          ALIAS=$(keytool -list -keystore "$RUNNER_TEMP/ks.jks" -storepass "$KEYSTORE_PASSWORD" | grep -m1 PrivateKeyEntry | cut -d, -f1)
+          curl -sSL -o "$RUNNER_TEMP/bundletool.jar" https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
+          java -jar "$RUNNER_TEMP/bundletool.jar" build-apks --mode=universal --bundle=aab/app-release.aab --output="$RUNNER_TEMP/app.apks" \
+            --ks="$RUNNER_TEMP/ks.jks" --ks-pass=pass:"$KEYSTORE_PASSWORD" --ks-key-alias="$ALIAS" --key-pass=pass:"$KEY_PASSWORD"
+          rm -f "$RUNNER_TEMP/ks.jks"
+          unzip -o "$RUNNER_TEMP/app.apks" universal.apk
+          ls -l universal.apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Virtual phone — install, verify links, open a link, screenshots
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: bash scripts/android-phone-check.sh universal.apk
+      - name: Upload phone-check screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phone-check
+          path: shots/
+          if-no-files-found: ignore
+          retention-days: 14
