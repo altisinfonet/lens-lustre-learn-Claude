@@ -56,6 +56,8 @@ const VIDEO_SURFACES: Record<string, RegExp> = {
   "src/components/video/ServerVideoReview.tsx": /<FeedVideoCard video=\{media\.video\} fillParent \/>/,
   // Stories v2 (Owner 6 Nov): a video post's story plays in the one StoryViewer.
   "src/components/stories/StoryViewer.tsx": /<FeedVideoCard video=\{media\.video\} fillParent/,
+  // Trending this week (Owner 13 Nov 2026): the ONE admin-marked video plays in the sidebar card.
+  "src/components/FeedLeftSidebar.tsx": /<FeedVideoCard video=\{media\.video\} fillParent/,
   // Test page only: the app-video CORS journey (tools/uishot/app-video-cors-journey.mjs) draws a post's video as the feed does.
   "src/uiharness/appvideo/main.tsx": /<FeedVideoCard video=\{media\.video\} \/>/,
 };
