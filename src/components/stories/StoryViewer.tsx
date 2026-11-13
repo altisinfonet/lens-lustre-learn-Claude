@@ -20,10 +20,14 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
   X, MoreHorizontal, Pause, Play, Globe, Heart, Send, Eye, Star, Trash2, ChevronLeft, ChevronRight,
-  ArrowUpRight, Users, MessageCircle, Image as ImageIcon,
+  ArrowUpRight, Users, MessageCircle, Image as ImageIcon, Volume2, VolumeX, Copy, Share2,
 } from "lucide-react";
 import { memberPhotoSrc } from "@/lib/photoProtection";
-import FeedVideoCard from "@/components/video/FeedVideoCard";
+import FeedVideoCard, { type StoryPlayback, type StoryVideoHandle } from "@/components/video/FeedVideoCard";
+import { getStorySound, setStorySound } from "@/lib/video/playback";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { copyAddress, shareAddress, sharePostToWall } from "@/lib/share/shareActions";
+import { shareLink } from "@/lib/publicUrl";
 import { postMedia } from "@/lib/posts/subjectMedia";
 import OptimizedImage from "@/components/OptimizedImage";
 import { toast } from "@/hooks/core/use-toast";
@@ -107,6 +111,14 @@ interface FrameProps {
   children?: ReactNode;
   /** a highlight is playing: its title in the header; no likes, comment box or Seen by */
   highlightTitle?: string;
+  /** a video slide: the story runs it (FeedVideoCard story mode) */
+  video?: StoryPlayback;
+  videoState?: { playing: boolean; muted: boolean; needsTap: boolean };
+  videoHandle?: { current: StoryVideoHandle | null };
+  /** 🔊 in the header (Owner 13 Nov: "in story video no sound") */
+  onSound?: () => void;
+  /** the paper plane with an empty box: the Share menu (Owner 13 Nov: "like Share function") */
+  share?: ReactNode;
 }
 
 /** One story on screen — phone full screen, or the computer's middle card. */
@@ -146,7 +158,8 @@ export function StoryFrame(p: FrameProps) {
       {src && <OptimizedImage loading="eager" fetchPriority="high" src={src} alt="" className="absolute inset-0 h-full w-full object-contain" />}
       {media.video && (
         <div className="absolute inset-0 flex items-center">
-          <FeedVideoCard video={media.video} fillParent className="h-full w-full" />
+          {/* keyed by the slide: the next video is a new player, never the last one's stream */}
+          <FeedVideoCard key={slide?.key} video={media.video} fillParent className="h-full w-full" story={p.video} handleRef={p.videoHandle} />
         </div>
       )}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/60 to-transparent" />
@@ -159,6 +172,13 @@ export function StoryFrame(p: FrameProps) {
         <button type="button" aria-label="Next" className="h-full w-2/3 cursor-default"
           onPointerDown={down} onPointerUp={() => up("next")} onPointerLeave={() => holdTimer.current && window.clearTimeout(holdTimer.current)} />
       </div>
+      {/* A browser refused to start the video by itself: one Play, ABOVE the tap zones. */}
+      {media.video && p.videoState?.needsTap && (
+        <button type="button" aria-label="Play video" onClick={() => p.videoHandle?.current?.play()}
+          className="absolute inset-0 m-auto flex h-16 w-16 items-center justify-center rounded-full bg-black/60 text-white">
+          <Play className="h-8 w-8" />
+        </button>
+      )}
 
       <div className="absolute inset-x-3 top-3 space-y-3">
         <StoryBars n={p.count} at={p.at} part={p.part} />
@@ -172,6 +192,12 @@ export function StoryFrame(p: FrameProps) {
           {story && p.highlightTitle === undefined && <span className="text-sm text-white/75">{storyAge(story.created_at)}</span>}
           {own ? <Users className="h-3.5 w-3.5 text-white/75" /> : <Globe className="h-3.5 w-3.5 text-white/75" />}
           <div className="ml-auto flex items-center gap-4">
+            {media.video?.hasAudio && p.onSound && (
+              <button type="button" aria-label={p.videoState?.muted ? "Turn sound on" : "Turn sound off"} aria-pressed={!p.videoState?.muted}
+                data-testid="story-sound" onClick={p.onSound}>
+                {p.videoState?.muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+              </button>
+            )}
             <button type="button" aria-label={p.paused ? "Play" : "Pause"} onClick={p.onTogglePause}>
               {p.paused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
             </button>
@@ -224,7 +250,10 @@ export function StoryFrame(p: FrameProps) {
             <button type="button" aria-label={p.liked ? "Unlike" : "Like"} onClick={p.onLike}>
               <Heart className={`h-7 w-7 ${p.liked ? "fill-destructive text-destructive" : ""}`} />
             </button>
-            <button type="button" aria-label="Send" onClick={send}><Send className="h-6 w-6" /></button>
+            {/* Instagram: typed text → the plane sends it; an empty box → the plane is Share. */}
+            {text.trim() || !p.share
+              ? <button type="button" aria-label="Send" onClick={send}><Send className="h-6 w-6" /></button>
+              : p.share}
           </div>
         )}
       </div>
@@ -365,7 +394,12 @@ export default function StoryViewer({ people, startIndex, viewerId, onClose, onC
   const person = people[pi];
   const slide = slides[si] ?? null;
   const story = slide?.story ?? null;
-  const stopped = paused || holding || typing || picker || sheet !== null;
+  const [sharing, setSharing] = useState(false);
+  const stopped = paused || holding || typing || picker || sharing || sheet !== null;
+  // A video slide: the video is the clock (its real time fills the bar; its end moves on).
+  const [videoState, setVideoState] = useState({ playing: false, muted: true, needsTap: false });
+  const [sound, setSound] = useState(getStorySound);
+  const videoHandle = useRef<StoryVideoHandle | null>(null);
 
   // Owner 7 Nov: a story has its own address. While a story is on screen the
   // address bar shows /<handle>/stories/<id> — replaceState, so no extra Back
@@ -467,9 +501,10 @@ export default function StoryViewer({ people, startIndex, viewerId, onClose, onC
     else if (pi > 0) setPi((i) => i - 1);
   }, [si, pi]);
 
-  // the timer: one animation frame loop, stopped while paused / held / typing
+  // the timer: one animation frame loop, stopped while paused / held / typing.
+  // A video slide has no timer: the video drives the bar (onProgress) and the end (onEnded).
   useEffect(() => {
-    if (!slide || stopped) return;
+    if (!slide || stopped || slide.kind === "video") return;
     let raf = 0;
     let last = performance.now();
     let done = (part / 100) * slide.durationMs;
@@ -565,6 +600,54 @@ export default function StoryViewer({ people, startIndex, viewerId, onClose, onC
     }
   };
 
+  const video: StoryPlayback | undefined = slide?.kind === "video" ? {
+    held: stopped,
+    sound,
+    onProgress: (t, d) => { if (d > 0) setPart(Math.min(100, (t / Math.min(d, STORY_RULES.videoMaxMs / 1000)) * 100)); },
+    // the story's longest video (videoMaxMs) also ends the slide
+    onEnded: next,
+    onState: setVideoState,
+  } : undefined;
+  useEffect(() => { if (slide?.kind === "video" && part >= 100) next(); }, [part]); // eslint-disable-line react-hooks/exhaustive-deps
+  /** 🔊 — inside the tap, so a browser allows the sound. Remembered for stories on this device. */
+  const onSound = () => {
+    const on = videoState.muted;
+    setSound(on);
+    setStorySound(on);
+    videoHandle.current?.setSound(on);
+  };
+
+  /* The paper plane (Owner 13 Nov: "like Share function"): the post's own share
+     actions (src/lib/share/shareActions.ts). A post story shares its post. */
+  const shareUrl = story ? shareAddress({ postId: story.post_id, storyId: story.id }) : "";
+  const shareMenu = story && !person?.isOwn ? (
+    <DropdownMenu onOpenChange={(o) => setSharing(o)}>
+      <DropdownMenuTrigger asChild>
+        <button type="button" aria-label="Share" data-testid="story-share"><Send className="h-6 w-6" /></button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" side="top" className="z-[210] w-52">
+        {story.post_id && viewerId && (
+          <DropdownMenuItem className="cursor-pointer py-2.5" onClick={() => {
+            void sharePostToWall(story.post_id as string, viewerId).then((ok) =>
+              toast(ok ? { title: "Shared to your wall!" } : { title: "Failed to share", variant: "destructive" }));
+          }}>
+            <Share2 className="mr-2.5 h-4 w-4" /> Share to your wall
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem className="cursor-pointer py-2.5" onClick={() => {
+          void copyAddress(shareUrl).then(() => toast({ title: "Link copied to clipboard!" }), () => toast({ title: "Could not copy the link", variant: "destructive" }));
+        }}>
+          <Copy className="mr-2.5 h-4 w-4" /> Copy link
+        </DropdownMenuItem>
+        <DropdownMenuItem className="cursor-pointer py-2.5" onClick={() => {
+          void shareLink({ title: person?.name, url: shareUrl }).then((r) => { if (r === "copied") toast({ title: "Link copied to clipboard!" }); }).catch(() => {});
+        }}>
+          <Send className="mr-2.5 h-4 w-4" /> Share…
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ) : undefined;
+
   const onTouchStart = (e: RTouchEvent) => { const t = e.touches[0]; touch.current = { x: t.clientX, y: t.clientY }; };
   const onTouchEnd = (e: RTouchEvent) => {
     const s = touch.current; touch.current = null;
@@ -587,6 +670,7 @@ export default function StoryViewer({ people, startIndex, viewerId, onClose, onC
       onLike={() => void onLike()} onSend={(t) => void onSend(t)} onHighlight={() => setPicker(true)} onDelete={() => void onDelete()}
       onInputFocus={setTyping} onPrev={prev} onNext={next} onHold={setHolding}
       onOpenSheet={setSheet} onOlder={() => void loadOlder()} highlightTitle={highlight?.title}
+      video={video} videoState={videoState} videoHandle={videoHandle} onSound={onSound} share={shareMenu}
     >
       {sheet === "viewers" && story && (
         <StorySheet title={`Seen by ${story.view_count ?? 0}`} onClose={() => setSheet(null)}>

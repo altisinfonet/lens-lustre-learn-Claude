@@ -38,6 +38,8 @@ export interface StoryBarUser {
   story_count: number;
   has_unseen: boolean;
   cover_url: string | null;
+  /** 20261113_0300: the newest story's video, when it has no photo — the tile shows its frame */
+  cover_video_id?: string | null;
 }
 
 /** One story as get_user_stories returns it. */
