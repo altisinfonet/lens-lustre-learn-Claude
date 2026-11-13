@@ -159,7 +159,7 @@ export function StoryFrame(p: FrameProps) {
       {media.video && (
         <div className="absolute inset-0 flex items-center">
           {/* keyed by the slide: the next video is a new player, never the last one's stream */}
-          <FeedVideoCard key={slide?.key} video={media.video} fillParent className="h-full w-full" story={p.video} handleRef={p.videoHandle} />
+          <FeedVideoCard video={media.video} fillParent className="h-full w-full" key={slide?.key} story={p.video} handleRef={p.videoHandle} />
         </div>
       )}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/60 to-transparent" />
