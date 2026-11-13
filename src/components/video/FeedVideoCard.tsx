@@ -114,16 +114,10 @@ export interface StoryPlayback {
 /** Called from the story's own buttons, inside the tap (a browser allows sound / play only there). */
 export interface StoryVideoHandle { play: () => void; setSound: (on: boolean) => void }
 
-export default function FeedVideoCard({ video, className = "", fillParent = false, onWatchPct, story, handleRef, startMuted = false }: {
+export default function FeedVideoCard({ video, className = "", fillParent = false, onWatchPct, story, handleRef }: {
   video: FeedVideo;
   className?: string;
   fillParent?: boolean;
-  /**
-   * Always start WITHOUT sound, on web and in the app (Owner 13 Nov 2026: the
-   * Trending card's video plays "sound off"). The member's own 🔊 tap on this
-   * card still turns the sound on for it.
-   */
-  startMuted?: boolean;
   /** S12-F1 · the % of the video played so far, called when it grows (the feed records it as a signal). */
   onWatchPct?: (pct: number) => void;
   /** story mode — see StoryPlayback */
@@ -148,9 +142,7 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
   // What the next autoplay will do; the element's own `muted` is set right before play() (startPlayback).
   const [muted, setMuted] = useState(() => story
     ? !(story.sound && video.hasAudio)
-    : startMuted || !autoplayWithSound({ native: isNativeApp(), pref: getSoundPref(), hasAudio: video.hasAudio, userActivated: false }));
-  /** startMuted: the member turned the sound on for THIS card. */
-  const unmutedHere = useRef(false);
+    : !autoplayWithSound({ native: isNativeApp(), pref: getSoundPref(), hasAudio: video.hasAudio, userActivated: false }));
   const [failed, setFailed] = useState(false);
   /** S7b-6: the stream on the element comes from the phone (a saved preview), not the network. */
   const fromPhone = useRef(false);
@@ -308,9 +300,7 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     const st = storyRef.current;
     const sound = st
       ? st.sound && video.hasAudio
-      : startMuted
-        ? unmutedHere.current && video.hasAudio
-        : autoplayWithSound({ native: isNativeApp(), pref: getSoundPref(), hasAudio: video.hasAudio, userActivated: userActivated() });
+      : autoplayWithSound({ native: isNativeApp(), pref: getSoundPref(), hasAudio: video.hasAudio, userActivated: userActivated() });
     const r = await startPlayback(v, sound, { stillWanted: () => playing.current });
     setMuted(v.muted);
     if (!playing.current) { v.pause(); return; } // paused (scrolled away, another card) while it was starting
@@ -328,7 +318,7 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
       setPlayError(reason);
       console.warn(`[video] play refused: ${reason}`);
     }
-  }, [cardId, ensureSource, pause, video.hasAudio, startMuted]);
+  }, [cardId, ensureSource, pause, video.hasAudio]);
 
   // Near the screen → fetch the poster. In view → play. Out of view, tab or app hidden → pause.
   useEffect(() => {
@@ -424,9 +414,7 @@ export default function FeedVideoCard({ video, className = "", fillParent = fals
     const next = !(v ? v.muted : muted);
     if (v) v.muted = next;
     setMuted(next);
-    // startMuted (Trending): the choice is for this card only — the rest of the feed keeps the member's own setting.
-    if (startMuted) unmutedHere.current = !next;
-    else setSoundPref(!next);
+    setSoundPref(!next);
     reveal();
   };
 
