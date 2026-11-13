@@ -98,7 +98,7 @@ const VALID_ROUTES = new Set([
   "wallet", "gifts", "transactions", "orders",
   "seo", "advertisements", "features", "push_notification", "performance", "announcements", "newsletter_faq", "analytics",
   "video_posts", "video_ads", "video_music_check", "video_conversion", "personal_feed", "upload_resume",
-  "new_photos", "competition_fullsize",
+  "new_photos", "competition_fullsize", "mention_groups", "mention_all_blocked",
   "page_management", "menu_builder", "redirects",
   "settings", "auth_pages", "email_templates", "database",
   "health", "app_events", "activity_logs", "admin_notifications", "notifications_health", "notification_centre", "test_agent",
@@ -196,6 +196,11 @@ const tabGroups = [
   { label: "Photos", items: [
     ["new_photos", "New Photos", Image],
     ["competition_fullsize", "Competition Full Size", Trophy],
+  ] as const },
+  /* @all / @followers (Owner 2026-11-12): who may use the tags, and who lost @all. */
+  { label: "Mentions", items: [
+    ["mention_groups", "@all and @followers", Megaphone],
+    ["mention_all_blocked", "Take @all Away", XCircle],
   ] as const },
   { label: "Pages & Navigation", items: [
     ["page_management", "Page Management", FileText],
@@ -325,6 +330,8 @@ const AdminPanel = () => {
       {currentRoute === "upload_resume" && <LazyTab><AdminVideoFeature feature="photo_upload_resume" /></LazyTab>}
       {currentRoute === "new_photos" && <LazyTab><AdminVideoFeature feature="photo_set_v2" /></LazyTab>}
       {currentRoute === "competition_fullsize" && <LazyTab><AdminVideoFeature feature="competition_fullsize_purge" /></LazyTab>}
+      {currentRoute === "mention_groups" && <LazyTab><AdminVideoFeature feature="mention_groups" /></LazyTab>}
+      {currentRoute === "mention_all_blocked" && <LazyTab><AdminVideoFeature feature="mention_all_blocked" /></LazyTab>}
       {currentRoute === "push_notification" && <LazyTab><AdminPushBroadcast /></LazyTab>}
       {currentRoute === "performance" && <LazyTab><AdminPerformance user={user} /></LazyTab>}
       {currentRoute === "announcements" && <LazyTab><AdminAnnouncements user={user} /></LazyTab>}

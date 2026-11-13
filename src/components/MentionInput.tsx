@@ -1,4 +1,7 @@
 import { useCallback, useEffect, forwardRef, useRef, useState } from "react";
+import GroupMentionRow from "@/components/GroupMentionRow";
+import { groupMentionOptions } from "@/lib/groupMentions";
+import { refreshGroupMentions } from "@/lib/groupMentionsLoad";
 import { Send } from "lucide-react";
 import { MentionsInput, Mention, SuggestionDataItem } from "react-mentions";
 import { profilesPublic } from "@/lib/profilesPublic";
@@ -82,6 +85,8 @@ interface MentionInputProps {
 
 interface UserSuggestion extends SuggestionDataItem {
   avatar_url?: string | null;
+  group?: boolean;
+  hint?: string;
 }
 
 const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
@@ -99,8 +104,12 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
 
   const fetchUsers = useCallback(
     async (query: string, callback: (data: UserSuggestion[]) => void) => {
+      // @followers / @all on top — only what the server offers this member today
+      // (mention_groups_me via groupMentionsLoad.ts; off = none).
+      await refreshGroupMentions();
+      const groups: UserSuggestion[] = groupMentionOptions(query);
       if (!query) {
-        callback([]);
+        callback(groups);
         return;
       }
       const { data } = await profilesPublic()
@@ -112,7 +121,7 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
         display: u.full_name || "Photographer",
         avatar_url: u.avatar_url,
       }));
-      callback(suggestions);
+      callback([...groups, ...suggestions]);
     },
     []
   );
@@ -531,7 +540,9 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
           // highlighted, with no "@"; it deletes as one piece.
           displayTransform={(_id, display) => display}
           appendSpaceOnAdd
-          renderSuggestion={(suggestion: UserSuggestion, _search, highlightedDisplay) => (
+          renderSuggestion={(suggestion: UserSuggestion, _search, highlightedDisplay) => suggestion.group ? (
+            <GroupMentionRow id={String(suggestion.id)} display={String(suggestion.display)} hint={suggestion.hint} />
+          ) : (
             <div className="flex min-w-0 items-center gap-2.5">
               {suggestion.avatar_url ? (
                 <img

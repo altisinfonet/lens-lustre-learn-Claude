@@ -299,13 +299,24 @@ const RPCS: Record<string, (body: Record<string, unknown>, params: URLSearchPara
    * existed — which is the property the Off default promises. A scene that
    * wants the video button sets `window.__harnessFeatures = ["video_posts"]`.
    */
+  // @all / @followers sample (?mentionall=1, &verified=0 = no blue tick): what the server would offer.
+  mention_groups_me: () => {
+    const s = typeof location !== "undefined" ? location.search : "";
+    const on = s.includes("mentionall=1");
+    return { on, can_all: on && !s.includes("verified=0"), all_left: 1, followers_left: 3 };
+  },
   feature_allowed_me: (body: Record<string, unknown>) => {
     const f = body?._feature;
     const on = (globalThis as { __harnessFeatures?: string[] }).__harnessFeatures ?? [];
     return typeof f === "string" && on.includes(f);
   },
 
+  // @all / @followers sample bell rows (?mentionall=1, Owner plan 2026-11-12).
   get_my_notifications_grouped: () => [
+    ...(typeof location !== "undefined" && location.search.includes("mentionall=1") ? [
+      { group_key: "g-mention-all", type: "mention_all", notification_ids: ["nm1"], actor_ids: [profiles[1].id], actor_names: [profiles[1].full_name], actor_usernames: [profiles[1].custom_url], actor_avatars: [profiles[1].avatar_url ?? ""], actor_count: 1, event_count: 1, unread_count: 1, reference_id: "p1", thumbnail_url: null, title: "", message: "mentioned everyone.", latest_at: "2026-09-05T09:30:00.000Z", actor_known: [true] },
+      { group_key: "g-mention-followers", type: "mention_followers", notification_ids: ["nm2"], actor_ids: [profiles[2].id], actor_names: [profiles[2].full_name], actor_usernames: [profiles[2].custom_url], actor_avatars: [profiles[2].avatar_url ?? ""], actor_count: 1, event_count: 1, unread_count: 1, reference_id: "p1", thumbnail_url: null, title: "", message: "mentioned their followers.", latest_at: "2026-09-05T09:20:00.000Z", actor_known: [true] },
+    ] : []),
     {
       group_key: "g-following",
       type: "new_post_from_following",
