@@ -5,6 +5,7 @@ import { refreshGroupMentions } from "@/lib/groupMentionsLoad";
 import { Send } from "lucide-react";
 import { MentionsInput, Mention, SuggestionDataItem } from "react-mentions";
 import { profilesPublic } from "@/lib/profilesPublic";
+import { displayName } from "@/lib/displayName";
 
 /*
  * ─────────────────────────────────────────────────────────────────────────────
@@ -118,7 +119,7 @@ const MentionInput = forwardRef<HTMLInputElement, MentionInputProps>(({
         .limit(6);
       const suggestions: UserSuggestion[] = (data || []).map((u: any) => ({
         id: u.id,
-        display: u.full_name || "Photographer",
+        display: displayName(u.full_name),
         avatar_url: u.avatar_url,
       }));
       callback([...groups, ...suggestions]);

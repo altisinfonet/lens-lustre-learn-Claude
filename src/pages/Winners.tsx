@@ -257,7 +257,7 @@ const Winners = () => {
                     )}
                     <UserIdentityBlock
                       userId={winner.user_id}
-                      name={winner.profile?.full_name || "Photographer"}
+                      name={winner.profile?.full_name}
                       handle={winner.profile?.custom_url}
                       nameClassName="text-xs tracking-[0.1em] uppercase text-muted-foreground hover:text-primary hover:underline transition-colors"
                     />

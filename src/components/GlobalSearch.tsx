@@ -15,6 +15,7 @@ import { useDismissOnRouteChange } from "@/hooks/core/useDismissOnRouteChange";
 import { logger } from "@/lib/logger";
 import { OPEN_SEARCH_EVENT } from "@/components/MobileTopMenu";
 import { postPathOf } from "@/lib/posts/postPath";
+import { displayName } from "@/lib/displayName";
 
 const FILE = "src/components/GlobalSearch.tsx";
 
@@ -233,7 +234,7 @@ const GlobalSearch = ({ hideTrigger = false }: { hideTrigger?: boolean } = {}) =
       ...(g.people || [])
         .map((p: any) => ({
           id: p.id,
-          title: p.full_name || "Photographer",
+          title: displayName(p.full_name),
           type: "person" as const,
           // F-95 — a person result opens their NAME url. Without a handle the
           // result stays in the list and stays readable; it just has no

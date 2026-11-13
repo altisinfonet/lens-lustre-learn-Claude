@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, useCallback, useMemo } from "react";
+import { Fragment, useEffect, useState, useCallback, useMemo, useRef } from "react";
 import PendingPhotoPosts from "@/components/upload/PendingPhotoPosts";
 import { useQuery } from "@tanstack/react-query";
 
@@ -32,6 +32,8 @@ import { useFeedCacheUpdaters } from "@/hooks/feed/useFeedCacheUpdaters";
 import PostCard from "@/components/post/PostCard";
 import { fetchPostAttachments, attachmentsFor } from "@/lib/posts/postAttachments";
 import { loadAuthorIdentity } from "@/lib/feed/authorIdentity";
+import { ownDisplayName } from "@/lib/ownDisplayName";
+import { useProfileCore } from "@/hooks/profile/useProfileData";
 import PostCardSkeleton from "@/components/post/PostCardSkeleton";
 import WallPosts from "@/components/WallPosts";
 import { isNativeCapacitorApp } from "@/lib/native/authDeepLink";
@@ -50,6 +52,10 @@ const bodyFont = { fontFamily: "var(--font-body)" };
 
 const Feed = () => {
   const { user, loading: authLoading } = useAuth();
+  // The member's own profile (kept on the phone): their own new post is named from it even offline.
+  const { data: me } = useProfileCore(user?.id);
+  const meRef = useRef(me);
+  meRef.current = me;
   const { isBanned } = useIsBanned();
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
@@ -245,7 +251,15 @@ const Feed = () => {
         loadAuthorIdentity(rawPost.user_id).catch(() => null),
       ]);
       if (!withMedia) return; // a video this viewer may not play: no empty post
-      insertPost(who ? { ...withMedia, ...who } : withMedia);
+      // Weak or no network (the lookup failed or came back nameless): the member's
+      // OWN name from the copy on the phone / their sign-in — like Meta, never blank.
+      const own = ownDisplayName(meRef.current?.full_name, user);
+      insertPost({
+        ...withMedia,
+        ...(who ?? {}),
+        author_name: who?.author_name || own || null,
+        author_avatar: who?.author_avatar ?? meRef.current?.avatar_url ?? null,
+      });
       window.scrollTo({ top: 0, behavior: "smooth" });
       window.setTimeout(() => { void refetch(); }, 5000);
     } else {

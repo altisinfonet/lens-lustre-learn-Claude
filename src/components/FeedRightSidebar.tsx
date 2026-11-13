@@ -15,6 +15,7 @@ import type { SidebarData } from "@/hooks/core/useDashboardInit";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { isPaidCourse } from "@/lib/native/iosReview";
 import { memberPhotoSrc } from "@/lib/photoProtection";
+import { displayName } from "@/lib/displayName";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -200,7 +201,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
                   <div className="flex-1 min-w-0">
                     <UserIdentityBlock
                       userId={s.id}
-                      name={s.full_name || "Photographer"}
+                      name={s.full_name}
                       handle={handleFor(s)}
                       nameClassName="text-xs font-medium truncate hover:text-primary transition-colors"
                     />
@@ -255,7 +256,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
                        * and into the divider, which is the worse choice here.
                        * ─────────────────────────────────────────────────────
                        */
-                      aria-label={`${t("fr.addFriend")} — ${s.full_name || "Photographer"}`}
+                      aria-label={`${t("fr.addFriend")} — ${displayName(s.full_name)}`}
                       className="tap-44 inline-flex items-center gap-1 text-[8px] tracking-[0.15em] uppercase px-2 py-1 border border-primary/40 text-primary hover:bg-primary/10 transition-all rounded-sm"
                       style={headingFont}
                     >
@@ -434,7 +435,7 @@ const FeedRightSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedRigh
                         className="text-[9px] text-muted-foreground truncate hover:underline inline-block pt-[8px] -mt-[8px]"
                         style={bodyFont}
                       >
-                        {w.user_name || "Photographer"}
+                        {displayName(w.user_name)}
                       </ProfileLink>
                     </div>
                     <Link to={`/competitions`} className="block min-w-0">

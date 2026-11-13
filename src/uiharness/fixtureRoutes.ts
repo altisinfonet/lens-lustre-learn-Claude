@@ -25,7 +25,7 @@ import { storySampleOn, sampleBar, sampleHighlights, sampleUserStories, sampleCo
 import { sampleHashtagInfo, sampleHashtagPosts } from "./hashtagSample";
 import type { FakeRoute } from "./fakeBackend";
 import {
-  HARNESS_USER_ID,
+  HARNESS_USER_ID, fixtureImage,
   adCreatives, categories, certificates, dashboardInit, dbAuditLogs, faqEntries, featuredArtists, follows, heroBanners,
   photoOfTheDay, portfolioImages, posts, postComments, postReactions, profiles, profilesPublicData, siteSettings,
   topContributors, userRoles,
@@ -409,6 +409,13 @@ const RPCS: Record<string, (body: Record<string, unknown>, params: URLSearchPara
   // combination the app can never actually be in.
   // Stories v2: empty, matching the empty `stories` table — unless a scene asks
   // for the approved sample (?stories=1, storySample.ts).
+  // Trending this week (20261113_0600): empty like dashboard-init's [] — the
+  // approved screens are unchanged — unless a scene asks (?trending=1): 4 photos.
+  get_trending_week: () => (typeof location !== "undefined" && location.search.includes("trending=1")
+    ? { video: null, photos: [1, 2, 3, 4].map((i) => ({
+        id: `trend-${i}`, image_url: fixtureImage(40 + i, `T${i}`), thumb_url: null,
+        title: `Trending ${i}`, reaction_count: 6 - i, source: "post" })) }
+    : { video: null, photos: [] }),
   get_feed_stories_bar: () => (storySampleOn() ? sampleBar() : []),
   get_user_stories: (body) => (storySampleOn() ? sampleUserStories(String(body._user_id ?? "")) : []),
   story_comments_list: () => (storySampleOn() ? sampleComments() : []),

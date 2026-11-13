@@ -92,7 +92,8 @@ describe("item 1 — /discover: a control that acts on a person says which perso
     for (const t of tags) {
       expect(t, `an aria-label that is not built from the person:\n${t}`).toMatch(/aria-label=\{named\(/);
     }
-    expect(discoverCard).toMatch(/const personName = profile\.full_name \|\| "Photographer"/);
+    // 13 Nov 2026: the person's name, never a made-up word (noPhotographerFallback.test.ts).
+    expect(discoverCard).toMatch(/const personName = displayName\(profile\.full_name\)/);
   });
 });
 
@@ -121,7 +122,7 @@ describe("item 2 — People You May Know: the Add button", () => {
   })();
 
   it("says whose row it is", () => {
-    expect(addButton).toMatch(/aria-label=\{`\$\{t\("fr\.addFriend"\)\} — \$\{s\.full_name \|\| "Photographer"\}`\}/);
+    expect(addButton).toMatch(/aria-label=\{`\$\{t\("fr\.addFriend"\)\} — \$\{displayName\(s\.full_name\)\}`\}/);
   });
 
   it("has a 44px hit region", () => {

@@ -14,6 +14,7 @@ import { useVideoPoster } from "@/hooks/video/useVideoPoster";
 import {
   addPhotoStory, fetchStoryBar, fetchUserStories, type StoryBarUser, type StoryPerson, type StoryRow,
 } from "@/lib/stories/storyData";
+import { displayName } from "@/lib/displayName";
 
 /**
  * STORIES v2 — the feed's story row (Owner, 6 Nov 2026: "No Round … Make it
@@ -95,7 +96,7 @@ const FeedStoriesBar = () => {
         return;
       }
       const isOwn = owner === user.id;
-      let name = "Photographer";
+      let name = "";
       let avatar: string | null = null;
       if (isOwn) { name = "Your story"; avatar = me?.avatar_url ?? null; }
       else {
@@ -127,7 +128,7 @@ const FeedStoriesBar = () => {
 
   const people: StoryPerson[] = bar.map((b) => ({
     userId: b.user_id,
-    name: b.is_official ? "50mm Retina World" : (b.full_name || "Photographer"),
+    name: b.is_official ? "50mm Retina World" : displayName(b.full_name),
     avatar: b.avatar_url,
     cover: b.cover_url,
     isOwn: false,
@@ -191,7 +192,7 @@ const FeedStoriesBar = () => {
             >
               <BarTile b={b} />
               <span className={STORY_TILE_LABEL} style={headingFont}>
-                {b.is_official ? "50mm Retina" : (b.full_name || "Photographer")}
+                {b.is_official ? "50mm Retina" : displayName(b.full_name)}
               </span>
             </button>
           ))}

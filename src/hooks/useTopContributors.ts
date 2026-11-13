@@ -44,6 +44,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchProfileMapDirect } from '@/lib/profileMapCache';
+import { displayName } from "@/lib/displayName";
 
 /** The frozen v3 return shape — docs/gates/TC-v3-interface.md §2.2. */
 interface TopContributorRowV3 {
@@ -123,7 +124,7 @@ export const useTopContributors = () => {
         const profile = profileMap.get(d.user_id);
         return {
           id: d.user_id,
-          full_name: profile?.full_name ?? 'Photographer',
+          full_name: displayName(profile?.full_name),
           avatar_url: profile?.avatar_url ?? null,
           custom_url: profile?.custom_url ?? null,
           badges: profile?.badges ?? [],

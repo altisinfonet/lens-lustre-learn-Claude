@@ -4,7 +4,9 @@ import { submit } from "@/lib/offline/outbox";
 import ProfileLink from "@/components/ProfileLink";
 import { copyAddress, shareAddress, sharePostToWall } from "@/lib/share/shareActions";
 import { Link } from "react-router-dom";
-import { Share2, Copy, MoreHorizontal, Trash2, Flag, Ban, Eye, EyeOff, VolumeX, Pencil, UserPlus, UserCheck, UserMinus, Users } from "lucide-react";
+import { Share2, Copy, MoreHorizontal, Trash2, Flag, Ban, Eye, EyeOff, VolumeX, Pencil, UserPlus, UserCheck, UserMinus, Users, TrendingUp } from "lucide-react";
+import { useIsAdmin } from "@/hooks/core/useIsAdmin";
+import { useTrendingMark, useTrendingWeek } from "@/hooks/feed/useTrendingWeek";
 import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,7 +36,7 @@ import { useT } from "@/i18n/I18nContext";
 import { useSendFriendRequest } from "@/hooks/social/useFriendshipMutations";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
-import { avatarInitial } from "@/lib/displayName";
+import { avatarInitial, displayName } from "@/lib/displayName";
 import BlockUserDialog from "@/components/moderation/BlockUserDialog";
 import { PostCameraLine } from "@/components/post/CameraDetails";
 import { usePhotoSetV2 } from "@/hooks/core/usePhotoSetV2";
@@ -196,6 +198,12 @@ const PostCard = ({
   // What the card shows comes from the one module every screen uses
   // (src/lib/posts/subjectMedia.ts) — the comments box shows the same.
   const media = postMedia(post);
+  // Trending this week (20261113_0600): admins only, public video posts only.
+  const { isAdmin } = useIsAdmin();
+  const canMarkTrending = isAdmin && !!media.video && post.privacy === "public";
+  const trendingNow = useTrendingWeek(canMarkTrending);
+  const isTrendingNow = trendingNow.data?.video?.post_id === post.id;
+  const trendingMark = useTrendingMark();
   const imageUrls = media.imageUrls;
   // Stored thumbnails ride along ONLY when they align one-to-one with the
   // images. A mismatched array (single-image fallback path, partial uploads)
@@ -415,7 +423,7 @@ const PostCard = ({
           <div className="flex flex-wrap items-center gap-x-1 min-w-0 text-sm">
             <UserIdentityBlock
               userId={post.user_id}
-              name={post.author_name || "Photographer"}
+              name={post.author_name}
               // ⚠ PASS THE BADGES THE QUERY ALREADY FETCHED. Every feed/wall/
               // hashtag query has computed `author_badges` for months and no
               // caller read it, so the tick fell back to a second per-name
@@ -580,6 +588,17 @@ const PostCard = ({
                     <Ban className="h-4 w-4 mr-2.5" /> Block {post.author_name?.trim() || "member"}
                   </DropdownMenuItem>
                 </>
+              )}
+              {/* Owner 13 Nov 2026: admins mark ONE public video post as Trending this week (the database keeps it to one). */}
+              {canMarkTrending && (
+                <DropdownMenuItem
+                  onClick={() => trendingMark.mutate({ postId: post.id, on: !isTrendingNow })}
+                  disabled={trendingMark.isPending}
+                  className="py-2.5"
+                  data-testid="post-trending-mark"
+                >
+                  <TrendingUp className="h-4 w-4 mr-2.5" /> {isTrendingNow ? "Remove from Trending" : "Mark as Trending this week"}
+                </DropdownMenuItem>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -846,7 +865,7 @@ const PostCard = ({
               userId={post.user_id} handle={post.author_handle}
               className="font-semibold text-foreground hover:text-primary transition-colors mr-1.5"
             >
-              {post.author_name || "Photographer"}
+              {displayName(post.author_name)}
             </ProfileLink>
           }
         />

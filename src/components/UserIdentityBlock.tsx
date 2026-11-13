@@ -6,6 +6,7 @@ import AutoRole from "@/components/AutoRole";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 
 import { logger } from "@/lib/logger";
+import { useMemberName } from "@/hooks/profile/useMemberName";
 
 const FILE = "src/components/UserIdentityBlock.tsx";
 
@@ -150,7 +151,13 @@ const UserIdentityBlock = ({
   stack = false,
   align = "start",
 }: UserIdentityBlockProps) => {
-  const displayName = name || "Photographer";
+  // Owner 13 Nov 2026: the name is guaranteed HERE, whatever the caller had —
+  // asked by member id when missing; a grey bar while it comes, never a made-up word.
+  const known = useMemberName(userId, name);
+  const displayName = known ?? (
+    <span aria-busy="true" aria-label="Loading name" data-testid="name-pending"
+      className="inline-block h-[0.8em] w-24 max-w-full rounded bg-muted align-middle animate-pulse" />
+  );
   /**
    * `w-full` only when the name is alone on its line. In the stacked layout the
    * verified tick sits beside it, so the name must be shrinkable — a full-width
