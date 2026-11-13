@@ -1,8 +1,7 @@
-import { memberPhotoSrc } from "@/lib/photoProtection";
 import { useState, useRef, useMemo } from "react";
 import ProfileLink from "@/components/ProfileLink";
 import { Link } from "react-router-dom";
-import { TrendingUp, Cake, Newspaper, Vote, Coins, PartyPopper } from "lucide-react";
+import { Cake, Newspaper, Vote, Coins, PartyPopper } from "lucide-react";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useT } from "@/i18n/I18nContext";
 import CompetitionLightbox from "@/components/CompetitionLightbox";
@@ -13,41 +12,13 @@ import type { SidebarData } from "@/hooks/core/useDashboardInit";
 import { useCompetitionVoting } from "@/hooks/competition/useCompetitionVoting";
 import { useCompetitionVoteRealtime } from "@/hooks/competition/useCompetitionVoteRealtime";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
-import { postPath } from "@/lib/posts/postPath";
-import { useQuery } from "@tanstack/react-query";
-import FeedVideoCard from "@/components/video/FeedVideoCard";
-import { fetchPostVideoMap } from "@/lib/video/postVideoRead";
 import { useTrendingWeek } from "@/hooks/feed/useTrendingWeek";
-import { postMedia } from "@/lib/posts/subjectMedia";
+import { TrendingWeekCard } from "@/components/feed/TrendingWeekCard";
 import {
   buildCompetitionVotingPhotoKey,
   mapSidebarVotingEntriesToVotingPhotos,
   mergeCompetitionVotingPhotoPools,
 } from "@/lib/competitionVotingPhotos";
-
-/** The admin-marked Trending video: the feed's own player, sound off, on loop; the post opens below. */
-function TrendingVideoTile({ postId }: { postId: string }) {
-  const { data: video } = useQuery({
-    queryKey: ["trending-week-video", postId],
-    staleTime: 5 * 60_000,
-    queryFn: async () => {
-      const v = (await fetchPostVideoMap([postId])).get(postId);
-      return v && v !== "hidden" ? v : null;
-    },
-  });
-  // the one media decision every video surface takes (subjectMedia)
-  const media = postMedia({ video: video ?? null, image_urls: [] });
-  return (
-    <div className="p-2" data-testid="trending-video">
-      <div className="relative aspect-[4/5] overflow-hidden rounded-sm bg-black">
-        {media.video && <FeedVideoCard video={media.video} fillParent className="h-full w-full" />}
-      </div>
-      <Link to={postPath(postId)} className="mt-1.5 inline-flex min-h-[24px] items-center text-[10px] text-primary hover:underline">
-        Open post →
-      </Link>
-    </div>
-  );
-}
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 const bodyFont = { fontFamily: "var(--font-body)" };
@@ -108,16 +79,8 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
     const index = votingPhotos.findIndex((p) => buildCompetitionVotingPhotoKey(p.entryId, p.photoIndex) === key);
     return index >= 0 ? index : 0;
   }, [lightboxSelection, votingPhotos]);
-  // Owner 13 Nov 2026: the database decides (get_trending_week) — ONE marked
-  // video, else EXACTLY 4 photos. While that function is not on a lane yet
-  // (error), the old list is used only when it has 4 — never 2 or 3.
+  // Trending this week: the database decides (get_trending_week); the card is shared with the feed.
   const trendingQ = useTrendingWeek(!!user);
-  const legacyTrending = (sidebarData?.trending ?? []) as any[];
-  const trendingVideo = trendingQ.data?.video ?? null;
-  const trendingPhotos: any[] = trendingQ.data
-    ? trendingQ.data.photos
-    : trendingQ.isError && legacyTrending.length >= 4 ? legacyTrending.slice(0, 4) : [];
-  const trendingLoading = trendingQ.isLoading && !!user;
   const milestones = sidebarData?.milestones ?? [];
   /*
    * NOT IN THE ORDER, AND FIXED ANYWAY — because the item-5 probe measured it
@@ -205,83 +168,8 @@ const FeedLeftSidebar = ({ sidebarData, isLoading: dashboardLoading }: FeedLeftS
         </div>
       )}
 
-      {/* Trending Photos */}
-      {sections.trending && (
-        <div className="border border-border bg-card/50 rounded-sm">
-          <div className="px-4 py-3 border-b border-border">
-            <span className="text-[9px] tracking-[0.3em] uppercase text-primary flex items-center gap-1.5" style={headingFont}>
-              <TrendingUp className="h-3 w-3" />
-              {t("sidebar.trending")}
-            </span>
-          </div>
-          {trendingVideo ? (
-            /* Owner 13 Nov: the ONE admin-marked video plays here (sound off, on loop). */
-            <TrendingVideoTile postId={trendingVideo.post_id} />
-          ) : trendingPhotos.length === 4 ? (
-            <div className="grid grid-cols-2 gap-1 p-2" data-testid="trending-photos">
-              {trendingPhotos.map((photo: any) => {
-                /*
-                 * ⚠ THESE TILES HAD NO INTERACTIVE WRAPPER AT ALL. Measured by
-                 * the Auditor on the deployed preview by walking the ancestor
-                 * chain: no <a>, no <button>, no tabindex, no role. A keyboard
-                 * could not reach them and a screen reader announced four
-                 * decorative images. The main feed already does this correctly
-                 * with real anchors, so this matches that pattern rather than
-                 * inventing a clickable div.
-                 *
-                 * ⚠ AND ONE SOURCE STILL CANNOT BE LINKED, honestly. The
-                 * dashboard-init payload carries { id, image_url, title,
-                 * reaction_count, source }: an entry id resolves to /entry/:id
-                 * and a post id to /post/:id, but a `portfolio` row carries no
-                 * owner id, and there is no route that takes a portfolio image
-                 * id. A <button> that navigates nowhere would be worse than a
-                 * plain tile — it would announce itself as a control and then
-                 * do nothing — so a portfolio tile stays a figure, and the
-                 * missing field is reported to D1, whose function that is.
-                 */
-                const href =
-                  photo.source === "entry" ? `/entry/${photo.id}`
-                  : photo.source === "post" ? postPath(photo.id)
-                  : null;
-
-                const inner = (
-                  <>
-                    <img src={memberPhotoSrc(photo.image_url, 320) ?? undefined} alt={photo.title || "Trending photograph"} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" decoding="async" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div className="absolute bottom-1 left-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <p className="text-[8px] text-white truncate" style={headingFont}>{photo.title}</p>
-                      <span className="text-[7px] text-white/70" style={bodyFont}>❤️ {photo.reaction_count}</span>
-                    </div>
-                  </>
-                );
-
-                return href ? (
-                  <Link
-                    key={photo.id}
-                    to={href}
-                    aria-label={photo.title ? `Open ${photo.title}` : "Open trending photograph"}
-                    className="relative group aspect-square overflow-hidden rounded-sm block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                  >
-                    {inner}
-                  </Link>
-                ) : (
-                  <div key={photo.id} className="relative group aspect-square overflow-hidden rounded-sm">
-                    {inner}
-                  </div>
-                );
-              })}
-            </div>
-          ) : trendingLoading ? (
-            <div className="grid grid-cols-2 gap-1 p-2" aria-hidden="true">
-              {[0, 1, 2, 3].map((i) => <div key={i} className="aspect-square rounded-sm bg-muted animate-pulse" />)}
-            </div>
-          ) : (
-            <div className="p-4 text-center">
-              <p className="text-[10px] text-muted-foreground" style={bodyFont}>No trending photos this week</p>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Trending this week — the ONE card (TrendingWeekCard), the same one the phone / app feed shows. */}
+      {sections.trending && <TrendingWeekCard variant="sidebar" data={trendingQ.data ?? null} loading={trendingQ.isLoading && !!user} />}
 
       {/* Membership Anniversaries */}
       {sections.milestones && milestones.length > 0 && (

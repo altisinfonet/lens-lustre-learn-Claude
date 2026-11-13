@@ -18,6 +18,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { stripComments } from "@/test-utils/sourceText";
+import { FEED_INSERTS } from "@/lib/feed/feedInserts";
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 const strip = (s: string) => stripComments(s);
@@ -44,11 +45,13 @@ describe("it appears only in the installed app", () => {
 
 describe("it sits after the 10th post", () => {
   it("renders at zero-based index 9", () => {
-    expect(feed).toMatch(/\{i === 9 && <FeedFriendSuggestions \/>\}/);
+    // 13 Nov 2026: the place comes from the one list of feed inserts (feedInserts.ts).
+    expect(FEED_INSERTS.people).toBe(9);
+    expect(feed).toMatch(/\{i === FEED_INSERTS\.people && <FeedFriendSuggestions \/>\}/);
   });
 
   it("is inside the post loop, not outside it", () => {
-    const at = feed.indexOf("i === 9 && <FeedFriendSuggestions");
+    const at = feed.indexOf("i === FEED_INSERTS.people && <FeedFriendSuggestions");
     const loop = feed.indexOf("posts.map((post, i)");
     expect(loop).toBeGreaterThan(-1);
     expect(at).toBeGreaterThan(loop);

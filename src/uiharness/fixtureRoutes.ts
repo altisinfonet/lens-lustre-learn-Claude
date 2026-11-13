@@ -31,6 +31,11 @@ import {
   topContributors, userRoles,
 } from "./fixtures";
 
+/** ?trending=1 (Trending card scene): twice the posts, so the feed reaches the card below its 4th post. Other scenes: unchanged. */
+const feedPosts = () => (typeof location !== "undefined" && location.search.includes("trending=1")
+  ? [...posts, ...posts.map((p, i) => ({ ...p, id: p.id.slice(0, -3) + String(900 + i) }))]
+  : posts);
+
 /** Tables answered with rows. */
 const TABLES: Record<string, unknown[]> = {
   profiles,
@@ -200,9 +205,9 @@ const RPCS: Record<string, (body: Record<string, unknown>, params: URLSearchPara
    * the first row — `"author_name" in first`. So the fixture must carry those
    * columns or the harness would silently photograph the OLD code path.
    */
-  get_broadcast_feed: () => posts,
+  get_broadcast_feed: () => feedPosts(),
   /** S6-a · the same fixed list by cursor (feed_pos = the delivery position the client pages from). */
-  get_feed_page: (body) => posts.map((p, i) => ({ source: null, caught_up_after: false, ...p, feed_pos: Number(body._after ?? 0) + i + 1 })),
+  get_feed_page: (body) => feedPosts().map((p, i) => ({ source: null, caught_up_after: false, ...p, feed_pos: Number(body._after ?? 0) + i + 1 })),
   /** The hashtag page's banned/suspended authors: nobody in the fixture set. */
   filter_moderated_user_ids: () => [],
   /** H1 hashtag page: header row (counts, follow, related) and the paged list (hashtagSample.ts, ?hashtag=1). */
