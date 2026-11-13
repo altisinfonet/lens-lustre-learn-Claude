@@ -55,6 +55,7 @@ BEGIN
     JOIN public.profiles p ON p.id = e.user_id
    WHERE cardinality(e.photos) >= 1 AND NOT coalesce(p.is_banned, false)
      AND NOT EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = e.user_id AND ur.role::text = 'admin')
+     AND e.status IN ('submitted', 'approved', 'round1_qualified', 'shortlisted', 'needs_review', 'hold', 'rejected')
    ORDER BY (e.status = 'submitted') DESC, e.created_at DESC
    LIMIT 1;
   SELECT u.id INTO _voter FROM auth.users u JOIN public.profiles p ON p.id = u.id
@@ -72,6 +73,11 @@ BEGIN
          status = CASE WHEN status IN ('archived', 'cancelled') THEN 'open' ELSE status END
    WHERE id = _comp
   RETURNING title INTO _ctitle;
+  -- the owner sees and edits a "submitted" entry (a rejected one is hidden from them)
+  IF _st IS DISTINCT FROM 'submitted' THEN
+    UPDATE public.competition_entries SET status = 'submitted', current_round = '1', placement = NULL WHERE id = _e;
+    _st := 'submitted';
+  END IF;
 
   -- ── entries ──
   r := pg_temp.as_member(_owner, format('UPDATE public.competition_entries SET title = left(coalesce(title, %L), 180) || %L WHERE id = %L RETURNING id::text', '', ' ·probe', _e));
