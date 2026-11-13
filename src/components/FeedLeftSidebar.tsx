@@ -18,6 +18,7 @@ import { useQuery } from "@tanstack/react-query";
 import FeedVideoCard from "@/components/video/FeedVideoCard";
 import { fetchPostVideoMap } from "@/lib/video/postVideoRead";
 import { useTrendingWeek } from "@/hooks/feed/useTrendingWeek";
+import { postMedia } from "@/lib/posts/subjectMedia";
 import {
   buildCompetitionVotingPhotoKey,
   mapSidebarVotingEntriesToVotingPhotos,
@@ -34,10 +35,12 @@ function TrendingVideoTile({ postId }: { postId: string }) {
       return v && v !== "hidden" ? v : null;
     },
   });
+  // the one media decision every video surface takes (subjectMedia)
+  const media = postMedia({ video: video ?? null, image_urls: [] });
   return (
     <div className="p-2" data-testid="trending-video">
       <div className="relative aspect-[4/5] overflow-hidden rounded-sm bg-black">
-        {video && <FeedVideoCard video={video} fillParent className="h-full w-full" />}
+        {media.video && <FeedVideoCard video={media.video} fillParent className="h-full w-full" />}
       </div>
       <Link to={postPath(postId)} className="mt-1.5 inline-flex min-h-[24px] items-center text-[10px] text-primary hover:underline">
         Open post →
