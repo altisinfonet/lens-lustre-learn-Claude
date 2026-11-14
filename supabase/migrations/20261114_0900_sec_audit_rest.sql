@@ -68,6 +68,9 @@ BEGIN
     WHERE ur.role::text = _role;
 END;
 $$;
+-- Same callers as measured live: signed-out (admin badge), members, server.
+REVOKE ALL ON FUNCTION public.get_public_role_user_ids(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_public_role_user_ids(text) TO anon, authenticated, service_role;
 
 -- ── S4: the AI question counter is written by ask-anything only ────────────
 DROP POLICY IF EXISTS "x1_merged_update" ON public.ai_chat_usage;

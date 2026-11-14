@@ -32,6 +32,8 @@ BEGIN
     WHERE ur.role::text = _role;
 END;
 $$;
+REVOKE ALL ON FUNCTION public.get_public_role_user_ids(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_public_role_user_ids(text) TO anon, authenticated, service_role;
 
 CREATE POLICY "x1_merged_update" ON public.ai_chat_usage
   FOR UPDATE TO authenticated
