@@ -492,4 +492,9 @@ export const A11Y_ONLY_SCREENS: Record<string, () => JSX.Element> = {
     (globalThis as { __harnessAdminPush?: boolean }).__harnessAdminPush = true;
     return screen(<AdminPanel />, "/admin/push_notification", "/admin/*");
   },
+  /** Admin → Comments: the "Suggestions under the comment box" editor (Owner 18 Nov 2026). */
+  "screen-admin-comments": () => {
+    (globalThis as { __harnessRoles?: string[] }).__harnessRoles = ["admin"];
+    return screen(<AdminPanel />, "/admin/comments", "/admin/*");
+  },
 };

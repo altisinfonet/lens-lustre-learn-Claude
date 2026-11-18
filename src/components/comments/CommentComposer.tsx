@@ -18,6 +18,7 @@ import MentionInput from "@/components/MentionInput";
 import type { ReplyTarget } from "@/components/comments/replyTarget";
 import { Avatar } from "@/components/comments/CommentThread";
 import { COMMENT_PLACEHOLDER } from "@/components/comments/CommentThread";
+import { useCommentSuggestions } from "@/hooks/core/useCommentSuggestions";
 
 /**
  * THE QUICK-REACTION ROW.
@@ -97,6 +98,7 @@ const CommentComposer = ({
 }: CommentComposerProps) => {
   const [value, setValue] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const suggestions = useCommentSuggestions();
 
   // Reply tapped: the box starts with the answered member's name (a real
   // mention, highlighted, deleted as one piece) and takes the keyboard.
@@ -135,8 +137,39 @@ const CommentComposer = ({
     setValue((current) => (current.length + char.length > maxLength ? current : current + char));
   };
 
+  /** A suggested phrase: added after a space, same ceiling rule as an emoji. Never posts. */
+  const appendText = (phrase: string) => {
+    if (submitting) return;
+    setValue((current) => {
+      const next = current && !/\s$/.test(current) ? `${current} ${phrase}` : current + phrase;
+      return next.length > maxLength ? current : next;
+    });
+  };
+
   return (
     <div className={className}>
+      {quickReactions && suggestions.length > 0 && (
+        /* Owner 18 Nov: photography phrases (src/lib/comments/photoSuggestions.ts) —
+           one row that scrolls sideways; a tap adds the words to the box. */
+        <div
+          className="-mx-1 mb-1.5 flex gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          role="group"
+          aria-label="Add a suggestion to your comment"
+          data-testid="comment-suggestions"
+        >
+          {suggestions.map((phrase) => (
+            <button
+              key={phrase}
+              type="button"
+              onClick={() => appendText(phrase)}
+              disabled={submitting}
+              className="tap-44 h-8 shrink-0 whitespace-nowrap rounded-full border border-border bg-muted/40 px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-muted active:scale-95 disabled:opacity-50 motion-reduce:active:scale-100"
+            >
+              {phrase}
+            </button>
+          ))}
+        </div>
+      )}
       {quickReactions && (
         <div
           className="mb-1.5 flex items-center gap-0.5"

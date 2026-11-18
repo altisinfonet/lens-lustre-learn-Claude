@@ -15,6 +15,7 @@
 import { useState, type JSX } from "react";
 import OnboardingModal from "@/components/OnboardingModal";
 import AppShell from "./AppShell";
+import { I18nProvider } from "@/i18n/I18nContext";
 import ProfilePostGrid from "@/components/profile/ProfilePostGrid";
 import ImageCropModal from "@/components/admin/ImageCropModal";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -1025,7 +1026,8 @@ export const SCENES: Record<string, () => JSX.Element> = {
   /** The comments panel as it ships — search row, thread, composer. */
   "comments-panel": () => <CommentsPanelHarness />,
   /** Comments v3 sample for the Owner (10 Nov 2026) — not a baseline scene. */
-  "comments-v3-sample": () => <CommentsV3SampleHarness />,
+  // I18nProvider: the suggestion row follows the member's language (Owner 18 Nov); English renders as before.
+  "comments-v3-sample": () => <I18nProvider><CommentsV3SampleHarness /></I18nProvider>,
 
   /** VID-1: the video upload screen — a 16:9 video fitted into the 9:16 card. */
   "video-composer-landscape": () => <VideoComposerHarness src={landscapeVideoUrl} name="landscape.webm" />,

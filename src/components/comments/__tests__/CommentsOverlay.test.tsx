@@ -47,6 +47,8 @@ vi.mock("@/hooks/feed/usePostComments", () => ({
  */
 // PostCommentsSection reads the viewer's block list; this test has no
 // QueryClientProvider, and blocking is not what it is about.
+// The comment box reads its suggestion phrases from a site setting; no QueryClientProvider here, and they are not what this test is about.
+vi.mock("@/hooks/core/useCommentSuggestions", () => ({ useCommentSuggestions: () => [] }));
 vi.mock("@/hooks/core/useBlockedUsers", () => ({
   useBlockedUsers: () => ({
     blockedIds: new Set<string>(),

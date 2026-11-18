@@ -13,6 +13,7 @@ import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { useConfirmAction } from "@/hooks/admin/useConfirmAction";
 import type { User } from "@supabase/supabase-js";
 import { memberTextPlain } from "@/lib/memberText";
+import AdminCommentSuggestions from "@/components/admin/AdminCommentSuggestions";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 
@@ -91,6 +92,7 @@ const CommentsModule = ({ user }: Props) => {
 
   return (
     <div>
+      <AdminCommentSuggestions user={user} />
       <div className="flex items-center justify-between mb-6">
         <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground" style={headingFont}>
           {adminComments.length} comment{adminComments.length !== 1 ? "s" : ""} (latest 50)

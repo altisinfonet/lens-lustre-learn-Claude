@@ -33,6 +33,8 @@ vi.mock("@/hooks/feed/usePostComments", () => ({
     deleteComment: vi.fn(), toggleLike: vi.fn(), togglePin: vi.fn(), reportComment: vi.fn(), reload: vi.fn(),
   }),
 }));
+// The comment box reads its suggestion phrases from a site setting; no QueryClientProvider here, and they are not what this test is about.
+vi.mock("@/hooks/core/useCommentSuggestions", () => ({ useCommentSuggestions: () => [] }));
 vi.mock("@/hooks/core/useBlockedUsers", () => ({
   useBlockedUsers: () => ({
     blockedIds: new Set<string>(), blockedRows: [], isBlocked: () => false, block: () => {},
