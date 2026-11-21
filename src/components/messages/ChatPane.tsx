@@ -256,6 +256,10 @@ export default function ChatPane({ conversationId, userId, onBack }: { conversat
         <p className="border-t border-border/70 bg-background/80 px-4 py-3.5 text-center text-sm text-muted-foreground" data-testid="view-as-note">
           Read-only view of {viewAs.name}'s chat. Nothing you do here is sent or marked as read.
         </p>
+      ) : entry?.announcementOnly ? (
+        <p className="border-t border-border/70 bg-background/80 px-4 py-3.5 text-center text-sm text-muted-foreground" data-testid="announcement-only-note">
+          {t("messages.announcementOnly", "Only 50mm Retina World can write in this chat. You can read it here.")}
+        </p>
       ) : !allowed ? (
         <p className="border-t border-border/70 bg-background/80 px-4 py-3.5 text-center text-sm text-muted-foreground" data-testid="send-off-note">
           {t("messages.sendOff", "Sending messages isn't available for your account. You can still read your chats.")}

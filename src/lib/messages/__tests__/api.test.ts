@@ -14,7 +14,7 @@ describe("messages data layer", () => {
   it("drops malformed rows instead of half-showing them", () => {
     expect(parseConversations("x")).toEqual([]);
     expect(parseConversations([{ nope: 1 }, { conversation_id: "c1", unread: 2, other: { user_id: "u2", full_name: "Asha" } }])).toEqual([
-      { conversationId: "c1", kind: "direct", title: null, folder: "inbox", muted: false, lastMessageAt: null, other: { userId: "u2", fullName: "Asha", username: null, avatarUrl: null }, last: null, unread: 2 },
+      { conversationId: "c1", kind: "direct", title: null, folder: "inbox", muted: false, announcementOnly: false, lastMessageAt: null, other: { userId: "u2", fullName: "Asha", username: null, avatarUrl: null }, last: null, unread: 2 },
     ]);
     expect(parseThread([{ id: "1" }, { id: 7, sender_id: "u", created_at: "t", body: "<b>hi</b>", kind: "text" }])).toEqual([
       { id: 7, senderId: "u", kind: "text", body: "<b>hi</b>", createdAt: "t", status: "sent", tick: null, reply: null, photos: [] },

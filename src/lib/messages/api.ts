@@ -32,6 +32,8 @@ export interface ConversationSummary {
   title: string | null;
   folder: string;
   muted: boolean;
+  /** Broadcast chat the sender locked: members read it but only the sender writes (SQL 3600). */
+  announcementOnly: boolean;
   lastMessageAt: string | null;
   other: MessagePerson | null;
   last: { id: number; senderId: string; kind: "text" | "photo"; body: string; createdAt: string; tick: MessageTick | null } | null;
@@ -68,14 +70,14 @@ export interface SendResult {
 export type SendRefusal =
   | "sign_in" | "under_review" | "bad_recipient" | "bad_message" | "not_available" | "recipient_unavailable"
   | "paused" | "text_off" | "photos_off" | "friends_only" | "blocked" | "no_link"
-  | "too_fast" | "daily_limit" | "chat_limit" | "photo_limit" | "word_guard" | "new_link" | "bad_photo" | "upload_failed" | "unknown";
+  | "too_fast" | "daily_limit" | "chat_limit" | "photo_limit" | "announcement_only" | "word_guard" | "new_link" | "bad_photo" | "upload_failed" | "unknown";
 
 const REFUSALS: Record<string, SendRefusal> = {
   "MSG-001": "sign_in", ACCOUNT_UNDER_REVIEW: "under_review", "MSG-002": "bad_recipient", "MSG-003": "bad_message",
   "MSG-010": "not_available", "MSG-011": "recipient_unavailable", "MSG-020": "paused", "MSG-021": "text_off",
   "MSG-022": "friends_only", "MSG-023": "photos_off", "MSG-024": "bad_photo", "MSG-025": "bad_photo",
   "MSG-030": "blocked", "MSG-040": "no_link", "MSG-050": "too_fast", "MSG-051": "daily_limit",
-  "MSG-052": "chat_limit", "MSG-053": "photo_limit", "MSG-060": "word_guard", "MSG-061": "new_link", "MSG-080": "bad_message",
+  "MSG-052": "chat_limit", "MSG-053": "photo_limit", "MSG-090": "announcement_only", "MSG-060": "word_guard", "MSG-061": "new_link", "MSG-080": "bad_message",
 };
 
 export class MessageSendError extends Error {
@@ -111,7 +113,7 @@ export function parseConversations(data: unknown): ConversationSummary[] {
       : null;
     out.push({
       conversationId: r.conversation_id as string, kind: r.kind === "group" ? "group" : "direct", title: str(r.title),
-      folder: str(r.folder) ?? "inbox", muted: r.muted === true,
+      folder: str(r.folder) ?? "inbox", muted: r.muted === true, announcementOnly: r.announcement_only === true,
       lastMessageAt: str(r.last_message_at), other: person(r.other), last, unread: num(r.unread) ?? 0,
     });
   }

@@ -21,6 +21,7 @@ import { EMOJI_SETS } from "@/lib/messages/emoji";
 import { prepareAndUploadPhoto } from "@/lib/messages/photoUpload";
 import { adminMessageCall } from "@/hooks/admin/useAdminMessages";
 import { useBroadcastAudience, useRefreshBroadcasts } from "@/hooks/admin/useAdminBroadcasts";
+import { TemplatesBar } from "./BroadcastExtras";
 import type { PushAudience } from "@/hooks/admin/usePushCentre";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +48,7 @@ export default function BroadcastComposer({ onBack, onSent }: { onBack: () => vo
   const [audience, setAudience] = useState<PushAudience>({ kind: "all" });
   const [chosen, setChosen] = useState<{ id: string; name: string }[]>([]);
   const [push, setPush] = useState(true);
+  const [announcementOnly, setAnnouncementOnly] = useState(false);
   const [when, setWhen] = useState<"now" | "later">("now");
   const [at, setAt] = useState("");
   const [emoji, setEmoji] = useState(false);
@@ -93,7 +95,7 @@ export default function BroadcastComposer({ onBack, onSent }: { onBack: () => vo
     }
   };
 
-  const fields = () => ({ title: title.trim(), body: body.trim(), photos: pics.map((p) => ({ path: p.path, width: p.width, height: p.height })), audience: effective, push });
+  const fields = () => ({ title: title.trim(), body: body.trim(), photos: pics.map((p) => ({ path: p.path, width: p.width, height: p.height })), audience: effective, push, announcement_only: announcementOnly });
 
   const saveDraft = async () => {
     setBusy(true);
@@ -132,6 +134,7 @@ export default function BroadcastComposer({ onBack, onSent }: { onBack: () => vo
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-4">
+          <TemplatesBar title={title} body={body} onLoad={(t) => { setTitle(t.title); setBody(t.body); }} />
           <label className="block space-y-1 text-sm"><span className="font-medium">Title <span className="font-normal text-muted-foreground">(only you see it)</span></span>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} placeholder="e.g. Welcome to private messages" data-testid="bc-title" /></label>
 
@@ -214,6 +217,10 @@ export default function BroadcastComposer({ onBack, onSent }: { onBack: () => vo
             <label className="flex items-center justify-between gap-3 text-sm" htmlFor="bc-push">
               <span><b>Push notification</b><span className="block text-xs text-muted-foreground">Each member's phone shows "50mm Retina World · sent you a message" — never the text.</span></span>
               <Switch id="bc-push" checked={push} onCheckedChange={setPush} />
+            </label>
+            <label className="flex items-center justify-between gap-3 text-sm" htmlFor="bc-announce">
+              <span><b>Announcement only</b><span className="block text-xs text-muted-foreground">Members cannot reply in this chat — they see "Only 50mm Retina World can write here". You can open it for replies again later from the broadcast's report.</span></span>
+              <Switch id="bc-announce" checked={announcementOnly} onCheckedChange={setAnnouncementOnly} data-testid="bc-announce" />
             </label>
             <div role="radiogroup" aria-label="When" className="flex flex-wrap items-center gap-2">
               <button type="button" role="radio" aria-checked={when === "now"} onClick={() => setWhen("now")}

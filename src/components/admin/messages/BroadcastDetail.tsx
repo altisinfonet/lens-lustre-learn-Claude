@@ -119,6 +119,14 @@ export default function BroadcastDetail({ id, onBack }: { id: number; onBack: ()
           {canRetry && <Button size="sm" variant="outline" onClick={() => setAsk("retry_failed")}><RotateCw className="mr-1 h-4 w-4" aria-hidden="true" />Retry failed</Button>}
           {canCancel && <Button size="sm" variant="outline" onClick={() => setAsk("cancel")}><XCircle className="mr-1 h-4 w-4" aria-hidden="true" />Cancel</Button>}
           {canWithdraw && <Button size="sm" variant="outline" className="text-destructive" onClick={() => setAsk("withdraw")}><Undo2 className="mr-1 h-4 w-4" aria-hidden="true" />Withdraw</Button>}
+          {b && b.status !== "draft" && (
+            <Button size="sm" variant="outline" data-testid="bc-allow-replies" onClick={async () => {
+              try {
+                const n = Number(await adminMessageCall("admin_message_broadcast_unlock", { _id: id }));
+                toast({ title: n > 0 ? "Replies allowed" : "Nothing to open", description: n > 0 ? `${n} chat${n === 1 ? "" : "s"} can reply again.` : "No chat of this broadcast was announcement-only." });
+              } catch (e) { toast({ title: "Not done", description: e instanceof Error ? e.message : "request failed", variant: "destructive" }); }
+            }}>Allow replies</Button>
+          )}
         </div>
       </div>
 

@@ -11,6 +11,7 @@ import AdminDataTable, { type DTColumn } from "@/components/admin/AdminDataTable
 import { useBroadcasts, type BcRow, type BcStatus } from "@/hooks/admin/useAdminBroadcasts";
 import BroadcastComposer from "./BroadcastComposer";
 import BroadcastDetail from "./BroadcastDetail";
+import { WelcomeCard } from "./BroadcastExtras";
 import { BcStatusChip, Ticks, audienceText, fmtWhen, pct } from "./BroadcastParts";
 
 type View = { kind: "list" } | { kind: "new" } | { kind: "detail"; id: number };
@@ -51,6 +52,7 @@ export default function BroadcastPanel() {
         </p>
         <Button onClick={() => setView({ kind: "new" })} data-testid="bc-new"><Plus className="mr-1 h-4 w-4" aria-hidden="true" />New broadcast</Button>
       </div>
+      <WelcomeCard />
       <AdminDataTable<BcRow>
         testId="bc-table"
         rows={list.data?.rows ?? []}
