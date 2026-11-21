@@ -6,6 +6,7 @@ import { lazy, Suspense, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, CheckCheck, Clock, Copy, HeartHandshake, ImageOff, Reply } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
+import { useT } from "@/i18n/I18nContext";
 import { isEmojiOnly } from "@/lib/messages/emoji";
 import OptimizedImage from "@/components/OptimizedImage";
 import AutoBadge from "@/components/AutoBadge";
@@ -123,6 +124,7 @@ export function HelplineCard({ onClose }: { onClose: () => void }) {
 }
 
 function PhotoTile({ path, width, height, single, expired }: { path: string; width: number | null; height: number | null; single: boolean; expired?: boolean }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   // 1) this device's own copy (kept the first time the photo was shown); 2) a 5-minute link, asked for only when the tile is
   // on screen — the server's read rule decides — and a copy is kept on this device; 3) the server deleted it after 30 days
@@ -144,7 +146,7 @@ function PhotoTile({ path, width, height, single, expired }: { path: string; wid
     return (
       <div className="flex w-full flex-col items-center justify-center gap-1 overflow-hidden bg-muted px-3 text-center text-muted-foreground" style={{ aspectRatio: ratio, minHeight: 96 }}>
         <ImageOff aria-hidden className="h-6 w-6" />
-        <span className="text-xs">Photo no longer available</span>
+        <span className="text-xs">{t("messages.photoGone", "Photo no longer available")}</span>
       </div>
     );
   }
