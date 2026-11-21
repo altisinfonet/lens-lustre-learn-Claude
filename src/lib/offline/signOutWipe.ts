@@ -39,6 +39,7 @@ import { clearOutbox } from "./outbox";
 import { clearVideoUploads } from "@/lib/video/uploadJobs";
 import { clearPhotoUploads } from "@/lib/upload/photoJobs";
 import { clearSavedVideos } from "@/lib/video/offlineVideo";
+import { clearMessageQueue } from "@/lib/messages/queueWipe";
 
 export interface WipeResult {
   imageCaches: string[] | null;
@@ -64,6 +65,8 @@ export async function wipeMemberDataOnSignOut(): Promise<WipeResult> {
   resetFeedArchiveMemory();
   // S7b-4 review: a post page / thread loading now is not saved after the wipe.
   resetSeenContent();
+  // M28: text messages written with no network and not yet sent belong to the departing member alone.
+  clearMessageQueue();
   const [imageCaches, deviceStore, outbox, videoUploads, , savedVideos] = await Promise.all([
     purgeImageCache().catch(() => null),
     clearDeviceStore().catch(() => false),

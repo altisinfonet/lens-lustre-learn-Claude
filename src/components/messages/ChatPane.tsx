@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ProfileLink from "@/components/ProfileLink";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ImagePlus, Loader2, Search, SendHorizontal, Smile, UserRound, X } from "lucide-react";
+import { ArrowLeft, Clock, ImagePlus, Loader2, Search, SendHorizontal, Smile, UserRound, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useT } from "@/i18n/I18nContext";
 import { useAuth } from "@/hooks/core/useAuth";
@@ -25,6 +25,8 @@ import ReportChat from "@/components/messages/ReportChat";
 import ChatMenu from "@/components/messages/ChatMenu";
 import AutoBadge from "@/components/AutoBadge";
 import { usePeerStatus } from "@/hooks/messages/usePeerStatus";
+import { useMessageQueue } from "@/hooks/messages/useMessageQueue";
+import { isOfflineFailure, queueMessage } from "@/lib/messages/queue";
 import { useViewAs } from "@/components/messages/viewAs";
 
 const MAX_PHOTOS = 10;
@@ -90,6 +92,7 @@ export default function ChatPane({ conversationId, userId, onBack }: { conversat
     el.classList.add("bg-primary/15");
     window.setTimeout(() => el.classList.remove("bg-primary/15"), 1400);
   };
+  const queued = useMessageQueue(viewAs ? undefined : user?.id, otherId);   // texts written with no network, waiting to be sent
   const live = useChatLive(convId, user?.id, !viewAs);   // typing dots + instant refresh; an admin's read-only view never joins
 
   const newestId = oldestFirst.length ? oldestFirst[oldestFirst.length - 1].id : null;
@@ -128,6 +131,14 @@ export default function ChatPane({ conversationId, userId, onBack }: { conversat
       if (r.help) setHelp(true);
       if (!convId) navigate(`/messages/${r.conversationId}`, { replace: true });
     } catch (e) {
+      // no network: keep the message on this device and send it, once, when the network is back (same id = never twice)
+      if (isOfflineFailure(e) && meId && otherId && !viewAs && queueMessage({ id, userId: meId, to: otherId, body, replyTo: replyTo?.id ?? null })) {
+        attempt.current = null;
+        if (fromBox) setText("");
+        setReplyTo(null);
+        setPicker(false);
+        return;
+      }
       setError(refusalText(e instanceof MessageSendError ? e.refusal : "unknown"));
     }
   };
@@ -247,6 +258,12 @@ export default function ChatPane({ conversationId, userId, onBack }: { conversat
             />
           ),
         )}
+        {queued.map((q) => (
+          <div key={q.id} data-testid="queued-message" className="mt-1 flex flex-col items-end px-4">
+            <div className="max-w-[80%] whitespace-pre-wrap break-words rounded-[22px] rounded-br-md bg-primary/60 px-3.5 py-2 text-[15px] leading-[1.35] text-primary-foreground sm:max-w-[68%]">{q.body}</div>
+            <span className="mt-1 flex items-center gap-1 px-1 text-[11px] text-muted-foreground"><Clock aria-hidden className="h-3 w-3" />{t("messages.waitingNetwork", "Waiting for network")}</span>
+          </div>
+        ))}
         {live.typing && <TypingDots name={person?.fullName} />}
         {help && <HelplineCard onClose={() => setHelp(false)} />}
         <div ref={endRef} />
