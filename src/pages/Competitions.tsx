@@ -108,7 +108,8 @@ const Competitions = () => {
                         src={comp.cover_image_url}
                         alt={comp.title}
                         sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
-                        className="w-full h-full object-contain transition-transform duration-700 ease-out group-hover:scale-110 group-data-[expanded=true]:scale-110"
+                        fit="contain-blur"
+                        className="transition-transform duration-700 ease-out group-hover:scale-110 group-data-[expanded=true]:scale-110"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">

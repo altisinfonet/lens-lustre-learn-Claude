@@ -18,6 +18,8 @@ interface CoverImageUploaderProps {
   folder?: string;
   /** Label */
   label?: string;
+  /** Owner 2026-11-18: lock the crop to the recommended shape (no other aspect, no free crop), so every cover is exactly that ratio. */
+  lockAspect?: boolean;
 }
 
 interface ImageMeta {
@@ -57,6 +59,7 @@ const CoverImageUploader = ({
   bucket = "competition-photos",
   folder = "covers",
   label = "Cover Image",
+  lockAspect = false,
 }: CoverImageUploaderProps) => {
   const [uploading, setUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -286,6 +289,7 @@ const CoverImageUploader = ({
           recommendedWidth={recommendedWidth}
           recommendedHeight={recommendedHeight}
           defaultAspect={aspectRatio}
+          lockAspect={lockAspect}
         />
       )}
     </div>
@@ -306,6 +310,7 @@ interface EnhancedCropProps {
   onCancel: () => void;
   recommendedWidth: number;
   recommendedHeight: number;
+  lockAspect?: boolean;
   defaultAspect: number;
 }
 
@@ -324,6 +329,7 @@ function ImageCropModalEnhanced({
   recommendedWidth,
   recommendedHeight,
   defaultAspect,
+  lockAspect = false,
 }: EnhancedCropProps) {
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
@@ -451,8 +457,8 @@ function ImageCropModalEnhanced({
           )}
         </div>
 
-        {/* Aspect ratio selector */}
-        <div className="flex items-center gap-1.5 px-4 py-2 border-b border-border bg-muted/20">
+        {/* Aspect ratio selector (hidden when the shape is locked) */}
+        {!lockAspect && <div className="flex items-center gap-1.5 px-4 py-2 border-b border-border bg-muted/20">
           <span className="text-[9px] uppercase tracking-wider text-muted-foreground mr-2" style={{ fontFamily: "var(--font-heading)" }}>
             Aspect:
           </span>
@@ -489,7 +495,7 @@ function ImageCropModalEnhanced({
           >
             <RotateCcw className="h-3 w-3" /> Reset
           </button>
-        </div>
+        </div>}
 
         {/* Crop area */}
         <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-muted/10 min-h-[300px]">

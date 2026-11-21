@@ -16,6 +16,14 @@
  *  - `priority` for the first, above-the-fold cover: eager + fetchpriority high.
  *
  * It renders only the picture; the caller keeps its own box (aspect, rounding).
+ *
+ * `fit="contain-blur"` (Owner, 2026-11-18): the picture is shown WHOLE, never
+ * cut, and any space it does not cover is filled with a blurred copy of the same
+ * picture (feed recipe: scale-125 blur-2xl). NOT dimmed — a dimmed backdrop
+ * showed as a second "border" line at the picture's edge — and the picture is
+ * overscanned 0.4% so a sub-pixel gap can never show a seam. The caller's box
+ * must be `relative`. Use it for any cover whose box shape is not guaranteed to
+ * equal the picture's shape.
  */
 import OptimizedImage from "@/components/OptimizedImage";
 import { cn } from "@/lib/utils";
@@ -30,9 +38,34 @@ export interface CoverImageProps {
   sizes?: string;
   /** The first, above-the-fold cover on the page. */
   priority?: boolean;
+  /** "cover" (default) fills the caller's box; "contain-blur" shows it whole with a blurred fill. */
+  fit?: "cover" | "contain-blur";
 }
 
-export default function CoverImage({ src, alt, className, sizes = "(min-width: 768px) 50vw, 100vw", priority = false }: CoverImageProps) {
+export default function CoverImage({ src, alt, className, sizes = "(min-width: 768px) 50vw, 100vw", priority = false, fit = "cover" }: CoverImageProps) {
+  if (fit === "contain-blur") {
+    return (
+      <>
+        <OptimizedImage
+          src={src}
+          alt=""
+          sizes={sizes}
+          srcSetWidths={COVER_WIDTHS}
+          loading={priority ? "eager" : "lazy"}
+          className="absolute inset-0 w-full h-full object-cover scale-125 blur-2xl pointer-events-none bg-muted"
+        />
+        <OptimizedImage
+          src={src}
+          alt={alt}
+          sizes={sizes}
+          srcSetWidths={COVER_WIDTHS}
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : "auto"}
+          className={cn("relative w-full h-full object-contain bg-transparent scale-[1.004]", className)}
+        />
+      </>
+    );
+  }
   return (
     <OptimizedImage
       src={src}

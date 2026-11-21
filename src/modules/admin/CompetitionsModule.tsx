@@ -435,7 +435,7 @@ const CompetitionsModule = ({ user }: Props) => {
           <div className="grid md:grid-cols-2 gap-5">
             <FormField label={t("cm.title")} value={form.title} onChange={(v) => setForm((f) => ({ ...f, title: v }))} placeholder={t("cm.phTitle")} />
             <FormField label={t("crs.category")} value={form.category} onChange={(v) => setForm((f) => ({ ...f, category: v }))} placeholder={t("cm.phCategory")} />
-            <CoverImageUploader value={form.cover_image_url} onChange={(url) => setForm(f => ({ ...f, cover_image_url: url }))} recommendedWidth={1200} recommendedHeight={400} bucket="competition-photos" folder="covers" />
+            <CoverImageUploader value={form.cover_image_url} onChange={(url) => setForm(f => ({ ...f, cover_image_url: url }))} recommendedWidth={1080} recommendedHeight={1350} lockAspect bucket="competition-photos" folder="covers" />
             <FormField label={t("cm.entryFee")} value={form.entry_fee} onChange={(v) => setForm((f) => ({ ...f, entry_fee: v }))} placeholder="0" type="number" />
             <FormField label={t("cm.prizeInfo")} value={form.prize_info} onChange={(v) => setForm((f) => ({ ...f, prize_info: v }))} placeholder={t("cm.phPrize")} />
             <FormField label={t("cm.maxEntriesUser")} value={form.max_entries_per_user} onChange={(v) => setForm((f) => ({ ...f, max_entries_per_user: v }))} type="number" />
