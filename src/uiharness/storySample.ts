@@ -26,6 +26,14 @@ export const tagRenameOn = () => TAG_RENAME;
 export function sampleTagProfiles() {
   return [{ id: "a4", full_name: "Sourav Pal", username: "sourav", custom_url: "sourav.pal", avatar_url: pic(177, 100, 100), last_active_at: at(3) }];
 }
+/** The story authors' profile rows (profiles_public_data), with a handle each. */
+export function sampleStoryProfiles() {
+  return [
+    { id: "a1", full_name: "Dipannita Sen", username: "dipannita", custom_url: "dipannita.sen", avatar_url: pic(64, 100, 100), last_active_at: at(3) },
+    { id: "a2", full_name: "Rahul Das", username: "rahul", custom_url: "rahul.das", avatar_url: pic(65, 100, 100), last_active_at: at(5) },
+    { id: "a3", full_name: "Mitali Roy", username: "mitali", custom_url: "mitali.roy", avatar_url: pic(66, 100, 100), last_active_at: at(9) },
+  ];
+}
 const LONG_CAPTION =
   "A New Photography Competition is Here! PEOPLE – A celebration of human stories, emotions and everyday life " +
   "through the photographer's lens. From candid moments to compelling portraits, from ordinary lives to " +

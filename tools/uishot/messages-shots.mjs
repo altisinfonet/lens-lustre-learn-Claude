@@ -80,8 +80,9 @@ const SHOTS = [
     await p.getByLabel("Message…").fill("It was the 50mm f/1.4 😊");
     await p.waitForTimeout(500);
   }],
-  ["app-sheet-chat-phone", "screen-account-sheet&chat=1", PHONE, "msheet-Chat", async (p) => { await p.waitForTimeout(900); }],
-  ["app-sheet-nochat-phone", "screen-account-sheet", PHONE, "msheet-My Wall", async (p) => { await p.waitForTimeout(900); }],
+  ["footer-chat-phone", "screen-messages", PHONE, "footer-chat-icon", async (p) => { await p.waitForTimeout(700); }],
+  ["footer-nochat-phone", "screen-feed", PHONE, "mobile-bottom-nav", async (p) => { await p.waitForTimeout(900); }],
+  ["menu-no-messages-phone", "screen-messages", PHONE, "conversation-row", async (p) => { await p.getByRole("button", { name: /^Menu/ }).first().click(); await p.getByRole("dialog", { name: "Menu" }).waitFor({ timeout: 30000 }); await p.waitForTimeout(900); }],
   ["chat-desktop", "screen-message-thread", DESKTOP, "bubble-mine", null],
   ["chat-phone", "screen-message-thread", PHONE, "bubble-mine", null],
   ["request-phone", "screen-message-request", PHONE, "request-bar", null],

@@ -24,7 +24,7 @@ import { unreadSampleOn, sampleUnreadGroups } from "./storySample";
 
 /** A4 sample switch: ?review=1 (under-review banner + admin Account Review rows). */
 const reviewSampleOn = () => typeof location !== "undefined" && new URLSearchParams(location.search).get("review") === "1";
-import { tagRenameOn, sampleTagProfiles, storySampleOn, sampleBar, sampleHighlights, sampleUserStories, sampleComments, sampleViewers, sampleOlderComments } from "./storySample";
+import { tagRenameOn, sampleTagProfiles, sampleStoryProfiles, storySampleOn, sampleBar, sampleHighlights, sampleUserStories, sampleComments, sampleViewers, sampleOlderComments } from "./storySample";
 import { sampleHashtagInfo, sampleHashtagPosts } from "./hashtagSample";
 import type { FakeRoute } from "./fakeBackend";
 import {
@@ -697,6 +697,8 @@ export const fixtureRoutes: FakeRoute[] = [
     }
     // ?tagrename=1: the renamed member's profile (storySample.ts) — the tag shows THIS name.
     if (table === "profiles_public_data" && tagRenameOn()) return countable([...profilesPublicData, ...sampleTagProfiles()], method);
+    // ?stories=1: the story authors have profiles with a handle, so tapping a name in the viewer has somewhere to go.
+    if (table === "profiles_public_data" && storySampleOn()) return countable([...profilesPublicData, ...sampleStoryProfiles()], method);
     // Admin → Messages sample: AdminPanel's own header counters (nothing open, nothing unread).
     if (adminMessagesSampleOn() && (table === "support_tickets" || table === "admin_notifications")) return countable([], method);
     // the Broadcast composer names roles in its audience list (the same role / badge definitions Admin → Users uses)

@@ -1,13 +1,14 @@
 import { Link, useLocation } from "react-router-dom";
 import { memberPath, CLAIM_URL_PATH } from "@/lib/urlHelpers";
-import { Home, Trophy, Rss, LogIn, User, Newspaper, BookOpen, FileText } from "lucide-react";
+import { Home, Trophy, Rss, LogIn, User, Newspaper, BookOpen, FileText, MessageCircle } from "lucide-react";
 import { useSiteLogo } from "@/hooks/core/useSiteLogo";
 import { useAuth } from "@/hooks/core/useAuth";
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import { Suspense, lazy, useState, useEffect } from "react";
 import MobileProfileSheet from "@/components/MobileProfileSheet";
 import { profilesPublic } from "@/lib/profilesPublic";
 import { useT } from "@/i18n/I18nContext";
+import { useMessagingAllowed } from "@/hooks/messages/useMessagingAllowed";
 
 type Tab = {
   path: string;
@@ -18,13 +19,18 @@ type Tab = {
   guest?: boolean;
   isSheet?: boolean;
   isCenter?: boolean;
+  isChat?: boolean;
 };
+
+// the Chat tab's icon + unread count load only for members who may message (P13 entry-bundle ceiling)
+const MessagesTabIcon = lazy(() => import("@/components/messages/MessagesTabIcon"));
 
 const MobileBottomNav = () => {
   const t = useT();
   const { user } = useAuth();
   const { pathname } = useLocation();
   const siteLogo = useSiteLogo();
+  const canMessage = useMessagingAllowed();   // the admin has switched this member's message box on
   const [sheetOpen, setSheetOpen] = useState(false);
   const [profileData, setProfileData] = useState<{ avatar_url: string | null; full_name: string | null; custom_url: string | null } | null>(null);
 
@@ -39,7 +45,11 @@ const MobileBottomNav = () => {
     { path: "/feed", icon: Rss, label: "Feed", labelKey: "nav.feed", auth: true },
     // F-95 — the member's own wall by NAME. Signed out it is still /login;
     // signed in with no handle it is the screen that claims one.
-    { path: !user ? "/login" : (ownWallPath ? `${ownWallPath}?section=wall` : CLAIM_URL_PATH), icon: Newspaper, label: "Wall", labelKey: "nav.wall", auth: true },
+    // Owner 21 Nov 2026: for a member whose message box the admin has switched on, this tab is CHAT (with its unread
+    // count) instead of Wall — the Profile tab already reaches the wall. Everyone else keeps Wall exactly as before.
+    canMessage
+      ? { path: "/messages", icon: MessageCircle, label: "Chat", labelKey: "nav.chat", auth: true, isChat: true }
+      : { path: !user ? "/login" : (ownWallPath ? `${ownWallPath}?section=wall` : CLAIM_URL_PATH), icon: Newspaper, label: "Wall", labelKey: "nav.wall", auth: true },
     { path: "/courses", icon: BookOpen, label: "Courses", labelKey: "nav.courses", guest: true },
     { path: "/journal", icon: FileText, label: "Journal", labelKey: "nav.journal", guest: true },
     { path: user ? "/home" : "/", icon: Home, label: "Home", labelKey: "nav.home", isCenter: true },
@@ -82,6 +92,7 @@ const MobileBottomNav = () => {
   return (
     <>
       <nav
+        data-testid="mobile-bottom-nav"
         className="fixed bottom-0 left-0 right-0 z-50 bg-card/60 backdrop-blur-2xl backdrop-saturate-150 border-t border-border/25 lg:hidden safe-area-bottom"
         style={{ fontFamily: "var(--font-heading)" }}
       >
@@ -230,7 +241,13 @@ const MobileBottomNav = () => {
                     transition={{ type: "spring", stiffness: 500, damping: 30 }}
                   />
                 )}
-                <tab.icon className={`h-6 w-6 ${active ? "stroke-[2.25]" : "stroke-[1.5]"}`} />
+                {tab.isChat ? (
+                  <Suspense fallback={<tab.icon className={`h-6 w-6 ${active ? "stroke-[2.25]" : "stroke-[1.5]"}`} />}>
+                    <MessagesTabIcon active={active} />
+                  </Suspense>
+                ) : (
+                  <tab.icon className={`h-6 w-6 ${active ? "stroke-[2.25]" : "stroke-[1.5]"}`} />
+                )}
               </Link>
             );
           })}

@@ -1,8 +1,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Bell, ChevronRight, MessageCircle, Search } from "lucide-react";
+import { Bell, ChevronRight, Search } from "lucide-react";
 import { motion } from "framer-motion";
-import { useUnreadCounts } from "@/hooks/messages/useUnreadCounts";
 
 /**
  * STYLE 2 · BOTTOM DOCK — the sheet ☰ opens (Owner-approved 8 Nov 2026,
@@ -18,16 +17,12 @@ import { useUnreadCounts } from "@/hooks/messages/useUnreadCounts";
 const BRAND = "bg-gradient-to-br from-primary to-amber-400";
 const hf = { fontFamily: "var(--font-heading)" };
 
-export default function MobileMenuSheet({ unread, onClose, onNotifications, onSearch, onMessages }: {
+export default function MobileMenuSheet({ unread, onClose, onNotifications, onSearch }: {
   unread: number;
   onClose: () => void;
   onNotifications: () => void;
   onSearch: () => void;
-  onMessages?: () => void;
 }) {
-  // the sheet is lazy, so the messages count is read here and not in the first download
-  const mu = useUnreadCounts();
-  const messageUnread = mu.inbox + mu.requests;
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", k);
@@ -56,20 +51,6 @@ export default function MobileMenuSheet({ unread, onClose, onNotifications, onSe
           )}
           <ChevronRight className="h-5 w-5 text-muted-foreground" />
         </button>
-        {/* Messages: the row exists only for members the server lets message (same row style as Notifications). */}
-        {onMessages && (
-          <button type="button" onClick={onMessages} className="mt-1 flex w-full items-center gap-4 rounded-[18px] p-3 text-left hover:bg-white/[0.05]">
-            <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-[14px] ${BRAND} text-white shadow-lg shadow-primary/30`}><MessageCircle className="h-5 w-5" /></span>
-            <span className="flex-1">
-              <span className="block text-[15px] font-semibold" style={hf}>Messages</span>
-              <span className="block text-xs text-muted-foreground">{messageUnread > 0 ? `${messageUnread} new` : "Your private chats"}</span>
-            </span>
-            {messageUnread > 0 && (
-              <span className="rounded-full bg-destructive px-2 py-0.5 text-[11px] font-bold leading-none text-destructive-foreground">{messageUnread > 99 ? "99+" : messageUnread}</span>
-            )}
-            <ChevronRight className="h-5 w-5 text-muted-foreground" />
-          </button>
-        )}
       </motion.div>
     </div>,
     document.body,

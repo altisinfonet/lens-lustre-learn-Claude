@@ -16,13 +16,12 @@ import {
 import {
   LogOut, Shield, Scale, Wallet, LayoutDashboard, User, ImageIcon,
   Users, Rss, UserPlus, HelpCircle, Settings, Trophy, Edit2, Compass,
-  Sun, Moon, Globe, BookOpen, Award, FileText, Download, Image as ImageLucide, Crown, Bell, Aperture, MessageCircle,
+  Sun, Moon, Globe, BookOpen, Award, FileText, Download, Image as ImageLucide, Crown, Bell, Aperture,
 } from "lucide-react";
 import { isNativeIOSApp } from "@/lib/native/authDeepLink";
 import { useTheme } from "@/hooks/core/useTheme";
 import { motion, AnimatePresence } from "framer-motion";
 import { useT } from "@/i18n/I18nContext";
-import { useMessagingAllowed } from "@/hooks/messages/useMessagingAllowed";
 
 const headingFont = { fontFamily: "var(--font-heading)" };
 
@@ -66,7 +65,6 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const { balance: walletBalance } = useWalletSummary(!isAdmin ? user?.id : undefined);
-  const canMessage = useMessagingAllowed();   // the admin has switched this member's message box on
   const { data: profileCore } = useProfileCore(user?.id);
   const ownPath = memberPath(profileCore?.custom_url);
   const wallPath = ownPath ? `${ownPath}?section=wall` : CLAIM_URL_PATH;
@@ -113,7 +111,6 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
         // right after Dashboard because it is a frequent destination, not a
         // setting.
         { icon: Bell, label: "Notifications", to: "/notifications", show: true },
-        { icon: MessageCircle, label: "Chat", to: "/messages", show: canMessage },
         { icon: ImageIcon, label: "Entries", to: "/dashboard?tab=submissions", show: true },
         { icon: ImageLucide, label: "Photos", to: "/photos", show: true },
         { icon: Aperture, label: "My Stories", to: "/my-stories", show: true },
@@ -129,11 +126,7 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
         { icon: Bell, label: "Notifications", to: "/notifications", show: true },
         // F-95 — the member's own wall, by NAME. With no handle this points at
         // the screen that claims one rather than at their id.
-        // Owner 21 Nov 2026: where "My Wall" was, a member whose message box the admin has switched on gets the
-        // Chat icon instead (the Profile tile already reaches the wall). Everyone else keeps "My Wall" as before.
-        canMessage
-          ? { icon: MessageCircle, label: "Chat", to: "/messages", show: true }
-          : { icon: Rss, label: "My Wall", to: wallPath, show: true },
+        { icon: Rss, label: "My Wall", to: wallPath, show: true },
         { icon: Compass, label: "Feed", to: "/feed", show: true },
         { icon: Compass, label: "Discover", to: "/discover", show: true },
         { icon: ImageIcon, label: "Entries", to: "/dashboard?tab=submissions", show: true },
@@ -314,7 +307,6 @@ const MobileProfileSheet = ({ open, onOpenChange }: Props) => {
             <AnimatePresence>
               {visibleActions.map((action, i) => (
                 <motion.button
-                  data-testid={`msheet-${action.label}`}
                   key={(action.to || action.label) + action.label}
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
